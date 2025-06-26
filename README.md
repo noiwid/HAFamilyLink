@@ -1,204 +1,236 @@
-Google Family Link Home Assistant Integration
+# Google Family Link Home Assistant Integration
+
 ![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
-This project is a custom Home Assistant integration (compatible with HACS) to control Google Family Link features, such as locking and unlocking children's devices, through Home Assistant automations. Since Google Family Link lacks a public API, this integration uses browser automation with Playwright to handle authentication (including 2FA) and scrape the web interface to identify control endpoints. Session cookies are captured and used with HTTP requests for ongoing interactions, avoiding the need to store sensitive credentials.
-Project Goal
-The goal is to create a robust Home Assistant integration that allows users to:
-Authenticate with Google Family Link by interacting with the official login pages in a browser, supporting 2FA and other security prompts.
 
-Control Family Link features (e.g., locking/unlocking devices) via Home Assistant switch entities.
+A robust Home Assistant integration for controlling Google Family Link devices through automation. This integration provides secure, browser-based authentication and reliable device control without storing sensitive credentials.
 
-Automate tasks like locking children's devices at specific times (e.g., bedtime).
+## 🚨 Important Disclaimer
 
-Provide a user-friendly setup process through Home Assistant’s configuration flow.
+This integration uses unofficial methods to interact with Google Family Link's web interface. **Use at your own risk** with test accounts only. This may violate Google's Terms of Service and could result in account suspension.
 
-Ensure reliability and security by managing session cookies and handling expiration.
+## ✨ Features
 
-This integration aims to be submitted to the Home Assistant Community Store (HACS) for easy installation by users.
-Features
-Browser-Based Authentication: Uses Playwright to present Google’s login pages, allowing users to complete authentication (including 2FA) without storing usernames or passwords in Home Assistant.
+- **🔐 Secure Authentication**: Browser-based login with full 2FA support (no password storage)
+- **📱 Device Control**: Lock/unlock children's devices as Home Assistant switches
+- **🔄 Auto-Refresh**: Intelligent session management with automatic cookie renewal
+- **🏠 Native Integration**: Full Home Assistant configuration flow and device registry
+- **📊 Status Monitoring**: Real-time device status and connectivity monitoring
+- **🛡️ Error Recovery**: Robust error handling with graceful degradation
+- **🔧 Easy Setup**: User-friendly configuration via Home Assistant UI
 
-Session Cookie Management: Captures and reuses session cookies for secure, ongoing interactions with Family Link’s web interface.
+## 🎯 Project Goals
 
-Device Control: Exposes Family Link devices as Home Assistant switch entities for locking/unlocking.
+Create a production-ready Home Assistant integration that:
 
-Automation Support: Enables Home Assistant automations to control devices based on schedules, events, or other triggers.
+1. **Seamlessly integrates** with Home Assistant's ecosystem
+2. **Securely manages** authentication without credential storage
+3. **Reliably controls** Family Link devices through automation
+4. **Gracefully handles** errors, timeouts, and session expiration
+5. **Provides clear feedback** to users about device status and issues
+6. **Maintains compatibility** with Home Assistant updates and HACS
 
-Cookie Refresh: Automatically refreshes session cookies when they expire, prompting users to re-authenticate via the browser if needed.
+## 🏗️ Architecture Overview
 
-HACS Compatibility: Designed as a custom component for easy installation via HACS.
+### Core Components
 
-Why This Approach?
-Google Family Link does not provide a public API, making direct integration challenging. Previous attempts, such as the familylink Python package (https://github.com/tducret/familylink), likely rely on reverse-engineering or scraping, which can be brittle. This project takes a fresh approach by:
-Using Playwright for reliable browser automation to handle complex login flows (e.g., 2FA, CAPTCHAs).
+The integration follows a modular architecture with clear separation of concerns:
 
-Scraping the Family Link web interface (https://families.google.com) to identify endpoints for device control.
+- **Authentication Manager**: Handles secure browser-based login and session management
+- **Device Manager**: Manages device discovery, state tracking, and control operations
+- **Cookie Manager**: Securely stores and refreshes authentication cookies
+- **HTTP Client**: Handles all communication with Family Link endpoints
+- **Configuration Flow**: User-friendly setup and device selection interface
 
-Avoiding credential storage by relying on session cookies.
+### Security Model
 
-Building a maintainable, HACS-compatible integration for the Home Assistant community.
+- **No Credential Storage**: Passwords never stored in Home Assistant
+- **Session-Based**: Secure cookie management with encryption at rest
+- **Isolated Browser**: Sandboxed Playwright sessions for authentication
+- **Automatic Cleanup**: Secure session termination on errors
 
-Development Plan
-1. Authentication with Playwright
-Use Playwright to launch a non-headless Chromium browser, navigate to https://families.google.com, and allow the user to complete the Google login process (including 2FA prompts like SMS, authenticator codes, or push notifications).
+## 📋 Development Plan
 
-Capture session cookies (e.g., SID, HSID, SSID) after successful login and save them to a JSON file (e.g., /config/familylink_cookies.json).
+### Phase 1: Core Infrastructure (MVP)
 
-Implement a mechanism to detect cookie expiration and prompt users to re-authenticate via the browser.
+**1.1 Project Structure & Foundation**
+- [x] Repository setup with proper Python packaging
+- [x] Home Assistant integration manifest and structure
+- [ ] Logging framework with appropriate levels
+- [ ] Configuration schema validation
+- [ ] Error classes and exception handling
 
-2. Scraping Family Link Web Interface
-Use Playwright to explore the Family Link web interface and identify:
-Device lists and their unique IDs.
+**1.2 Authentication System**
+- [ ] Playwright browser automation for Google login
+- [ ] 2FA flow handling (SMS, authenticator, push notifications)
+- [ ] Session cookie extraction and validation
+- [ ] Secure cookie storage with encryption
+- [ ] Authentication state management
 
-Actions for locking/unlocking devices (e.g., button clicks or form submissions).
+**1.3 Device Discovery & Control**
+- [ ] Family Link web scraping for device enumeration
+- [ ] Device metadata extraction (name, type, status)
+- [ ] HTTP client for device control endpoints
+- [ ] Lock/unlock command implementation
+- [ ] Device state polling and caching
 
-Network requests (e.g., POST/GET endpoints) triggered by these actions.
+### Phase 2: Home Assistant Integration
 
-Reverse-engineer the necessary HTTP requests to replicate device control actions using the requests library with saved cookies.
+**2.1 Configuration Flow**
+- [ ] User-friendly setup wizard
+- [ ] Browser authentication trigger
+- [ ] Device selection and naming
+- [ ] Error handling and user feedback
+- [ ] Integration options and preferences
 
-Document endpoints and parameters for locking/unlocking devices (e.g., https://families.google.com/api/lock?device_id=12345).
+**2.2 Entity Implementation**
+- [ ] Switch entities for device control
+- [ ] Device registry integration
+- [ ] State management and updates
+- [ ] Proper entity naming and unique IDs
+- [ ] Icon and attribute assignment
 
-3. HTTP Requests for Device Control
-Develop a Python client that uses the requests library with session cookies to interact with Family Link endpoints.
+### Phase 3: Reliability & Polish
 
-Implement methods for listing devices, locking, and unlocking devices based on scraped endpoints.
+**3.1 Session Management**
+- [ ] Automatic cookie refresh logic
+- [ ] Session expiration detection
+- [ ] Re-authentication workflow
+- [ ] Graceful fallback mechanisms
 
-Ensure requests include appropriate headers, cookies, and payloads to mimic browser behavior and avoid bot detection.
+**3.2 Error Handling & Recovery**
+- [ ] Comprehensive error classification
+- [ ] Automatic retry mechanisms
+- [ ] Circuit breaker pattern for failed requests
+- [ ] User-friendly error messages
 
-4. Home Assistant Integration
-Create a custom component in the custom_components/familylink/ directory, following Home Assistant’s guidelines.
+## 🛠️ Technical Implementation
 
-Implement a configuration flow to:
-Prompt users for a cookie storage path (e.g., /config/familylink_cookies.json).
+### Dependencies
 
-Trigger Playwright to open a browser for authentication during setup.
+```python
+# Core dependencies
+playwright>=1.40.0           # Browser automation
+aiohttp>=3.8.0              # Async HTTP client
+cryptography>=3.4.8        # Cookie encryption
+homeassistant>=2023.10.0    # Home Assistant core
 
-Expose Family Link devices as switch entities (switch.family_link_device_name) for locking (off) and unlocking (on).
+# Development dependencies
+pytest>=7.0.0               # Testing framework
+pytest-asyncio>=0.21.0      # Async testing
+black>=23.0.0               # Code formatting
+mypy>=1.0.0                 # Type checking
+```
 
-Support Home Assistant automations, e.g., locking devices at 9 PM.
+### Directory Structure
 
-5. Cookie Management and Refresh
-Load cookies from the JSON file for each request.
+```
+custom_components/familylink/
+├── __init__.py              # Integration entry point
+├── manifest.json           # Integration metadata
+├── config_flow.py          # Configuration UI
+├── const.py                # Constants and configuration
+├── coordinator.py          # Data update coordination
+├── switch.py               # Switch entity implementation
+├── exceptions.py           # Custom exception classes
+├── auth/
+│   ├── __init__.py
+│   ├── browser.py          # Playwright browser management
+│   ├── session.py          # Session and cookie handling
+│   └── encryption.py       # Cookie encryption utilities
+├── client/
+│   ├── __init__.py
+│   ├── api.py              # Family Link API client
+│   ├── scraper.py          # Web scraping utilities
+│   └── models.py           # Data models and schemas
+├── utils/
+│   ├── __init__.py
+│   ├── helpers.py          # Common utility functions
+│   └── validators.py       # Input validation
+└── tests/
+    ├── __init__.py
+    ├── test_auth.py        # Authentication tests
+    ├── test_client.py      # API client tests
+    └── test_config_flow.py # Configuration flow tests
+```
 
-Check cookie validity (e.g., by testing a device list request) before actions.
+## 🔒 Security Considerations
 
-If cookies are invalid, prompt the user to re-authenticate via Playwright.
+- **Cookie Encryption**: All session data encrypted using Home Assistant's secret key
+- **Memory Management**: Sensitive data cleared from memory after use
+- **Session Isolation**: Browser sessions run in isolated containers
+- **TLS Enforcement**: All communications over HTTPS
 
-Optionally, implement periodic cookie refresh (e.g., every 24 hours) to maintain seamless operation.
+## 📦 Installation & Setup
 
-Development Requirements
-Python Libraries:
-playwright: For browser automation and cookie capture.
+### HACS Installation (Recommended)
 
-requests: For HTTP requests to Family Link endpoints.
+1. Add this repository to HACS custom repositories
+2. Install "Google Family Link" integration
+3. Restart Home Assistant
+4. Add integration via Settings → Devices & Services
 
-Dependencies:
-Install Playwright binaries (playwright install) in the development and Home Assistant environments.
+### Configuration
 
-Ensure compatibility with Home Assistant’s Docker or virtual environment.
+1. **Add Integration**: Search for "Google Family Link" in integrations
+2. **Browser Authentication**: Complete Google login in popup browser
+3. **Device Selection**: Choose devices to control
+4. **Finalise Setup**: Confirm configuration and test devices
 
-Tools:
-Browser DevTools (e.g., Chrome) to inspect Family Link’s web interface and network requests.
+## 🤝 Contributing
 
-Optional: stealth.min.js (from https://github.com/berstend/puppeteer-extra) for Playwright to reduce bot detection.
+We welcome contributions! Please follow these guidelines:
 
-Environment:
-Python 3.8+ (compatible with Home Assistant).
+### Development Setup
 
-Home Assistant instance for testing (local or Docker).
+```bash
+# Clone repository
+git clone https://github.com/yourusername/ha-familylink.git
+cd ha-familylink
 
-Test Google account for development (avoid using personal accounts due to terms of service risks).
-
-Setup Instructions
-Clone the Repository:
-bash
-
-git clone https://github.com/yourusername/familylink-hacs.git
-
-Install Dependencies:
-bash
-
-pip install playwright requests
+# Setup development environment
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
 playwright install
 
-Place in Home Assistant:
-Copy the familylink folder to custom_components/ in your Home Assistant configuration directory.
+# Run tests
+python -m pytest tests/
+```
 
-Configure in Home Assistant:
-Add the integration via the Home Assistant UI (Settings > Devices & Services > Add Integration).
+### Code Standards
 
-Follow the configuration flow to specify a cookie storage path and complete browser-based authentication.
+- **Python Style**: Black formatting, PEP 8 compliance
+- **Type Hints**: Full type annotation coverage
+- **Documentation**: Comprehensive docstrings
+- **Testing**: Unit tests for all new functionality
 
-Test:
-Verify that switch entities appear for Family Link devices.
+## 📊 Project Status
 
-Test locking/unlocking devices via the Home Assistant UI or automations.
+### Current Progress
 
-Challenges and Considerations
-No Official API: Family Link lacks a public API, so the integration relies on scraping and reverse-engineering, which may break if Google updates the web interface.
+- [x] Project planning and architecture design
+- [x] Repository structure and packaging
+- [ ] Core authentication system (In Progress)
+- [ ] Device discovery and control
+- [ ] Home Assistant integration
 
-Bot Detection: Google may flag automated browser sessions as bots, triggering CAPTCHAs or login restrictions. Use Playwright’s stealth features (e.g., stealth.min.js) to mimic real browsers.
+### Milestones
 
-2FA: Users must manually complete 2FA during authentication. Ensure clear instructions for handling SMS, authenticator, or push notifications.
+- **v0.1.0**: Basic authentication and device discovery
+- **v0.2.0**: Home Assistant integration and switch entities
+- **v0.3.0**: Session management and error recovery
+- **v1.0.0**: HACS release with full feature set
 
-Cookie Expiration: Session cookies expire (e.g., days or weeks). Implement robust refresh logic to prompt users for re-authentication when needed.
+## ⚠️ Known Limitations
 
-Google’s Terms of Service: Scraping and automating Family Link may violate Google’s terms, risking account suspension. Developers and users should use test accounts and be informed of risks.
+1. **No Official API**: Relies on web scraping (may break with Google updates)
+2. **Browser Dependency**: Requires Playwright browser installation
+3. **Performance**: Web scraping is slower than API calls
 
-Home Assistant Environment: Ensure Playwright binaries and dependencies are compatible with Home Assistant’s Docker or virtual environment. Consider a custom add-on for Playwright if needed.
+## 📄 Licence
 
-Device Identification: The integration must reliably identify devices (e.g., via unique IDs) to support per-device control.
+This project is licensed under the MIT Licence - see the [LICENSE](LICENSE) file for details.
 
-Alternative Approaches
-If scraping proves unreliable, consider:
-Manual Cookie Import: Allow users to export cookies from a browser (e.g., using EditThisCookie) and import them into Home Assistant. This avoids automated login but requires manual updates.
+---
 
-Android Debug Bridge (ADB): Use Home Assistant’s ADB integration to lock Android devices directly (e.g., adb shell input keyevent 26). Requires USB debugging on devices.
-
-Tasker Integration: Use Tasker on children’s Android devices to lock screens via HTTP/MQTT triggers from Home Assistant. Requires setup on each device.
-
-Contributing
-We welcome contributions to make this integration more robust and user-friendly! To contribute:
-Fork the repository and create a feature branch.
-
-Follow the development plan to implement features or fixes.
-
-Test thoroughly with a test Google account to avoid impacting personal accounts.
-
-Submit a pull request with clear descriptions of changes.
-
-Ensure code adheres to Home Assistant’s coding standards (https://developers.home-assistant.io/docs/development_guidelines).
-
-Development Tasks
-Implement Playwright-based authentication flow for user login.
-
-Scrape Family Link web interface to identify device control endpoints.
-
-Develop HTTP request logic for locking/unlocking devices.
-
-Create Home Assistant switch entities and configuration flow.
-
-Add cookie refresh logic and error handling.
-
-Document findings (e.g., endpoints, selectors) for maintainability.
-
-Test compatibility with Home Assistant’s Docker environment.
-
-Prepare for HACS submission (https://hacs.xyz/docs/publish/start).
-
-License
-This project is licensed under the MIT License. See the LICENSE file for details.
-Disclaimer
-This integration interacts with Google Family Link’s web interface in an unofficial manner, which may violate Google’s terms of service. Use at your own risk with a test Google account. The developers are not responsible for account suspensions or data loss.
-Contact
-For questions, issues, or collaboration, open an issue on GitHub or contact [yourusername] via [preferred contact method].
-Notes for Developers
-Focus Areas: The README emphasizes Playwright for authentication, scraping for endpoint discovery, and requests for ongoing interactions. Developers should prioritize identifying reliable endpoints for device control and ensuring cookie management is robust.
-
-HACS Submission: Include clear setup instructions and warn users about Google’s terms to ensure transparency.
-
-Testing: Encourage use of test accounts to avoid risks to personal Google accounts.
-
-Extensibility: The structure allows for future enhancements, like supporting additional Family Link features (e.g., screen time limits) if endpoints are discovered.
-
-If you need further refinements to the README (e.g., adding specific contrib
-
+**⚠️ Important**: This integration is unofficial and may violate Google's Terms of Service. Use responsibly with test accounts only. 
