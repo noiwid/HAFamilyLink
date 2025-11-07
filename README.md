@@ -277,8 +277,8 @@ We welcome contributions! Please follow these guidelines:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/ha-familylink.git
-cd ha-familylink
+git clone https://github.com/noiwid/HAFamilyLink.git
+cd HAFamilyLink
 
 # Setup development environment
 python -m venv venv
