@@ -15,7 +15,7 @@ from .exceptions import FamilyLinkException
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
-PLATFORMS: list[Platform] = [Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
