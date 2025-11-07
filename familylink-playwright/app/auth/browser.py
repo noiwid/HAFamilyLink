@@ -55,10 +55,6 @@ class BrowserAuthManager:
             # Create page
             page = await context.new_page()
 
-            # Navigate to Google Family Link
-            _LOGGER.info("Navigating to Google Family Link...")
-            await page.goto('https://families.google.com', wait_until='networkidle', timeout=30000)
-
             # Store session
             self._sessions[session_id] = {
                 'browser': browser,
@@ -68,6 +64,17 @@ class BrowserAuthManager:
                 'cookies': None,
                 'error': None
             }
+
+            # Listen for new tabs/popups
+            def on_page(new_page):
+                _LOGGER.info(f"New tab detected, switching monitoring to new page")
+                self._sessions[session_id]['page'] = new_page
+
+            context.on("page", on_page)
+
+            # Navigate to Google Family Link
+            _LOGGER.info("Navigating to Google Family Link...")
+            await page.goto('https://families.google.com', wait_until='networkidle', timeout=30000)
 
             # Start monitoring in background
             asyncio.create_task(self._monitor_authentication(session_id))
@@ -84,7 +91,6 @@ class BrowserAuthManager:
         if not session:
             return
 
-        page: Page = session['page']
         context: BrowserContext = session['context']
 
         try:
@@ -102,6 +108,8 @@ class BrowserAuthManager:
             authenticated = False
 
             while (asyncio.get_event_loop().time() - start_time) < self._auth_timeout:
+                # Get the current page (might have changed if new tab opened)
+                page: Page = session['page']
                 current_url = page.url
                 _LOGGER.info(f"Checking authentication - Current URL: {current_url}")
 
