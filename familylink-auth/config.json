@@ -1,7 +1,7 @@
 {
   "name": "Google Family Link Auth",
-  "version": "1.0.1",
-  "slug": "familylink-auth",
+  "version": "1.0.2",
+  "slug": "familylink-auth-debian",
   "description": "Authentication service for Google Family Link integration using browser automation",
   "url": "https://github.com/noiwid/HAFamilyLink",
   "arch": ["amd64", "aarch64"],
