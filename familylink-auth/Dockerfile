@@ -33,7 +33,9 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Install Playwright (will use system Chromium)
-RUN pip3 install --no-cache-dir --break-system-packages playwright==1.41.0
+RUN pip3 install --no-cache-dir --break-system-packages playwright==1.41.0 && \
+    playwright install chromium && \
+    playwright install-deps chromium
 
 # Copy application code
 COPY app/ /app/app/
