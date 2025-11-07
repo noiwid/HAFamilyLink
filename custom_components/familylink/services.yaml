@@ -1,0 +1,42 @@
+# Services for Google Family Link integration
+
+block_device_for_school:
+  name: Block Device for School
+  description: Block all apps except essential ones to simulate device lock during school hours
+  fields:
+    whitelist:
+      name: Additional Whitelist
+      description: Additional package names to keep allowed (beyond the default essential apps)
+      required: false
+      example: "com.example.educationalapp"
+      selector:
+        object:
+
+unblock_all_apps:
+  name: Unblock All Apps
+  description: Unblock all apps to end school mode and restore normal device usage
+  fields: {}
+
+block_app:
+  name: Block App
+  description: Block a specific app by package name
+  fields:
+    package_name:
+      name: Package Name
+      description: Android package name to block (e.g., com.youtube.android)
+      required: true
+      example: "com.youtube.android"
+      selector:
+        text:
+
+unblock_app:
+  name: Unblock App
+  description: Unblock a specific app by package name
+  fields:
+    package_name:
+      name: Package Name
+      description: Android package name to unblock
+      required: true
+      example: "com.youtube.android"
+      selector:
+        text:
