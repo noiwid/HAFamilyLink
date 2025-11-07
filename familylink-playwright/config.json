@@ -1,6 +1,6 @@
 {
   "name": "Google Family Link Auth",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "slug": "familylink-playwright",
   "description": "Authentication service for Google Family Link integration using browser automation",
   "url": "https://github.com/noiwid/HAFamilyLink",
@@ -9,10 +9,12 @@
   "boot": "auto",
   "init": false,
   "ports": {
-    "8099/tcp": 8099
+    "8099/tcp": 8099,
+    "5900/tcp": 5900
   },
   "ports_description": {
-    "8099/tcp": "Web interface for Google authentication"
+    "8099/tcp": "Web interface for Google authentication",
+    "5900/tcp": "VNC server for browser access"
   },
   "map": ["share:rw"],
   "options": {

@@ -26,9 +26,20 @@ chmod 700 /share/familylink
 
 bashio::log.info "Shared storage ready at /share/familylink"
 
-# Set Playwright to use system Chromium
-export PLAYWRIGHT_BROWSERS_PATH=/usr/bin
-export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# Start Xvfb (virtual display)
+bashio::log.info "Starting virtual display (Xvfb)..."
+Xvfb :99 -screen 0 1280x1024x24 &
+export DISPLAY=:99
+
+# Wait for Xvfb to start
+sleep 2
+
+# Start window manager
+fluxbox &
+
+# Start VNC server for remote access
+bashio::log.info "Starting VNC server on port 5900..."
+x11vnc -display :99 -forever -shared -rfbport 5900 -rfbauth /dev/null &
 
 bashio::log.info "Starting FastAPI application..."
 
