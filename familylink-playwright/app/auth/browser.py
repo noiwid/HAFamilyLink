@@ -126,16 +126,45 @@ class BrowserAuthManager:
                         _LOGGER.info("Triggering Family Link API call to ensure proper cookie configuration...")
 
                         try:
-                            # Execute a fetch call to the API in the browser context
+                            # Execute a fetch call to the API in the browser context with proper auth headers
                             # This forces the browser to set cookies with the correct domain
                             api_test = await page.evaluate("""
                                 async () => {
                                     try {
+                                        // Get cookies to generate SAPISIDHASH
+                                        const cookies = await document.cookie.split(';').reduce((acc, cookie) => {
+                                            const [key, value] = cookie.trim().split('=');
+                                            acc[key] = value;
+                                            return acc;
+                                        }, {});
+
+                                        const sapisid = cookies['SAPISID'];
+                                        if (!sapisid) {
+                                            return { success: false, error: 'SAPISID cookie not found' };
+                                        }
+
+                                        // Generate SAPISIDHASH
+                                        const timestamp = Math.floor(Date.now() / 1000);
+                                        const origin = 'https://familylink.google.com';
+                                        const toHash = timestamp + ' ' + sapisid + ' ' + origin;
+
+                                        // Simple SHA1 implementation
+                                        const encoder = new TextEncoder();
+                                        const data = encoder.encode(toHash);
+                                        const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+                                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                                        const sapisidhash = timestamp + '_' + hashHex;
+
                                         const response = await fetch('https://kidsmanagement-pa.clients6.google.com/kidsmanagement/v1/families/mine/members', {
                                             method: 'GET',
                                             credentials: 'include',
                                             headers: {
-                                                'Content-Type': 'application/json'
+                                                'Content-Type': 'application/json',
+                                                'Authorization': 'SAPISIDHASH ' + sapisidhash,
+                                                'X-Goog-AuthUser': '0',
+                                                'x-goog-api-key': 'AIzaSyAQb1gupaJhY3CXGpRG8festHd-qCUrdoE',
+                                                'Origin': origin
                                             }
                                         });
                                         return { success: true, status: response.status };
