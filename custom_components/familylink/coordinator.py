@@ -43,8 +43,31 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self.client is None:
 				await self._async_setup_client()
 
-			# Fetch device data
-			devices = await self.client.async_get_devices()
+			# Fetch complete apps and usage data (includes devices, apps, and usage)
+			apps_usage_data = None
+			try:
+				apps_usage_data = await self.client.async_get_apps_and_usage()
+				_LOGGER.debug(
+					f"Fetched {len(apps_usage_data.get('apps', []))} apps, "
+					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
+					f"{len(apps_usage_data.get('appUsageSessions', []))} usage sessions"
+				)
+			except Exception as err:
+				_LOGGER.warning(f"Failed to fetch apps and usage data: {err}")
+
+			# Extract devices from apps_usage_data
+			devices = []
+			if apps_usage_data:
+				for device_info in apps_usage_data.get("deviceInfo", []):
+					display_info = device_info.get("displayInfo", {})
+					device = {
+						"id": device_info.get("deviceId"),
+						"name": display_info.get("friendlyName", "Unknown Device"),
+						"model": display_info.get("model", "Unknown"),
+						"last_activity": display_info.get("lastActivityTimeMillis"),
+						"capabilities": device_info.get("capabilityInfo", {}).get("capabilities", []),
+					}
+					devices.append(device)
 
 			# Update internal device cache
 			self._devices = {device["id"]: device for device in devices}
@@ -61,10 +84,32 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.warning(f"Failed to fetch screen time data: {err}")
 				# Don't fail entire update if screen time fetch fails
 
-			_LOGGER.debug("Successfully updated device data: %d devices", len(devices))
+			# Fetch family members info
+			family_members = None
+			supervised_child = None
+			try:
+				members_data = await self.client.async_get_family_members()
+				family_members = members_data.get("members", [])
+
+				# Find supervised child
+				for member in family_members:
+					supervision_info = member.get("memberSupervisionInfo")
+					if supervision_info and supervision_info.get("isSupervisedMember"):
+						supervised_child = member
+						break
+
+				_LOGGER.debug(f"Fetched {len(family_members)} family members")
+			except Exception as err:
+				_LOGGER.warning(f"Failed to fetch family members: {err}")
+
+			_LOGGER.debug("Successfully updated all Family Link data")
 			return {
 				"devices": devices,
 				"screen_time": screen_time,
+				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
+				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
+				"family_members": family_members,
+				"supervised_child": supervised_child,
 			}
 
 		except SessionExpiredError:
