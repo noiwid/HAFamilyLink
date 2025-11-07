@@ -1,7 +1,9 @@
 """API client for Google Family Link integration."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import json
 import logging
 import time
 from datetime import datetime
@@ -330,6 +332,217 @@ class FamilyLinkClient:
 		except Exception as err:
 			_LOGGER.error("Failed to fetch daily screen time: %s", err)
 			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
+
+	async def async_block_app(self, package_name: str, account_id: str | None = None) -> bool:
+		"""Block a specific app.
+
+		Args:
+			package_name: Android package name (e.g., com.youtube.android)
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+
+			# Format: [account_id, [[[package_name], [1]]]]
+			# [1] = block flag
+			payload = json.dumps([account_id, [[[package_name], [1]]]])
+
+			async with session.post(
+				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				headers={"Content-Type": "application/json+protobuf"},
+				data=payload
+			) as response:
+				response.raise_for_status()
+				_LOGGER.info(f"Successfully blocked app: {package_name}")
+				return True
+
+		except aiohttp.ClientResponseError as err:
+			if err.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate") from err
+			_LOGGER.error(f"Failed to block app {package_name}: {err}")
+			return False
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error blocking app {package_name}: {err}")
+			return False
+
+	async def async_unblock_app(self, package_name: str, account_id: str | None = None) -> bool:
+		"""Unblock a specific app by removing all restrictions.
+
+		Args:
+			package_name: Android package name
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+
+			# Format: [account_id, [[[package_name], []]]]
+			# Empty array = remove restrictions
+			payload = json.dumps([account_id, [[[package_name], []]]])
+
+			async with session.post(
+				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				headers={"Content-Type": "application/json+protobuf"},
+				data=payload
+			) as response:
+				response.raise_for_status()
+				_LOGGER.info(f"Successfully unblocked app: {package_name}")
+				return True
+
+		except aiohttp.ClientResponseError as err:
+			if err.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate") from err
+			_LOGGER.error(f"Failed to unblock app {package_name}: {err}")
+			return False
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error unblocking app {package_name}: {err}")
+			return False
+
+	async def async_block_device_for_school(
+		self,
+		account_id: str | None = None,
+		whitelist: list[str] | None = None
+	) -> dict[str, Any]:
+		"""Block all apps except essential ones (simulate device lock for school).
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+			whitelist: List of package names to keep allowed (optional)
+
+		Returns:
+			Dictionary with blocked count and list of blocked apps
+		"""
+		# Default essential apps whitelist
+		default_whitelist = [
+			"com.android.dialer",           # Phone
+			"com.android.contacts",         # Contacts
+			"com.android.mms",              # SMS/Messages
+			"com.google.android.apps.messaging",  # Google Messages
+			"com.android.settings",         # Settings
+			"com.android.deskclock",        # Clock/Alarm
+			"com.google.android.apps.maps", # Maps (emergency)
+			"com.android.emergency",        # Emergency info
+			"com.android.systemui",         # System UI
+			"com.android.launcher3",        # Launcher
+			"com.google.android.gms",       # Google Play Services
+		]
+
+		if whitelist:
+			# Merge user whitelist with defaults
+			whitelist = list(set(default_whitelist + whitelist))
+		else:
+			whitelist = default_whitelist
+
+		_LOGGER.info(f"Blocking device for school mode. Whitelist: {len(whitelist)} apps")
+
+		# Get all installed apps
+		apps_data = await self.async_get_apps_and_usage(account_id)
+		all_apps = apps_data.get("apps", [])
+
+		blocked = []
+		failed = []
+
+		for app in all_apps:
+			package_name = app.get("packageName", "")
+
+			# Skip if in whitelist
+			if package_name in whitelist:
+				_LOGGER.debug(f"Skipping whitelisted app: {package_name}")
+				continue
+
+			# Skip if already blocked
+			if app.get("supervisionSetting", {}).get("hidden", False):
+				_LOGGER.debug(f"App already blocked: {package_name}")
+				continue
+
+			# Block the app
+			success = await self.async_block_app(package_name, account_id)
+			if success:
+				blocked.append({
+					"name": app.get("title", "Unknown"),
+					"package": package_name
+				})
+			else:
+				failed.append(package_name)
+
+			# Small delay to avoid rate limiting
+			await asyncio.sleep(0.1)
+
+		_LOGGER.info(
+			f"School mode activated: {len(blocked)} apps blocked, {len(failed)} failed, "
+			f"{len(whitelist)} apps whitelisted"
+		)
+
+		return {
+			"blocked_count": len(blocked),
+			"blocked_apps": blocked,
+			"failed_count": len(failed),
+			"failed_apps": failed,
+			"whitelisted_count": len(whitelist),
+		}
+
+	async def async_unblock_all_apps(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Unblock all apps (end school mode / unlock device).
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			Dictionary with unblocked count and list of apps
+		"""
+		_LOGGER.info("Unblocking all apps (ending school mode)")
+
+		# Get all apps
+		apps_data = await self.async_get_apps_and_usage(account_id)
+		all_apps = apps_data.get("apps", [])
+
+		unblocked = []
+		failed = []
+
+		for app in all_apps:
+			package_name = app.get("packageName", "")
+
+			# Check if app is currently blocked
+			if app.get("supervisionSetting", {}).get("hidden", False):
+				success = await self.async_unblock_app(package_name, account_id)
+				if success:
+					unblocked.append({
+						"name": app.get("title", "Unknown"),
+						"package": package_name
+					})
+				else:
+					failed.append(package_name)
+
+				# Small delay to avoid rate limiting
+				await asyncio.sleep(0.1)
+
+		_LOGGER.info(
+			f"All apps unblocked: {len(unblocked)} apps unblocked, {len(failed)} failed"
+		)
+
+		return {
+			"unblocked_count": len(unblocked),
+			"unblocked_apps": unblocked,
+			"failed_count": len(failed),
+			"failed_apps": failed,
+		}
 
 	async def async_control_device(self, device_id: str, action: str) -> bool:
 		"""Control a Family Link device.
