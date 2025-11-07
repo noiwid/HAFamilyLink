@@ -32,6 +32,11 @@ export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 bashio::log.info "Starting FastAPI application..."
 
-# Start the FastAPI application
+# Start the FastAPI application with uvicorn directly
 cd /app || exit 1
-exec python3 -m app.main
+exec uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port 8099 \
+    --log-level "${LOG_LEVEL}" \
+    --no-access-log \
+    --workers 1
