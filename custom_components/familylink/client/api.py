@@ -65,6 +65,23 @@ class FamilyLinkClient:
 
 		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
 
+		# Debug: Show which cookies we loaded
+		cookie_names = [c.get("name", "unknown") for c in self._cookies]
+		_LOGGER.debug(f"Loaded cookies: {', '.join(cookie_names)}")
+
+		# Debug: Check for SAPISID specifically
+		sapisid_found = False
+		for cookie in self._cookies:
+			if cookie.get("name") == "SAPISID":
+				domain = cookie.get("domain", "N/A")
+				sapisid_found = True
+				_LOGGER.debug(f"✓ SAPISID cookie found with domain: {domain}")
+				break
+
+		if not sapisid_found:
+			_LOGGER.error("✗ SAPISID cookie NOT found in loaded cookies!")
+			_LOGGER.error(f"Available cookie names: {cookie_names}")
+
 	async def async_refresh_session(self) -> None:
 		"""Refresh the authentication session."""
 		# Clear current cookies and reload from add-on
@@ -101,18 +118,32 @@ class FamilyLinkClient:
 			sapisid = None
 			cookie_jar = {}
 
+			_LOGGER.debug("Creating new session with authentication")
+
 			if self._cookies:
+				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for session")
 				for cookie in self._cookies:
-					cookie_jar[cookie["name"]] = cookie["value"]
+					cookie_name = cookie.get("name", "")
+					cookie_domain = cookie.get("domain", "")
+					cookie_jar[cookie_name] = cookie["value"]
+
 					# Find SAPISID cookie
-					if cookie["name"] == "SAPISID" and ".google.com" in cookie.get("domain", ""):
-						sapisid = cookie["value"]
+					if cookie_name == "SAPISID":
+						if ".google.com" in cookie_domain:
+							sapisid = cookie["value"]
+							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
+							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
+						else:
+							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected .google.com)")
 
 			if not sapisid:
+				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
+				_LOGGER.error(f"Available cookies in jar: {list(cookie_jar.keys())}")
 				raise AuthenticationError("SAPISID cookie not found in authentication data")
 
 			# Generate authorization header
 			sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
+			_LOGGER.debug(f"Generated SAPISIDHASH (first 20 chars): {sapisidhash[:20]}...")
 
 			# Create session with Google Family Link API headers
 			headers = {
@@ -127,11 +158,15 @@ class FamilyLinkClient:
 				"Authorization": f"SAPISIDHASH {sapisidhash}",
 			}
 
+			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
+
 			self._session = aiohttp.ClientSession(
 				headers=headers,
 				cookies=cookie_jar,
 				timeout=aiohttp.ClientTimeout(total=30),
 			)
+
+			_LOGGER.debug("✓ Session created successfully")
 
 		return self._session
 
@@ -147,17 +182,27 @@ class FamilyLinkClient:
 		try:
 			session = await self._get_session()
 
+			url = f"{self.BASE_URL}/families/mine/members"
+			_LOGGER.debug(f"Requesting: GET {url}")
+
 			async with session.get(
-				f"{self.BASE_URL}/families/mine/members",
+				url,
 				headers={"Content-Type": "application/json"}
 			) as response:
+				_LOGGER.debug(f"Response status: {response.status}")
+
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+
 				response.raise_for_status()
 				data = await response.json()
-				_LOGGER.debug(f"Fetched {len(data.get('members', []))} family members")
+				_LOGGER.debug(f"✓ Fetched {len(data.get('members', []))} family members")
 				return data
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
+				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_LOGGER.error("Failed to fetch family members: %s", err)
 			raise NetworkError(f"Failed to fetch family members: {err}") from err
@@ -213,15 +258,24 @@ class FamilyLinkClient:
 				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
 			}
 
+			url = f"{self.BASE_URL}/people/{account_id}/appsandusage"
+			_LOGGER.debug(f"Requesting: GET {url}")
+
 			async with session.get(
-				f"{self.BASE_URL}/people/{account_id}/appsandusage",
+				url,
 				headers={"Content-Type": "application/json"},
 				params=params
 			) as response:
+				_LOGGER.debug(f"Response status: {response.status}")
+
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+
 				response.raise_for_status()
 				data = await response.json()
 				_LOGGER.debug(
-					f"Fetched usage data: {len(data.get('apps', []))} apps, "
+					f"✓ Fetched usage data: {len(data.get('apps', []))} apps, "
 					f"{len(data.get('deviceInfo', []))} devices, "
 					f"{len(data.get('appUsageSessions', []))} usage sessions"
 				)
@@ -229,6 +283,7 @@ class FamilyLinkClient:
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
+				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_LOGGER.error("Failed to fetch apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
