@@ -106,10 +106,13 @@ class FamilyLinkClient:
 		Returns:
 			The SAPISIDHASH string in format: "{timestamp}_{sha1_hash}"
 		"""
-		timestamp = int(time.time() * 1000)  # Current time in milliseconds
+		# CRITICAL: Google uses Unix timestamp in SECONDS, not milliseconds
+		timestamp = int(time.time())  # Current time in seconds
 		to_hash = f"{timestamp} {sapisid} {origin}"
 		sha1_hash = hashlib.sha1(to_hash.encode("utf-8")).hexdigest()
-		return f"{timestamp}_{sha1_hash}"
+		sapisidhash = f"{timestamp}_{sha1_hash}"
+		_LOGGER.debug(f"Generated SAPISIDHASH with timestamp={timestamp}, hash={sha1_hash[:16]}...")
+		return sapisidhash
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers and cookies."""
