@@ -1,24 +1,32 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:14.0.2
+ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:7.3.3
 FROM ${BUILD_FROM}
 
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install system dependencies required for Playwright and Chromium
-RUN apk add --no-cache \
-    python3=~3.11 \
-    py3-pip=~23 \
-    chromium \
-    chromium-chromedriver \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    nodejs \
-    npm \
-    curl \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        python3-dev \
+        curl \
+        nodejs \
+        npm \
+        ca-certificates \
+        fonts-liberation \
+        libnss3 \
+        libatk-bridge2.0-0 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for Playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -33,10 +41,9 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Install Playwright and its browsers
-# Note: Using latest version for better ARM64 support
+# Debian-based image supports Playwright on ARM64
 RUN pip3 install --no-cache-dir --break-system-packages playwright && \
-    playwright install chromium && \
-    playwright install-deps chromium
+    playwright install --with-deps chromium
 
 # Copy application code
 COPY app/ /app/app/
