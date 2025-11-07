@@ -8,7 +8,7 @@ import aiohttp
 
 from homeassistant.core import HomeAssistant
 
-from ..auth.session import SessionManager
+from ..auth.addon_client import AddonCookieClient
 from ..const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
@@ -33,32 +33,44 @@ class FamilyLinkClient:
 		"""Initialize the Family Link client."""
 		self.hass = hass
 		self.config = config
-		self.session_manager = SessionManager(hass, config)
+		self.addon_client = AddonCookieClient(hass)
 		self._session: aiohttp.ClientSession | None = None
+		self._cookies: list[dict[str, Any]] | None = None
 
 	async def async_authenticate(self) -> None:
 		"""Authenticate with Family Link."""
-		# Try to load existing session
-		session_data = await self.session_manager.async_load_session()
-		
-		if session_data and self.session_manager.is_authenticated():
-			_LOGGER.debug("Using existing authentication session")
-			return
+		# Load cookies from add-on
+		_LOGGER.debug("Loading cookies from Family Link Auth add-on")
 
-		# Need fresh authentication
-		_LOGGER.debug("No valid session found, authentication required")
-		raise AuthenticationError("Authentication required")
+		if not self.addon_client.cookies_available():
+			raise AuthenticationError(
+				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
+			)
+
+		self._cookies = await self.addon_client.load_cookies()
+
+		if not self._cookies:
+			raise AuthenticationError("Failed to load cookies from add-on")
+
+		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
 
 	async def async_refresh_session(self) -> None:
 		"""Refresh the authentication session."""
-		# For now, this is a placeholder - full implementation would
-		# use browser automation to refresh the session
-		await self.session_manager.async_clear_session()
-		raise SessionExpiredError("Session refresh required")
+		# Clear current cookies and reload from add-on
+		self._cookies = None
+		if self._session:
+			await self._session.close()
+			self._session = None
+
+		await self.async_authenticate()
+
+	def is_authenticated(self) -> bool:
+		"""Check if we have valid cookies."""
+		return self._cookies is not None and len(self._cookies) > 0
 
 	async def async_get_devices(self) -> list[dict[str, Any]]:
 		"""Get list of Family Link devices."""
-		if not self.session_manager.is_authenticated():
+		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
 		try:
@@ -87,7 +99,7 @@ class FamilyLinkClient:
 
 	async def async_control_device(self, device_id: str, action: str) -> bool:
 		"""Control a Family Link device."""
-		if not self.session_manager.is_authenticated():
+		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
 		if action not in [DEVICE_LOCK_ACTION, DEVICE_UNLOCK_ACTION]:
@@ -118,14 +130,11 @@ class FamilyLinkClient:
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers and cookies."""
 		if self._session is None:
-			# Build cookie jar from saved session
+			# Build cookie jar from addon cookies
 			cookies = {}
-			try:
-				cookie_list = self.session_manager.get_cookies()
-				for cookie in cookie_list:
+			if self._cookies:
+				for cookie in self._cookies:
 					cookies[cookie["name"]] = cookie["value"]
-			except Exception as err:
-				_LOGGER.warning("Failed to load cookies: %s", err)
 
 			# Create session with appropriate headers
 			headers = {
