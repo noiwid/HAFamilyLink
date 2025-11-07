@@ -73,7 +73,7 @@ LABEL \
     io.hass.name="Google Family Link Auth" \
     io.hass.description="Authentication service for Google Family Link" \
     io.hass.type="addon" \
-    io.hass.version="1.0.5"
+    io.hass.version="1.0.6"
 
 # Start command
 CMD ["/usr/local/bin/run.sh"]
