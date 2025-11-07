@@ -263,27 +263,27 @@ async def index():
             button.innerHTML = '<div class="loader"></div><span>Démarrage...</span>';
 
             try {
-                showStatus('🔄 Démarrage de l\'authentification...', 'info');
+                showStatus("🔄 Démarrage de l'authentification...", "info");
 
                 const response = await fetch('/api/auth/start', {
                     method: 'POST'
                 });
 
                 if (!response.ok) {
-                    throw new Error('Échec du démarrage de l\'authentification');
+                    throw new Error("Échec du démarrage de l'authentification");
                 }
 
                 const data = await response.json();
                 sessionId = data.session_id;
 
-                showStatus('🌐 Fenêtre du navigateur ouverte. Veuillez vous connecter à Google...', 'info');
+                showStatus("🌐 Fenêtre du navigateur ouverte. Veuillez vous connecter à Google...", "info");
                 button.innerHTML = '<div class="loader"></div><span>En attente de connexion...</span>';
 
                 // Start checking status
                 statusCheckInterval = setInterval(checkAuthStatus, 2000);
 
             } catch (error) {
-                showStatus('❌ Échec du démarrage: ' + error.message, 'error');
+                showStatus("❌ Échec du démarrage: " + error.message, "error");
                 button.disabled = false;
                 button.innerHTML = 'Réessayer';
             }
@@ -306,19 +306,19 @@ async def index():
 
                 } else if (data.status === 'timeout') {
                     clearInterval(statusCheckInterval);
-                    showStatus('⏱️ Délai d\'attente dépassé. Veuillez réessayer.', 'error');
+                    showStatus("⏱️ Délai d'attente dépassé. Veuillez réessayer.", "error");
 
                     const button = document.getElementById('authButton');
                     button.disabled = false;
-                    button.innerHTML = 'Réessayer l\'authentification';
+                    button.innerHTML = "Réessayer l'authentification";
 
                 } else if (data.status === 'error') {
                     clearInterval(statusCheckInterval);
-                    showStatus('❌ Erreur: ' + (data.error || 'Erreur inconnue'), 'error');
+                    showStatus("❌ Erreur: " + (data.error || "Erreur inconnue"), "error");
 
                     const button = document.getElementById('authButton');
                     button.disabled = false;
-                    button.innerHTML = 'Réessayer l\'authentification';
+                    button.innerHTML = "Réessayer l'authentification";
                 }
 
             } catch (error) {
@@ -340,7 +340,7 @@ async def index():
                 const data = await response.json();
 
                 if (data.exists) {
-                    showStatus('✓ Des cookies sont déjà enregistrés. Vous pouvez configurer l\'intégration dans Home Assistant.', 'success');
+                    showStatus("✓ Des cookies sont déjà enregistrés. Vous pouvez configurer l'intégration dans Home Assistant.", "success");
                 }
             } catch (error) {
                 // Ignore errors on initial check
