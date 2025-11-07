@@ -29,6 +29,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.entry = entry
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
+		self._is_retrying_auth = False  # Prevent infinite retry loops
 
 		super().__init__(
 			hass,
@@ -112,10 +113,33 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"supervised_child": supervised_child,
 			}
 
-		except SessionExpiredError:
+		except SessionExpiredError as err:
+			# Prevent infinite retry loops
+			if self._is_retrying_auth:
+				_LOGGER.error("Session still expired after refresh - cookies are invalid")
+				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
+
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
-			await self._async_refresh_auth()
-			raise UpdateFailed("Session expired, please re-authenticate")
+			self._is_retrying_auth = True
+
+			try:
+				await self._async_refresh_auth()
+
+				# Retry ONCE after refreshing authentication
+				_LOGGER.info("Retrying data fetch after authentication refresh...")
+				result = await self._async_update_data()
+				self._is_retrying_auth = False  # Reset flag on success
+				return result
+
+			except SessionExpiredError:
+				# If it still fails after refresh, cookies are truly invalid
+				_LOGGER.error("Session still expired after refresh - please re-authenticate via add-on")
+				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
+			except Exception as retry_err:
+				_LOGGER.error(f"Retry after auth refresh failed: {retry_err}")
+				raise UpdateFailed(f"Failed after auth refresh: {retry_err}") from retry_err
+			finally:
+				self._is_retrying_auth = False  # Always reset flag
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
