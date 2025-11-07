@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     python3=~3.11 \
     py3-pip=~23 \
     chromium \
+    chromium-chromedriver \
     nss \
     freetype \
     harfbuzz \
