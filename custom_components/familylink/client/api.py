@@ -1,7 +1,10 @@
 """API client for Google Family Link integration."""
 from __future__ import annotations
 
+import hashlib
 import logging
+import time
+from datetime import datetime
 from typing import Any
 
 import aiohttp
@@ -29,6 +32,11 @@ _LOGGER = logging.getLogger(LOGGER_NAME)
 class FamilyLinkClient:
 	"""Client for interacting with Google Family Link API."""
 
+	# Google Family Link API endpoints (reverse-engineered)
+	BASE_URL = "https://kidsmanagement-pa.clients6.google.com/kidsmanagement/v1"
+	ORIGIN = "https://familylink.google.com"
+	API_KEY = "AIzaSyAQb1gupaJhY3CXQy2xmTwJMcjmot3M2hw"
+
 	def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
 		"""Initialize the Family Link client."""
 		self.hass = hass
@@ -36,6 +44,7 @@ class FamilyLinkClient:
 		self.addon_client = AddonCookieClient(hass)
 		self._session: aiohttp.ClientSession | None = None
 		self._cookies: list[dict[str, Any]] | None = None
+		self._account_id: str | None = None  # Cached supervised child ID
 
 	async def async_authenticate(self) -> None:
 		"""Authenticate with Family Link."""
@@ -68,37 +77,266 @@ class FamilyLinkClient:
 		"""Check if we have valid cookies."""
 		return self._cookies is not None and len(self._cookies) > 0
 
-	async def async_get_devices(self) -> list[dict[str, Any]]:
-		"""Get list of Family Link devices."""
+	def _generate_sapisidhash(self, sapisid: str, origin: str) -> str:
+		"""Generate SAPISIDHASH token for Google API authorization.
+
+		Args:
+			sapisid: The SAPISID cookie value
+			origin: The origin URL (e.g., 'https://familylink.google.com')
+
+		Returns:
+			The SAPISIDHASH string in format: "{timestamp}_{sha1_hash}"
+		"""
+		timestamp = int(time.time() * 1000)  # Current time in milliseconds
+		to_hash = f"{timestamp} {sapisid} {origin}"
+		sha1_hash = hashlib.sha1(to_hash.encode("utf-8")).hexdigest()
+		return f"{timestamp}_{sha1_hash}"
+
+	async def _get_session(self) -> aiohttp.ClientSession:
+		"""Get or create HTTP session with proper headers and cookies."""
+		if self._session is None:
+			# Extract SAPISID cookie for authentication
+			sapisid = None
+			cookie_jar = {}
+
+			if self._cookies:
+				for cookie in self._cookies:
+					cookie_jar[cookie["name"]] = cookie["value"]
+					# Find SAPISID cookie
+					if cookie["name"] == "SAPISID" and ".google.com" in cookie.get("domain", ""):
+						sapisid = cookie["value"]
+
+			if not sapisid:
+				raise AuthenticationError("SAPISID cookie not found in authentication data")
+
+			# Generate authorization header
+			sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
+
+			# Create session with Google Family Link API headers
+			headers = {
+				"User-Agent": (
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+					"AppleWebKit/537.36 (KHTML, like Gecko) "
+					"Chrome/120.0.0.0 Safari/537.36"
+				),
+				"Origin": self.ORIGIN,
+				"Content-Type": "application/json+protobuf",
+				"X-Goog-Api-Key": self.API_KEY,
+				"Authorization": f"SAPISIDHASH {sapisidhash}",
+			}
+
+			self._session = aiohttp.ClientSession(
+				headers=headers,
+				cookies=cookie_jar,
+				timeout=aiohttp.ClientTimeout(total=30),
+			)
+
+		return self._session
+
+	async def async_get_family_members(self) -> dict[str, Any]:
+		"""Get list of all family members.
+
+		Returns:
+			Family members data including parents and supervised children.
+		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
 		try:
-			# This is a placeholder implementation
-			# In the real implementation, this would:
-			# 1. Make HTTP requests to Family Link endpoints
-			# 2. Parse the response to extract device data
-			# 3. Return structured device information
-			
-			_LOGGER.debug("Fetching device list from Family Link")
-			
-			# Placeholder return - will be replaced with actual API calls
-			return [
-				{
-					"id": "device_1",
-					"name": "Child's Phone",
-					"locked": False,
-					"type": "android",
-					"last_seen": "2024-01-01T12:00:00Z",
+			session = await self._get_session()
+
+			async with session.get(
+				f"{self.BASE_URL}/families/mine/members",
+				headers={"Content-Type": "application/json"}
+			) as response:
+				response.raise_for_status()
+				data = await response.json()
+				_LOGGER.debug(f"Fetched {len(data.get('members', []))} family members")
+				return data
+
+		except aiohttp.ClientResponseError as err:
+			if err.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate") from err
+			_LOGGER.error("Failed to fetch family members: %s", err)
+			raise NetworkError(f"Failed to fetch family members: {err}") from err
+		except Exception as err:
+			_LOGGER.error("Unexpected error fetching family members: %s", err)
+			raise NetworkError(f"Failed to fetch family members: {err}") from err
+
+	async def async_get_supervised_child_id(self) -> str:
+		"""Get the user ID of the first supervised child.
+
+		Returns:
+			User ID of the supervised child.
+
+		Raises:
+			ValueError: If no supervised child is found.
+		"""
+		if self._account_id:
+			return self._account_id
+
+		members_data = await self.async_get_family_members()
+
+		for member in members_data.get("members", []):
+			supervision_info = member.get("memberSupervisionInfo")
+			if supervision_info and supervision_info.get("isSupervisedMember"):
+				self._account_id = member["userId"]
+				_LOGGER.info(f"Found supervised child: {member['profile']['displayName']} (ID: {self._account_id})")
+				return self._account_id
+
+		raise ValueError("No supervised child found in family")
+
+	async def async_get_apps_and_usage(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Get apps, devices, and usage data for a supervised account.
+
+		Args:
+			account_id: User ID of the supervised child (optional, uses cached ID if None)
+
+		Returns:
+			Complete apps and usage data including:
+			- apps: List of installed apps with supervision settings
+			- deviceInfo: List of devices
+			- appUsageSessions: Daily screen time data per app
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+
+			params = {
+				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
+			}
+
+			async with session.get(
+				f"{self.BASE_URL}/people/{account_id}/appsandusage",
+				headers={"Content-Type": "application/json"},
+				params=params
+			) as response:
+				response.raise_for_status()
+				data = await response.json()
+				_LOGGER.debug(
+					f"Fetched usage data: {len(data.get('apps', []))} apps, "
+					f"{len(data.get('deviceInfo', []))} devices, "
+					f"{len(data.get('appUsageSessions', []))} usage sessions"
+				)
+				return data
+
+		except aiohttp.ClientResponseError as err:
+			if err.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate") from err
+			_LOGGER.error("Failed to fetch apps and usage: %s", err)
+			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
+		except Exception as err:
+			_LOGGER.error("Unexpected error fetching apps and usage: %s", err)
+			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
+
+	async def async_get_devices(self) -> list[dict[str, Any]]:
+		"""Get list of Family Link devices.
+
+		Returns:
+			List of devices with information about model, name, and last activity.
+		"""
+		try:
+			data = await self.async_get_apps_and_usage()
+			devices = []
+
+			for device_info in data.get("deviceInfo", []):
+				display_info = device_info.get("displayInfo", {})
+				device = {
+					"id": device_info.get("deviceId"),
+					"name": display_info.get("friendlyName", "Unknown Device"),
+					"model": display_info.get("model", "Unknown"),
+					"last_activity": display_info.get("lastActivityTimeMillis"),
+					"capabilities": device_info.get("capabilityInfo", {}).get("capabilities", []),
 				}
-			]
+				devices.append(device)
+
+			_LOGGER.debug(f"Returning {len(devices)} devices")
+			return devices
 
 		except Exception as err:
 			_LOGGER.error("Failed to fetch devices: %s", err)
 			raise NetworkError(f"Failed to fetch devices: {err}") from err
 
+	async def async_get_daily_screen_time(
+		self,
+		account_id: str | None = None,
+		target_date: datetime | None = None
+	) -> dict[str, Any]:
+		"""Get total screen time for a specific date.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+			target_date: Date to get screen time for (defaults to today)
+
+		Returns:
+			Dictionary with:
+			- total_seconds: Total screen time in seconds
+			- formatted: Formatted time string (HH:MM:SS)
+			- hours: Hours component
+			- minutes: Minutes component
+			- seconds: Seconds component
+			- app_breakdown: Per-app usage breakdown
+		"""
+		if target_date is None:
+			target_date = datetime.now()
+
+		try:
+			data = await self.async_get_apps_and_usage(account_id)
+			total_seconds = 0
+			app_breakdown = {}
+
+			for session in data.get("appUsageSessions", []):
+				session_date = session.get("date", {})
+
+				# Check if this session is for the target date
+				if (session_date.get("year") == target_date.year and
+					session_date.get("month") == target_date.month and
+					session_date.get("day") == target_date.day):
+
+					# Extract seconds from "1809.5s" format
+					usage_str = session.get("usage", "0s")
+					usage_seconds = float(usage_str.replace("s", ""))
+					total_seconds += usage_seconds
+
+					# Track per-app usage
+					package_name = session.get("appId", {}).get("androidAppPackageName", "unknown")
+					app_breakdown[package_name] = app_breakdown.get(package_name, 0) + usage_seconds
+
+			# Convert to hours, minutes, seconds
+			hours = int(total_seconds // 3600)
+			minutes = int((total_seconds % 3600) // 60)
+			seconds = int(total_seconds % 60)
+
+			_LOGGER.debug(
+				f"Daily screen time for {target_date.date()}: {hours:02d}:{minutes:02d}:{seconds:02d} "
+				f"({len(app_breakdown)} apps)"
+			)
+
+			return {
+				"total_seconds": total_seconds,
+				"formatted": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+				"hours": hours,
+				"minutes": minutes,
+				"seconds": seconds,
+				"app_breakdown": app_breakdown,
+				"date": target_date.date(),
+			}
+
+		except Exception as err:
+			_LOGGER.error("Failed to fetch daily screen time: %s", err)
+			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
+
 	async def async_control_device(self, device_id: str, action: str) -> bool:
-		"""Control a Family Link device."""
+		"""Control a Family Link device.
+
+		Note: Device control API endpoints are not yet reverse-engineered.
+		This is a placeholder for future implementation.
+		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
@@ -106,16 +344,17 @@ class FamilyLinkClient:
 			raise DeviceControlError(f"Invalid action: {action}")
 
 		try:
-			_LOGGER.debug("Controlling device %s with action %s", device_id, action)
-			
-			# Placeholder implementation
-			# In the real implementation, this would:
-			# 1. Make HTTP request to device control endpoint
-			# 2. Handle response and error cases
-			# 3. Return success/failure status
-			
-			# Simulate success for now
-			return True
+			_LOGGER.warning(
+				"Device control not yet implemented - Google Family Link device control "
+				"API endpoints are not documented. Returning placeholder response."
+			)
+
+			# TODO: Implement real device control when API endpoints are discovered
+			# Possible endpoints to investigate:
+			# - POST /people/{account_id}/devices/{device_id}:lock
+			# - POST /people/{account_id}/devices/{device_id}:unlock
+
+			return False
 
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
@@ -125,32 +364,4 @@ class FamilyLinkClient:
 		"""Clean up client resources."""
 		if self._session:
 			await self._session.close()
-			self._session = None
-
-	async def _get_session(self) -> aiohttp.ClientSession:
-		"""Get or create HTTP session with proper headers and cookies."""
-		if self._session is None:
-			# Build cookie jar from addon cookies
-			cookies = {}
-			if self._cookies:
-				for cookie in self._cookies:
-					cookies[cookie["name"]] = cookie["value"]
-
-			# Create session with appropriate headers
-			headers = {
-				"User-Agent": (
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-					"AppleWebKit/537.36 (KHTML, like Gecko) "
-					"Chrome/120.0.0.0 Safari/537.36"
-				),
-				"Accept": "application/json, text/plain, */*",
-				"Accept-Language": "en-GB,en;q=0.9",
-			}
-
-			self._session = aiohttp.ClientSession(
-				headers=headers,
-				cookies=cookies,
-				timeout=aiohttp.ClientTimeout(total=30),
-			)
-
-		return self._session 
+			self._session = None 

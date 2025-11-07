@@ -45,12 +45,27 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			# Fetch device data
 			devices = await self.client.async_get_devices()
-			
+
 			# Update internal device cache
 			self._devices = {device["id"]: device for device in devices}
-			
+
+			# Fetch daily screen time data
+			screen_time = None
+			try:
+				screen_time = await self.client.async_get_daily_screen_time()
+				_LOGGER.debug(
+					f"Successfully fetched screen time: {screen_time['formatted']} "
+					f"({len(screen_time['app_breakdown'])} apps)"
+				)
+			except Exception as err:
+				_LOGGER.warning(f"Failed to fetch screen time data: {err}")
+				# Don't fail entire update if screen time fetch fails
+
 			_LOGGER.debug("Successfully updated device data: %d devices", len(devices))
-			return {"devices": devices}
+			return {
+				"devices": devices,
+				"screen_time": screen_time,
+			}
 
 		except SessionExpiredError:
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
