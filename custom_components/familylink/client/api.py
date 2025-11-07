@@ -162,6 +162,8 @@ class FamilyLinkClient:
 			}
 
 			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
+			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
+			_LOGGER.debug(f"Cookie jar contains {len(cookie_jar)} cookies: {list(cookie_jar.keys())}")
 
 			self._session = aiohttp.ClientSession(
 				headers=headers,
