@@ -39,7 +39,7 @@ fluxbox &
 
 # Start VNC server for remote access
 bashio::log.info "Starting VNC server on port 5900..."
-x11vnc -display :99 -forever -shared -rfbport 5900 -rfbauth /dev/null &
+x11vnc -display :99 -forever -shared -rfbport 5900 -nopw -SecurityTypes None &
 
 bashio::log.info "Starting FastAPI application..."
 
