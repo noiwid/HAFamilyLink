@@ -33,7 +33,8 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Install Playwright and its browsers
-RUN pip3 install --no-cache-dir --break-system-packages playwright==1.41.0 && \
+# Note: Using latest version for better ARM64 support
+RUN pip3 install --no-cache-dir --break-system-packages playwright && \
     playwright install chromium && \
     playwright install-deps chromium
 
