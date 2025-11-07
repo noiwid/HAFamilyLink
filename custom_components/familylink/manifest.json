@@ -8,7 +8,6 @@
 	"config_flow": true,
 	"dependencies": [],
 	"requirements": [
-		"playwright>=1.40.0",
 		"aiohttp>=3.8.0",
 		"cryptography>=3.4.8"
 	],

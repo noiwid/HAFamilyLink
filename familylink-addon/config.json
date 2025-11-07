@@ -1,0 +1,32 @@
+{
+  "name": "Google Family Link Auth",
+  "version": "1.0.0",
+  "slug": "familylink-auth",
+  "description": "Authentication service for Google Family Link integration using browser automation",
+  "url": "https://github.com/noiwid/HAFamilyLink",
+  "arch": ["amd64", "aarch64"],
+  "startup": "application",
+  "boot": "auto",
+  "init": false,
+  "ports": {
+    "8099/tcp": 8099
+  },
+  "ports_description": {
+    "8099/tcp": "Web interface for Google authentication"
+  },
+  "map": ["share:rw"],
+  "options": {
+    "log_level": "info",
+    "auth_timeout": 300,
+    "session_duration": 86400
+  },
+  "schema": {
+    "log_level": "list(trace|debug|info|warning|error)?",
+    "auth_timeout": "int(60,600)?",
+    "session_duration": "int(3600,604800)?"
+  },
+  "webui": "http://[HOST]:[PORT:8099]",
+  "host_network": false,
+  "hassio_api": true,
+  "hassio_role": "default"
+}

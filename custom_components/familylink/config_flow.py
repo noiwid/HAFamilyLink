@@ -44,27 +44,30 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
 	"""Validate the user input allows us to connect."""
 	# Import here to avoid circular imports
-	from .auth.browser import BrowserAuthenticator
+	from .auth.addon_client import AddonCookieClient
 
 	try:
-		# Test browser authentication
-		authenticator = BrowserAuthenticator(hass, data)
-		
-		# This will open a browser for authentication
-		session_data = await authenticator.async_authenticate()
-		
-		if not session_data or "cookies" not in session_data:
-			raise AuthenticationError("No valid session data received")
+		# Check if add-on has provided cookies
+		addon_client = AddonCookieClient(hass)
+
+		if not addon_client.cookies_available():
+			raise AuthenticationError(
+				"No cookies found. Please use the Family Link Auth add-on to authenticate first. "
+				"Install and run the add-on, then return here to complete setup."
+			)
+
+		# Load cookies from add-on
+		cookies = await addon_client.load_cookies()
+
+		if not cookies:
+			raise AuthenticationError("Failed to load cookies from add-on")
 
 		# Return info that you want to store in the config entry
 		return {
 			"title": data[CONF_NAME],
-			"cookies": session_data["cookies"],
+			"cookies": cookies,
 		}
 
-	except BrowserError as err:
-		_LOGGER.error("Browser authentication failed: %s", err)
-		raise CannotConnect from err
 	except AuthenticationError as err:
 		_LOGGER.error("Authentication failed: %s", err)
 		raise InvalidAuth from err
