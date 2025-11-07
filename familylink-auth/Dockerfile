@@ -8,7 +8,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apk add --no-cache \
     python3=~3.11 \
     py3-pip=~23 \
-    chromium=~120 \
+    chromium \
+    chromium-chromedriver \
     nss \
     freetype \
     harfbuzz \
@@ -21,7 +22,7 @@ RUN apk add --no-cache \
 
 # Set environment variables for Playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 ENV PYTHONUNBUFFERED=1
 
 # Set working directory
@@ -31,8 +32,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-# Install Playwright (will use system Chromium)
-RUN pip3 install --no-cache-dir --break-system-packages playwright==1.41.0
+# Install Playwright and its browsers
+RUN pip3 install --no-cache-dir --break-system-packages playwright==1.41.0 && \
+    playwright install chromium && \
+    playwright install-deps chromium
 
 # Copy application code
 COPY app/ /app/app/
