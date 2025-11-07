@@ -103,7 +103,7 @@ class BrowserAuthManager:
 
             while (asyncio.get_event_loop().time() - start_time) < self._auth_timeout:
                 current_url = page.url
-                _LOGGER.debug(f"Monitoring session {session_id}, current URL: {current_url}")
+                _LOGGER.info(f"Checking authentication - Current URL: {current_url}")
 
                 # Check if we're past the login page
                 # Google Family Link redirects to myaccount.google.com/family after successful login
@@ -111,7 +111,7 @@ class BrowserAuthManager:
                     # Check for Family Link dashboard URLs
                     if ('families.google.com' in current_url or
                         'myaccount.google.com/family' in current_url):
-                        _LOGGER.info(f"Authentication detected - URL: {current_url}")
+                        _LOGGER.info(f"✓ Authentication detected! Extracting cookies from: {current_url}")
                         # Wait a bit to ensure cookies are set
                         await asyncio.sleep(3)
                         authenticated = True
