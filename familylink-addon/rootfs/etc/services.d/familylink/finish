@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# S6 service finish script for Family Link Auth
+# ==============================================================================
+
+bashio::log.info "Family Link Auth Service stopped"

@@ -31,22 +31,62 @@ Create a production-ready Home Assistant integration that:
 
 ## 🏗️ Architecture Overview
 
-### Core Components
+### Two-Component Architecture
 
-The integration follows a modular architecture with clear separation of concerns:
+This project consists of two components that work together:
 
-- **Authentication Manager**: Handles secure browser-based login and session management
-- **Device Manager**: Manages device discovery, state tracking, and control operations
-- **Cookie Manager**: Securely stores and refreshes authentication cookies
-- **HTTP Client**: Handles all communication with Family Link endpoints
-- **Configuration Flow**: User-friendly setup and device selection interface
+#### 1. Home Assistant Add-on (`familylink-addon/`)
+Provides browser-based authentication using Playwright:
+- **Web Interface**: User-friendly UI for Google authentication
+- **Browser Automation**: Playwright-controlled Chromium for login
+- **Cookie Management**: Encrypted storage of authentication cookies
+- **Shared Storage**: Communicates with integration via `/share` directory
+
+#### 2. Home Assistant Integration (`custom_components/familylink/`)
+Provides device control and automation:
+- **Config Flow**: User-friendly setup wizard
+- **Cookie Client**: Reads cookies from add-on's shared storage
+- **API Client**: Communicates with Google Family Link services
+- **Device Entities**: Switch entities for device control
+- **Coordinator**: Manages data updates and state
+
+### Why Two Components?
+
+Home Assistant's Docker environment restricts browser automation. The add-on runs in a separate container with all necessary dependencies (Chromium, Playwright), while the integration handles device control in the main HA environment.
+
+### Communication Flow
+
+```
+┌─────────────────────────┐
+│  Add-on Container       │
+│  - Playwright           │
+│  - Chromium browser     │
+│  - FastAPI web server   │
+└──────────┬──────────────┘
+           │ Writes encrypted cookies
+           ▼
+┌──────────────────────────┐
+│  /share/familylink/      │
+│  - cookies.enc (AES-128) │
+│  - .key (encryption key) │
+└──────────┬───────────────┘
+           │ Reads cookies
+           ▼
+┌──────────────────────────┐
+│  Integration             │
+│  - Addon Cookie Client   │
+│  - API Client            │
+│  - Device Control        │
+└──────────────────────────┘
+```
 
 ### Security Model
 
 - **No Credential Storage**: Passwords never stored in Home Assistant
-- **Session-Based**: Secure cookie management with encryption at rest
-- **Isolated Browser**: Sandboxed Playwright sessions for authentication
-- **Automatic Cleanup**: Secure session termination on errors
+- **Encrypted Cookies**: Fernet (AES-128) encryption at rest
+- **Isolated Browser**: Playwright runs in separate container
+- **File Permissions**: Restrictive permissions (0o600) on sensitive files
+- **Automatic Cleanup**: Secure session termination after authentication
 
 ## 📋 Development Plan
 
@@ -60,11 +100,11 @@ The integration follows a modular architecture with clear separation of concerns
 - [ ] Error classes and exception handling
 
 **1.2 Authentication System**
-- [ ] Playwright browser automation for Google login
-- [ ] 2FA flow handling (SMS, authenticator, push notifications)
-- [ ] Session cookie extraction and validation
-- [ ] Secure cookie storage with encryption
-- [ ] Authentication state management
+- [x] Playwright browser automation for Google login (in add-on)
+- [x] 2FA flow handling (SMS, authenticator, push notifications)
+- [x] Session cookie extraction and validation
+- [x] Secure cookie storage with encryption
+- [x] Authentication state management via add-on
 
 **1.3 Device Discovery & Control**
 - [ ] Family Link web scraping for device enumeration
@@ -76,11 +116,11 @@ The integration follows a modular architecture with clear separation of concerns
 ### Phase 2: Home Assistant Integration
 
 **2.1 Configuration Flow**
-- [ ] User-friendly setup wizard
-- [ ] Browser authentication trigger
-- [ ] Device selection and naming
-- [ ] Error handling and user feedback
-- [ ] Integration options and preferences
+- [x] User-friendly setup wizard
+- [x] Add-on authentication flow
+- [x] Cookie integration from add-on
+- [x] Error handling and user feedback
+- [ ] Device selection and naming (pending API implementation)
 
 **2.2 Entity Implementation**
 - [ ] Switch entities for device control
@@ -107,50 +147,58 @@ The integration follows a modular architecture with clear separation of concerns
 
 ### Dependencies
 
+#### Add-on
 ```python
-# Core dependencies
-playwright>=1.40.0           # Browser automation
-aiohttp>=3.8.0              # Async HTTP client
-cryptography>=3.4.8        # Cookie encryption
-homeassistant>=2023.10.0    # Home Assistant core
-
-# Development dependencies
-pytest>=7.0.0               # Testing framework
-pytest-asyncio>=0.21.0      # Async testing
-black>=23.0.0               # Code formatting
-mypy>=1.0.0                 # Type checking
+fastapi==0.109.0           # Web server
+uvicorn==0.27.0            # ASGI server
+playwright==1.41.0         # Browser automation
+cryptography==42.0.0       # Cookie encryption
 ```
+
+#### Integration
+```python
+aiohttp>=3.8.0             # Async HTTP client
+cryptography>=3.4.8        # Cookie decryption
+homeassistant>=2023.10.0   # Home Assistant core
+```
+
+**Note**: Playwright is only in the add-on, not in the integration!
 
 ### Directory Structure
 
 ```
-custom_components/familylink/
-├── __init__.py              # Integration entry point
-├── manifest.json           # Integration metadata
-├── config_flow.py          # Configuration UI
-├── const.py                # Constants and configuration
-├── coordinator.py          # Data update coordination
-├── switch.py               # Switch entity implementation
-├── exceptions.py           # Custom exception classes
-├── auth/
-│   ├── __init__.py
-│   ├── browser.py          # Playwright browser management
-│   ├── session.py          # Session and cookie handling
-│   └── encryption.py       # Cookie encryption utilities
-├── client/
-│   ├── __init__.py
-│   ├── api.py              # Family Link API client
-│   ├── scraper.py          # Web scraping utilities
-│   └── models.py           # Data models and schemas
-├── utils/
-│   ├── __init__.py
-│   ├── helpers.py          # Common utility functions
-│   └── validators.py       # Input validation
-└── tests/
-    ├── __init__.py
-    ├── test_auth.py        # Authentication tests
-    ├── test_client.py      # API client tests
-    └── test_config_flow.py # Configuration flow tests
+HAFamilyLink/
+├── familylink-addon/              # Home Assistant Add-on
+│   ├── config.json                # Add-on configuration
+│   ├── Dockerfile                 # Container definition
+│   ├── requirements.txt           # Python dependencies
+│   ├── app/                       # FastAPI application
+│   │   ├── main.py               # Web server
+│   │   ├── config.py             # Configuration
+│   │   ├── auth/                 # Authentication module
+│   │   │   └── browser.py        # Playwright manager
+│   │   └── storage/              # Storage module
+│   │       └── file_storage.py   # Cookie encryption
+│   └── rootfs/                   # Container filesystem
+│       ├── etc/services.d/       # S6 service definitions
+│       └── usr/local/bin/        # Startup scripts
+│
+└── custom_components/familylink/  # Home Assistant Integration
+    ├── __init__.py                # Integration entry point
+    ├── manifest.json              # Integration metadata
+    ├── config_flow.py             # Configuration UI
+    ├── const.py                   # Constants
+    ├── coordinator.py             # Data coordinator
+    ├── switch.py                  # Switch entities
+    ├── exceptions.py              # Custom exceptions
+    ├── auth/
+    │   ├── addon_client.py        # Read cookies from add-on
+    │   └── session.py             # Session management
+    ├── client/
+    │   ├── api.py                 # Family Link API client
+    │   └── models.py              # Data models
+    └── utils/
+        └── __init__.py
 ```
 
 ## 🔒 Security Considerations
@@ -162,19 +210,64 @@ custom_components/familylink/
 
 ## 📦 Installation & Setup
 
-### HACS Installation (Recommended)
+### Prerequisites
 
-1. Add this repository to HACS custom repositories
-2. Install "Google Family Link" integration
-3. Restart Home Assistant
-4. Add integration via Settings → Devices & Services
+- Home Assistant OS or Supervised (add-ons not available in Container or Core)
+- Minimum 1GB RAM (for browser automation)
+- Internet connection
 
-### Configuration
+### Step 1: Install the Add-on
 
-1. **Add Integration**: Search for "Google Family Link" in integrations
-2. **Browser Authentication**: Complete Google login in popup browser
-3. **Device Selection**: Choose devices to control
-4. **Finalise Setup**: Confirm configuration and test devices
+1. **Add Repository**:
+   - Go to **Supervisor** → **Add-on Store**
+   - Click ⋮ menu → **Repositories**
+   - Add: `https://github.com/noiwid/HAFamilyLink`
+
+2. **Install Add-on**:
+   - Find "Google Family Link Auth" in the store
+   - Click **Install** (may take 5-10 minutes)
+   - Click **Start**
+   - Enable "Start on boot"
+
+3. **Authenticate**:
+   - Click **Open Web UI**
+   - Click "Démarrer l'authentification"
+   - Sign in to Google in the browser window
+   - Wait for success message
+
+### Step 2: Install the Integration
+
+1. **Via HACS** (Recommended):
+   - HACS → Integrations → ⋮ → Custom repositories
+   - Add: `https://github.com/noiwid/HAFamilyLink`
+   - Category: Integration
+   - Search "Google Family Link" and install
+
+2. **Or Manual Installation**:
+   - Copy `custom_components/familylink` to your HA config directory
+   - Restart Home Assistant
+
+### Step 3: Configure Integration
+
+1. **Add Integration**:
+   - Settings → Devices & Services → Add Integration
+   - Search "Google Family Link"
+
+2. **Complete Setup**:
+   - Enter integration name
+   - Adjust optional settings
+   - Click Submit
+   - Integration automatically loads cookies from add-on
+
+3. **Done!** Your Family Link devices should appear as switches
+
+### Re-authentication
+
+When cookies expire:
+1. Open add-on web UI (`http://[YOUR_HA]:8099`)
+2. Click "Démarrer l'authentification"
+3. Complete Google login
+4. Integration automatically picks up new cookies
 
 ## 🤝 Contributing
 
@@ -210,9 +303,11 @@ python -m pytest tests/
 
 - [x] Project planning and architecture design
 - [x] Repository structure and packaging
-- [ ] Core authentication system (In Progress)
-- [ ] Device discovery and control
-- [ ] Home Assistant integration
+- [x] Core authentication system (via add-on)
+- [x] Add-on with Playwright and FastAPI
+- [x] Integration cookie client
+- [ ] Device discovery and control (pending API reverse engineering)
+- [x] Home Assistant integration framework
 
 ### Milestones
 
@@ -224,8 +319,10 @@ python -m pytest tests/
 ## ⚠️ Known Limitations
 
 1. **No Official API**: Relies on web scraping (may break with Google updates)
-2. **Browser Dependency**: Requires Playwright browser installation
-3. **Performance**: Web scraping is slower than API calls
+2. **Add-on Required**: Requires Home Assistant OS or Supervised (not Container/Core)
+3. **Single Account**: Only supports one Google account at a time
+4. **Resource Usage**: Browser automation requires ~500MB RAM during authentication
+5. **Performance**: Web scraping is slower than official API calls
 
 ## 📄 Licence
 
