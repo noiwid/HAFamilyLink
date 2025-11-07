@@ -121,14 +121,34 @@ class BrowserAuthManager:
                         'myaccount.google.com/family' in current_url):
                         _LOGGER.info(f"✓ Authentication detected at: {current_url}")
 
-                        # IMPORTANT: Navigate to families.google.com to ensure cookies are valid for Family Link API
-                        # The API requires cookies with .google.com domain that are set when visiting families.google.com
-                        if 'families.google.com' not in current_url:
-                            _LOGGER.info("Navigating to families.google.com to ensure proper cookie setup...")
-                            await page.goto('https://families.google.com/families', wait_until='networkidle', timeout=30000)
-                            _LOGGER.info(f"Now at: {page.url}")
+                        # CRITICAL FIX: Force cookies to be properly set for kidsmanagement API
+                        # Google redirects from families.google.com, so we need to trigger the API directly
+                        _LOGGER.info("Triggering Family Link API call to ensure proper cookie configuration...")
 
-                        # Wait a bit to ensure all cookies are properly set
+                        try:
+                            # Execute a fetch call to the API in the browser context
+                            # This forces the browser to set cookies with the correct domain
+                            api_test = await page.evaluate("""
+                                async () => {
+                                    try {
+                                        const response = await fetch('https://kidsmanagement-pa.clients6.google.com/kidsmanagement/v1/families/mine/members', {
+                                            method: 'GET',
+                                            credentials: 'include',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+                                        return { success: true, status: response.status };
+                                    } catch (error) {
+                                        return { success: false, error: error.message };
+                                    }
+                                }
+                            """)
+                            _LOGGER.info(f"API test result: {api_test}")
+                        except Exception as e:
+                            _LOGGER.warning(f"API test failed (not critical): {e}")
+
+                        # Wait to ensure all cookies are properly set
                         await asyncio.sleep(3)
                         authenticated = True
                         break
