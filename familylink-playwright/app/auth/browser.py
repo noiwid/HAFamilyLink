@@ -119,8 +119,16 @@ class BrowserAuthManager:
                     # Check for Family Link dashboard URLs
                     if ('families.google.com' in current_url or
                         'myaccount.google.com/family' in current_url):
-                        _LOGGER.info(f"✓ Authentication detected! Extracting cookies from: {current_url}")
-                        # Wait a bit to ensure cookies are set
+                        _LOGGER.info(f"✓ Authentication detected at: {current_url}")
+
+                        # IMPORTANT: Navigate to families.google.com to ensure cookies are valid for Family Link API
+                        # The API requires cookies with .google.com domain that are set when visiting families.google.com
+                        if 'families.google.com' not in current_url:
+                            _LOGGER.info("Navigating to families.google.com to ensure proper cookie setup...")
+                            await page.goto('https://families.google.com/families', wait_until='networkidle', timeout=30000)
+                            _LOGGER.info(f"Now at: {page.url}")
+
+                        # Wait a bit to ensure all cookies are properly set
                         await asyncio.sleep(3)
                         authenticated = True
                         break
