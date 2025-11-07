@@ -8,7 +8,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apk add --no-cache \
     python3=~3.11 \
     py3-pip=~23 \
-    chromium=~120 \
+    chromium \
     nss \
     freetype \
     harfbuzz \
