@@ -2,7 +2,7 @@
 	"name": "Google Family Link",
 	"content_in_root": false,
 	"filename": "familylink",
-	"country": ["GB", "US", "CA", "AU"],
+	"country": ["FR", "GB", "US", "CA", "AU"],
 	"render_readme": true,
 	"domains": ["switch"],
 	"homeassistant": "2023.10.0"
