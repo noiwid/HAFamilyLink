@@ -1,333 +1,257 @@
 # Google Family Link Home Assistant Integration
 
-![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![GitHub release](https://img.shields.io/github/release/noiwid/HAFamilyLink.svg)](https://github.com/noiwid/HAFamilyLink/releases)
+[![License](https://img.shields.io/github/license/noiwid/HAFamilyLink.svg)](LICENSE)
 
-A robust Home Assistant integration for controlling Google Family Link devices through automation. This integration provides secure, browser-based authentication and reliable device control without storing sensitive credentials.
+A robust Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage apps, and lock/unlock your child's devices directly from Home Assistant.
 
 ## 🚨 Important Disclaimer
 
-This integration uses unofficial methods to interact with Google Family Link's web interface. **Use at your own risk** with test accounts only. This may violate Google's Terms of Service and could result in account suspension.
+This integration uses unofficial, reverse-engineered Google Family Link API endpoints. **Use at your own risk**. This may violate Google's Terms of Service and could result in account suspension. This project is not affiliated with, endorsed by, or connected to Google LLC.
 
 ## ✨ Features
 
-- **🔐 Secure Authentication**: Browser-based login with full 2FA support (no password storage)
-- **📱 Device Control**: Lock/unlock children's devices as Home Assistant switches
-- **🔄 Auto-Refresh**: Intelligent session management with automatic cookie renewal
-- **🏠 Native Integration**: Full Home Assistant configuration flow and device registry
-- **📊 Status Monitoring**: Real-time device status and connectivity monitoring
-- **🛡️ Error Recovery**: Robust error handling with graceful degradation
-- **🔧 Easy Setup**: User-friendly configuration via Home Assistant UI
+### 📱 Device Control
+- **Lock/Unlock Devices** - Control device access with switches in Home Assistant
+- **Real-time Synchronization** - Lock state automatically syncs with Google Family Link
+- **Multi-device Support** - Manage multiple supervised devices
+- **Bi-directional Control** - Changes made in Family Link app reflect in Home Assistant
 
-## 🎯 Project Goals
+### 📊 Screen Time Monitoring
+- **Daily Screen Time** - Track total daily usage in minutes or formatted time (HH:MM:SS)
+- **Top 10 Apps** - Monitor most-used apps with detailed usage statistics
+- **App Breakdown** - Per-application usage breakdown with hours, minutes, seconds
+- **Real-time Updates** - Automatic polling every 5 minutes (customizable)
 
-Create a production-ready Home Assistant integration that:
+### 📲 App Management
+- **Installed Apps Count** - Total number of apps on supervised devices
+- **Blocked Apps** - List and count of blocked/hidden apps
+- **Apps with Time Limits** - Track apps with usage restrictions
+- **App Details** - Package names, titles, and limit information
 
-1. **Seamlessly integrates** with Home Assistant's ecosystem
-2. **Securely manages** authentication without credential storage
-3. **Reliably controls** Family Link devices through automation
-4. **Gracefully handles** errors, timeouts, and session expiration
-5. **Provides clear feedback** to users about device status and issues
-6. **Maintains compatibility** with Home Assistant updates and HACS
+### 👶 Child Information
+- **Profile Details** - Child's name, email, birthday, age band
+- **Device Information** - Device model, name, capabilities, last activity
+- **Family Members** - List of all family members with roles
 
-## 🏗️ Architecture Overview
+## 📋 Available Entities
 
-### Two-Component Architecture
+### Sensors
+
+#### Screen Time
+- `sensor.family_link_daily_screen_time` - Daily screen time in **minutes** (numeric, ideal for graphs and automations)
+- `sensor.family_link_screen_time_formatted` - Daily screen time in **HH:MM:SS** format (text, ideal for display)
+
+#### Apps
+- `sensor.family_link_installed_apps` - Number of installed apps
+- `sensor.family_link_blocked_apps` - Number and list of blocked apps
+- `sensor.family_link_apps_with_time_limits` - Apps with usage restrictions
+- `sensor.family_link_top_app_1` through `sensor.family_link_top_app_10` - Top 10 most-used apps
+
+#### Devices & Family
+- `sensor.family_link_device_count` - Number of supervised devices
+- `sensor.family_link_child_info` - Supervised child's profile information
+
+### Switches
+- `switch.<device_name>` - Lock/unlock device
+  - **ON** = Device unlocked (child can use phone) 📱
+  - **OFF** = Device locked (phone is locked) 🔒
+
+## 🏗️ Architecture
 
 This project consists of two components that work together:
 
-#### 1. Home Assistant Add-on (`familylink-addon/`)
-Provides browser-based authentication using Playwright:
-- **Web Interface**: User-friendly UI for Google authentication
-- **Browser Automation**: Playwright-controlled Chromium for login
-- **Cookie Management**: Encrypted storage of authentication cookies
-- **Shared Storage**: Communicates with integration via `/share` directory
+### 1. Family Link Auth Add-on (`familylink-playwright/`)
+Provides secure, browser-based authentication:
+- **Playwright Automation** - Headless Chromium for Google login
+- **2FA Support** - Handles SMS, authenticator, and push notifications
+- **Cookie Extraction** - Securely stores authentication cookies
+- **Auto-refresh** - Keeps authentication fresh
 
-#### 2. Home Assistant Integration (`custom_components/familylink/`)
-Provides device control and automation:
-- **Config Flow**: User-friendly setup wizard
-- **Cookie Client**: Reads cookies from add-on's shared storage
-- **API Client**: Communicates with Google Family Link services
-- **Device Entities**: Switch entities for device control
-- **Coordinator**: Manages data updates and state
+### 2. Home Assistant Integration (`custom_components/familylink/`)
+Provides monitoring and control:
+- **Config Flow** - User-friendly setup wizard
+- **API Client** - Communicates with Google Family Link API
+- **Coordinator** - Manages data updates and caching
+- **Entities** - Sensors and switches for monitoring and control
 
 ### Why Two Components?
 
-Home Assistant's Docker environment restricts browser automation. The add-on runs in a separate container with all necessary dependencies (Chromium, Playwright), while the integration handles device control in the main HA environment.
+Home Assistant's Docker environment restricts browser automation. The add-on runs in a separate container with Chromium and Playwright, while the integration handles data fetching and device control.
 
-### Communication Flow
+## 📦 Installation
 
-```
-┌─────────────────────────┐
-│  Add-on Container       │
-│  - Playwright           │
-│  - Chromium browser     │
-│  - FastAPI web server   │
-└──────────┬──────────────┘
-           │ Writes encrypted cookies
-           ▼
-┌──────────────────────────┐
-│  /share/familylink/      │
-│  - cookies.enc (AES-128) │
-│  - .key (encryption key) │
-└──────────┬───────────────┘
-           │ Reads cookies
-           ▼
-┌──────────────────────────┐
-│  Integration             │
-│  - Addon Cookie Client   │
-│  - API Client            │
-│  - Device Control        │
-└──────────────────────────┘
-```
+See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
 
-### Security Model
+### Quick Start
 
-- **No Credential Storage**: Passwords never stored in Home Assistant
-- **Encrypted Cookies**: Fernet (AES-128) encryption at rest
-- **Isolated Browser**: Playwright runs in separate container
-- **File Permissions**: Restrictive permissions (0o600) on sensitive files
-- **Automatic Cleanup**: Secure session termination after authentication
+1. **Install Family Link Auth Add-on**
+   - Add repository to Home Assistant
+   - Install and start the add-on
+   - Authenticate via Web UI
 
-## 📋 Development Plan
+2. **Install Integration**
+   - Via HACS (recommended) or manually
+   - Configure through Home Assistant UI
+   - Cookies automatically loaded from add-on
 
-### Phase 1: Core Infrastructure (MVP)
+3. **Enjoy!**
+   - Monitor screen time
+   - Control device locks
+   - Create automations
 
-**1.1 Project Structure & Foundation**
-- [x] Repository setup with proper Python packaging
-- [x] Home Assistant integration manifest and structure
-- [ ] Logging framework with appropriate levels
-- [ ] Configuration schema validation
-- [ ] Error classes and exception handling
+## ⚙️ Configuration
 
-**1.2 Authentication System**
-- [x] Playwright browser automation for Google login (in add-on)
-- [x] 2FA flow handling (SMS, authenticator, push notifications)
-- [x] Session cookie extraction and validation
-- [x] Secure cookie storage with encryption
-- [x] Authentication state management via add-on
+### Update Interval
 
-**1.3 Device Discovery & Control**
-- [ ] Family Link web scraping for device enumeration
-- [ ] Device metadata extraction (name, type, status)
-- [ ] HTTP client for device control endpoints
-- [ ] Lock/unlock command implementation
-- [ ] Device state polling and caching
+The default update interval is 5 minutes (300 seconds). You can customize this in `configuration.yaml`:
 
-### Phase 2: Home Assistant Integration
-
-**2.1 Configuration Flow**
-- [x] User-friendly setup wizard
-- [x] Add-on authentication flow
-- [x] Cookie integration from add-on
-- [x] Error handling and user feedback
-- [ ] Device selection and naming (pending API implementation)
-
-**2.2 Entity Implementation**
-- [ ] Switch entities for device control
-- [ ] Device registry integration
-- [ ] State management and updates
-- [ ] Proper entity naming and unique IDs
-- [ ] Icon and attribute assignment
-
-### Phase 3: Reliability & Polish
-
-**3.1 Session Management**
-- [ ] Automatic cookie refresh logic
-- [ ] Session expiration detection
-- [ ] Re-authentication workflow
-- [ ] Graceful fallback mechanisms
-
-**3.2 Error Handling & Recovery**
-- [ ] Comprehensive error classification
-- [ ] Automatic retry mechanisms
-- [ ] Circuit breaker pattern for failed requests
-- [ ] User-friendly error messages
-
-## 🛠️ Technical Implementation
-
-### Dependencies
-
-#### Add-on
-```python
-fastapi==0.109.0           # Web server
-uvicorn==0.27.0            # ASGI server
-playwright==1.41.0         # Browser automation
-cryptography==42.0.0       # Cookie encryption
+```yaml
+# configuration.yaml (optional)
+familylink:
+  scan_interval: 300  # seconds
 ```
 
-#### Integration
-```python
-aiohttp>=3.8.0             # Async HTTP client
-cryptography>=3.4.8        # Cookie decryption
-homeassistant>=2023.10.0   # Home Assistant core
-```
+### Lock State Synchronization
 
-**Note**: Playwright is only in the add-on, not in the integration!
+Device lock states are fetched from Google's `appliedTimeLimits` API endpoint. Changes made from the Family Link app or website are reflected in Home Assistant within the next update cycle.
 
-### Directory Structure
+## 🔧 API Endpoints Used
 
-```
-HAFamilyLink/
-├── familylink-addon/              # Home Assistant Add-on
-│   ├── config.json                # Add-on configuration
-│   ├── Dockerfile                 # Container definition
-│   ├── requirements.txt           # Python dependencies
-│   ├── app/                       # FastAPI application
-│   │   ├── main.py               # Web server
-│   │   ├── config.py             # Configuration
-│   │   ├── auth/                 # Authentication module
-│   │   │   └── browser.py        # Playwright manager
-│   │   └── storage/              # Storage module
-│   │       └── file_storage.py   # Cookie encryption
-│   └── rootfs/                   # Container filesystem
-│       ├── etc/services.d/       # S6 service definitions
-│       └── usr/local/bin/        # Startup scripts
-│
-└── custom_components/familylink/  # Home Assistant Integration
-    ├── __init__.py                # Integration entry point
-    ├── manifest.json              # Integration metadata
-    ├── config_flow.py             # Configuration UI
-    ├── const.py                   # Constants
-    ├── coordinator.py             # Data coordinator
-    ├── switch.py                  # Switch entities
-    ├── exceptions.py              # Custom exceptions
-    ├── auth/
-    │   ├── addon_client.py        # Read cookies from add-on
-    │   └── session.py             # Session management
-    ├── client/
-    │   ├── api.py                 # Family Link API client
-    │   └── models.py              # Data models
-    └── utils/
-        └── __init__.py
-```
+This integration uses reverse-engineered Google Family Link API endpoints:
 
-## 🔒 Security Considerations
+| Endpoint | Purpose |
+|----------|---------|
+| `/families/mine/members` | Family member information |
+| `/people/{userId}/apps` | Installed apps list |
+| `/people/{userId}/appsandusage` | App usage data |
+| `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices |
+| `/people/{userId}/appliedTimeLimits` | Current lock states |
 
-- **Cookie Encryption**: All session data encrypted using Home Assistant's secret key
-- **Memory Management**: Sensitive data cleared from memory after use
-- **Session Isolation**: Browser sessions run in isolated containers
-- **TLS Enforcement**: All communications over HTTPS
+## 🐛 Troubleshooting
 
-## 📦 Installation & Setup
+### 401 Authentication Errors
 
-### Prerequisites
+**Symptoms**: Logs show "401 Unauthorized" errors
 
-- Home Assistant OS or Supervised (add-ons not available in Container or Core)
-- Minimum 1GB RAM (for browser automation)
-- Internet connection
+**Solutions**:
+1. Verify Family Link Auth add-on is running
+2. Check cookies file exists: `/share/familylink/cookies.json`
+3. Restart add-on to refresh authentication
+4. Reload integration in Home Assistant
 
-### Step 1: Install the Add-on
+### Lock State Not Updating
 
-1. **Add Repository**:
-   - Go to **Supervisor** → **Add-on Store**
-   - Click ⋮ menu → **Repositories**
-   - Add: `https://github.com/noiwid/HAFamilyLink`
+**Symptoms**: Device lock state doesn't reflect actual state
 
-2. **Install Add-on**:
-   - Find "Google Family Link Auth" in the store
-   - Click **Install** (may take 5-10 minutes)
-   - Click **Start**
-   - Enable "Start on boot"
+**Solutions**:
+1. Check logs for API errors
+2. Verify device is online and connected
+3. Wait for next update cycle (default: 5 minutes)
+4. Manually lock/unlock from Family Link app to test sync
 
-3. **Authenticate**:
-   - Click **Open Web UI**
-   - Click "Démarrer l'authentification"
-   - Sign in to Google in the browser window
-   - Wait for success message
+### Top Apps Unavailable
 
-### Step 2: Install the Integration
+**Symptoms**: Top app sensors show as "unavailable"
 
-1. **Via HACS** (Recommended):
-   - HACS → Integrations → ⋮ → Custom repositories
-   - Add: `https://github.com/noiwid/HAFamilyLink`
-   - Category: Integration
-   - Search "Google Family Link" and install
+**Cause**: No app usage data for current date
 
-2. **Or Manual Installation**:
-   - Copy `custom_components/familylink` to your HA config directory
-   - Restart Home Assistant
+**Solution**: Wait until the child uses apps today. Sensors will populate automatically.
 
-### Step 3: Configure Integration
+### Cookies Expired
 
-1. **Add Integration**:
-   - Settings → Devices & Services → Add Integration
-   - Search "Google Family Link"
+**Symptoms**: "Session expired" errors in logs
 
-2. **Complete Setup**:
-   - Enter integration name
-   - Adjust optional settings
-   - Click Submit
-   - Integration automatically loads cookies from add-on
-
-3. **Done!** Your Family Link devices should appear as switches
-
-### Re-authentication
-
-When cookies expire:
-1. Open add-on web UI (`http://[YOUR_HA]:8099`)
+**Solution**:
+1. Open add-on Web UI (port 8099)
 2. Click "Démarrer l'authentification"
 3. Complete Google login
 4. Integration automatically picks up new cookies
 
+## 📊 Example Automations
+
+### Bedtime Lock
+
+```yaml
+automation:
+  - alias: "Lock phone at bedtime"
+    trigger:
+      - platform: time
+        at: "21:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.child_phone
+```
+
+### Screen Time Alert
+
+```yaml
+automation:
+  - alias: "Alert on excessive screen time"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.family_link_daily_screen_time
+        above: 180  # 3 hours in minutes
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Child has used phone for over 3 hours today"
+```
+
+## 📈 Version History
+
+- **v0.5.0** - Real-time device lock state synchronization
+- **v0.4.x** - Device lock/unlock functionality
+- **v0.3.0** - App usage and screen time sensors
+- **v0.2.x** - Authentication fixes and improvements
+- **v0.1.0** - Initial release
+
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these guidelines:
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with clear commit messages
+4. Test thoroughly
+5. Submit a pull request
 
 ### Development Setup
 
 ```bash
-# Clone repository
 git clone https://github.com/noiwid/HAFamilyLink.git
 cd HAFamilyLink
-
-# Setup development environment
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements-dev.txt
-playwright install
-
-# Run tests
-python -m pytest tests/
 ```
 
-### Code Standards
+## 📄 License
 
-- **Python Style**: Black formatting, PEP 8 compliance
-- **Type Hints**: Full type annotation coverage
-- **Documentation**: Comprehensive docstrings
-- **Testing**: Unit tests for all new functionality
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📊 Project Status
+## 🙏 Credits
 
-### Current Progress
+- Developed by [@noiwid](https://github.com/noiwid) with assistance from Claude (Anthropic)
+- Inspired by the Home Assistant community
+- Reverse engineering insights from browser DevTools analysis
 
-- [x] Project planning and architecture design
-- [x] Repository structure and packaging
-- [x] Core authentication system (via add-on)
-- [x] Add-on with Playwright and FastAPI
-- [x] Integration cookie client
-- [ ] Device discovery and control (pending API reverse engineering)
-- [x] Home Assistant integration framework
+## 📞 Support
 
-### Milestones
+- [Report Issues](https://github.com/noiwid/HAFamilyLink/issues)
+- [Feature Requests](https://github.com/noiwid/HAFamilyLink/issues/new)
+- [Discussions](https://github.com/noiwid/HAFamilyLink/discussions)
 
-- **v0.1.0**: Basic authentication and device discovery
-- **v0.2.0**: Home Assistant integration and switch entities
-- **v0.3.0**: Session management and error recovery
-- **v1.0.0**: HACS release with full feature set
+## ⚠️ Legal
 
-## ⚠️ Known Limitations
-
-1. **No Official API**: Relies on web scraping (may break with Google updates)
-2. **Add-on Required**: Requires Home Assistant OS or Supervised (not Container/Core)
-3. **Single Account**: Only supports one Google account at a time
-4. **Resource Usage**: Browser automation requires ~500MB RAM during authentication
-5. **Performance**: Web scraping is slower than official API calls
-
-## 📄 Licence
-
-This project is licensed under the MIT Licence - see the [LICENSE](LICENSE) file for details.
-
----
-
-**⚠️ Important**: This integration is unofficial and may violate Google's Terms of Service. Use responsibly with test accounts only. 
+This is an unofficial integration and is not affiliated with, endorsed by, or connected to Google LLC. All product names, logos, and brands are property of their respective owners. Use at your own risk.

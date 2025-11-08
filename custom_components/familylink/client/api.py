@@ -65,23 +65,6 @@ class FamilyLinkClient:
 
 		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
 
-		# Debug: Show which cookies we loaded
-		cookie_names = [c.get("name", "unknown") for c in self._cookies]
-		_LOGGER.debug(f"Loaded cookies: {', '.join(cookie_names)}")
-
-		# Debug: Check for SAPISID specifically
-		sapisid_found = False
-		for cookie in self._cookies:
-			if cookie.get("name") == "SAPISID":
-				domain = cookie.get("domain", "N/A")
-				sapisid_found = True
-				_LOGGER.debug(f"✓ SAPISID cookie found with domain: {domain}")
-				break
-
-		if not sapisid_found:
-			_LOGGER.error("✗ SAPISID cookie NOT found in loaded cookies!")
-			_LOGGER.error(f"Available cookie names: {cookie_names}")
-
 	async def async_refresh_session(self) -> None:
 		"""Refresh the authentication session."""
 		# Clear current cookies and reload from add-on
@@ -106,34 +89,66 @@ class FamilyLinkClient:
 		Returns:
 			The SAPISIDHASH string in format: "{timestamp}_{sha1_hash}"
 		"""
-		# CRITICAL: Google uses Unix timestamp in SECONDS, not milliseconds
-		timestamp = int(time.time())  # Current time in seconds
+		timestamp = int(time.time())  # Unix timestamp in seconds
 		to_hash = f"{timestamp} {sapisid} {origin}"
 		sha1_hash = hashlib.sha1(to_hash.encode("utf-8")).hexdigest()
 		sapisidhash = f"{timestamp}_{sha1_hash}"
 		_LOGGER.debug(f"Generated SAPISIDHASH with timestamp={timestamp}, hash={sha1_hash[:16]}...")
 		return sapisidhash
 
+	def _get_cookies_dict(self) -> dict[str, str]:
+		"""Get cookies as a simple dict for passing to requests.
+
+		CookieJar doesn't work properly with cross-domain cookies from Playwright,
+		so we pass cookies directly in each request instead.
+		"""
+		if not hasattr(self, '_cookie_dict'):
+			self._cookie_dict = {}
+			if self._cookies:
+				for cookie in self._cookies:
+					cookie_name = cookie.get("name", "")
+					cookie_value = cookie.get("value", "")
+					if cookie_name and cookie_value:
+						# Strip quotes from cookie values (Playwright may add them)
+						cookie_value = cookie_value.strip('"')
+						self._cookie_dict[cookie_name] = cookie_value
+				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
+		return self._cookie_dict
+
+	def _get_cookie_header(self) -> str:
+		"""Build Cookie header string manually to avoid aiohttp adding quotes.
+
+		aiohttp automatically adds quotes around cookie values containing special chars like /,
+		but Google/Playwright don't use this - they send raw values without quotes.
+		"""
+		if not hasattr(self, '_cookie_header'):
+			cookies_dict = self._get_cookies_dict()
+			# Build cookie header as: "name1=value1; name2=value2; ..."
+			# No quotes around values, even if they contain /
+			cookie_parts = [f"{name}={value}" for name, value in cookies_dict.items()]
+			self._cookie_header = "; ".join(cookie_parts)
+			_LOGGER.debug(f"Built Cookie header with {len(cookies_dict)} cookies (length: {len(self._cookie_header)} chars)")
+		return self._cookie_header
+
 	async def _get_session(self) -> aiohttp.ClientSession:
-		"""Get or create HTTP session with proper headers and cookies."""
+		"""Get or create HTTP session with proper headers."""
 		if self._session is None:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
-			cookie_jar = {}
 
 			_LOGGER.debug("Creating new session with authentication")
 
 			if self._cookies:
-				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for session")
+				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
+
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
 					cookie_domain = cookie.get("domain", "")
-					cookie_jar[cookie_name] = cookie["value"]
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
 						if ".google.com" in cookie_domain:
-							sapisid = cookie["value"]
+							sapisid = cookie.get("value", "").strip('"')
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
@@ -141,7 +156,6 @@ class FamilyLinkClient:
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
-				_LOGGER.error(f"Available cookies in jar: {list(cookie_jar.keys())}")
 				raise AuthenticationError("SAPISID cookie not found in authentication data")
 
 			# Generate authorization header
@@ -149,6 +163,7 @@ class FamilyLinkClient:
 			_LOGGER.debug(f"Generated SAPISIDHASH (first 20 chars): {sapisidhash[:20]}...")
 
 			# Create session with Google Family Link API headers
+			# Note: We don't use a cookie jar - cookies are passed directly in each request
 			headers = {
 				"User-Agent": (
 					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -162,10 +177,10 @@ class FamilyLinkClient:
 			}
 
 			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
+			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
 
 			self._session = aiohttp.ClientSession(
 				headers=headers,
-				cookies=cookie_jar,
 				timeout=aiohttp.ClientTimeout(total=30),
 			)
 
@@ -184,13 +199,17 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
 			url = f"{self.BASE_URL}/families/mine/members"
 			_LOGGER.debug(f"Requesting: GET {url}")
 
 			async with session.get(
 				url,
-				headers={"Content-Type": "application/json"}
+				headers={
+					"Content-Type": "application/json",
+					"Cookie": cookie_header
+				}
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
 
@@ -256,24 +275,34 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
-			params = {
-				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
-			}
+			# Google expects multiple capabilities as separate URL parameters
+			# ?capabilities=CAPABILITY_APP_USAGE_SESSION&capabilities=CAPABILITY_SUPERVISION_CAPABILITIES
+			params = [
+				("capabilities", "CAPABILITY_APP_USAGE_SESSION"),
+				("capabilities", "CAPABILITY_SUPERVISION_CAPABILITIES"),
+			]
 
 			url = f"{self.BASE_URL}/people/{account_id}/appsandusage"
 			_LOGGER.debug(f"Requesting: GET {url}")
 
 			async with session.get(
 				url,
-				headers={"Content-Type": "application/json"},
+				headers={
+					"Content-Type": "application/json",
+					"Cookie": cookie_header
+				},
 				params=params
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
+				_LOGGER.debug(f"Response headers: {dict(response.headers)}")
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+					_LOGGER.error(f"API Error {response.status}: {response_text}")
+					_LOGGER.error(f"Request URL was: {url}?{params}")
+					_LOGGER.error(f"Request headers: {dict(response.request_info.headers)}")
 
 				response.raise_for_status()
 				data = await response.json()
@@ -350,7 +379,12 @@ class FamilyLinkClient:
 			total_seconds = 0
 			app_breakdown = {}
 
-			for session in data.get("appUsageSessions", []):
+			all_sessions = data.get("appUsageSessions", [])
+			_LOGGER.debug(f"Found {len(all_sessions)} total app usage sessions")
+			if all_sessions:
+				_LOGGER.debug(f"First session example: {all_sessions[0]}")
+
+			for session in all_sessions:
 				session_date = session.get("date", {})
 
 				# Check if this session is for the target date
@@ -374,8 +408,12 @@ class FamilyLinkClient:
 
 			_LOGGER.debug(
 				f"Daily screen time for {target_date.date()}: {hours:02d}:{minutes:02d}:{seconds:02d} "
-				f"({len(app_breakdown)} apps)"
+				f"({len(app_breakdown)} apps, {total_seconds} total seconds)"
 			)
+			if not app_breakdown:
+				_LOGGER.warning(f"No app usage data found for {target_date.date()}")
+			else:
+				_LOGGER.debug(f"App breakdown: {app_breakdown}")
 
 			return {
 				"total_seconds": total_seconds,
@@ -409,6 +447,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
 			# Format: [account_id, [[[package_name], [1]]]]
 			# [1] = block flag
@@ -416,7 +455,10 @@ class FamilyLinkClient:
 
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
-				headers={"Content-Type": "application/json+protobuf"},
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
 				data=payload
 			) as response:
 				response.raise_for_status()
@@ -450,6 +492,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
 			# Format: [account_id, [[[package_name], []]]]
 			# Empty array = remove restrictions
@@ -457,7 +500,10 @@ class FamilyLinkClient:
 
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
-				headers={"Content-Type": "application/json+protobuf"},
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
 				data=payload
 			) as response:
 				response.raise_for_status()
@@ -603,10 +649,16 @@ class FamilyLinkClient:
 		}
 
 	async def async_control_device(self, device_id: str, action: str) -> bool:
-		"""Control a Family Link device.
+		"""Control a Family Link device (lock/unlock).
 
-		Note: Device control API endpoints are not yet reverse-engineered.
-		This is a placeholder for future implementation.
+		Uses the timeLimitOverrides:batchCreate endpoint discovered from browser DevTools.
+
+		Args:
+			device_id: Device ID to control
+			action: "lock" or "unlock"
+
+		Returns:
+			True if successful, False otherwise
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -615,21 +667,129 @@ class FamilyLinkClient:
 			raise DeviceControlError(f"Invalid action: {action}")
 
 		try:
-			_LOGGER.warning(
-				"Device control not yet implemented - Google Family Link device control "
-				"API endpoints are not documented. Returning placeholder response."
-			)
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
-			# TODO: Implement real device control when API endpoints are discovered
-			# Possible endpoints to investigate:
-			# - POST /people/{account_id}/devices/{device_id}:lock
-			# - POST /people/{account_id}/devices/{device_id}:unlock
+			# Get supervised child account ID
+			account_id = await self.async_get_supervised_child_id()
 
-			return False
+			# Action codes discovered from browser DevTools:
+			# Code 1 = LOCK (verrouiller)
+			# Code 4 = UNLOCK (déverrouiller)
+			action_code = 1 if action == DEVICE_LOCK_ACTION else 4
+
+			# Payload format from browser: [null, account_id, [[null, null, action_code, device_id]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[
+					[None, None, action_code, device_id]
+				],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Requesting device {action}: POST {url}")
+			_LOGGER.debug(f"Payload: {payload}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				_LOGGER.debug(f"Response status: {response.status}")
+
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Device control failed {response.status}: {response_text}")
+					return False
+
+				response_data = await response.json()
+				_LOGGER.debug(f"Device control response: {response_data}")
+				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+				return True
 
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
+
+	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, bool]:
+		"""Get applied time limits to determine device lock states.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			Dictionary mapping device_id to locked state (True = locked, False = unlocked)
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			url = f"{self.BASE_URL}/people/{account_id}/appliedTimeLimits"
+			params = [("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME")]
+
+			_LOGGER.debug(f"Fetching applied time limits from {url}")
+
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
+					return {}
+
+				data = await response.json()
+				_LOGGER.debug(f"Applied time limits response: {data}")
+
+				# Parse lock states from response
+				# Response format: [[null, timestamp], [device_arrays]]
+				device_lock_states = {}
+
+				if len(data) > 1 and isinstance(data[1], list):
+					for device_data in data[1]:
+						if not isinstance(device_data, list) or len(device_data) < 25:
+							continue
+
+						# Get device ID from the data
+						# When unlocked: [0] contains an array with device_id at [3]
+						# When locked: [0] is null
+						device_id = None
+
+						# Try to find device_id
+						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
+							# Found in unlock override
+							device_id = device_data[0][3]
+						elif len(device_data) > 25 and device_data[25]:
+							# Found at index 25 (device_id field always present)
+							device_id = device_data[25]
+
+						if device_id:
+							# Determine lock state:
+							# Index 15 is null when locked, has a value (usually 2) when unlocked
+							is_locked = device_data[15] is None
+							device_lock_states[device_id] = is_locked
+							_LOGGER.debug(f"Device {device_id}: locked={is_locked}")
+
+				return device_lock_states
+
+		except Exception as err:
+			_LOGGER.error("Failed to fetch applied time limits: %s", err)
+			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
 
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
