@@ -243,7 +243,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Credits
 
 - Developed by [@noiwid](https://github.com/noiwid) with assistance from Claude (Anthropic)
-- Inspired by the Home Assistant community
+- Based on the original work by [@tducret](https://github.com/tducret/familylink) (Python package documenting Family Link API endpoints)
+- Inspired by [@Vortitron's HAFamilyLink](https://github.com/Vortitron/HAFamilyLink) repository
+- Home Assistant community for integration examples and best practices
 - Reverse engineering insights from browser DevTools analysis
 
 ## 📞 Support

@@ -7,10 +7,12 @@ Je suis ravi de vous présenter mon intégration **Google Family Link pour Home 
 ## 🙏 Remerciements
 
 Avant tout, je tiens à remercier :
+- **[@tducret](https://github.com/tducret/familylink)** pour son package Python original qui a documenté les premiers endpoints de l'API Google Family Link
+- **[@Vortitron](https://github.com/Vortitron/HAFamilyLink)** pour son travail initial sur HAFamilyLink qui a servi de base à ce projet
 - **La communauté Home Assistant** pour l'inspiration et les nombreux exemples d'intégrations
 - **L'équipe Playwright** pour leur excellent framework d'automation de navigateur
 - **Claude (Anthropic)** qui m'a accompagné dans le développement et la résolution de nombreux défis techniques
-- **Tous ceux qui ont partagé leurs connaissances** sur le reverse engineering d'APIs
+- **Tous ceux qui ont partagé leurs connaissances** sur le reverse engineering d'APIs Google
 
 Sans ces briques, ce projet n'aurait jamais vu le jour !
 
