@@ -133,6 +133,21 @@ class FamilyLinkClient:
 				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
 		return self._cookie_dict
 
+	def _get_cookie_header(self) -> str:
+		"""Build Cookie header string manually to avoid aiohttp adding quotes.
+
+		aiohttp automatically adds quotes around cookie values containing special chars like /,
+		but Google/Playwright don't use this - they send raw values without quotes.
+		"""
+		if not hasattr(self, '_cookie_header'):
+			cookies_dict = self._get_cookies_dict()
+			# Build cookie header as: "name1=value1; name2=value2; ..."
+			# No quotes around values, even if they contain /
+			cookie_parts = [f"{name}={value}" for name, value in cookies_dict.items()]
+			self._cookie_header = "; ".join(cookie_parts)
+			_LOGGER.debug(f"Built Cookie header with {len(cookies_dict)} cookies (length: {len(self._cookie_header)} chars)")
+		return self._cookie_header
+
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
 		if self._session is None:
@@ -202,16 +217,17 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
-			cookies = self._get_cookies_dict()
+			cookie_header = self._get_cookie_header()
 
 			url = f"{self.BASE_URL}/families/mine/members"
 			_LOGGER.debug(f"Requesting: GET {url}")
-			_LOGGER.debug(f"Passing {len(cookies)} cookies directly in request: {list(cookies.keys())}")
 
 			async with session.get(
 				url,
-				headers={"Content-Type": "application/json"},
-				cookies=cookies
+				headers={
+					"Content-Type": "application/json",
+					"Cookie": cookie_header
+				}
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
 
@@ -280,7 +296,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
-			cookies = self._get_cookies_dict()
+			cookie_header = self._get_cookie_header()
 
 			params = {
 				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
@@ -291,9 +307,11 @@ class FamilyLinkClient:
 
 			async with session.get(
 				url,
-				headers={"Content-Type": "application/json"},
-				params=params,
-				cookies=cookies
+				headers={
+					"Content-Type": "application/json",
+					"Cookie": cookie_header
+				},
+				params=params
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
 
@@ -435,7 +453,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
-			cookies = self._get_cookies_dict()
+			cookie_header = self._get_cookie_header()
 
 			# Format: [account_id, [[[package_name], [1]]]]
 			# [1] = block flag
@@ -443,9 +461,11 @@ class FamilyLinkClient:
 
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
-				headers={"Content-Type": "application/json+protobuf"},
-				data=payload,
-				cookies=cookies
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
 			) as response:
 				response.raise_for_status()
 				_LOGGER.info(f"Successfully blocked app: {package_name}")
@@ -478,7 +498,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
-			cookies = self._get_cookies_dict()
+			cookie_header = self._get_cookie_header()
 
 			# Format: [account_id, [[[package_name], []]]]
 			# Empty array = remove restrictions
@@ -486,9 +506,11 @@ class FamilyLinkClient:
 
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
-				headers={"Content-Type": "application/json+protobuf"},
-				data=payload,
-				cookies=cookies
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
 			) as response:
 				response.raise_for_status()
 				_LOGGER.info(f"Successfully unblocked app: {package_name}")
