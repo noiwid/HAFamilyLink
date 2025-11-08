@@ -192,16 +192,22 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		try:
 			success = await self.client.async_control_device(device_id, action)
-			
+
 			if success:
-				# Update local cache immediately for responsive UI
+				# Since the API is a toggle, we need to invert the current state
+				# NOT set it based on the action requested
 				if device_id in self._devices:
-					self._devices[device_id]["locked"] = (action == "lock")
-				
+					current_locked = self._devices[device_id].get("locked", False)
+					self._devices[device_id]["locked"] = not current_locked
+					_LOGGER.debug(
+						f"Toggled device {device_id} lock state: "
+						f"{current_locked} -> {not current_locked}"
+					)
+
 				# Schedule a data refresh to get latest state
 				await asyncio.sleep(1)  # Brief delay for state to propagate
 				await self.async_request_refresh()
-			
+
 			return success
 
 		except Exception as err:
