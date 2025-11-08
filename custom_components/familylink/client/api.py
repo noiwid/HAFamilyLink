@@ -298,9 +298,12 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			params = {
-				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
-			}
+			# Google expects multiple capabilities as separate URL parameters
+			# ?capabilities=CAPABILITY_APP_USAGE_SESSION&capabilities=CAPABILITY_SUPERVISION_CAPABILITIES
+			params = [
+				("capabilities", "CAPABILITY_APP_USAGE_SESSION"),
+				("capabilities", "CAPABILITY_SUPERVISION_CAPABILITIES"),
+			]
 
 			url = f"{self.BASE_URL}/people/{account_id}/appsandusage"
 			_LOGGER.debug(f"Requesting: GET {url}")
