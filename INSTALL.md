@@ -1,6 +1,5 @@
-# Create the modified Markdown content with emojis and save it as a downloadable file
 
-Installation Guide 🚀
+# Installation Guide 🚀
 
 Google Family Link Integration for Home Assistant 👨‍👩‍👧‍👦
 
@@ -54,3 +53,359 @@ The add-on handles Google authentication using Playwright browser automation.
 2. Navigate to **Settings** > **Add-ons** > **Add-on Store**  
 3. Click the **...** menu (top right) > **Repositories**  
 4. Add this URL:  
+   ```
+   https://github.com/noiwid/HAFamilyLink
+   ```
+5. Click **Add** > **Close**
+
+### 1.2 Install the Add-on ⏬
+
+1. In the Add-on Store, search for **"Google Family Link Auth"**  
+2. Click on the add-on  
+3. Click **Install**  
+   - This may take 5-10 minutes (downloads Chromium browser) ⏱️  
+   - Wait for "Installation completed" message
+
+### 1.3 Configure the Add-on ⚙️
+
+1. After installation, **do NOT start it yet**  
+2. Click on the **Configuration** tab  
+3. Review the default settings:  
+   ```yaml
+   port: 8099
+   log_level: info
+   cookie_path: /share/familylink/cookies.json
+   ```
+4. Change settings if needed (usually defaults are fine)  
+5. Click **Save** 💾
+
+### 1.4 Start the Add-on ▶️
+
+1. Go to the **Info** tab  
+2. Enable **"Start on boot"** (recommended)  
+3. Enable **"Watchdog"** (automatically restarts if it crashes) 🐶  
+4. Click **Start**  
+5. Wait for the add-on to start (check logs for "Application startup complete") 📜
+
+### 1.5 Authenticate with Google 🔐
+
+**Important: You MUST use a VNC client to complete authentication!**
+
+**Step 1: Open the add-on web interface**  
+- Click "Open Web UI" (or navigate to `http://[YOUR_HA_IP]:8099`)  
+- You should see the Family Link Auth interface
+
+**Step 2: Start Authentication**  
+- Click "Démarrer l'authentification" (Start Authentication)  
+- The Chromium browser launches inside the add-on container  
+- You cannot see it directly - you need VNC! 🖥️
+
+**Step 3: Connect via VNC**  
+- Open your VNC client (TightVNC, RealVNC, VNC Viewer, etc.)  
+- **Address**: `[YOUR_HA_IP]:5900` (or just `[YOUR_HA_IP]` and port `5900`)  
+- **Password**: `familylink`  
+- Click **Connect**
+
+**Step 4: Complete Google Login in VNC**  
+- Enter your Google account email > Click **Next**  
+- Enter your password > Click **Next**  
+- Complete 2FA if prompted (SMS code, authenticator app, push notification, etc.)  
+- Grant permissions if asked  
+- **Keep the VNC window open** until you see the Family Link dashboard 🧭
+
+**Step 5: Verify Success**  
+- The web interface (port 8099) will show "Authentication successful" ✅  
+- The add-on extracts cookies and saves them to `/share/familylink/cookies.json` 🍪  
+- You can now close the VNC connection
+
+**Important Notes:** ⚠️  
+- The VNC session timeout is 5 minutes (configurable in add-on settings)  
+- If authentication fails, restart the add-on and try again 🔁  
+- The VNC password is always `familylink` (cannot be changed)
+
+### 1.6 Verify Authentication 🧪
+
+Check the add-on logs (**Log** tab):  
+```
+INFO: Navigating to https://families.google.com/families
+INFO: Successfully extracted 26 cookies
+INFO: Cookies saved to /share/familylink/cookies.json
+```
+If you see "Successfully extracted X cookies", authentication is complete! 🎉
+
+---
+
+## Step 2: Install the Integration 📥
+
+You can install the integration via HACS (recommended) or manually.
+
+### Option A: Install via HACS (Recommended) ⭐
+
+1. Open Home Assistant  
+2. Navigate to **HACS** > **Integrations**  
+3. Click **...** (top right) > **Custom repositories**  
+4. Add repository:  
+   - **Repository**: `https://github.com/noiwid/HAFamilyLink`  
+   - **Category**: `Integration`  
+5. Click **Add**  
+6. Close the custom repositories dialog  
+7. Click **+ Explore & Download Repositories**  
+8. Search for **"Google Family Link"**  
+9. Click on the integration > **Download**  
+10. Select the latest version > **Download**  
+11. **Restart Home Assistant**  
+    - Settings > System > Restart 🔄
+
+### Option B: Manual Installation 📦
+
+1. Download the [latest release](https://github.com/noiwid/HAFamilyLink/releases) from GitHub  
+2. Extract the ZIP file  
+3. Copy the `custom_components/familylink` folder to your Home Assistant `config/custom_components/` directory  
+
+   Final structure:  
+   ```
+   config/
+     custom_components/
+       familylink/
+         __init__.py
+         manifest.json
+         config_flow.py
+         coordinator.py
+         sensor.py
+         switch.py
+         const.py
+         client/
+           api.py
+         auth/
+           addon_client.py
+   ```
+
+4. **Restart Home Assistant** 🔄
+
+---
+
+## Step 3: Configure the Integration 🧰
+
+### 3.1 Add the Integration ➕
+
+1. Navigate to **Settings** > **Devices & Services**  
+2. Click **+ Add Integration** (bottom right)  
+3. Search for **"Google Family Link"**  
+4. Click on the integration
+
+### 3.2 Complete the Configuration Flow ✅
+
+1. **Welcome Screen**  
+   - Read the information  
+   - Click **Submit**
+
+2. **Integration Name** (optional) ✍️  
+   - Enter a custom name or leave default: "Google Family Link"  
+   - Click **Submit**
+
+3. **Cookie Loading** 🍪  
+   - The integration will automatically load cookies from the add-on  
+   - If successful, you'll see: "Successfully loaded cookies from add-on"
+
+4. **Success!** 🎉  
+   - Click **Finish**  
+   - The integration is now configured
+
+### 3.3 Verify Integration Setup 🔎
+
+1. Go to **Settings** > **Devices & Services**  
+2. Find **"Google Family Link"** in the list  
+3. You should see:  
+   - Integration badge (blue/green) 🟦🟩  
+   - Number of devices  
+   - Number of entities
+
+---
+
+## Verification 🔍
+
+### Check Entities 🧾
+
+1. Navigate to **Settings** > **Devices & Services** > **Google Family Link**  
+2. Click on the integration to see all entities  
+3. You should see:
+
+   **Sensors:** 📟  
+   - `sensor.family_link_daily_screen_time`  
+   - `sensor.family_link_screen_time_formatted`  
+   - `sensor.family_link_installed_apps`  
+   - `sensor.family_link_blocked_apps`  
+   - `sensor.family_link_apps_with_time_limits`  
+   - `sensor.family_link_top_app_1` through `sensor.family_link_top_app_10`  
+   - `sensor.family_link_device_count`  
+   - `sensor.family_link_child_info`  
+
+   **Switches:** 🎚️  
+   - `switch.<device_name>` (for each supervised device)
+
+### Test Device Control 🧪
+
+1. Go to **Developer Tools** > **States**  
+2. Find `switch.<your_device_name>`  
+3. Click the switch to test lock/unlock:  
+   - **ON** = Device unlocked 🔓  
+   - **OFF** = Device locked 🔒  
+4. Verify the phone locks/unlocks  
+5. Check the Family Link app to confirm state matches 📲
+
+### Check Logs 🧾
+
+1. Navigate to **Settings** > **System** > **Logs**  
+2. Filter for "familylink"  
+3. Look for:  
+   ```
+   Successfully loaded X cookies from add-on
+   Fetched X apps, X devices, X usage sessions
+   Fetched lock states for X devices
+   Successfully updated all Family Link data
+   ```
+
+4. **No errors** means everything is working! ✅
+
+---
+
+## Troubleshooting 🐛
+
+### Integration Not Found 🔎
+
+**Problem:** Can't find "Google Family Link" when adding integration  
+
+**Solution:**  
+1. Verify files are in `config/custom_components/familylink/`  
+2. Restart Home Assistant  
+3. Clear browser cache (Ctrl+F5) 🧼  
+4. Check logs for errors during startup
+
+### Cookies Not Loading 🍪
+
+**Problem:** "Failed to load cookies from add-on" error  
+
+**Solution:**  
+1. Verify add-on is running  
+2. Check `/share/familylink/cookies.json` exists:  
+   ```bash
+   ls -la /share/familylink/
+   ```
+3. Restart add-on  
+4. Re-authenticate via add-on Web UI  
+5. Reload integration
+
+### 401 Authentication Errors 🔐
+
+**Problem:** Logs show "401 Unauthorized" errors  
+
+**Solution:**  
+1. Cookies may have expired ⏳  
+2. Open add-on Web UI (`http://[YOUR_HA_IP]:8099`)  
+3. Click "Démarrer l'authentification"  
+4. Complete Google login again  
+5. Wait for success message  
+6. Reload integration in Home Assistant
+
+### No Entities Created 🫥
+
+**Problem:** Integration loads but no sensors/switches appear  
+
+**Solution:**  
+1. Check logs for API errors  
+2. Verify you have at least one supervised child  
+3. Check that child has an active device 📱  
+4. Wait 5 minutes for first data update ⏱️  
+5. Reload integration
+
+### Switch Not Working 📴
+
+**Problem:** Can't lock/unlock device from Home Assistant  
+
+**Solution:**  
+1. Verify device is online and connected  
+2. Check Family Link app shows device  
+3. Try locking from Family Link app first (to test)  
+4. Check logs for "Device control failed" errors  
+5. Reload integration
+
+### Top Apps Always Unavailable 📉
+
+**Problem:** Top app sensors never show data  
+
+**Cause:** No usage data for current date  
+
+**Solution:**  
+1. Wait until child uses apps today  
+2. Sensors auto-populate when data becomes available  
+3. Check tomorrow after device has been used
+
+---
+
+## Re-authentication 🔄
+
+Cookies expire periodically. To re-authenticate:
+
+1. Open add-on Web UI: `http://[YOUR_HA_IP]:8099`  
+2. Click **"Démarrer l'authentification"**  
+3. Complete Google login flow  
+4. Wait for success message  
+5. Integration auto-loads new cookies (no reload needed) ✅
+
+---
+
+## Uninstalling 🧹
+
+### Remove Integration ❌
+
+1. Settings > Devices & Services > Google Family Link  
+2. Click **...** > **Delete**  
+3. Confirm deletion
+
+### Remove Add-on ❌
+
+1. Settings > Add-ons > Google Family Link Auth  
+2. Click **Uninstall**  
+3. Optionally remove repository from Add-on Store
+
+### Clean Up Files 🧽
+
+```bash
+# Remove integration files
+rm -rf /config/custom_components/familylink
+
+# Remove cookies
+rm -rf /share/familylink
+```
+
+---
+
+## Getting Help 🤝
+
+If you encounter issues:
+
+1. **Check Logs**: Settings > System > Logs > Filter "familylink"  
+2. **Search Issues**: [GitHub Issues](https://github.com/noiwid/HAFamilyLink/issues)  
+3. **Report Bug**: [Create New Issue](https://github.com/noiwid/HAFamilyLink/issues/new)  
+4. **Discussions**: [GitHub Discussions](https://github.com/noiwid/HAFamilyLink/discussions)
+
+When reporting issues, please include:  
+- Home Assistant version 🔢  
+- Integration version 🧩  
+- Add-on version 📦  
+- Relevant log entries 🧾  
+- Steps to reproduce 🔁  
+
+---
+
+## Next Steps ▶️
+
+After installation:
+
+1. **Create Automations** - See [README.md](README.md#example-automations)  
+2. **Customize Entities** - Rename, change icons, set friendly names ✨  
+3. **Add to Dashboard** - Create cards for monitoring 📊  
+4. **Set Update Interval** - Customize polling frequency ⏱️  
+5. **Explore Features** - Try all sensors and switches 🧭
+
+Enjoy monitoring and controlling your child's devices with Home Assistant! 🎯
