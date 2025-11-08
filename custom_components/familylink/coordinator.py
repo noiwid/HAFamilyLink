@@ -70,14 +70,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					}
 					devices.append(device)
 
-			# Update internal device cache while preserving lock state
+			# Fetch real lock states from appliedTimeLimits API
+			device_lock_states = {}
+			try:
+				device_lock_states = await self.client.async_get_applied_time_limits()
+				_LOGGER.debug(f"Fetched lock states for {len(device_lock_states)} devices")
+			except Exception as err:
+				_LOGGER.warning(f"Failed to fetch device lock states: {err}")
+
+			# Update device cache with real lock states from API
 			for device in devices:
 				device_id = device["id"]
-				# Preserve existing lock state if we have it
-				if device_id in self._devices:
-					device["locked"] = self._devices[device_id].get("locked", False)
-				else:
-					device["locked"] = False
+				# Use real lock state from API if available, otherwise default to False
+				device["locked"] = device_lock_states.get(device_id, False)
 
 			self._devices = {device["id"]: device for device in devices}
 
@@ -202,16 +207,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			success = await self.client.async_control_device(device_id, action)
 
 			if success:
-				# Toggle the current state since we're sending the action
-				if device_id in self._devices:
-					current_locked = self._devices[device_id].get("locked", False)
-					self._devices[device_id]["locked"] = not current_locked
-					_LOGGER.debug(
-						f"Toggled device {device_id} lock state: "
-						f"{current_locked} -> {not current_locked} (action: {action})"
-					)
-
-				# Schedule a data refresh to get latest state
+				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+				# Schedule a data refresh to get latest state from API
 				await asyncio.sleep(1)  # Brief delay for state to propagate
 				await self.async_request_refresh()
 
