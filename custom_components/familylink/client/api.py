@@ -114,58 +114,42 @@ class FamilyLinkClient:
 		_LOGGER.debug(f"Generated SAPISIDHASH with timestamp={timestamp}, hash={sha1_hash[:16]}...")
 		return sapisidhash
 
+	def _get_cookies_dict(self) -> dict[str, str]:
+		"""Get cookies as a simple dict for passing to requests.
+
+		CookieJar doesn't work properly with cross-domain cookies from Playwright,
+		so we pass cookies directly in each request instead.
+		"""
+		if not hasattr(self, '_cookie_dict'):
+			self._cookie_dict = {}
+			if self._cookies:
+				for cookie in self._cookies:
+					cookie_name = cookie.get("name", "")
+					cookie_value = cookie.get("value", "")
+					if cookie_name and cookie_value:
+						self._cookie_dict[cookie_name] = cookie_value
+				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
+		return self._cookie_dict
+
 	async def _get_session(self) -> aiohttp.ClientSession:
-		"""Get or create HTTP session with proper headers and cookies."""
+		"""Get or create HTTP session with proper headers."""
 		if self._session is None:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
 
-			# Create a proper aiohttp cookie jar with unsafe=True to allow cross-domain cookies
-			# Google cookies have domain .google.com and need to be sent to kidsmanagement-pa.clients6.google.com
-			cookie_jar = aiohttp.CookieJar(unsafe=True)
-
 			_LOGGER.debug("Creating new session with authentication")
 
 			if self._cookies:
-				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for session")
-
-				# Create cookies with proper attributes from Playwright data
-				from http.cookies import SimpleCookie, Morsel
-				import datetime
+				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
 
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
 					cookie_domain = cookie.get("domain", "")
-					cookie_value = cookie.get("value", "")
-					cookie_path = cookie.get("path", "/")
-
-					# Create a proper cookie Morsel with all attributes
-					morsel = Morsel()
-					morsel.set(cookie_name, cookie_value, cookie_value)
-					morsel['domain'] = cookie_domain
-					morsel['path'] = cookie_path
-
-					# Add secure and httponly flags if present
-					if cookie.get("secure"):
-						morsel['secure'] = True
-					if cookie.get("httpOnly"):
-						morsel['httponly'] = True
-
-					# Set expires if present
-					if cookie.get("expires") and cookie["expires"] > 0:
-						expires_date = datetime.datetime.fromtimestamp(cookie["expires"], tz=datetime.timezone.utc)
-						morsel['expires'] = expires_date.strftime('%a, %d %b %Y %H:%M:%S GMT')
-
-					# Add the cookie to the jar for the appropriate domain
-					# aiohttp expects cookies to be set via update_cookies with a response_url
-					# We construct a URL with the cookie's domain
-					cookie_url = f"https://{cookie_domain.lstrip('.')}"
-					cookie_jar.update_cookies({cookie_name: cookie_value}, response_url=aiohttp.helpers.URL(cookie_url))
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
 						if ".google.com" in cookie_domain:
-							sapisid = cookie_value
+							sapisid = cookie.get("value", "")
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
@@ -173,9 +157,6 @@ class FamilyLinkClient:
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
-				# Get cookies for the API domain to see what's in the jar
-				api_cookies = cookie_jar.filter_cookies(aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
-				_LOGGER.error(f"Available cookies in jar: {list(api_cookies.keys())}")
 				raise AuthenticationError("SAPISID cookie not found in authentication data")
 
 			# Generate authorization header
@@ -183,6 +164,7 @@ class FamilyLinkClient:
 			_LOGGER.debug(f"Generated SAPISIDHASH (first 20 chars): {sapisidhash[:20]}...")
 
 			# Create session with Google Family Link API headers
+			# Note: We don't use a cookie jar - cookies are passed directly in each request
 			headers = {
 				"User-Agent": (
 					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -197,13 +179,9 @@ class FamilyLinkClient:
 
 			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
 			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
-			# Get cookies that will be sent to the API
-			api_cookies = cookie_jar.filter_cookies(aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
-			_LOGGER.debug(f"Cookie jar contains {len(api_cookies)} cookies for API domain: {list(api_cookies.keys())}")
 
 			self._session = aiohttp.ClientSession(
 				headers=headers,
-				cookie_jar=cookie_jar,
 				timeout=aiohttp.ClientTimeout(total=30),
 			)
 
@@ -222,22 +200,16 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookies = self._get_cookies_dict()
 
 			url = f"{self.BASE_URL}/families/mine/members"
 			_LOGGER.debug(f"Requesting: GET {url}")
-
-			# Debug: Log what cookies would be sent with this request
-			request_url = aiohttp.helpers.URL(url)
-			cookies_for_request = session.cookie_jar.filter_cookies(request_url)
-			_LOGGER.debug(f"Cookies that will be sent with request: {list(cookies_for_request.keys())}")
-			if cookies_for_request:
-				_LOGGER.debug(f"Cookie header value (first 100 chars): {'; '.join([f'{k}={v.value}' for k, v in cookies_for_request.items()])[:100]}...")
-			else:
-				_LOGGER.error("⚠️ NO COOKIES will be sent with this request!")
+			_LOGGER.debug(f"Passing {len(cookies)} cookies directly in request: {list(cookies.keys())}")
 
 			async with session.get(
 				url,
-				headers={"Content-Type": "application/json"}
+				headers={"Content-Type": "application/json"},
+				cookies=cookies
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
 
@@ -306,6 +278,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookies = self._get_cookies_dict()
 
 			params = {
 				"capabilities": "CAPABILITY_APP_USAGE_SESSION,CAPABILITY_SUPERVISION_CAPABILITIES",
@@ -317,7 +290,8 @@ class FamilyLinkClient:
 			async with session.get(
 				url,
 				headers={"Content-Type": "application/json"},
-				params=params
+				params=params,
+				cookies=cookies
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
 
@@ -459,6 +433,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookies = self._get_cookies_dict()
 
 			# Format: [account_id, [[[package_name], [1]]]]
 			# [1] = block flag
@@ -467,7 +442,8 @@ class FamilyLinkClient:
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
 				headers={"Content-Type": "application/json+protobuf"},
-				data=payload
+				data=payload,
+				cookies=cookies
 			) as response:
 				response.raise_for_status()
 				_LOGGER.info(f"Successfully blocked app: {package_name}")
@@ -500,6 +476,7 @@ class FamilyLinkClient:
 
 		try:
 			session = await self._get_session()
+			cookies = self._get_cookies_dict()
 
 			# Format: [account_id, [[[package_name], []]]]
 			# Empty array = remove restrictions
@@ -508,7 +485,8 @@ class FamilyLinkClient:
 			async with session.post(
 				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
 				headers={"Content-Type": "application/json+protobuf"},
-				data=payload
+				data=payload,
+				cookies=cookies
 			) as response:
 				response.raise_for_status()
 				_LOGGER.info(f"Successfully unblocked app: {package_name}")
