@@ -1,8 +1,8 @@
-# 📱 Google Family Link pour Home Assistant - Contrôlez et surveillez les appareils de vos enfants
+# 📱 Google Family Link pour Home Assistant
 
-Bonjour à tous ! 👋
+Salut la commu ! 👋
 
-Je suis ravi de vous présenter mon intégration **Google Family Link pour Home Assistant**, un projet qui me tenait à cœur depuis longtemps.
+Je partage avec vous mon intégration **Google Family Link pour Home Assistant**. Ça fait un moment que je voulais pouvoir gérer les appareils de mes enfants directement depuis HA, et voilà le résultat !
 
 ## 🙏 Remerciements
 
@@ -18,75 +18,75 @@ Sans ces briques, ce projet n'aurait jamais vu le jour !
 
 ---
 
-## 🎯 Qu'est-ce que c'est ?
+## 🎯 C'est quoi ?
 
-Cette intégration vous permet de **surveiller et contrôler les appareils Google Family Link** de vos enfants directement depuis Home Assistant. Temps d'écran, verrouillage à distance, statistiques d'utilisation... tout est désormais accessible et automatisable !
+En gros, ça vous permet de **piloter et surveiller les appareils Family Link** directement depuis Home Assistant. Temps d'écran, verrouillage/déverrouillage à distance, stats d'utilisation des apps... tout est récupérable et automatisable !
 
-## ✨ Fonctionnalités principales
+## ✨ Ce que ça fait
 
 ### 🔐 Contrôle des appareils
-- **Verrouillage/déverrouillage à distance** via des interrupteurs (switches)
-- **Synchronisation bidirectionnelle** : les changements faits dans l'app Family Link se reflètent dans Home Assistant
-- **Support multi-appareils** : gérez tous les appareils supervisés de vos enfants
+- **Verrouiller/déverrouiller à distance** via des switches
+- **Synchro dans les 2 sens** : si vous changez quelque chose dans l'app Family Link, HA le voit aussi
+- **Multi-appareils** : gérez tous les téléphones/tablettes de vos enfants
 
 ### 📊 Suivi du temps d'écran
-- **Temps d'écran quotidien** en temps réel
-- **Top 10 des applications** les plus utilisées avec statistiques détaillées
-- **Répartition par application** (heures, minutes, secondes)
-- **Mises à jour automatiques** toutes les 5 minutes (personnalisable)
+- **Temps d'écran du jour** en temps réel
+- **Top 10 des apps** les plus utilisées avec les stats
+- **Détail par app** (heures, minutes, secondes)
+- **Rafraîchissement auto** toutes les 5 minutes (modifiable)
 
-### 📲 Gestion des applications
-- **Nombre d'applications installées**
-- **Applications bloquées** avec liste complète
-- **Applications avec limites de temps**
-- **Détails complets** : noms de package, titres, limites configurées
+### 📲 Gestion des apps
+- **Nombre d'apps installées**
+- **Apps bloquées** avec la liste
+- **Apps avec limites de temps**
+- **Détails** : noms, limites, etc.
 
-### 👶 Informations sur l'enfant
-- **Profil complet** : nom, email, date de naissance, tranche d'âge
-- **Informations des appareils** : modèle, nom, capacités, dernière activité
+### 👶 Infos sur l'enfant
+- **Profil** : nom, email, date de naissance, âge
+- **Infos appareil** : modèle, nom, dernière activité
 - **Membres de la famille** avec leurs rôles
 
-## 🏗️ Architecture : Add-on + Intégration
+## 🏗️ Comment ça marche ?
 
-Le projet se compose de **deux éléments complémentaires** :
+Le projet a **2 parties** qui bossent ensemble :
 
-### 1. **Add-on d'authentification** (obligatoire)
-Fournit l'authentification sécurisée via navigateur :
-- Automation Playwright avec Chromium headless
-- **Serveur VNC intégré** (port 5900) pour interagir avec le navigateur
-- Support 2FA (SMS, authenticateur, notifications push)
-- Stockage chiffré des cookies
-- Rafraîchissement automatique des sessions
+### 1. **L'Add-on** (obligatoire)
+C'est lui qui gère la connexion à Google :
+- Lance un navigateur Chromium avec Playwright
+- **Serveur VNC intégré** (port 5900) pour que vous puissiez vous connecter à Google
+- Gère la 2FA (SMS, appli authenticator, notifs push)
+- Stocke les cookies de façon chiffrée
+- Rafraîchit l'auth automatiquement
 
-### 2. **Intégration Home Assistant**
-Assure la surveillance et le contrôle :
-- Interface de configuration conviviale (config flow)
-- Client API pour communiquer avec Google Family Link
-- Coordinateur de données avec cache
-- Entités (capteurs et interrupteurs)
+### 2. **L'intégration HA**
+C'est elle qui récupère les données et contrôle les appareils :
+- Config flow pour installer facilement
+- Communique avec l'API Google Family Link
+- Gère les mises à jour des données
+- Crée les capteurs et switches dans HA
 
-**Pourquoi deux composants ?** L'environnement Docker de Home Assistant restreint l'automation de navigateur. L'add-on tourne dans un conteneur séparé avec Chromium et Playwright, tandis que l'intégration gère la récupération de données et le contrôle des appareils.
+**Pourquoi 2 parties ?** Parce que Docker de HA n'aime pas trop les navigateurs. Du coup l'add-on tourne à part avec Chromium, et l'intégration s'occupe du reste.
 
-## 🔐 Processus d'authentification
+## 🔐 Comment se connecter
 
-L'authentification nécessite l'utilisation d'un **client VNC** (comme TightVNC, RealVNC, ou VNC Viewer) :
+Vous allez avoir besoin d'un **client VNC** (TightVNC, RealVNC, ou VNC Viewer) :
 
-1. **Démarrer l'add-on** Family Link Auth
-2. **Ouvrir l'interface web** (http://[IP_HA]:8099)
-3. **Cliquer sur** "Démarrer l'authentification"
-4. **Se connecter via VNC** :
+1. **Lancez l'add-on** Family Link Auth
+2. **Ouvrez l'interface web** (http://[IP_HA]:8099)
+3. **Cliquez sur** "Démarrer l'authentification"
+4. **Connectez-vous en VNC** :
    - **Adresse** : `[IP_HA]:5900`
    - **Mot de passe** : `familylink`
-5. **Fenêtre Chromium** s'ouvre dans VNC
-6. **Se connecter à Google** dans la fenêtre VNC :
-   - Entrer votre email Google
-   - Entrer votre mot de passe
-   - Compléter la 2FA si activée
-7. **Les cookies sont automatiquement sauvegardés** ✅
+5. **Une fenêtre Chromium s'ouvre** dans VNC
+6. **Loguez-vous à Google** :
+   - Email
+   - Mot de passe
+   - Code 2FA si vous en avez un
+7. **C'est bon !** Les cookies sont sauvegardés automatiquement ✅
 
-**Pourquoi VNC ?** Le navigateur Chromium tourne dans le conteneur Docker de l'add-on. VNC permet d'y accéder à distance pour compléter le login Google de manière interactive.
+**Pourquoi VNC ?** Parce que le navigateur tourne dans le conteneur Docker, et VNC c'est le seul moyen de "voir" la fenêtre pour se connecter.
 
-**Clients VNC recommandés :**
+**Clients VNC dispo :**
 - **Windows/Mac/Linux** : [TightVNC](https://www.tightvnc.com/) ou [RealVNC](https://www.realvnc.com/)
 - **iOS** : VNC Viewer (App Store)
 - **Android** : VNC Viewer (Google Play)
@@ -141,50 +141,50 @@ automation:
 
 ## 📦 Installation
 
-### Prérequis
-- **Client VNC** installé sur votre ordinateur/téléphone (TightVNC, RealVNC, VNC Viewer...)
-- **Home Assistant OS ou Supervised** (add-ons requis)
-- **Compte Google Family Link** actif avec au moins un enfant supervisé
+### Ce qu'il vous faut
+- **Un client VNC** (TightVNC, RealVNC, VNC Viewer...)
+- **Home Assistant OS ou Supervised** (pas Container/Core)
+- **Un compte Google Family Link** avec au moins un enfant
 
-### Via HACS (recommandé)
-1. Ajoutez ce dépôt comme source personnalisée dans HACS
-2. Installez l'add-on **Family Link Auth** depuis le Store de Supervisor
-3. Démarrez l'add-on
-4. **Authentifiez-vous via VNC** (voir section "Processus d'authentification" ci-dessus)
+### Installation HACS
+1. Ajoutez ce repo dans HACS en source custom
+2. Installez l'add-on **Family Link Auth** depuis le Store
+3. Lancez l'add-on
+4. **Connectez-vous via VNC** (voir "Comment se connecter" plus haut)
 5. Installez l'intégration **Google Family Link** via HACS
-6. Configurez l'intégration dans **Paramètres** → **Appareils et services**
+6. Configurez dans **Paramètres** → **Appareils et services**
 
-[Guide d'installation détaillé disponible dans le README](https://github.com/noiwid/HAFamilyLink/blob/main/INSTALL.md)
+[Guide complet d'installation ici](https://github.com/noiwid/HAFamilyLink/blob/main/INSTALL.md)
 
-## 🚨 Avertissement important
+## 🚨 Petit disclaimer
 
-Cette intégration utilise des **endpoints non officiels** de l'API Google Family Link obtenus par reverse engineering.
+Cette intégration utilise des **API non officielles** de Google Family Link (reverse engineering).
 
-⚠️ **Utilisez-la à vos propres risques**. Cela peut violer les conditions d'utilisation de Google et pourrait entraîner une suspension de compte. Ce projet n'est pas affilié, approuvé ou connecté à Google LLC.
+⚠️ **À utiliser à vos risques** : ça peut potentiellement enfreindre les CGU de Google. Aucune affiliation avec Google, c'est du bricolage maison !
 
-## 🔗 Liens utiles
+## 🔗 Liens
 
 - **GitHub** : https://github.com/noiwid/HAFamilyLink
-- **Signaler un bug** : https://github.com/noiwid/HAFamilyLink/issues
-- **Demande de fonctionnalité** : https://github.com/noiwid/HAFamilyLink/issues/new
+- **Reporter un bug** : https://github.com/noiwid/HAFamilyLink/issues
+- **Proposer une feature** : https://github.com/noiwid/HAFamilyLink/issues/new
 - **Discussions** : https://github.com/noiwid/HAFamilyLink/discussions
 
 ## 🎉 Version actuelle
 
-**v0.5.0** - Synchronisation en temps réel de l'état de verrouillage des appareils
+**v0.5.0** - Synchro temps réel du verrouillage
 
-## 🤝 Contributions
+## 🤝 Contribuer
 
-Les contributions sont les bienvenues ! N'hésitez pas à :
-- Signaler des bugs
-- Proposer de nouvelles fonctionnalités
-- Soumettre des pull requests
-- Partager vos automatisations
+N'hésitez pas à :
+- Reporter des bugs
+- Proposer des features
+- Faire des PR
+- Partager vos automatisations !
 
 ---
 
-J'espère que cette intégration vous sera utile ! N'hésitez pas à me faire part de vos retours, suggestions ou questions.
+Voilà, j'espère que ça vous sera utile ! Si vous avez des questions ou des retours, n'hésitez pas.
 
-Bon contrôle parental à tous ! 👨‍👩‍👧‍👦
+Bon contrôle parental ! 👨‍👩‍👧‍👦
 
 *Développé par [@noiwid](https://github.com/noiwid) avec l'assistance de Claude*
