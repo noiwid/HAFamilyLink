@@ -737,6 +737,81 @@ class FamilyLinkClient:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
 
+	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, bool]:
+		"""Get applied time limits to determine device lock states.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			Dictionary mapping device_id to locked state (True = locked, False = unlocked)
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			url = f"{self.BASE_URL}/people/{account_id}/appliedTimeLimits"
+			params = [("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME")]
+
+			_LOGGER.debug(f"Fetching applied time limits from {url}")
+
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
+					return {}
+
+				data = await response.json()
+				_LOGGER.debug(f"Applied time limits response: {data}")
+
+				# Parse lock states from response
+				# Response format: [[null, timestamp], [device_arrays]]
+				device_lock_states = {}
+
+				if len(data) > 1 and isinstance(data[1], list):
+					for device_data in data[1]:
+						if not isinstance(device_data, list) or len(device_data) < 25:
+							continue
+
+						# Get device ID from the data
+						# When unlocked: [0] contains an array with device_id at [3]
+						# When locked: [0] is null
+						device_id = None
+
+						# Try to find device_id
+						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
+							# Found in unlock override
+							device_id = device_data[0][3]
+						elif len(device_data) > 25 and device_data[25]:
+							# Found at index 25 (device_id field always present)
+							device_id = device_data[25]
+
+						if device_id:
+							# Determine lock state:
+							# Index 15 is null when locked, has a value (usually 2) when unlocked
+							is_locked = device_data[15] is None
+							device_lock_states[device_id] = is_locked
+							_LOGGER.debug(f"Device {device_id}: locked={is_locked}")
+
+				return device_lock_states
+
+		except Exception as err:
+			_LOGGER.error("Failed to fetch applied time limits: %s", err)
+			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
+
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
 		if self._session:
