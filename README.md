@@ -1,8 +1,9 @@
 # Google Family Link Home Assistant Integration (Beta)
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub release](https://img.shields.io/github/release/noiwid/HAFamilyLink.svg)](https://github.com/noiwid/HAFamilyLink/releases)
-[![License](https://img.shields.io/github/license/noiwid/HAFamilyLink.svg)](LICENSE)
+[![GitHub Release][releases-shield]][releases]
+[![License][license-shield]][license]
+[![HACS][hacs-shield]][hacs]
+
 
 An Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage apps, and lock/unlock your child's devices directly from Home Assistant.
 
@@ -257,3 +258,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## ⚠️ Legal
 
 This is an unofficial integration and is not affiliated with, endorsed by, or connected to Google LLC. All product names, logos, and brands are property of their respective owners. Use at your own risk.
+
+[releases-shield]: https://img.shields.io/github/release/noiwid/HAFamilyLink.svg
+[releases]: https://github.com/noiwid/HAFamilyLink/releases
+[license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg
+[license]: LICENSE
+[hacs-shield]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs]: https://github.com/hacs/integration
