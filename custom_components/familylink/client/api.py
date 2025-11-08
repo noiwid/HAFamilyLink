@@ -119,7 +119,9 @@ class FamilyLinkClient:
 		if self._session is None:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
-			cookie_jar = {}
+
+			# Create a proper aiohttp cookie jar
+			cookie_jar = aiohttp.CookieJar()
 
 			_LOGGER.debug("Creating new session with authentication")
 
@@ -128,12 +130,18 @@ class FamilyLinkClient:
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
 					cookie_domain = cookie.get("domain", "")
-					cookie_jar[cookie_name] = cookie["value"]
+					cookie_value = cookie.get("value", "")
+
+					# Set the cookie in the jar with proper domain
+					# aiohttp needs the cookie to be set for a specific URL
+					# We use kidsmanagement-pa.clients6.google.com as the target domain
+					cookie_jar.update_cookies({cookie_name: cookie_value},
+						response_url=aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
 						if ".google.com" in cookie_domain:
-							sapisid = cookie["value"]
+							sapisid = cookie_value
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
@@ -141,7 +149,9 @@ class FamilyLinkClient:
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
-				_LOGGER.error(f"Available cookies in jar: {list(cookie_jar.keys())}")
+				# Get cookies for the API domain to see what's in the jar
+				api_cookies = cookie_jar.filter_cookies(aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
+				_LOGGER.error(f"Available cookies in jar: {list(api_cookies.keys())}")
 				raise AuthenticationError("SAPISID cookie not found in authentication data")
 
 			# Generate authorization header
@@ -163,11 +173,13 @@ class FamilyLinkClient:
 
 			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
 			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
-			_LOGGER.debug(f"Cookie jar contains {len(cookie_jar)} cookies: {list(cookie_jar.keys())}")
+			# Get cookies that will be sent to the API
+			api_cookies = cookie_jar.filter_cookies(aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
+			_LOGGER.debug(f"Cookie jar contains {len(api_cookies)} cookies for API domain: {list(api_cookies.keys())}")
 
 			self._session = aiohttp.ClientSession(
 				headers=headers,
-				cookies=cookie_jar,
+				cookie_jar=cookie_jar,
 				timeout=aiohttp.ClientTimeout(total=30),
 			)
 
