@@ -314,10 +314,13 @@ class FamilyLinkClient:
 				params=params
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
+				_LOGGER.debug(f"Response headers: {dict(response.headers)}")
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+					_LOGGER.error(f"API Error {response.status}: {response_text}")
+					_LOGGER.error(f"Request URL was: {url}?{params}")
+					_LOGGER.error(f"Request headers: {dict(response.request_info.headers)}")
 
 				response.raise_for_status()
 				data = await response.json()
