@@ -65,23 +65,6 @@ class FamilyLinkClient:
 
 		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
 
-		# Debug: Show which cookies we loaded
-		cookie_names = [c.get("name", "unknown") for c in self._cookies]
-		_LOGGER.debug(f"Loaded cookies: {', '.join(cookie_names)}")
-
-		# Debug: Check for SAPISID specifically
-		sapisid_found = False
-		for cookie in self._cookies:
-			if cookie.get("name") == "SAPISID":
-				domain = cookie.get("domain", "N/A")
-				sapisid_found = True
-				_LOGGER.debug(f"✓ SAPISID cookie found with domain: {domain}")
-				break
-
-		if not sapisid_found:
-			_LOGGER.error("✗ SAPISID cookie NOT found in loaded cookies!")
-			_LOGGER.error(f"Available cookie names: {cookie_names}")
-
 	async def async_refresh_session(self) -> None:
 		"""Refresh the authentication session."""
 		# Clear current cookies and reload from add-on
@@ -106,8 +89,7 @@ class FamilyLinkClient:
 		Returns:
 			The SAPISIDHASH string in format: "{timestamp}_{sha1_hash}"
 		"""
-		# CRITICAL: Google uses Unix timestamp in SECONDS, not milliseconds
-		timestamp = int(time.time())  # Current time in seconds
+		timestamp = int(time.time())  # Unix timestamp in seconds
 		to_hash = f"{timestamp} {sapisid} {origin}"
 		sha1_hash = hashlib.sha1(to_hash.encode("utf-8")).hexdigest()
 		sapisidhash = f"{timestamp}_{sha1_hash}"
@@ -230,9 +212,6 @@ class FamilyLinkClient:
 				}
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
-
-				# Debug: Log request headers that were actually sent
-				_LOGGER.debug(f"Request headers sent: {dict(response.request_info.headers)}")
 
 				if response.status != 200:
 					response_text = await response.text()
