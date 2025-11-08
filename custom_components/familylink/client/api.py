@@ -400,7 +400,12 @@ class FamilyLinkClient:
 			total_seconds = 0
 			app_breakdown = {}
 
-			for session in data.get("appUsageSessions", []):
+			all_sessions = data.get("appUsageSessions", [])
+			_LOGGER.debug(f"Found {len(all_sessions)} total app usage sessions")
+			if all_sessions:
+				_LOGGER.debug(f"First session example: {all_sessions[0]}")
+
+			for session in all_sessions:
 				session_date = session.get("date", {})
 
 				# Check if this session is for the target date
@@ -424,8 +429,12 @@ class FamilyLinkClient:
 
 			_LOGGER.debug(
 				f"Daily screen time for {target_date.date()}: {hours:02d}:{minutes:02d}:{seconds:02d} "
-				f"({len(app_breakdown)} apps)"
+				f"({len(app_breakdown)} apps, {total_seconds} total seconds)"
 			)
+			if not app_breakdown:
+				_LOGGER.warning(f"No app usage data found for {target_date.date()}")
+			else:
+				_LOGGER.debug(f"App breakdown: {app_breakdown}")
 
 			return {
 				"total_seconds": total_seconds,
