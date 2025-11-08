@@ -695,11 +695,11 @@ class FamilyLinkClient:
 			account_id = await self.async_get_supervised_child_id()
 
 			# Action codes discovered from browser DevTools:
-			# Both lock and unlock use code 4 - it appears to be a toggle!
-			# Google likely detects current state and performs the inverse action
-			action_code = 4
+			# Code 1 = LOCK (verrouiller)
+			# Code 4 = UNLOCK (déverrouiller)
+			action_code = 1 if action == DEVICE_LOCK_ACTION else 4
 
-			# Payload format from browser: [null, account_id, [[null, null, 4, device_id]], [1]]
+			# Payload format from browser: [null, account_id, [[null, null, action_code, device_id]], [1]]
 			payload = json.dumps([
 				None,
 				account_id,
