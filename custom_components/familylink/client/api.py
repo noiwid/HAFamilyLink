@@ -120,23 +120,47 @@ class FamilyLinkClient:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
 
-			# Create a proper aiohttp cookie jar
-			cookie_jar = aiohttp.CookieJar()
+			# Create a proper aiohttp cookie jar with unsafe=True to allow cross-domain cookies
+			# Google cookies have domain .google.com and need to be sent to kidsmanagement-pa.clients6.google.com
+			cookie_jar = aiohttp.CookieJar(unsafe=True)
 
 			_LOGGER.debug("Creating new session with authentication")
 
 			if self._cookies:
 				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for session")
+
+				# Create cookies with proper attributes from Playwright data
+				from http.cookies import SimpleCookie, Morsel
+				import datetime
+
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
 					cookie_domain = cookie.get("domain", "")
 					cookie_value = cookie.get("value", "")
+					cookie_path = cookie.get("path", "/")
 
-					# Set the cookie in the jar with proper domain
-					# aiohttp needs the cookie to be set for a specific URL
-					# We use kidsmanagement-pa.clients6.google.com as the target domain
-					cookie_jar.update_cookies({cookie_name: cookie_value},
-						response_url=aiohttp.helpers.URL("https://kidsmanagement-pa.clients6.google.com"))
+					# Create a proper cookie Morsel with all attributes
+					morsel = Morsel()
+					morsel.set(cookie_name, cookie_value, cookie_value)
+					morsel['domain'] = cookie_domain
+					morsel['path'] = cookie_path
+
+					# Add secure and httponly flags if present
+					if cookie.get("secure"):
+						morsel['secure'] = True
+					if cookie.get("httpOnly"):
+						morsel['httponly'] = True
+
+					# Set expires if present
+					if cookie.get("expires") and cookie["expires"] > 0:
+						expires_date = datetime.datetime.fromtimestamp(cookie["expires"], tz=datetime.timezone.utc)
+						morsel['expires'] = expires_date.strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+					# Add the cookie to the jar for the appropriate domain
+					# aiohttp expects cookies to be set via update_cookies with a response_url
+					# We construct a URL with the cookie's domain
+					cookie_url = f"https://{cookie_domain.lstrip('.')}"
+					cookie_jar.update_cookies({cookie_name: cookie_value}, response_url=aiohttp.helpers.URL(cookie_url))
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
