@@ -226,11 +226,23 @@ class FamilyLinkClient:
 			url = f"{self.BASE_URL}/families/mine/members"
 			_LOGGER.debug(f"Requesting: GET {url}")
 
+			# Debug: Log what cookies would be sent with this request
+			request_url = aiohttp.helpers.URL(url)
+			cookies_for_request = session.cookie_jar.filter_cookies(request_url)
+			_LOGGER.debug(f"Cookies that will be sent with request: {list(cookies_for_request.keys())}")
+			if cookies_for_request:
+				_LOGGER.debug(f"Cookie header value (first 100 chars): {'; '.join([f'{k}={v.value}' for k, v in cookies_for_request.items()])[:100]}...")
+			else:
+				_LOGGER.error("⚠️ NO COOKIES will be sent with this request!")
+
 			async with session.get(
 				url,
 				headers={"Content-Type": "application/json"}
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
+
+				# Debug: Log request headers that were actually sent
+				_LOGGER.debug(f"Request headers sent: {dict(response.request_info.headers)}")
 
 				if response.status != 200:
 					response_text = await response.text()
