@@ -670,10 +670,16 @@ class FamilyLinkClient:
 		}
 
 	async def async_control_device(self, device_id: str, action: str) -> bool:
-		"""Control a Family Link device.
+		"""Control a Family Link device (lock/unlock).
 
-		Note: Device control API endpoints are not yet reverse-engineered.
-		This is a placeholder for future implementation.
+		Uses the timeLimitOverrides:batchCreate endpoint discovered from browser DevTools.
+
+		Args:
+			device_id: Device ID to control
+			action: "lock" or "unlock"
+
+		Returns:
+			True if successful, False otherwise
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -682,17 +688,50 @@ class FamilyLinkClient:
 			raise DeviceControlError(f"Invalid action: {action}")
 
 		try:
-			_LOGGER.warning(
-				"Device control not yet implemented - Google Family Link device control "
-				"API endpoints are not documented. Returning placeholder response."
-			)
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
 
-			# TODO: Implement real device control when API endpoints are discovered
-			# Possible endpoints to investigate:
-			# - POST /people/{account_id}/devices/{device_id}:lock
-			# - POST /people/{account_id}/devices/{device_id}:unlock
+			# Get supervised child account ID
+			account_id = await self.async_get_supervised_child_id()
 
-			return False
+			# Action codes discovered from browser DevTools:
+			# 4 = lock device
+			# 5 = unlock device (hypothesis - needs testing)
+			action_code = 4 if action == DEVICE_LOCK_ACTION else 5
+
+			# Payload format from browser: [null, account_id, [[null, null, action_code, device_id]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[
+					[None, None, action_code, device_id]
+				],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Requesting device {action}: POST {url}")
+			_LOGGER.debug(f"Payload: {payload}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				_LOGGER.debug(f"Response status: {response.status}")
+
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Device control failed {response.status}: {response_text}")
+					return False
+
+				response_data = await response.json()
+				_LOGGER.debug(f"Device control response: {response_data}")
+				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+				return True
 
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
