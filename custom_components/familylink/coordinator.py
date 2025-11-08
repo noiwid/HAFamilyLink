@@ -70,7 +70,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					}
 					devices.append(device)
 
-			# Update internal device cache
+			# Update internal device cache while preserving lock state
+			for device in devices:
+				device_id = device["id"]
+				# Preserve existing lock state if we have it
+				if device_id in self._devices:
+					device["locked"] = self._devices[device_id].get("locked", False)
+				else:
+					device["locked"] = False
+
 			self._devices = {device["id"]: device for device in devices}
 
 			# Fetch daily screen time data
