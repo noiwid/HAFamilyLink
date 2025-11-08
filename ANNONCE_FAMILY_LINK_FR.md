@@ -51,6 +51,7 @@ Le projet se compose de **deux éléments complémentaires** :
 ### 1. **Add-on d'authentification** (obligatoire)
 Fournit l'authentification sécurisée via navigateur :
 - Automation Playwright avec Chromium headless
+- **Serveur VNC intégré** (port 5900) pour interagir avec le navigateur
 - Support 2FA (SMS, authenticateur, notifications push)
 - Stockage chiffré des cookies
 - Rafraîchissement automatique des sessions
@@ -63,6 +64,30 @@ Assure la surveillance et le contrôle :
 - Entités (capteurs et interrupteurs)
 
 **Pourquoi deux composants ?** L'environnement Docker de Home Assistant restreint l'automation de navigateur. L'add-on tourne dans un conteneur séparé avec Chromium et Playwright, tandis que l'intégration gère la récupération de données et le contrôle des appareils.
+
+## 🔐 Processus d'authentification
+
+L'authentification nécessite l'utilisation d'un **client VNC** (comme TightVNC, RealVNC, ou VNC Viewer) :
+
+1. **Démarrer l'add-on** Family Link Auth
+2. **Ouvrir l'interface web** (http://[IP_HA]:8099)
+3. **Cliquer sur** "Démarrer l'authentification"
+4. **Se connecter via VNC** :
+   - **Adresse** : `[IP_HA]:5900`
+   - **Mot de passe** : `familylink`
+5. **Fenêtre Chromium** s'ouvre dans VNC
+6. **Se connecter à Google** dans la fenêtre VNC :
+   - Entrer votre email Google
+   - Entrer votre mot de passe
+   - Compléter la 2FA si activée
+7. **Les cookies sont automatiquement sauvegardés** ✅
+
+**Pourquoi VNC ?** Le navigateur Chromium tourne dans le conteneur Docker de l'add-on. VNC permet d'y accéder à distance pour compléter le login Google de manière interactive.
+
+**Clients VNC recommandés :**
+- **Windows/Mac/Linux** : [TightVNC](https://www.tightvnc.com/) ou [RealVNC](https://www.realvnc.com/)
+- **iOS** : VNC Viewer (App Store)
+- **Android** : VNC Viewer (Google Play)
 
 ## 💡 Exemples d'automatisations
 
@@ -114,12 +139,18 @@ automation:
 
 ## 📦 Installation
 
+### Prérequis
+- **Client VNC** installé sur votre ordinateur/téléphone (TightVNC, RealVNC, VNC Viewer...)
+- **Home Assistant OS ou Supervised** (add-ons requis)
+- **Compte Google Family Link** actif avec au moins un enfant supervisé
+
 ### Via HACS (recommandé)
 1. Ajoutez ce dépôt comme source personnalisée dans HACS
 2. Installez l'add-on **Family Link Auth** depuis le Store de Supervisor
-3. Démarrez l'add-on et authentifiez-vous via l'interface web (port 8099)
-4. Installez l'intégration **Google Family Link** via HACS
-5. Configurez l'intégration dans **Paramètres** → **Appareils et services**
+3. Démarrez l'add-on
+4. **Authentifiez-vous via VNC** (voir section "Processus d'authentification" ci-dessus)
+5. Installez l'intégration **Google Family Link** via HACS
+6. Configurez l'intégration dans **Paramètres** → **Appareils et services**
 
 [Guide d'installation détaillé disponible dans le README](https://github.com/noiwid/HAFamilyLink/blob/main/INSTALL.md)
 
