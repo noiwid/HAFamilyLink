@@ -127,6 +127,8 @@ class FamilyLinkClient:
 					cookie_name = cookie.get("name", "")
 					cookie_value = cookie.get("value", "")
 					if cookie_name and cookie_value:
+						# Strip quotes from cookie values (Playwright may add them)
+						cookie_value = cookie_value.strip('"')
 						self._cookie_dict[cookie_name] = cookie_value
 				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
 		return self._cookie_dict
@@ -149,7 +151,7 @@ class FamilyLinkClient:
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
 						if ".google.com" in cookie_domain:
-							sapisid = cookie.get("value", "")
+							sapisid = cookie.get("value", "").strip('"')
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
