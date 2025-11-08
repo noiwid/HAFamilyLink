@@ -1,6 +1,6 @@
 # Create the modified Markdown content with emojis and save it as a downloadable file
 
-content = r"""# Installation Guide 🚀
+Installation Guide 🚀
 
 Google Family Link Integration for Home Assistant 👨‍👩‍👧‍👦
 
