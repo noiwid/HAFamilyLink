@@ -45,6 +45,8 @@ Google Family Link Integration for Home Assistant 👨‍👩‍👧‍👦
 
 ## Step 1: Install the Family Link Auth Add-on 🔧
 
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
+
 The add-on handles Google authentication using Playwright browser automation.
 
 ### 1.1 Add the Repository 📁
@@ -140,6 +142,8 @@ If you see "Successfully extracted X cookies", authentication is complete! 🎉
 You can install the integration via HACS (recommended) or manually.
 
 ### Option A: Install via HACS (Recommended) ⭐
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noiwid&repository=HAFamilyLink&category=Integration+)
 
 1. Open Home Assistant  
 2. Navigate to **HACS** > **Integrations**  
