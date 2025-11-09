@@ -779,11 +779,27 @@ class FamilyLinkClient:
 							device_id = device_data[25]
 
 						if device_id:
-							# Determine lock state:
-							# Index 15 is null when locked, has a value (usually 2) when unlocked
-							is_locked = device_data[15] is None
+							# Determine lock state by checking for active time limit override:
+							# When LOCKED: device_data[0] contains the lock override [null, null, action_code, device_id]
+							# When UNLOCKED: device_data[0] is null (no active override)
+							has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+
+							# Additional check: action code at [0][2]
+							# Code 1 = LOCK, Code 4 = UNLOCK
+							# If there's an override, check if it's a lock (1) or unlock (4)
+							if has_lock_override and len(device_data[0]) > 2:
+								action_code = device_data[0][2]
+								is_locked = (action_code == 1)  # 1 = lock, 4 = unlock
+							else:
+								# No override means unlocked (normal state)
+								is_locked = False
+
 							device_lock_states[device_id] = is_locked
-							_LOGGER.debug(f"Device {device_id}: locked={is_locked}")
+							_LOGGER.debug(
+								f"Device {device_id}: locked={is_locked}, "
+								f"has_override={has_lock_override}, "
+								f"action_code={device_data[0][2] if has_lock_override and len(device_data[0]) > 2 else None}"
+							)
 
 				return device_lock_states
 

@@ -30,6 +30,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
+		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 
 		super().__init__(
 			hass,
@@ -79,8 +80,27 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.warning(f"Failed to fetch device lock states: {err}")
 
 			# Update device cache with real lock states from API
+			import time
+			current_time = time.time()
 			for device in devices:
 				device_id = device["id"]
+
+				# Check if we have a pending lock state change (within last 5 seconds)
+				if device_id in self._pending_lock_states:
+					pending_locked, timestamp = self._pending_lock_states[device_id]
+					age = current_time - timestamp
+
+					if age < 5.0:  # Use pending state for 5 seconds
+						device["locked"] = pending_locked
+						_LOGGER.debug(
+							f"Using pending lock state for {device_id}: {pending_locked} "
+							f"(age: {age:.1f}s, API says: {device_lock_states.get(device_id)})"
+						)
+						continue
+					else:
+						# Expired, remove from pending
+						del self._pending_lock_states[device_id]
+
 				# Use real lock state from API if available, otherwise default to False
 				device["locked"] = device_lock_states.get(device_id, False)
 
@@ -208,6 +228,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			if success:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+
+				# Store the expected lock state temporarily (for 5 seconds)
+				# This ensures the UI reflects the change immediately, even if the API
+				# takes time to propagate the state
+				import time
+				from .const import DEVICE_LOCK_ACTION
+				expected_locked = (action == DEVICE_LOCK_ACTION)
+				self._pending_lock_states[device_id] = (expected_locked, time.time())
+				_LOGGER.debug(f"Set pending lock state for {device_id}: {expected_locked}")
+
 				# Schedule a data refresh to get latest state from API
 				await asyncio.sleep(1)  # Brief delay for state to propagate
 				await self.async_request_refresh()
