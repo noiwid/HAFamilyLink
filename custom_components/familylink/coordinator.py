@@ -30,6 +30,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
+		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 
 		super().__init__(
 			hass,
@@ -79,8 +80,27 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.warning(f"Failed to fetch device lock states: {err}")
 
 			# Update device cache with real lock states from API
+			import time
+			current_time = time.time()
 			for device in devices:
 				device_id = device["id"]
+
+				# Check if we have a pending lock state change (within last 5 seconds)
+				if device_id in self._pending_lock_states:
+					pending_locked, timestamp = self._pending_lock_states[device_id]
+					age = current_time - timestamp
+
+					if age < 5.0:  # Use pending state for 5 seconds
+						device["locked"] = pending_locked
+						_LOGGER.debug(
+							f"Using pending lock state for {device_id}: {pending_locked} "
+							f"(age: {age:.1f}s, API says: {device_lock_states.get(device_id)})"
+						)
+						continue
+					else:
+						# Expired, remove from pending
+						del self._pending_lock_states[device_id]
+
 				# Use real lock state from API if available, otherwise default to False
 				device["locked"] = device_lock_states.get(device_id, False)
 
@@ -99,31 +119,105 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# Don't fail entire update if screen time fetch fails
 
 			# Fetch family members info
+			# Fetch family members info first to get all supervised children
 			family_members = None
-			supervised_child = None
+			supervised_children = []
 			try:
 				members_data = await self.client.async_get_family_members()
 				family_members = members_data.get("members", [])
 
-				# Find supervised child
+				# Find ALL supervised children (not just the first one)
 				for member in family_members:
 					supervision_info = member.get("memberSupervisionInfo")
 					if supervision_info and supervision_info.get("isSupervisedMember"):
-						supervised_child = member
-						break
+						supervised_children.append(member)
 
-				_LOGGER.debug(f"Fetched {len(family_members)} family members")
+				_LOGGER.debug(f"Fetched {len(family_members)} family members, {len(supervised_children)} supervised children")
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch family members: {err}")
 
+			# Fetch data for each supervised child
+			children_data = []
+			for child in supervised_children:
+				child_id = child["userId"]
+				child_name = child.get("profile", {}).get("displayName", "Unknown")
+
+				_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
+
+				# Fetch complete apps and usage data for this child
+				apps_usage_data = None
+				try:
+					apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
+					_LOGGER.debug(
+						f"Fetched for {child_name}: {len(apps_usage_data.get('apps', []))} apps, "
+						f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
+						f"{len(apps_usage_data.get('appUsageSessions', []))} usage sessions"
+					)
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
+
+				# Extract devices from apps_usage_data
+				devices = []
+				if apps_usage_data:
+					for device_info in apps_usage_data.get("deviceInfo", []):
+						display_info = device_info.get("displayInfo", {})
+						device = {
+							"id": device_info.get("deviceId"),
+							"name": display_info.get("friendlyName", "Unknown Device"),
+							"model": display_info.get("model", "Unknown"),
+							"last_activity": display_info.get("lastActivityTimeMillis"),
+							"capabilities": device_info.get("capabilityInfo", {}).get("capabilities", []),
+							"child_id": child_id,  # Link device to child
+							"child_name": child_name,
+						}
+						devices.append(device)
+
+				# Fetch real lock states from appliedTimeLimits API
+				device_lock_states = {}
+				try:
+					device_lock_states = await self.client.async_get_applied_time_limits(account_id=child_id)
+					_LOGGER.debug(f"Fetched lock states for {len(device_lock_states)} devices for {child_name}")
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch device lock states for {child_name}: {err}")
+
+				# Update device cache with real lock states from API
+				for device in devices:
+					device_id = device["id"]
+					# Use real lock state from API if available, otherwise default to False
+					device["locked"] = device_lock_states.get(device_id, False)
+
+				# Fetch daily screen time data for this child
+				screen_time = None
+				try:
+					screen_time = await self.client.async_get_daily_screen_time(account_id=child_id)
+					_LOGGER.debug(
+						f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
+						f"({len(screen_time['app_breakdown'])} apps)"
+					)
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+
+				# Store data for this child
+				child_data = {
+					"child": child,
+					"child_id": child_id,
+					"child_name": child_name,
+					"devices": devices,
+					"screen_time": screen_time,
+					"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
+					"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
+				}
+				children_data.append(child_data)
+
+				# Update devices cache with child_id prefix to avoid conflicts
+				for device in devices:
+					self._devices[f"{child_id}_{device['id']}"] = device
+
 			_LOGGER.debug("Successfully updated all Family Link data")
 			return {
-				"devices": devices,
-				"screen_time": screen_time,
-				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
-				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"family_members": family_members,
-				"supervised_child": supervised_child,
+				"supervised_children": supervised_children,
+				"children_data": children_data,
 			}
 
 		except SessionExpiredError as err:
@@ -197,17 +291,45 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			self.client = None
 
 	async def async_control_device(
-		self, device_id: str, action: str
+		self, device_id: str, action: str, child_id: str | None = None
 	) -> bool:
-		"""Control a Family Link device."""
+		"""Control a Family Link device.
+
+		Args:
+			device_id: The device ID to control
+			action: "lock" or "unlock"
+			child_id: The child's user ID (optional, will be extracted from device data if not provided)
+		"""
 		if self.client is None:
 			await self._async_setup_client()
 
 		try:
+			# If child_id not provided, find it from device data
+			if child_id is None:
+				# Look for device in cache
+				for cached_key, device in self._devices.items():
+					if device["id"] == device_id:
+						child_id = device.get("child_id")
+						break
+
+			if child_id is None:
+				_LOGGER.error(f"Could not determine child_id for device {device_id}")
+				return False
+
 			success = await self.client.async_control_device(device_id, action)
 
 			if success:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+
+				# Store the expected lock state temporarily (for 5 seconds)
+				# This ensures the UI reflects the change immediately, even if the API
+				# takes time to propagate the state
+				import time
+				from .const import DEVICE_LOCK_ACTION
+				expected_locked = (action == DEVICE_LOCK_ACTION)
+				self._pending_lock_states[device_id] = (expected_locked, time.time())
+				_LOGGER.debug(f"Set pending lock state for {device_id}: {expected_locked}")
+
 				# Schedule a data refresh to get latest state from API
 				await asyncio.sleep(1)  # Brief delay for state to propagate
 				await self.async_request_refresh()
