@@ -56,11 +56,11 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 	) -> None:
 		"""Initialize the switch."""
 		super().__init__(coordinator)
-		
+
 		self._device = device
 		self._device_id = device["id"]
 		self._attr_name = device.get("name", f"Family Link Device {self._device_id}")
-		self._attr_unique_id = f"{DOMAIN}_{self._device_id}"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_{self._device_id}"
 
 	@property
 	def device_info(self) -> DeviceInfo:
