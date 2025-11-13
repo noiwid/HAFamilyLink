@@ -316,7 +316,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.error(f"Could not determine child_id for device {device_id}")
 				return False
 
-			success = await self.client.async_control_device(device_id, action)
+			success = await self.client.async_control_device(device_id, action, child_id)
 
 			if success:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")

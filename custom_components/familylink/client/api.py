@@ -648,7 +648,7 @@ class FamilyLinkClient:
 			"failed_apps": failed,
 		}
 
-	async def async_control_device(self, device_id: str, action: str) -> bool:
+	async def async_control_device(self, device_id: str, action: str, child_id: str | None = None) -> bool:
 		"""Control a Family Link device (lock/unlock).
 
 		Uses the timeLimitOverrides:batchCreate endpoint discovered from browser DevTools.
@@ -656,6 +656,7 @@ class FamilyLinkClient:
 		Args:
 			device_id: Device ID to control
 			action: "lock" or "unlock"
+			child_id: Child's user ID (optional, will use first supervised child if not provided)
 
 		Returns:
 			True if successful, False otherwise
@@ -671,7 +672,10 @@ class FamilyLinkClient:
 			cookie_header = self._get_cookie_header()
 
 			# Get supervised child account ID
-			account_id = await self.async_get_supervised_child_id()
+			if child_id is None:
+				account_id = await self.async_get_supervised_child_id()
+			else:
+				account_id = child_id
 
 			# Action codes discovered from browser DevTools:
 			# Code 1 = LOCK (verrouiller)
