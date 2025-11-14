@@ -27,6 +27,37 @@ from .coordinator import FamilyLinkDataUpdateCoordinator
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
 
+class ChildDataMixin:
+	"""Mixin to provide child-specific data access."""
+
+	def __init__(self, *args, child_id: str, child_name: str, **kwargs):
+		"""Initialize with child information."""
+		self._child_id = child_id
+		self._child_name = child_name
+		super().__init__(*args, **kwargs)
+
+	def _get_child_data(self) -> dict[str, Any] | None:
+		"""Get data for this specific child."""
+		if not self.coordinator.data or "children_data" not in self.coordinator.data:
+			return None
+
+		for child_data in self.coordinator.data["children_data"]:
+			if child_data["child_id"] == self._child_id:
+				return child_data
+
+		return None
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information for this child."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			name=f"Google Family Link ({self._child_name})",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+
 async def async_setup_entry(
 	hass: HomeAssistant,
 	entry: ConfigEntry,
@@ -37,29 +68,41 @@ async def async_setup_entry(
 
 	entities = []
 
-	# Screen time sensors
-	entities.append(FamilyLinkScreenTimeSensor(coordinator, "total"))
-	entities.append(FamilyLinkScreenTimeFormattedSensor(coordinator))
+	# Wait for first data fetch to get children
+	if not coordinator.data or "children_data" not in coordinator.data:
+		_LOGGER.warning("No children data available yet, sensors will be added on first update")
+		return
 
-	# App statistics sensors
-	entities.append(FamilyLinkAppCountSensor(coordinator))
-	entities.append(FamilyLinkBlockedAppsSensor(coordinator))
-	entities.append(FamilyLinkAppsWithLimitsSensor(coordinator))
+	# Create sensors for each supervised child
+	for child_data in coordinator.data.get("children_data", []):
+		child_id = child_data["child_id"]
+		child_name = child_data["child_name"]
 
-	# Top apps sensors (top 10)
-	for i in range(1, 11):
-		entities.append(FamilyLinkTopAppSensor(coordinator, i))
+		_LOGGER.debug(f"Creating sensors for child: {child_name}")
 
-	# Device sensors
-	entities.append(FamilyLinkDeviceCountSensor(coordinator))
+		# Screen time sensors
+		entities.append(FamilyLinkScreenTimeSensor(coordinator, "total", child_id, child_name))
+		entities.append(FamilyLinkScreenTimeFormattedSensor(coordinator, child_id, child_name))
 
-	# Child info sensor
-	entities.append(FamilyLinkChildInfoSensor(coordinator))
+		# App statistics sensors
+		entities.append(FamilyLinkAppCountSensor(coordinator, child_id, child_name))
+		entities.append(FamilyLinkBlockedAppsSensor(coordinator, child_id, child_name))
+		entities.append(FamilyLinkAppsWithLimitsSensor(coordinator, child_id, child_name))
+
+		# Top apps sensors (top 10)
+		for i in range(1, 11):
+			entities.append(FamilyLinkTopAppSensor(coordinator, i, child_id, child_name))
+
+		# Device sensors
+		entities.append(FamilyLinkDeviceCountSensor(coordinator, child_id, child_name))
+
+		# Child info sensor
+		entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
 
 	async_add_entities(entities, update_before_add=True)
 
 
-class FamilyLinkScreenTimeSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for daily screen time in minutes."""
 
 	_attr_device_class = SensorDeviceClass.DURATION
@@ -71,9 +114,11 @@ class FamilyLinkScreenTimeSensor(CoordinatorEntity, SensorEntity):
 		self,
 		coordinator: FamilyLinkDataUpdateCoordinator,
 		sensor_type: str,
+		child_id: str,
+		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
-		super().__init__(coordinator)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 
 		self._sensor_type = sensor_type
 		self._attr_name = f"Family Link Daily Screen Time"
@@ -88,14 +133,17 @@ class FamilyLinkScreenTimeSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		self._attr_name = f"{child_name} Daily Screen Time"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_screen_time_{sensor_type}"
 
 	@property
 	def native_value(self) -> float | None:
 		"""Return the state of the sensor in minutes."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return None
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return None
 
@@ -106,20 +154,22 @@ class FamilyLinkScreenTimeSensor(CoordinatorEntity, SensorEntity):
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "screen_time" in self.coordinator.data
-			and self.coordinator.data["screen_time"] is not None
+			and child_data is not None
+			and "screen_time" in child_data
+			and child_data["screen_time"] is not None
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return {}
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return {}
 
@@ -153,7 +203,7 @@ class FamilyLinkScreenTimeSensor(CoordinatorEntity, SensorEntity):
 		return attributes
 
 
-class FamilyLinkScreenTimeFormattedSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for daily screen time in formatted HH:MM:SS."""
 
 	_attr_icon = "mdi:clock-time-eight-outline"
@@ -161,30 +211,27 @@ class FamilyLinkScreenTimeFormattedSensor(CoordinatorEntity, SensorEntity):
 	def __init__(
 		self,
 		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 
 		self._attr_name = f"Family Link Screen Time Formatted"
 		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_screen_time_formatted"
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 
-	@property
-	def device_info(self) -> DeviceInfo:
-		"""Return device information."""
-		return DeviceInfo(
-			identifiers={(DOMAIN, "familylink_account")},
-			name="Google Family Link",
-			manufacturer="Google",
-			model="Family Link Account",
-		)
+		self._attr_name = f"{child_name} Screen Time Formatted"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_screen_time_formatted"
 
 	@property
 	def native_value(self) -> str | None:
 		"""Return the state of the sensor as formatted time."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return None
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return None
 
@@ -193,20 +240,22 @@ class FamilyLinkScreenTimeFormattedSensor(CoordinatorEntity, SensorEntity):
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "screen_time" in self.coordinator.data
-			and self.coordinator.data["screen_time"] is not None
+			and child_data is not None
+			and "screen_time" in child_data
+			and child_data["screen_time"] is not None
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return {}
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return {}
 
@@ -220,13 +269,18 @@ class FamilyLinkScreenTimeFormattedSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkAppCountSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for total number of installed apps."""
 
 	_attr_icon = "mdi:apps"
 	_attr_state_class = SensorStateClass.MEASUREMENT
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 		self._attr_name = "Family Link Installed Apps"
@@ -241,30 +295,36 @@ class FamilyLinkAppCountSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Installed Apps"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_app_count"
 
 	@property
 	def native_value(self) -> int | None:
 		"""Return the number of installed apps."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return None
-		return len(self.coordinator.data["apps"])
+		return len(child_data["apps"])
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "apps" in self.coordinator.data
+			and child_data is not None
+			and "apps" in child_data
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return {}
 
-		apps = self.coordinator.data["apps"]
+		apps = child_data["apps"]
 		blocked = sum(1 for app in apps if app.get("supervisionSetting", {}).get("hidden", False))
 		with_limits = sum(1 for app in apps if app.get("supervisionSetting", {}).get("usageLimit"))
 		always_allowed = sum(1 for app in apps if app.get("supervisionSetting", {}).get("alwaysAllowedAppInfo"))
@@ -277,12 +337,17 @@ class FamilyLinkAppCountSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkBlockedAppsSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for blocked/hidden apps."""
 
 	_attr_icon = "mdi:block-helper"
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 		self._attr_name = "Family Link Blocked Apps"
@@ -297,32 +362,38 @@ class FamilyLinkBlockedAppsSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Blocked Apps"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_blocked_apps"
 
 	@property
 	def native_value(self) -> int:
 		"""Return the number of blocked apps."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return 0
 
-		apps = self.coordinator.data["apps"]
+		apps = child_data["apps"]
 		return sum(1 for app in apps if app.get("supervisionSetting", {}).get("hidden", False))
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "apps" in self.coordinator.data
+			and child_data is not None
+			and "apps" in child_data
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return {}
 
-		apps = self.coordinator.data["apps"]
+		apps = child_data["apps"]
 		blocked_apps = [
 			{
 				"name": app.get("title", "Unknown"),
@@ -338,12 +409,17 @@ class FamilyLinkBlockedAppsSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkAppsWithLimitsSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for apps with time limits."""
 
 	_attr_icon = "mdi:timer-sand"
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 		self._attr_name = "Family Link Apps with Time Limits"
@@ -358,32 +434,38 @@ class FamilyLinkAppsWithLimitsSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Apps with Time Limits"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_apps_with_limits"
 
 	@property
 	def native_value(self) -> int:
 		"""Return the number of apps with time limits."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return 0
 
-		apps = self.coordinator.data["apps"]
+		apps = child_data["apps"]
 		return sum(1 for app in apps if app.get("supervisionSetting", {}).get("usageLimit"))
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "apps" in self.coordinator.data
+			and child_data is not None
+			and "apps" in child_data
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "apps" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
 			return {}
 
-		apps = self.coordinator.data["apps"]
+		apps = child_data["apps"]
 		apps_with_limits = []
 
 		for app in apps:
@@ -402,16 +484,22 @@ class FamilyLinkAppsWithLimitsSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for individual top app usage."""
 
 	_attr_device_class = SensorDeviceClass.DURATION
 	_attr_native_unit_of_measurement = UnitOfTime.MINUTES
 	_attr_icon = "mdi:star"
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator, rank: int) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		rank: int,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
-		super().__init__(coordinator)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._rank = rank
 		self._attr_name = f"Family Link Top App #{rank}"
 		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_top_app_{rank}"
@@ -425,14 +513,17 @@ class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		self._attr_name = f"{child_name} Top App #{rank}"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_top_app_{rank}"
 
 	@property
 	def native_value(self) -> float | None:
 		"""Return usage time in minutes for this top app."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return None
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return None
 
@@ -454,14 +545,15 @@ class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		if not (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "screen_time" in self.coordinator.data
+			and child_data is not None
+			and "screen_time" in child_data
 		):
 			return False
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return False
 
@@ -471,10 +563,11 @@ class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "screen_time" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "screen_time" not in child_data:
 			return {}
 
-		screen_time = self.coordinator.data["screen_time"]
+		screen_time = child_data["screen_time"]
 		if not screen_time:
 			return {}
 
@@ -487,7 +580,7 @@ class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
 
 		# Find app details
 		app_name = package
-		apps = self.coordinator.data.get("apps", [])
+		apps = child_data.get("apps", [])
 		for app in apps:
 			if app.get("packageName") == package:
 				app_name = app.get("title", package)
@@ -508,13 +601,18 @@ class FamilyLinkTopAppSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkDeviceCountSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for number of devices."""
 
 	_attr_icon = "mdi:devices"
 	_attr_state_class = SensorStateClass.MEASUREMENT
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 		self._attr_name = "Family Link Device Count"
@@ -529,30 +627,36 @@ class FamilyLinkDeviceCountSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Device Count"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_device_count"
 
 	@property
 	def native_value(self) -> int:
 		"""Return the number of devices."""
-		if not self.coordinator.data or "devices" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "devices" not in child_data:
 			return 0
-		return len(self.coordinator.data["devices"])
+		return len(child_data["devices"])
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "devices" in self.coordinator.data
+			and child_data is not None
+			and "devices" in child_data
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "devices" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "devices" not in child_data:
 			return {}
 
-		devices = self.coordinator.data["devices"]
+		devices = child_data["devices"]
 		device_list = [
 			{
 				"name": device.get("name", "Unknown"),
@@ -568,12 +672,17 @@ class FamilyLinkDeviceCountSensor(CoordinatorEntity, SensorEntity):
 		}
 
 
-class FamilyLinkChildInfoSensor(CoordinatorEntity, SensorEntity):
+class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for supervised child information."""
 
 	_attr_icon = "mdi:account-child"
 
-	def __init__(self, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
 		"""Initialize the sensor."""
 		super().__init__(coordinator)
 		self._attr_name = "Family Link Child Info"
@@ -588,14 +697,18 @@ class FamilyLinkChildInfoSensor(CoordinatorEntity, SensorEntity):
 			manufacturer="Google",
 			model="Family Link Account",
 		)
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Child Info"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_child_info"
 
 	@property
 	def native_value(self) -> str | None:
 		"""Return the child's display name."""
-		if not self.coordinator.data or "supervised_child" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "child" not in child_data:
 			return None
 
-		child = self.coordinator.data["supervised_child"]
+		child = child_data["child"]
 		if not child:
 			return None
 
@@ -604,20 +717,22 @@ class FamilyLinkChildInfoSensor(CoordinatorEntity, SensorEntity):
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
+		child_data = self._get_child_data()
 		return (
 			self.coordinator.last_update_success
-			and self.coordinator.data is not None
-			and "supervised_child" in self.coordinator.data
-			and self.coordinator.data["supervised_child"] is not None
+			and child_data is not None
+			and "child" in child_data
+			and child_data["child"] is not None
 		)
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		if not self.coordinator.data or "supervised_child" not in self.coordinator.data:
+		child_data = self._get_child_data()
+		if not child_data or "child" not in child_data:
 			return {}
 
-		child = self.coordinator.data["supervised_child"]
+		child = child_data["child"]
 		if not child:
 			return {}
 
