@@ -71,6 +71,8 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		self._device = device
 		self._device_id = device["id"]
+		self._attr_name = device.get("name", f"Family Link Device {self._device_id}")
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_{self._device_id}"
 		self._child_id = child_id
 		self._child_name = child_name
 		self._attr_name = device.get("name", f"{child_name} Device {self._device_id}")
