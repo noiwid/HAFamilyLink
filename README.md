@@ -85,7 +85,11 @@ Home Assistant's Docker environment restricts browser automation. The add-on run
 
 See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
 
-### Quick Start
+> **📌 Note for Home Assistant Core/Container Users**
+>
+> If you're running Home Assistant **without Supervisor** (Core or Container installation), you'll need to run the authentication add-on as a standalone Docker container. See the [Docker Standalone Guide](DOCKER_STANDALONE.md) for detailed instructions.
+
+### Quick Start (Home Assistant OS / Supervised)
 
 1. **Install Family Link Auth Add-on**
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
