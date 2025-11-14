@@ -65,7 +65,7 @@ docker run -d \
   -e AUTH_TIMEOUT=300 \
   -e SESSION_DURATION=86400 \
   --restart unless-stopped \
-  noiwid/familylink-auth:latest
+  ghcr.io/noiwid/familylink-auth:latest
 ```
 
 ## 🔧 Configuration
@@ -235,7 +235,7 @@ docker-compose up -d
 ### Using Docker Run
 
 ```bash
-docker pull noiwid/familylink-auth:latest
+docker pull ghcr.io/noiwid/familylink-auth:latest
 docker stop familylink-auth
 docker rm familylink-auth
 # Then run the docker run command again
@@ -311,7 +311,7 @@ services:
     restart: unless-stopped
 
   familylink-auth:
-    image: noiwid/familylink-auth:latest
+    image: ghcr.io/noiwid/familylink-auth:latest
     container_name: familylink-auth
     ports:
       - "8099:8099"
