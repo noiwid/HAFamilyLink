@@ -121,6 +121,18 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 
 		self._sensor_type = sensor_type
+		self._attr_name = f"Family Link Daily Screen Time"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_screen_time_{sensor_type}"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		self._attr_name = f"{child_name} Daily Screen Time"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_screen_time_{sensor_type}"
 
@@ -203,6 +215,10 @@ class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, Sen
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+
+		self._attr_name = f"Family Link Screen Time Formatted"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_screen_time_formatted"
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 
 		self._attr_name = f"{child_name} Screen Time Formatted"
@@ -266,6 +282,19 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+		self._attr_name = "Family Link Installed Apps"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_app_count"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._attr_name = f"{child_name} Installed Apps"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_app_count"
@@ -320,6 +349,19 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+		self._attr_name = "Family Link Blocked Apps"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_blocked_apps"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._attr_name = f"{child_name} Blocked Apps"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_blocked_apps"
@@ -379,6 +421,19 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+		self._attr_name = "Family Link Apps with Time Limits"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_apps_with_limits"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._attr_name = f"{child_name} Apps with Time Limits"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_apps_with_limits"
@@ -446,6 +501,18 @@ class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		"""Initialize the sensor."""
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._rank = rank
+		self._attr_name = f"Family Link Top App #{rank}"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_top_app_{rank}"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		self._attr_name = f"{child_name} Top App #{rank}"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_top_app_{rank}"
 
@@ -547,6 +614,19 @@ class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+		self._attr_name = "Family Link Device Count"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_device_count"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._attr_name = f"{child_name} Device Count"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_device_count"
@@ -604,6 +684,19 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 		child_name: str,
 	) -> None:
 		"""Initialize the sensor."""
+		super().__init__(coordinator)
+		self._attr_name = "Family Link Child Info"
+		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_child_info"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, "familylink_account")},
+			name="Google Family Link",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
 		self._attr_name = f"{child_name} Child Info"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_child_info"
