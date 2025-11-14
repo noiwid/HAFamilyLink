@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   familylink-auth:
-    image: noiwid/familylink-auth:latest
+    image: ghcr.io/noiwid/familylink-auth:latest
     container_name: familylink-auth
     ports:
       - "8099:8099"  # Web interface
