@@ -45,78 +45,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self.client is None:
 				await self._async_setup_client()
 
-			# Fetch complete apps and usage data (includes devices, apps, and usage)
-			apps_usage_data = None
-			try:
-				apps_usage_data = await self.client.async_get_apps_and_usage()
-				_LOGGER.debug(
-					f"Fetched {len(apps_usage_data.get('apps', []))} apps, "
-					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
-					f"{len(apps_usage_data.get('appUsageSessions', []))} usage sessions"
-				)
-			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch apps and usage data: {err}")
-
-			# Extract devices from apps_usage_data
-			devices = []
-			if apps_usage_data:
-				for device_info in apps_usage_data.get("deviceInfo", []):
-					display_info = device_info.get("displayInfo", {})
-					device = {
-						"id": device_info.get("deviceId"),
-						"name": display_info.get("friendlyName", "Unknown Device"),
-						"model": display_info.get("model", "Unknown"),
-						"last_activity": display_info.get("lastActivityTimeMillis"),
-						"capabilities": device_info.get("capabilityInfo", {}).get("capabilities", []),
-					}
-					devices.append(device)
-
-			# Fetch real lock states from appliedTimeLimits API
-			device_lock_states = {}
-			try:
-				device_lock_states = await self.client.async_get_applied_time_limits()
-				_LOGGER.debug(f"Fetched lock states for {len(device_lock_states)} devices")
-			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch device lock states: {err}")
-
-			# Update device cache with real lock states from API
-			import time
-			current_time = time.time()
-			for device in devices:
-				device_id = device["id"]
-
-				# Check if we have a pending lock state change (within last 5 seconds)
-				if device_id in self._pending_lock_states:
-					pending_locked, timestamp = self._pending_lock_states[device_id]
-					age = current_time - timestamp
-
-					if age < 5.0:  # Use pending state for 5 seconds
-						device["locked"] = pending_locked
-						_LOGGER.debug(
-							f"Using pending lock state for {device_id}: {pending_locked} "
-							f"(age: {age:.1f}s, API says: {device_lock_states.get(device_id)})"
-						)
-						continue
-					else:
-						# Expired, remove from pending
-						del self._pending_lock_states[device_id]
-
-				# Use real lock state from API if available, otherwise default to False
-				device["locked"] = device_lock_states.get(device_id, False)
-
-			self._devices = {device["id"]: device for device in devices}
-
-			# Fetch daily screen time data
-			screen_time = None
-			try:
-				screen_time = await self.client.async_get_daily_screen_time()
-				_LOGGER.debug(
-					f"Successfully fetched screen time: {screen_time['formatted']} "
-					f"({len(screen_time['app_breakdown'])} apps)"
-				)
-			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch screen time data: {err}")
-				# Don't fail entire update if screen time fetch fails
+			# Initialize empty device cache (will be populated per-child below)
+			self._devices = {}
 
 			# Fetch family members info
 			# Fetch family members info first to get all supervised children
@@ -181,8 +111,27 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					_LOGGER.warning(f"Failed to fetch device lock states for {child_name}: {err}")
 
 				# Update device cache with real lock states from API
+				import time
+				current_time = time.time()
 				for device in devices:
 					device_id = device["id"]
+
+					# Check if we have a pending lock state change (within last 5 seconds)
+					if device_id in self._pending_lock_states:
+						pending_locked, timestamp = self._pending_lock_states[device_id]
+						age = current_time - timestamp
+
+						if age < 5.0:  # Use pending state for 5 seconds
+							device["locked"] = pending_locked
+							_LOGGER.debug(
+								f"Using pending lock state for {device_id}: {pending_locked} "
+								f"(age: {age:.1f}s, API says: {device_lock_states.get(device_id)})"
+							)
+							continue
+						else:
+							# Expired, remove from pending
+							del self._pending_lock_states[device_id]
+
 					# Use real lock state from API if available, otherwise default to False
 					device["locked"] = device_lock_states.get(device_id, False)
 
