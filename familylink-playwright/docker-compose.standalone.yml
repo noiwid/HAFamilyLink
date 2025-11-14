@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  familylink-auth:
+    image: noiwid/familylink-auth:latest
+    container_name: familylink-auth
+    ports:
+      - "8099:8099"  # Web interface
+      - "5900:5900"  # VNC server
+    volumes:
+      - ./data:/share/familylink:rw
+    environment:
+      - LOG_LEVEL=info
+      - AUTH_TIMEOUT=300
+      - SESSION_DURATION=86400
+      - VNC_PASSWORD=familylink
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
