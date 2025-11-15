@@ -194,8 +194,14 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 
 		bedtime_window = time_data.get("bedtime_window")
 		if bedtime_window:
-			attributes["bedtime_start_ms"] = bedtime_window.get("start_ms")
-			attributes["bedtime_end_ms"] = bedtime_window.get("end_ms")
+			start_ms = bedtime_window.get("start_ms")
+			end_ms = bedtime_window.get("end_ms")
+			if start_ms:
+				from datetime import datetime
+				attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+			if end_ms:
+				from datetime import datetime
+				attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
 
 		return attributes
 
@@ -250,8 +256,14 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 
 		schooltime_window = time_data.get("schooltime_window")
 		if schooltime_window:
-			attributes["schooltime_start_ms"] = schooltime_window.get("start_ms")
-			attributes["schooltime_end_ms"] = schooltime_window.get("end_ms")
+			start_ms = schooltime_window.get("start_ms")
+			end_ms = schooltime_window.get("end_ms")
+			if start_ms:
+				from datetime import datetime
+				attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+			if end_ms:
+				from datetime import datetime
+				attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
 
 		return attributes
 

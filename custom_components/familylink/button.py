@@ -76,7 +76,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 	def device_info(self) -> DeviceInfo:
 		"""Return device information."""
 		return DeviceInfo(
-			identifiers={(DOMAIN, f"familylink_{self._child_id}_{self._device_id}")},
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
 			name=self._device_name,
 			manufacturer="Google",
 			model="Family Link Device",

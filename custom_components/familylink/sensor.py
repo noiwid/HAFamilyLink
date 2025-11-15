@@ -13,7 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -90,6 +90,7 @@ class BedtimeScheduleSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = f"{child_name} Bedtime Schedule"
         self._attr_unique_id = f"{DOMAIN}_{child_id}_bedtime_schedule"
         self._attr_icon = "mdi:bed-clock"
+        self._attr_entity_category = EntityCategory.CONFIG
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -178,6 +179,7 @@ class SchoolTimeScheduleSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = f"{child_name} School Time Schedule"
         self._attr_unique_id = f"{DOMAIN}_{child_id}_school_time_schedule"
         self._attr_icon = "mdi:school-outline"
+        self._attr_entity_category = EntityCategory.CONFIG
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -267,7 +269,9 @@ class DailyLimitSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{child_id}_daily_limit_config"
         self._attr_icon = "mdi:timer-outline"
         self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+        self._attr_device_class = SensorDeviceClass.DURATION
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_entity_category = EntityCategory.CONFIG
 
     @property
     def device_info(self) -> DeviceInfo:
