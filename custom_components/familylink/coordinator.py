@@ -31,6 +31,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
+		self._time_limit_states: dict[str, dict[str, bool]] = {}  # child_id -> {bedtime_enabled, school_time_enabled, daily_limit_enabled}
 
 		super().__init__(
 			hass,

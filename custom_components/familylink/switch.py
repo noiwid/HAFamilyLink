@@ -206,18 +206,21 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		)
 
 	@property
-	def is_on(self) -> bool | None:
+	def is_on(self) -> bool:
 		"""Return True if bedtime is enabled."""
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					return child_data.get("bedtime_enabled")
-		return None
+					bedtime_state = child_data.get("bedtime_enabled")
+					if bedtime_state is not None:
+						return bedtime_state
+		# Default to False if unknown
+		return False
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
-		return self.coordinator.last_update_success and self.is_on is not None
+		return self.coordinator.last_update_success
 
 	@property
 	def icon(self) -> str:
@@ -277,18 +280,21 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		)
 
 	@property
-	def is_on(self) -> bool | None:
+	def is_on(self) -> bool:
 		"""Return True if school time is enabled."""
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					return child_data.get("school_time_enabled")
-		return None
+					school_time_state = child_data.get("school_time_enabled")
+					if school_time_state is not None:
+						return school_time_state
+		# Default to False if unknown
+		return False
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
-		return self.coordinator.last_update_success and self.is_on is not None
+		return self.coordinator.last_update_success
 
 	@property
 	def icon(self) -> str:
@@ -348,18 +354,21 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		)
 
 	@property
-	def is_on(self) -> bool | None:
+	def is_on(self) -> bool:
 		"""Return True if daily limit is enabled."""
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					return child_data.get("daily_limit_enabled")
-		return None
+					daily_limit_state = child_data.get("daily_limit_enabled")
+					if daily_limit_state is not None:
+						return daily_limit_state
+		# Default to False if unknown
+		return False
 
 	@property
 	def available(self) -> bool:
 		"""Return True if entity is available."""
-		return self.coordinator.last_update_success and self.is_on is not None
+		return self.coordinator.last_update_success
 
 	@property
 	def icon(self) -> str:
