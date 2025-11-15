@@ -719,14 +719,18 @@ class FamilyLinkClient:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
 
-	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, bool]:
-		"""Get applied time limits to determine device lock states.
+	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Get applied time limits including device lock states and global time limit settings.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
 
 		Returns:
-			Dictionary mapping device_id to locked state (True = locked, False = unlocked)
+			Dictionary with:
+			- device_lock_states: Dict mapping device_id to locked state (True/False)
+			- bedtime_enabled: Boolean indicating if bedtime is enabled
+			- school_time_enabled: Boolean indicating if school time is enabled
+			- daily_limit_enabled: Boolean indicating if daily limit is enabled
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -754,7 +758,12 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					return {}
+					return {
+						"device_lock_states": {},
+						"bedtime_enabled": None,
+						"school_time_enabled": None,
+						"daily_limit_enabled": None
+					}
 
 				data = await response.json()
 				_LOGGER.debug(f"Applied time limits response: {data}")
@@ -762,6 +771,9 @@ class FamilyLinkClient:
 				# Parse lock states from response
 				# Response format: [[null, timestamp], [device_arrays]]
 				device_lock_states = {}
+				bedtime_enabled = None
+				school_time_enabled = None
+				daily_limit_enabled = None
 
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
@@ -804,11 +816,108 @@ class FamilyLinkClient:
 								f"action_code={device_data[0][2] if has_lock_override and len(device_data[0]) > 2 else None}"
 							)
 
-				return device_lock_states
+						# Parse time limit feature states
+						# Look for bedtime (UUID: 487088e7-38b4-4f18-a5fb-4aab64ba9d2f)
+						# Look for school time (UUID: 579e5e01-8dfd-42f3-be6b-d77984842202)
+						# Status: 2 = enabled, 1 = disabled
+						self._parse_time_limit_features(device_data, locals())
+
+				# If we couldn't find states from device data, try parsing from top-level data
+				if bedtime_enabled is None or school_time_enabled is None or daily_limit_enabled is None:
+					self._parse_global_time_limit_features(data, locals())
+
+				_LOGGER.debug(
+					f"Time limit states - Bedtime: {bedtime_enabled}, "
+					f"School time: {school_time_enabled}, Daily limit: {daily_limit_enabled}"
+				)
+
+				return {
+					"device_lock_states": device_lock_states,
+					"bedtime_enabled": bedtime_enabled,
+					"school_time_enabled": school_time_enabled,
+					"daily_limit_enabled": daily_limit_enabled
+				}
 
 		except Exception as err:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
+
+	def _parse_time_limit_features(self, device_data: list, local_vars: dict) -> None:
+		"""Parse time limit feature states from device data.
+
+		Args:
+			device_data: Array containing device time limit information
+			local_vars: Dictionary to update with parsed values (bedtime_enabled, school_time_enabled, daily_limit_enabled)
+		"""
+		# UUIDs for different time limit features
+		BEDTIME_UUID = "487088e7-38b4-4f18-a5fb-4aab64ba9d2f"
+		SCHOOL_TIME_UUID = "579e5e01-8dfd-42f3-be6b-d77984842202"
+
+		# Search through the device_data array for time limit configurations
+		for item in device_data:
+			if not isinstance(item, list):
+				continue
+
+			# Recursively search for UUID-status pairs
+			for sub_item in item:
+				if not isinstance(sub_item, list):
+					continue
+
+				# Look for [UUID, status] pairs
+				for entry in sub_item:
+					if isinstance(entry, list) and len(entry) >= 2:
+						uuid, status = entry[0], entry[1]
+
+						if uuid == BEDTIME_UUID and isinstance(status, int):
+							local_vars["bedtime_enabled"] = (status == 2)
+							_LOGGER.debug(f"Found bedtime status: {status} (enabled={status == 2})")
+						elif uuid == SCHOOL_TIME_UUID and isinstance(status, int):
+							local_vars["school_time_enabled"] = (status == 2)
+							_LOGGER.debug(f"Found school time status: {status} (enabled={status == 2})")
+
+		# Look for daily limit status (different format: [[status, ...]])
+		if len(device_data) > 2 and isinstance(device_data[2], list):
+			for item in device_data[2]:
+				if isinstance(item, list) and len(item) >= 1:
+					if isinstance(item[0], list) and len(item[0]) >= 1:
+						status = item[0][0]
+						if isinstance(status, int) and status in [1, 2]:
+							local_vars["daily_limit_enabled"] = (status == 2)
+							_LOGGER.debug(f"Found daily limit status: {status} (enabled={status == 2})")
+
+	def _parse_global_time_limit_features(self, data: list, local_vars: dict) -> None:
+		"""Parse time limit feature states from top-level response data.
+
+		Args:
+			data: Top-level response array
+			local_vars: Dictionary to update with parsed values
+		"""
+		# UUIDs for different time limit features
+		BEDTIME_UUID = "487088e7-38b4-4f18-a5fb-4aab64ba9d2f"
+		SCHOOL_TIME_UUID = "579e5e01-8dfd-42f3-be6b-d77984842202"
+
+		# Search entire response structure
+		def search_recursive(obj):
+			if isinstance(obj, list):
+				for i, item in enumerate(obj):
+					# Check if this is a [UUID, status] pair
+					if isinstance(item, list) and len(item) >= 2:
+						uuid, status = item[0], item[1]
+
+						if uuid == BEDTIME_UUID and isinstance(status, int):
+							if local_vars["bedtime_enabled"] is None:
+								local_vars["bedtime_enabled"] = (status == 2)
+						elif uuid == SCHOOL_TIME_UUID and isinstance(status, int):
+							if local_vars["school_time_enabled"] is None:
+								local_vars["school_time_enabled"] = (status == 2)
+
+					# Continue searching recursively
+					search_recursive(item)
+			elif isinstance(obj, dict):
+				for value in obj.values():
+					search_recursive(value)
+
+		search_recursive(data)
 
 	async def async_add_time_bonus(
 		self,
