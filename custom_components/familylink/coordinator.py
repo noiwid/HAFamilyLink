@@ -103,25 +103,41 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						}
 						devices.append(device)
 
-				# Fetch real lock states and time limit states from appliedTimeLimits API
-				device_lock_states = {}
+				# Fetch time limit configuration (bedtime/school time schedules and enabled states)
 				bedtime_enabled = None
 				school_time_enabled = None
+				bedtime_schedule = None
+				school_time_schedule = None
+
+				try:
+					time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
+					bedtime_enabled = time_limit_config.get("bedtime_enabled")
+					school_time_enabled = time_limit_config.get("school_time_enabled")
+					bedtime_schedule = time_limit_config.get("bedtime_schedule")
+					school_time_schedule = time_limit_config.get("school_time_schedule")
+					_LOGGER.debug(
+						f"Fetched time limit config for {child_name}: "
+						f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
+					)
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+
+				# Fetch applied time limits (lock states and per-device time data)
+				device_lock_states = {}
+				devices_time_data = {}
 				daily_limit_enabled = None
 
 				try:
-					time_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
-					device_lock_states = time_limits_data.get("device_lock_states", {})
-					bedtime_enabled = time_limits_data.get("bedtime_enabled")
-					school_time_enabled = time_limits_data.get("school_time_enabled")
-					daily_limit_enabled = time_limits_data.get("daily_limit_enabled")
+					applied_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
+					device_lock_states = applied_limits_data.get("device_lock_states", {})
+					devices_time_data = applied_limits_data.get("devices", {})
 					_LOGGER.debug(
-						f"Fetched time limits for {child_name}: "
+						f"Fetched applied time limits for {child_name}: "
 						f"{len(device_lock_states)} device lock states, "
-						f"bedtime={bedtime_enabled}, school_time={school_time_enabled}, daily_limit={daily_limit_enabled}"
+						f"{len(devices_time_data)} devices with time data"
 					)
 				except Exception as err:
-					_LOGGER.warning(f"Failed to fetch time limits for {child_name}: {err}")
+					_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
 
 				# Update device cache with real lock states from API
 				import time
@@ -148,6 +164,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					# Use real lock state from API if available, otherwise default to False
 					device["locked"] = device_lock_states.get(device_id, False)
 
+					# Enrich device with time data from devices_time_data
+					if device_id in devices_time_data:
+						time_data = devices_time_data[device_id]
+						device["total_allowed_minutes"] = time_data.get("total_allowed_minutes")
+						device["used_minutes"] = time_data.get("used_minutes")
+						device["remaining_minutes"] = time_data.get("remaining_minutes")
+						device["daily_limit_enabled"] = time_data.get("daily_limit_enabled")
+						device["daily_limit_minutes"] = time_data.get("daily_limit_minutes")
+						device["bedtime_window"] = time_data.get("bedtime_window")
+						device["schooltime_window"] = time_data.get("schooltime_window")
+						device["bedtime_active"] = time_data.get("bedtime_active")
+						device["schooltime_active"] = time_data.get("schooltime_active")
+
 				# Fetch daily screen time data for this child
 				screen_time = None
 				try:
@@ -170,7 +199,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
+					"bedtime_schedule": bedtime_schedule,
+					"school_time_schedule": school_time_schedule,
 					"daily_limit_enabled": daily_limit_enabled,
+					"devices_time_data": devices_time_data,
 				}
 				children_data.append(child_data)
 

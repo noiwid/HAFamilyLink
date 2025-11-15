@@ -355,13 +355,21 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if daily limit is enabled."""
+		"""Return True if daily limit is enabled on at least one device."""
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					daily_limit_state = child_data.get("daily_limit_enabled")
-					if daily_limit_state is not None:
-						return daily_limit_state
+					devices_time_data = child_data.get("devices_time_data", {})
+					if not devices_time_data:
+						# No device time data available
+						return False
+					# Check if at least one device has daily_limit_enabled
+					for device_id, device_time_data in devices_time_data.items():
+						daily_limit_enabled = device_time_data.get("daily_limit_enabled", False)
+						if daily_limit_enabled:
+							return True
+					# No device has daily_limit enabled
+					return False
 		# Default to False if unknown
 		return False
 
