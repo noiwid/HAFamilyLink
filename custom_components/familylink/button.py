@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -32,12 +33,24 @@ async def async_setup_entry(
 		_LOGGER.warning("No children data available yet, buttons will be added on first update")
 		return
 
+	# Get device registry
+	device_registry = dr.async_get(hass)
+
 	# Create button entities for each device of each child
 	for child_data in coordinator.data.get("children_data", []):
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
 
 		_LOGGER.debug(f"Creating time bonus buttons for {child_name}'s devices")
+
+		# Ensure parent device (child account) exists in device registry
+		device_registry.async_get_or_create(
+			config_entry_id=entry.entry_id,
+			identifiers={(DOMAIN, child_id)},
+			name=f"{child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
 
 		for device in child_data.get("devices", []):
 			# Create 3 time bonus buttons per device (15min, 30min, 60min)
