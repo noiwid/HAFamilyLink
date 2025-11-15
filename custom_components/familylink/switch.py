@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -78,8 +78,6 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		self._device = device
 		self._device_id = device["id"]
-		self._attr_name = device.get("name", f"Family Link Device {self._device_id}")
-		self._attr_unique_id = f"{DOMAIN}_{coordinator.entry.entry_id}_{self._device_id}"
 		self._child_id = child_id
 		self._child_name = child_name
 		self._attr_name = device.get("name", f"{child_name} Device {self._device_id}")
@@ -194,6 +192,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self._child_name = child_name
 		self._attr_name = f"{child_name} Bedtime"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_bedtime"
+		self._attr_entity_category = EntityCategory.CONFIG
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -268,6 +267,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self._child_name = child_name
 		self._attr_name = f"{child_name} School Time"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_school_time"
+		self._attr_entity_category = EntityCategory.CONFIG
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -342,6 +342,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self._child_name = child_name
 		self._attr_name = f"{child_name} Daily Limit"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_daily_limit"
+		self._attr_entity_category = EntityCategory.CONFIG
 
 	@property
 	def device_info(self) -> DeviceInfo:

@@ -110,11 +110,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		return True
 
 	except FamilyLinkException as err:
-		_LOGGER.error("Failed to set up Family Link: %s", err)
-		raise ConfigEntryNotReady from err
+		_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
+		raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
 	except Exception as err:
-		_LOGGER.exception("Unexpected error setting up Family Link: %s", err)
-		raise ConfigEntryNotReady from err
+		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
+		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
 
 
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
