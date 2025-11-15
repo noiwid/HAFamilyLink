@@ -811,6 +811,441 @@ class FamilyLinkClient:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
 
+	async def async_add_time_bonus(
+		self,
+		bonus_minutes: int,
+		device_id: str,
+		account_id: str | None = None
+	) -> bool:
+		"""Add a time bonus to a device (e.g., 30 minutes extra screen time).
+
+		Args:
+			bonus_minutes: Number of minutes to add (e.g., 30 for 30 minutes)
+			device_id: Device ID (device token)
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Convert minutes to seconds
+			bonus_seconds = bonus_minutes * 60
+
+			# Payload format: [null, account_id, [[null, null, 10, device_token, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, 10, device_id, None, None, None, None, None, None, None, None, None, [[str(bonus_seconds), 0]]]],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Adding {bonus_minutes} minutes time bonus to device {device_id}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to add time bonus {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully added {bonus_minutes} minutes time bonus to device {device_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error adding time bonus: {err}")
+			return False
+
+	async def async_enable_bedtime(self, account_id: str | None = None) -> bool:
+		"""Enable bedtime (downtime) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling bedtime for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable bedtime {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled bedtime for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling bedtime: {err}")
+			return False
+
+	async def async_disable_bedtime(self, account_id: str | None = None) -> bool:
+		"""Disable bedtime (downtime) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling bedtime for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable bedtime {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled bedtime for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling bedtime: {err}")
+			return False
+
+	async def async_enable_school_time(self, account_id: str | None = None) -> bool:
+		"""Enable school time (evening limit) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling school time for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable school time {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled school time for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling school time: {err}")
+			return False
+
+	async def async_disable_school_time(self, account_id: str | None = None) -> bool:
+		"""Disable school time (evening limit) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling school time for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable school time {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled school time for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling school time: {err}")
+			return False
+
+	async def async_enable_daily_limit(self, account_id: str | None = None) -> bool:
+		"""Enable daily time limit for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [null, [[2, null, null, null]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, [[2, None, None, None]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling daily limit for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled daily limit for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling daily limit: {err}")
+			return False
+
+	async def async_disable_daily_limit(self, account_id: str | None = None) -> bool:
+		"""Disable daily time limit for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [null, [[1, null, null, null]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, [[1, None, None, None]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling daily limit for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled daily limit for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling daily limit: {err}")
+			return False
+
+	async def async_set_daily_limit(
+		self,
+		daily_minutes: int,
+		device_id: str,
+		account_id: str | None = None
+	) -> bool:
+		"""Set daily time limit duration for a device.
+
+		Args:
+			daily_minutes: Number of minutes allowed per day (e.g., 120 for 2 hours)
+			device_id: Device ID (device token)
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, "CAEQBg"]]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, 8, device_id, None, None, None, None, None, None, None, [2, daily_minutes, "CAEQBg"]]],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to set daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully set daily limit to {daily_minutes} minutes for device {device_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
+			return False
+
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
 		if self._session:

@@ -54,4 +54,14 @@ ATTR_BATTERY_LEVEL: Final = "battery_level"
 # Service names
 SERVICE_REFRESH_DEVICES: Final = "refresh_devices"
 SERVICE_FORCE_UNLOCK: Final = "force_unlock"
-SERVICE_EMERGENCY_UNLOCK: Final = "emergency_unlock" 
+SERVICE_EMERGENCY_UNLOCK: Final = "emergency_unlock"
+
+# Time management services
+SERVICE_ADD_TIME_BONUS: Final = "add_time_bonus"
+SERVICE_ENABLE_BEDTIME: Final = "enable_bedtime"
+SERVICE_DISABLE_BEDTIME: Final = "disable_bedtime"
+SERVICE_ENABLE_SCHOOL_TIME: Final = "enable_school_time"
+SERVICE_DISABLE_SCHOOL_TIME: Final = "disable_school_time"
+SERVICE_ENABLE_DAILY_LIMIT: Final = "enable_daily_limit"
+SERVICE_DISABLE_DAILY_LIMIT: Final = "disable_daily_limit"
+SERVICE_SET_DAILY_LIMIT: Final = "set_daily_limit" 
