@@ -52,7 +52,7 @@ class FamilyLinkClient:
 		# Load cookies from add-on
 		_LOGGER.debug("Loading cookies from Family Link Auth add-on")
 
-		if not self.addon_client.cookies_available():
+		if not await self.addon_client.cookies_available():
 			raise AuthenticationError(
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
 			)
