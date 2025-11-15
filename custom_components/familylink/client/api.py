@@ -720,17 +720,24 @@ class FamilyLinkClient:
 			raise DeviceControlError(f"Failed to control device: {err}") from err
 
 	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, Any]:
-		"""Get applied time limits including device lock states and global time limit settings.
+		"""Get applied time limits for all devices (time remaining, windows, etc.).
 
 		Args:
 			account_id: User ID of the supervised child (optional)
 
 		Returns:
 			Dictionary with:
-			- device_lock_states: Dict mapping device_id to locked state (True/False)
-			- bedtime_enabled: Boolean indicating if bedtime is enabled
-			- school_time_enabled: Boolean indicating if school time is enabled
-			- daily_limit_enabled: Boolean indicating if daily limit is enabled
+			- device_lock_states: Dict mapping device_id to locked state
+			- devices: Dict mapping device_id to device time limit data:
+				- total_allowed_minutes: Total allowed today
+				- used_minutes: Time used today
+				- remaining_minutes: Time remaining
+				- daily_limit_enabled: Boolean
+				- daily_limit_minutes: Configured daily limit
+				- bedtime_window: {start_ms, end_ms} or None
+				- schooltime_window: {start_ms, end_ms} or None
+				- bedtime_active: Boolean
+				- schooltime_active: Boolean
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -758,166 +765,116 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					return {
-						"device_lock_states": {},
-						"bedtime_enabled": None,
-						"school_time_enabled": None,
-						"daily_limit_enabled": None
-					}
+					return {"device_lock_states": {}, "devices": {}}
 
 				data = await response.json()
-				_LOGGER.debug(f"Applied time limits response: {data}")
+				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")
 
-				# Parse lock states from response
-				# Response format: [[null, timestamp], [device_arrays]]
 				device_lock_states = {}
-				bedtime_enabled = None
-				school_time_enabled = None
-				daily_limit_enabled = None
+				devices = {}
 
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
 						if not isinstance(device_data, list) or len(device_data) < 25:
 							continue
 
-						# Get device ID from the data
-						# When unlocked: [0] contains an array with device_id at [3]
-						# When locked: [0] is null
+						# Extract device ID
 						device_id = None
-
-						# Try to find device_id
 						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
-							# Found in unlock override
 							device_id = device_data[0][3]
 						elif len(device_data) > 25 and device_data[25]:
-							# Found at index 25 (device_id field always present)
 							device_id = device_data[25]
 
-						if device_id:
-							# Determine lock state by checking for active time limit override:
-							# When LOCKED: device_data[0] contains the lock override [null, null, action_code, device_id]
-							# When UNLOCKED: device_data[0] is null (no active override)
-							has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+						if not device_id:
+							continue
 
-							# Additional check: action code at [0][2]
-							# Code 1 = LOCK, Code 4 = UNLOCK
-							# If there's an override, check if it's a lock (1) or unlock (4)
-							if has_lock_override and len(device_data[0]) > 2:
-								action_code = device_data[0][2]
-								is_locked = (action_code == 1)  # 1 = lock, 4 = unlock
-							else:
-								# No override means unlocked (normal state)
-								is_locked = False
+						# Parse lock state
+						has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+						if has_lock_override and len(device_data[0]) > 2:
+							action_code = device_data[0][2]
+							is_locked = (action_code == 1)
+						else:
+							is_locked = False
+						device_lock_states[device_id] = is_locked
 
-							device_lock_states[device_id] = is_locked
-							_LOGGER.debug(
-								f"Device {device_id}: locked={is_locked}, "
-								f"has_override={has_lock_override}, "
-								f"action_code={device_data[0][2] if has_lock_override and len(device_data[0]) > 2 else None}"
-							)
+						# Initialize device data
+						device_info = {
+							"total_allowed_minutes": 0,
+							"used_minutes": 0,
+							"remaining_minutes": 0,
+							"daily_limit_enabled": False,
+							"daily_limit_minutes": 0,
+							"bedtime_window": None,
+							"schooltime_window": None,
+							"bedtime_active": False,
+							"schooltime_active": False
+						}
 
-						# Parse time limit feature states
-						# Look for bedtime (UUID: 487088e7-38b4-4f18-a5fb-4aab64ba9d2f)
-						# Look for school time (UUID: 579e5e01-8dfd-42f3-be6b-d77984842202)
-						# Status: 2 = enabled, 1 = disabled
-						self._parse_time_limit_features(device_data, locals())
+						# Parse time data (usually at indices 1-3)
+						# Index 1: total allowed (ms string)
+						# Index 2: used (ms string)
+						if len(device_data) > 2:
+							if isinstance(device_data[1], str) and device_data[1].isdigit():
+								total_ms = int(device_data[1])
+								device_info["total_allowed_minutes"] = total_ms // 60000
+							if isinstance(device_data[2], str) and device_data[2].isdigit():
+								used_ms = int(device_data[2])
+								device_info["used_minutes"] = used_ms // 60000
+							device_info["remaining_minutes"] = max(0, device_info["total_allowed_minutes"] - device_info["used_minutes"])
 
-				# If we couldn't find states from device data, try parsing from top-level data
-				if bedtime_enabled is None or school_time_enabled is None or daily_limit_enabled is None:
-					self._parse_global_time_limit_features(data, locals())
+						# Parse windows and CAEQBg/CAMQ tuples
+						# Look for bedtime window (indices vary, usually around 3-10)
+						# Look for schooltime window
+						# Look for CAEQBg (daily limit) tuple
+						# Format: ["CAEQBg", day, stateFlag, minutes_or_hours, ...]
+						for idx, item in enumerate(device_data):
+							if isinstance(item, list) and len(item) >= 4:
+								if isinstance(item[0], str):
+									# CAEQBg = daily limit or bedtime
+									if item[0].startswith("CAEQBg") or item[0] == "CAEQBg":
+										state_flag = item[2] if len(item) > 2 else None
+										value = item[3] if len(item) > 3 else None
+										if isinstance(state_flag, int) and isinstance(value, int):
+											device_info["daily_limit_enabled"] = (state_flag == 2)
+											device_info["daily_limit_minutes"] = value
+											_LOGGER.debug(f"Device {device_id}: daily_limit enabled={state_flag==2}, minutes={value}")
+									# CAMQ = schooltime
+									elif item[0].startswith("CAMQ"):
+										state_flag = item[2] if len(item) > 2 else None
+										if isinstance(state_flag, int):
+											device_info["schooltime_active"] = (state_flag == 2)
 
-				_LOGGER.debug(
-					f"Time limit states - Bedtime: {bedtime_enabled}, "
-					f"School time: {school_time_enabled}, Daily limit: {daily_limit_enabled}"
-				)
+							# Look for window objects (arrays with 2 epoch timestamps)
+							elif isinstance(item, list) and len(item) == 2:
+								if all(isinstance(x, (int, str)) for x in item):
+									try:
+										start_ms = int(item[0]) if isinstance(item[0], str) else item[0]
+										end_ms = int(item[1]) if isinstance(item[1], str) else item[1]
+										# Heuristic: if both are large epoch ms values
+										if start_ms > 1000000000000 and end_ms > 1000000000000:
+											# First window = bedtime, second = schooltime (heuristic)
+											if device_info["bedtime_window"] is None:
+												device_info["bedtime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
+												device_info["bedtime_active"] = True
+												_LOGGER.debug(f"Device {device_id}: bedtime window {start_ms}-{end_ms}")
+											elif device_info["schooltime_window"] is None:
+												device_info["schooltime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
+												device_info["schooltime_active"] = True
+												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
+									except (ValueError, TypeError):
+										pass
+
+						devices[device_id] = device_info
+						_LOGGER.debug(f"Device {device_id} parsed: {device_info}")
 
 				return {
 					"device_lock_states": device_lock_states,
-					"bedtime_enabled": bedtime_enabled,
-					"school_time_enabled": school_time_enabled,
-					"daily_limit_enabled": daily_limit_enabled
+					"devices": devices
 				}
 
 		except Exception as err:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
-
-	def _parse_time_limit_features(self, device_data: list, local_vars: dict) -> None:
-		"""Parse time limit feature states from device data.
-
-		Args:
-			device_data: Array containing device time limit information
-			local_vars: Dictionary to update with parsed values (bedtime_enabled, school_time_enabled, daily_limit_enabled)
-		"""
-		# UUIDs for different time limit features
-		BEDTIME_UUID = "487088e7-38b4-4f18-a5fb-4aab64ba9d2f"
-		SCHOOL_TIME_UUID = "579e5e01-8dfd-42f3-be6b-d77984842202"
-
-		# Search through the device_data array for time limit configurations
-		for item in device_data:
-			if not isinstance(item, list):
-				continue
-
-			# Recursively search for UUID-status pairs
-			for sub_item in item:
-				if not isinstance(sub_item, list):
-					continue
-
-				# Look for [UUID, status] pairs
-				for entry in sub_item:
-					if isinstance(entry, list) and len(entry) >= 2:
-						uuid, status = entry[0], entry[1]
-
-						if uuid == BEDTIME_UUID and isinstance(status, int):
-							local_vars["bedtime_enabled"] = (status == 2)
-							_LOGGER.debug(f"Found bedtime status: {status} (enabled={status == 2})")
-						elif uuid == SCHOOL_TIME_UUID and isinstance(status, int):
-							local_vars["school_time_enabled"] = (status == 2)
-							_LOGGER.debug(f"Found school time status: {status} (enabled={status == 2})")
-
-		# Look for daily limit status (different format: [[status, ...]])
-		if len(device_data) > 2 and isinstance(device_data[2], list):
-			for item in device_data[2]:
-				if isinstance(item, list) and len(item) >= 1:
-					if isinstance(item[0], list) and len(item[0]) >= 1:
-						status = item[0][0]
-						if isinstance(status, int) and status in [1, 2]:
-							local_vars["daily_limit_enabled"] = (status == 2)
-							_LOGGER.debug(f"Found daily limit status: {status} (enabled={status == 2})")
-
-	def _parse_global_time_limit_features(self, data: list, local_vars: dict) -> None:
-		"""Parse time limit feature states from top-level response data.
-
-		Args:
-			data: Top-level response array
-			local_vars: Dictionary to update with parsed values
-		"""
-		# UUIDs for different time limit features
-		BEDTIME_UUID = "487088e7-38b4-4f18-a5fb-4aab64ba9d2f"
-		SCHOOL_TIME_UUID = "579e5e01-8dfd-42f3-be6b-d77984842202"
-
-		# Search entire response structure
-		def search_recursive(obj):
-			if isinstance(obj, list):
-				for i, item in enumerate(obj):
-					# Check if this is a [UUID, status] pair
-					if isinstance(item, list) and len(item) >= 2:
-						uuid, status = item[0], item[1]
-
-						if uuid == BEDTIME_UUID and isinstance(status, int):
-							if local_vars["bedtime_enabled"] is None:
-								local_vars["bedtime_enabled"] = (status == 2)
-						elif uuid == SCHOOL_TIME_UUID and isinstance(status, int):
-							if local_vars["school_time_enabled"] is None:
-								local_vars["school_time_enabled"] = (status == 2)
-
-					# Continue searching recursively
-					search_recursive(item)
-			elif isinstance(obj, dict):
-				for value in obj.values():
-					search_recursive(value)
-
-		search_recursive(data)
 
 	async def async_add_time_bonus(
 		self,
@@ -1353,6 +1310,126 @@ class FamilyLinkClient:
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
 			return False
+
+	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Get time limit rules and schedules (bedtime/schooltime).
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			Dictionary with:
+			- bedtime_enabled: Boolean
+			- school_time_enabled: Boolean
+			- bedtime_schedule: List of {day, start, end} dicts
+			- school_time_schedule: List of {day, start, end} dicts
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
+			params = [
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
+				("timeLimitKey.type", "SUPERVISED_DEVICES")
+			]
+
+			_LOGGER.debug(f"Fetching time limit rules from {url}")
+
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to fetch time limit rules {response.status}: {response_text}")
+					return {
+						"bedtime_enabled": False,
+						"school_time_enabled": False,
+						"bedtime_schedule": [],
+						"school_time_schedule": []
+					}
+
+				data = await response.json()
+				_LOGGER.debug(f"Time limit rules response: {data}")
+
+				# Parse bedtime and schooltime schedules
+				bedtime_schedule = []
+				school_time_schedule = []
+
+				# Extract downtime (bedtime) schedules
+				if isinstance(data, list) and len(data) > 0:
+					for item in data:
+						if isinstance(item, list):
+							# Look for downtime entries (CAEQ* patterns)
+							if len(item) >= 5 and isinstance(item[0], str) and item[0].startswith("CAEQ"):
+								day = item[1] if len(item) > 1 else None
+								start = item[2] if len(item) > 2 else None
+								end = item[3] if len(item) > 3 else None
+								if day and start and end:
+									bedtime_schedule.append({
+										"day": day,
+										"start": start,  # [hh, mm]
+										"end": end  # [hh, mm]
+									})
+							# Look for schooltime entries (CAMQ* patterns)
+							elif len(item) >= 5 and isinstance(item[0], str) and item[0].startswith("CAMQ"):
+								day = item[1] if len(item) > 1 else None
+								start = item[2] if len(item) > 2 else None
+								end = item[3] if len(item) > 3 else None
+								if day and start and end:
+									school_time_schedule.append({
+										"day": day,
+										"start": start,
+										"end": end
+									})
+
+				# Parse revisions to get ON/OFF state
+				# Format: ["uuid", type_flag, state_flag, timestamp]
+				# type_flag: 1=bedtime, 2=schooltime
+				# state_flag: 2=ON, 1=OFF
+				bedtime_enabled = False
+				school_time_enabled = False
+
+				for item in data:
+					if isinstance(item, list) and len(item) >= 4:
+						uuid = item[0]
+						type_flag = item[1] if len(item) > 1 else None
+						state_flag = item[2] if len(item) > 2 else None
+
+						if isinstance(type_flag, int) and isinstance(state_flag, int):
+							if type_flag == 1:  # downtime/bedtime
+								bedtime_enabled = (state_flag == 2)
+								_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+							elif type_flag == 2:  # schooltime
+								school_time_enabled = (state_flag == 2)
+								_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+
+				_LOGGER.info(
+					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
+				)
+
+				return {
+					"bedtime_enabled": bedtime_enabled,
+					"school_time_enabled": school_time_enabled,
+					"bedtime_schedule": bedtime_schedule,
+					"school_time_schedule": school_time_schedule
+				}
+
+		except Exception as err:
+			_LOGGER.error("Failed to fetch time limit rules: %s", err)
+			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
 
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
