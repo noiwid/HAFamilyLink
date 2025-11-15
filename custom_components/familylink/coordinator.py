@@ -102,13 +102,25 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						}
 						devices.append(device)
 
-				# Fetch real lock states from appliedTimeLimits API
+				# Fetch real lock states and time limit states from appliedTimeLimits API
 				device_lock_states = {}
+				bedtime_enabled = None
+				school_time_enabled = None
+				daily_limit_enabled = None
+
 				try:
-					device_lock_states = await self.client.async_get_applied_time_limits(account_id=child_id)
-					_LOGGER.debug(f"Fetched lock states for {len(device_lock_states)} devices for {child_name}")
+					time_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
+					device_lock_states = time_limits_data.get("device_lock_states", {})
+					bedtime_enabled = time_limits_data.get("bedtime_enabled")
+					school_time_enabled = time_limits_data.get("school_time_enabled")
+					daily_limit_enabled = time_limits_data.get("daily_limit_enabled")
+					_LOGGER.debug(
+						f"Fetched time limits for {child_name}: "
+						f"{len(device_lock_states)} device lock states, "
+						f"bedtime={bedtime_enabled}, school_time={school_time_enabled}, daily_limit={daily_limit_enabled}"
+					)
 				except Exception as err:
-					_LOGGER.warning(f"Failed to fetch device lock states for {child_name}: {err}")
+					_LOGGER.warning(f"Failed to fetch time limits for {child_name}: {err}")
 
 				# Update device cache with real lock states from API
 				import time
@@ -155,6 +167,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					"screen_time": screen_time,
 					"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 					"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
+					"bedtime_enabled": bedtime_enabled,
+					"school_time_enabled": school_time_enabled,
+					"daily_limit_enabled": daily_limit_enabled,
 				}
 				children_data.append(child_data)
 
@@ -299,4 +314,4 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			await self.client.async_cleanup()
 			self.client = None
 
-		_LOGGER.debug("Coordinator cleanup completed") 
+		_LOGGER.debug("Coordinator cleanup completed")

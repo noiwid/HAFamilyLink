@@ -43,16 +43,23 @@ async def async_setup_entry(
 		_LOGGER.warning("No children data available yet, switches will be added on first update")
 		return
 
-	# Create switch entities for each device of each child
+	# Create switch entities for each child and their devices
 	for child_data in coordinator.data.get("children_data", []):
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
 
-		_LOGGER.debug(f"Creating switches for {child_name}'s devices")
+		_LOGGER.debug(f"Creating switches for {child_name}")
 
+		# Create time limit control switches for this child
+		entities.append(FamilyLinkBedtimeSwitch(coordinator, child_id, child_name))
+		entities.append(FamilyLinkSchoolTimeSwitch(coordinator, child_id, child_name))
+		entities.append(FamilyLinkDailyLimitSwitch(coordinator, child_id, child_name))
+
+		# Create device lock/unlock switches for each device
 		for device in child_data.get("devices", []):
 			entities.append(FamilyLinkDeviceSwitch(coordinator, device, child_id, child_name))
 
+	_LOGGER.debug(f"Created {len(entities)} total switch entities")
 	async_add_entities(entities, update_before_add=True)
 
 
@@ -168,4 +175,217 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		if not success:
 			_LOGGER.error("Failed to lock device %s", self._device_id)
 		else:
-			_LOGGER.info("Successfully locked device %s", self._device_id) 
+			_LOGGER.info("Successfully locked device %s", self._device_id)
+
+
+class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
+	"""Representation of bedtime (downtime) control as a switch."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the switch."""
+		super().__init__(coordinator)
+
+		self._child_id = child_id
+		self._child_name = child_name
+		self._attr_name = f"{child_name} Bedtime"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_bedtime"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			name=f"{self._child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+	@property
+	def is_on(self) -> bool | None:
+		"""Return True if bedtime is enabled."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					return child_data.get("bedtime_enabled")
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success and self.is_on is not None
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the switch."""
+		return "mdi:sleep" if self.is_on else "mdi:sleep-off"
+
+	async def async_turn_on(self) -> None:
+		"""Enable bedtime."""
+		_LOGGER.debug("Enabling bedtime for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_enable_bedtime(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to enable bedtime for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully enabled bedtime for %s", self._child_name)
+			await self.coordinator.async_request_refresh()
+
+	async def async_turn_off(self) -> None:
+		"""Disable bedtime."""
+		_LOGGER.debug("Disabling bedtime for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_disable_bedtime(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to disable bedtime for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully disabled bedtime for %s", self._child_name)
+			await self.coordinator.async_request_refresh()
+
+
+class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
+	"""Representation of school time (evening limit) control as a switch."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the switch."""
+		super().__init__(coordinator)
+
+		self._child_id = child_id
+		self._child_name = child_name
+		self._attr_name = f"{child_name} School Time"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_school_time"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			name=f"{self._child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+	@property
+	def is_on(self) -> bool | None:
+		"""Return True if school time is enabled."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					return child_data.get("school_time_enabled")
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success and self.is_on is not None
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the switch."""
+		return "mdi:school" if self.is_on else "mdi:school-outline"
+
+	async def async_turn_on(self) -> None:
+		"""Enable school time."""
+		_LOGGER.debug("Enabling school time for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_enable_school_time(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to enable school time for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully enabled school time for %s", self._child_name)
+			await self.coordinator.async_request_refresh()
+
+	async def async_turn_off(self) -> None:
+		"""Disable school time."""
+		_LOGGER.debug("Disabling school time for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_disable_school_time(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to disable school time for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully disabled school time for %s", self._child_name)
+			await self.coordinator.async_request_refresh()
+
+
+class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
+	"""Representation of daily limit control as a switch."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the switch."""
+		super().__init__(coordinator)
+
+		self._child_id = child_id
+		self._child_name = child_name
+		self._attr_name = f"{child_name} Daily Limit"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_daily_limit"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			name=f"{self._child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+	@property
+	def is_on(self) -> bool | None:
+		"""Return True if daily limit is enabled."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					return child_data.get("daily_limit_enabled")
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success and self.is_on is not None
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the switch."""
+		return "mdi:timer" if self.is_on else "mdi:timer-off"
+
+	async def async_turn_on(self) -> None:
+		"""Enable daily limit."""
+		_LOGGER.debug("Enabling daily limit for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_enable_daily_limit(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to enable daily limit for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully enabled daily limit for %s", self._child_name)
+			await self.coordinator.async_request_refresh()
+
+	async def async_turn_off(self) -> None:
+		"""Disable daily limit."""
+		_LOGGER.debug("Disabling daily limit for child %s", self._child_name)
+
+		success = await self.coordinator.client.async_disable_daily_limit(account_id=self._child_id)
+
+		if not success:
+			_LOGGER.error("Failed to disable daily limit for %s", self._child_name)
+		else:
+			_LOGGER.info("Successfully disabled daily limit for %s", self._child_name)
+			await self.coordinator.async_request_refresh() 
