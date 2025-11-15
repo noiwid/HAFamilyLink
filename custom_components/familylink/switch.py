@@ -207,6 +207,12 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 	@property
 	def is_on(self) -> bool:
 		"""Return True if bedtime is enabled."""
+		# Check for pending state first (takes precedence for 5 seconds after change)
+		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "bedtime")
+		if pending_state is not None:
+			return pending_state
+
+		# Otherwise use actual state from API
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
@@ -230,6 +236,10 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable bedtime."""
 		_LOGGER.debug("Enabling bedtime for child %s", self._child_name)
 
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", True)
+		self.async_write_ha_state()
+
 		success = await self.coordinator.client.async_enable_bedtime(account_id=self._child_id)
 
 		if not success:
@@ -241,6 +251,10 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 	async def async_turn_off(self) -> None:
 		"""Disable bedtime."""
 		_LOGGER.debug("Disabling bedtime for child %s", self._child_name)
+
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", False)
+		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_bedtime(account_id=self._child_id)
 
@@ -282,6 +296,12 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 	@property
 	def is_on(self) -> bool:
 		"""Return True if school time is enabled."""
+		# Check for pending state first (takes precedence for 5 seconds after change)
+		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "school_time")
+		if pending_state is not None:
+			return pending_state
+
+		# Otherwise use actual state from API
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
@@ -305,6 +325,10 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable school time."""
 		_LOGGER.debug("Enabling school time for child %s", self._child_name)
 
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", True)
+		self.async_write_ha_state()
+
 		success = await self.coordinator.client.async_enable_school_time(account_id=self._child_id)
 
 		if not success:
@@ -316,6 +340,10 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 	async def async_turn_off(self) -> None:
 		"""Disable school time."""
 		_LOGGER.debug("Disabling school time for child %s", self._child_name)
+
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", False)
+		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_school_time(account_id=self._child_id)
 
@@ -357,6 +385,12 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 	@property
 	def is_on(self) -> bool:
 		"""Return True if daily limit is enabled on at least one device."""
+		# Check for pending state first (takes precedence for 5 seconds after change)
+		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "daily_limit")
+		if pending_state is not None:
+			return pending_state
+
+		# Otherwise use actual state from API
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
@@ -388,6 +422,10 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable daily limit."""
 		_LOGGER.debug("Enabling daily limit for child %s", self._child_name)
 
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", True)
+		self.async_write_ha_state()
+
 		success = await self.coordinator.client.async_enable_daily_limit(account_id=self._child_id)
 
 		if not success:
@@ -399,6 +437,10 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 	async def async_turn_off(self) -> None:
 		"""Disable daily limit."""
 		_LOGGER.debug("Disabling daily limit for child %s", self._child_name)
+
+		# Set pending state immediately for instant UI feedback
+		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", False)
+		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_daily_limit(account_id=self._child_id)
 

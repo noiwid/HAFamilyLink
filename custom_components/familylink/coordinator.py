@@ -31,7 +31,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
-		self._time_limit_states: dict[str, dict[str, bool]] = {}  # child_id -> {bedtime_enabled, school_time_enabled, daily_limit_enabled}
+		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 
 		super().__init__(
 			hass,
@@ -340,6 +340,50 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			return False
+
+	def set_pending_time_limit_state(self, child_id: str, limit_type: str, enabled: bool) -> None:
+		"""Set a pending time limit state to reflect UI changes immediately.
+
+		Args:
+			child_id: The child's user ID
+			limit_type: One of "bedtime", "school_time", or "daily_limit"
+			enabled: Whether the limit is being enabled (True) or disabled (False)
+		"""
+		import time
+
+		if child_id not in self._pending_time_limit_states:
+			self._pending_time_limit_states[child_id] = {}
+
+		self._pending_time_limit_states[child_id][limit_type] = (enabled, time.time())
+		_LOGGER.debug(f"Set pending {limit_type} state for child {child_id}: {enabled}")
+
+	def get_pending_time_limit_state(self, child_id: str, limit_type: str) -> bool | None:
+		"""Get pending time limit state if it exists and is still valid (< 5 seconds old).
+
+		Args:
+			child_id: The child's user ID
+			limit_type: One of "bedtime", "school_time", or "daily_limit"
+
+		Returns:
+			The pending enabled state if valid, None otherwise
+		"""
+		import time
+
+		if child_id not in self._pending_time_limit_states:
+			return None
+
+		if limit_type not in self._pending_time_limit_states[child_id]:
+			return None
+
+		enabled, timestamp = self._pending_time_limit_states[child_id][limit_type]
+		age = time.time() - timestamp
+
+		if age < 5.0:  # Pending state valid for 5 seconds
+			return enabled
+		else:
+			# Expired, clean up
+			del self._pending_time_limit_states[child_id][limit_type]
+			return None
 
 	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
 		"""Get device data by ID."""
