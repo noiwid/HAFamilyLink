@@ -17,7 +17,6 @@ from ..auth.addon_client import AddonCookieClient
 from ..const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
-	FAMILYLINK_BASE_URL,
 	LOGGER_NAME,
 )
 from ..exceptions import (

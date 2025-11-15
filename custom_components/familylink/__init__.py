@@ -15,6 +15,8 @@ from .const import (
 	DOMAIN,
 	LOGGER_NAME,
 	SERVICE_ADD_TIME_BONUS,
+	SERVICE_BLOCK_APP,
+	SERVICE_BLOCK_DEVICE_FOR_SCHOOL,
 	SERVICE_DISABLE_BEDTIME,
 	SERVICE_DISABLE_DAILY_LIMIT,
 	SERVICE_DISABLE_SCHOOL_TIME,
@@ -22,6 +24,8 @@ from .const import (
 	SERVICE_ENABLE_DAILY_LIMIT,
 	SERVICE_ENABLE_SCHOOL_TIME,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_UNBLOCK_ALL_APPS,
+	SERVICE_UNBLOCK_APP,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .exceptions import FamilyLinkException
@@ -31,11 +35,6 @@ _LOGGER = logging.getLogger(LOGGER_NAME)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
 
 # Service schemas
-SERVICE_BLOCK_DEVICE_FOR_SCHOOL = "block_device_for_school"
-SERVICE_UNBLOCK_ALL_APPS = "unblock_all_apps"
-SERVICE_BLOCK_APP = "block_app"
-SERVICE_UNBLOCK_APP = "unblock_app"
-
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
 	vol.Optional("whitelist"): vol.All(cv.ensure_list, [cv.string]),
 })
