@@ -56,6 +56,12 @@ SERVICE_REFRESH_DEVICES: Final = "refresh_devices"
 SERVICE_FORCE_UNLOCK: Final = "force_unlock"
 SERVICE_EMERGENCY_UNLOCK: Final = "emergency_unlock"
 
+# App control services
+SERVICE_BLOCK_DEVICE_FOR_SCHOOL: Final = "block_device_for_school"
+SERVICE_UNBLOCK_ALL_APPS: Final = "unblock_all_apps"
+SERVICE_BLOCK_APP: Final = "block_app"
+SERVICE_UNBLOCK_APP: Final = "unblock_app"
+
 # Time management services
 SERVICE_ADD_TIME_BONUS: Final = "add_time_bonus"
 SERVICE_ENABLE_BEDTIME: Final = "enable_bedtime"
