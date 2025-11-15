@@ -120,7 +120,7 @@ class DeviceTimeBinarySensor(CoordinatorEntity, BinarySensorEntity):
 			manufacturer="Google",
 			model=self._device.get("model", "Family Link Device"),
 			sw_version=self._device.get("version"),
-			via_device=(DOMAIN, f"familylink_{self._child_id}"),
+			via_device=(DOMAIN, self._child_id),
 		)
 
 	def _get_device_time_data(self) -> dict[str, Any] | None:

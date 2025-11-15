@@ -92,7 +92,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			manufacturer="Google",
 			model=self._device.get("model", "Family Link Device"),
 			sw_version=self._device.get("version"),
-			via_device=(DOMAIN, f"familylink_{self._child_id}"),  # Link to parent (child's account device)
+			via_device=(DOMAIN, self._child_id),  # Link to parent (child's account device)
 		)
 
 	@property
@@ -198,7 +198,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 	def device_info(self) -> DeviceInfo:
 		"""Return device information."""
 		return DeviceInfo(
-			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			identifiers={(DOMAIN, self._child_id)},
 			name=f"{self._child_name} (Family Link)",
 			manufacturer="Google",
 			model="Family Link Account",
@@ -273,7 +273,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 	def device_info(self) -> DeviceInfo:
 		"""Return device information."""
 		return DeviceInfo(
-			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			identifiers={(DOMAIN, self._child_id)},
 			name=f"{self._child_name} (Family Link)",
 			manufacturer="Google",
 			model="Family Link Account",
@@ -348,7 +348,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 	def device_info(self) -> DeviceInfo:
 		"""Return device information."""
 		return DeviceInfo(
-			identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+			identifiers={(DOMAIN, self._child_id)},
 			name=f"{self._child_name} (Family Link)",
 			manufacturer="Google",
 			model="Family Link Account",

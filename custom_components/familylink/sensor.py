@@ -95,7 +95,7 @@ class BedtimeScheduleSensor(CoordinatorEntity, SensorEntity):
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+            identifiers={(DOMAIN, self._child_id)},
             name=f"{self._child_name} (Family Link)",
             manufacturer="Google",
             model="Family Link Account",
@@ -183,7 +183,7 @@ class SchoolTimeScheduleSensor(CoordinatorEntity, SensorEntity):
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+            identifiers={(DOMAIN, self._child_id)},
             name=f"{self._child_name} (Family Link)",
             manufacturer="Google",
             model="Family Link Account",
@@ -274,7 +274,7 @@ class DailyLimitSensor(CoordinatorEntity, SensorEntity):
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"familylink_{self._child_id}")},
+            identifiers={(DOMAIN, self._child_id)},
             name=f"{self._child_name} (Family Link)",
             manufacturer="Google",
             model="Family Link Account",
@@ -378,7 +378,7 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
             name=self._device_name,
             manufacturer="Google",
             model="Family Link Device",
-            via_device=(DOMAIN, f"familylink_{self._child_id}"),
+            via_device=(DOMAIN, self._child_id),
         )
 
     @property
@@ -464,7 +464,7 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
             name=self._device_name,
             manufacturer="Google",
             model="Family Link Device",
-            via_device=(DOMAIN, f"familylink_{self._child_id}"),
+            via_device=(DOMAIN, self._child_id),
         )
 
     def _calculate_time_until(self, target_ms: int) -> str | None:
