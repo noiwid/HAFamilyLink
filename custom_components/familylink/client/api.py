@@ -1362,6 +1362,11 @@ class FamilyLinkClient:
 
 				data = await response.json()
 				_LOGGER.debug(f"Time limit rules response: {data}")
+				_LOGGER.debug(f"[STRUCTURE] data type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
+				if isinstance(data, list) and len(data) > 0:
+					_LOGGER.debug(f"[STRUCTURE] data[0] type: {type(data[0])}, len: {len(data[0]) if isinstance(data[0], list) else 'N/A'}, content: {data[0]}")
+				if isinstance(data, list) and len(data) > 1:
+					_LOGGER.debug(f"[STRUCTURE] data[1] type: {type(data[1])}, len: {len(data[1]) if isinstance(data[1], list) else 'N/A'}")
 
 				# Parse bedtime and schooltime schedules, and daily limit configuration
 				bedtime_schedule = []
