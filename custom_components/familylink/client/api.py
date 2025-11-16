@@ -808,8 +808,37 @@ class FamilyLinkClient:
 							"schooltime_window": None,
 							"bedtime_active": False,
 							"schooltime_active": False,
-							"bonus_minutes": 0
+							"bonus_minutes": 0,
+							"bonus_override_id": None
 						}
+
+						# Parse bonus override (device_data[0] if it exists and type == 10)
+						# Structure: [override_id, timestamp, type, device_id, ..., [[duration_seconds]]]
+						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 13:
+							override_type = device_data[0][2] if len(device_data[0]) > 2 else None
+							if override_type == 10:  # Type 10 = time bonus
+								override_id = device_data[0][0]
+								override_device_id = device_data[0][3]
+
+								# Parse bonus duration from position [13][0][0] (seconds string)
+								if (len(device_data[0]) > 13 and
+									isinstance(device_data[0][13], list) and
+									len(device_data[0][13]) > 0 and
+									isinstance(device_data[0][13][0], list) and
+									len(device_data[0][13][0]) > 0):
+
+									bonus_seconds_str = device_data[0][13][0][0]
+									if isinstance(bonus_seconds_str, str) and bonus_seconds_str.isdigit():
+										bonus_seconds = int(bonus_seconds_str)
+										bonus_minutes_from_override = bonus_seconds // 60
+
+										device_info["bonus_override_id"] = override_id
+										_LOGGER.debug(
+											f"Device {override_device_id}: Found bonus override - "
+											f"id={override_id}, duration={bonus_minutes_from_override}min "
+											f"({bonus_seconds}s)"
+										)
+
 
 						# Parse time data (usually at indices 1-3)
 						# Index 1: total allowed (ms string)
@@ -1093,6 +1122,53 @@ class FamilyLinkClient:
 
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error adding time bonus: {err}")
+			return False
+
+	async def async_cancel_time_bonus(
+		self,
+		override_id: str,
+		account_id: str | None = None
+	) -> bool:
+		"""Cancel an active time bonus override.
+
+		Args:
+			override_id: The UUID of the time limit override to cancel
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Use POST with $httpMethod=DELETE query parameter (Google API convention)
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverride/{override_id}?$httpMethod=DELETE"
+			_LOGGER.debug(f"Cancelling time bonus override {override_id} for account {account_id}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to cancel time bonus {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully cancelled time bonus override {override_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
 			return False
 
 	async def async_enable_bedtime(self, account_id: str | None = None) -> bool:
