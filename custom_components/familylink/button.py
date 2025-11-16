@@ -57,10 +57,11 @@ async def async_setup_entry(
 		)
 
 		for device in child_data.get("devices", []):
-			# Create 3 time bonus buttons per device (15min, 30min, 60min)
+			# Create 4 time bonus buttons per device (15min, 30min, 60min, cancel)
 			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 15))
 			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 30))
 			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 60))
+			entities.append(CancelTimeBonusButton(coordinator, device, child_id, child_name))
 
 	_LOGGER.debug(f"Created {len(entities)} time bonus button entities")
 	async_add_entities(entities, update_before_add=True)
@@ -129,4 +130,102 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.info(
 				f"Successfully added {self._bonus_minutes} minutes bonus to device {self._device_name}"
 			)
-			# No need to refresh - time bonus doesn't change device state
+			# Refresh to update bonus sensor
+			await self.coordinator.async_request_refresh()
+
+
+class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
+	"""Button to cancel/reset an active time bonus for a Family Link device."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		device: dict[str, Any],
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the button."""
+		super().__init__(coordinator)
+
+		self._device_id = device["id"]
+		self._device_name = device["name"]
+		self._child_id = child_id
+		self._child_name = child_name
+
+		self._attr_name = f"{device['name']} Reset Bonus"
+		self._attr_unique_id = f"{DOMAIN}_{device['id']}_reset_bonus"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
+			name=self._device_name,
+			manufacturer="Google",
+			model="Family Link Device",
+		)
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the button."""
+		return "mdi:clock-remove-outline"
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available and bonus is active."""
+		if not self.coordinator.last_update_success:
+			return False
+
+		# Only available if there's an active bonus to cancel
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						override_id = time_data.get("bonus_override_id")
+						return override_id is not None
+
+		return False
+
+	async def async_press(self) -> None:
+		"""Handle the button press - cancel active bonus."""
+		# Get the override_id from coordinator data
+		override_id = None
+
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						override_id = time_data.get("bonus_override_id")
+						break
+
+		if not override_id:
+			_LOGGER.warning(
+				f"Cannot cancel bonus for device {self._device_name}: no active bonus found"
+			)
+			return
+
+		_LOGGER.info(
+			f"Cancelling time bonus (override_id: {override_id}) for device {self._device_name}"
+		)
+
+		success = await self.coordinator.client.async_cancel_time_bonus(
+			override_id=override_id,
+			account_id=self._child_id,
+		)
+
+		if not success:
+			_LOGGER.error(
+				f"Failed to cancel time bonus for device {self._device_name}"
+			)
+		else:
+			_LOGGER.info(
+				f"Successfully cancelled time bonus for device {self._device_name}"
+			)
+			# Refresh to update sensors
+			await self.coordinator.async_request_refresh()
