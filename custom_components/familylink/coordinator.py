@@ -146,6 +146,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Fetch time limit configuration (bedtime/school time schedules and enabled states)
 			bedtime_enabled = None
 			school_time_enabled = None
+			daily_limit_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
 
@@ -153,11 +154,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
 				bedtime_enabled = time_limit_config.get("bedtime_enabled")
 				school_time_enabled = time_limit_config.get("school_time_enabled")
+				daily_limit_enabled = time_limit_config.get("daily_limit_enabled")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
-					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
+					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}, daily_limit={daily_limit_enabled}"
 				)
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
