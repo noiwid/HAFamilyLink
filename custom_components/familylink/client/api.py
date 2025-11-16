@@ -871,13 +871,98 @@ class FamilyLinkClient:
 														f"FINAL enabled={daily_enabled}, minutes={minutes}"
 													)
 										elif len(item) == 8:
-											# Bedtime window: ["CAEQ*", day, stateFlag, [start], [end], createdMs, updatedMs, policyId]
-											_LOGGER.debug(f"Device {device_id}: CAEQ is bedtime window (8 elements)")
+											# Bedtime window: ["CAEQ*", day, stateFlag, [startH, startM], [endH, endM], createdMs, updatedMs, policyId]
+											day = item[1] if len(item) > 1 else None
+											state_flag = item[2] if len(item) > 2 else None
+											start_time = item[3] if len(item) > 3 else None
+											end_time = item[4] if len(item) > 4 else None
+
+											_LOGGER.debug(
+												f"Device {device_id}: CAEQ is bedtime window (8 elements) - "
+												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
+											)
+
+											# Parse bedtime window if it's for current day and enabled
+											if (isinstance(day, int) and day == current_day and
+												isinstance(state_flag, int) and state_flag == 2 and
+												isinstance(start_time, list) and len(start_time) == 2 and
+												isinstance(end_time, list) and len(end_time) == 2):
+
+												# Convert [HH, MM] to epoch milliseconds for today
+												now = datetime.now()
+												start_hour, start_min = start_time[0], start_time[1]
+												end_hour, end_min = end_time[0], end_time[1]
+
+												# Create datetime objects for start and end
+												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+
+												# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
+												# In this case, if current time is after start OR before end, bedtime is active
+												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
+													# Crosses midnight
+													bedtime_active = (now >= start_dt) or (now < end_dt)
+												else:
+													# Same day window
+													bedtime_active = (start_dt <= now < end_dt)
+
+												device_info["bedtime_window"] = {
+													"start_ms": int(start_dt.timestamp() * 1000),
+													"end_ms": int(end_dt.timestamp() * 1000)
+												}
+												device_info["bedtime_active"] = bedtime_active
+
+												_LOGGER.debug(
+													f"Device {device_id}: Bedtime window parsed - "
+													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+													f"current_time={now.strftime('%H:%M')}, active={bedtime_active}"
+												)
 									# CAMQ = schooltime
 									elif item[0].startswith("CAMQ"):
-										state_flag = item[2] if len(item) > 2 else None
-										if isinstance(state_flag, int):
-											device_info["schooltime_active"] = (state_flag == 2)
+										# Same format as bedtime
+										if len(item) == 8:
+											day = item[1] if len(item) > 1 else None
+											state_flag = item[2] if len(item) > 2 else None
+											start_time = item[3] if len(item) > 3 else None
+											end_time = item[4] if len(item) > 4 else None
+
+											_LOGGER.debug(
+												f"Device {device_id}: CAMQ is schooltime window (8 elements) - "
+												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
+											)
+
+											# Parse schooltime window if it's for current day and enabled
+											if (isinstance(day, int) and day == current_day and
+												isinstance(state_flag, int) and state_flag == 2 and
+												isinstance(start_time, list) and len(start_time) == 2 and
+												isinstance(end_time, list) and len(end_time) == 2):
+
+												# Convert [HH, MM] to epoch milliseconds for today
+												now = datetime.now()
+												start_hour, start_min = start_time[0], start_time[1]
+												end_hour, end_min = end_time[0], end_time[1]
+
+												# Create datetime objects for start and end
+												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+
+												# Schooltime shouldn't cross midnight, but handle it anyway
+												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
+													schooltime_active = (now >= start_dt) or (now < end_dt)
+												else:
+													schooltime_active = (start_dt <= now < end_dt)
+
+												device_info["schooltime_window"] = {
+													"start_ms": int(start_dt.timestamp() * 1000),
+													"end_ms": int(end_dt.timestamp() * 1000)
+												}
+												device_info["schooltime_active"] = schooltime_active
+
+												_LOGGER.debug(
+													f"Device {device_id}: Schooltime window parsed - "
+													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+													f"current_time={now.strftime('%H:%M')}, active={schooltime_active}"
+												)
 
 							# Look for window objects (arrays with 2 epoch timestamps)
 							elif isinstance(item, list) and len(item) == 2:
@@ -898,6 +983,22 @@ class FamilyLinkClient:
 												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
 									except (ValueError, TypeError):
 										pass
+
+						# Fix total_allowed_minutes calculation
+						# When daily limit is enabled, total_allowed should come from daily_limit_minutes
+						# not from the API's device_data[1] which can be 0
+						if device_info.get("daily_limit_enabled", False):
+							daily_limit_mins = device_info.get("daily_limit_minutes", 0)
+							if daily_limit_mins > 0:
+								device_info["total_allowed_minutes"] = daily_limit_mins
+								# Recalculate remaining minutes
+								used_mins = device_info.get("used_minutes", 0)
+								device_info["remaining_minutes"] = max(0, daily_limit_mins - used_mins)
+								_LOGGER.debug(
+									f"Device {device_id}: Daily limit enabled - "
+									f"set total_allowed={daily_limit_mins}, used={used_mins}, "
+									f"remaining={device_info['remaining_minutes']}"
+								)
 
 						# Log final daily_limit values for this device
 						_LOGGER.debug(
