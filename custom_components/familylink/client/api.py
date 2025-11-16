@@ -827,32 +827,17 @@ class FamilyLinkClient:
 						# Look for schooltime window
 						# Look for CAEQBg (daily limit) tuple
 						# Format: ["CAEQBg", day, stateFlag, minutes_or_hours, ...]
-						_LOGGER.debug(f"Device {device_id}: device_data has {len(device_data)} elements")
-						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
-
 						for idx, item in enumerate(device_data):
 							if isinstance(item, list) and len(item) >= 4:
-								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
 								if isinstance(item[0], str):
-									# CAEQ* = daily limit (6 elem) OR bedtime window (8 elem)
+									# CAEQ* = daily limit for any day (CAEQAQ=Mon, CAEQAg=Tue, ..., CAEQBg=Sat, CAEQBw=Sun)
 									if item[0].startswith("CAEQ"):
-										if len(item) == 6:
-											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
-											_LOGGER.debug(f"Device {device_id}: Found CAEQ daily limit at index {idx}: {item}")
-											state_flag = item[2] if len(item) > 2 else None
-											minutes = item[3] if len(item) > 3 else None
-											if isinstance(state_flag, int) and isinstance(minutes, int):
-												# Daily limit: ON if stateFlag==2 AND minutes>0 (per doc)
-												daily_enabled = (state_flag == 2 and minutes > 0)
-												device_info["daily_limit_enabled"] = daily_enabled
-												device_info["daily_limit_minutes"] = minutes
-												_LOGGER.debug(
-													f"Device {device_id}: daily_limit state_flag={state_flag}, "
-													f"minutes={minutes}, enabled={daily_enabled}"
-												)
-										elif len(item) == 8:
-											# Bedtime window: ["CAEQ*", day, stateFlag, [start], [end], createdMs, updatedMs, policyId]
-											_LOGGER.debug(f"Device {device_id}: CAEQ is bedtime window (8 elements)")
+										state_flag = item[2] if len(item) > 2 else None
+										value = item[3] if len(item) > 3 else None
+										if isinstance(state_flag, int) and isinstance(value, int):
+											device_info["daily_limit_enabled"] = (state_flag == 2)
+											device_info["daily_limit_minutes"] = value
+											_LOGGER.debug(f"Device {device_id}: daily_limit state_flag={state_flag}, minutes={value}, enabled={state_flag==2}")
 									# CAMQ = schooltime
 									elif item[0].startswith("CAMQ"):
 										state_flag = item[2] if len(item) > 2 else None
@@ -1375,35 +1360,23 @@ class FamilyLinkClient:
 						"school_time_schedule": []
 					}
 
-				response_data = await response.json()
-				_LOGGER.debug(f"Time limit rules response: {response_data}")
+				data = await response.json()
+				_LOGGER.debug(f"Time limit rules response: {data}")
 
-				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
-				if not isinstance(response_data, list) or len(response_data) < 2:
-					_LOGGER.error(f"Unexpected response structure: {response_data}")
-					return {
-						"bedtime_enabled": False,
-						"school_time_enabled": False,
-						"bedtime_schedule": [],
-						"school_time_schedule": []
-					}
-
-				data = response_data[1]  # Extract the real data array (index 1)
-				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
-
-				# Parse bedtime and schooltime schedules
+				# Parse bedtime and schooltime schedules, and daily limit configuration
 				bedtime_schedule = []
 				school_time_schedule = []
+				daily_limit_enabled = False
 
-				# The response structure after unwrapping is:
-				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
-				# Index 0: bedtime schedules
-				# Index 1: daily limit + school time schedules
-				# Index -1 (5): current states (revisions for bedtime/schooltime)
+				# The response structure is:
+				# [metadata, [bedtime_config], [daily_limit_config], [history], None, [1], [current_states]]
+				# Index 1: bedtime schedules
+				# Index 2: daily limit configuration
+				# Index -1 (6): current states
 
-				# Extract bedtime schedules from index 0
-				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-					bedtime_config = data[0]
+				# Extract bedtime schedules from index 1
+				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+					bedtime_config = data[1]
 					# Format: [[2, [schedules], timestamp, timestamp, 1]]
 					if len(bedtime_config) > 0 and isinstance(bedtime_config[0], list):
 						schedule_data = bedtime_config[0]
@@ -1424,12 +1397,16 @@ class FamilyLinkClient:
 														"end": end  # [hh, mm]
 													})
 
-				# Extract school time schedules from index 1
-				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-					daily_limit_config = data[1]
+				# Extract school time schedules and daily limit from index 2
+				if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
+					daily_limit_config = data[2]
 					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
 					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
 						config_data = daily_limit_config[0]
+						# First element is the enabled flag (2 = enabled)
+						if len(config_data) > 0 and config_data[0] == 2:
+							daily_limit_enabled = True
+							_LOGGER.debug(f"Daily limit is enabled (flag={config_data[0]})")
 
 						# School time schedules are in index 2
 						if len(config_data) > 2 and isinstance(config_data[2], list):
@@ -1447,62 +1424,43 @@ class FamilyLinkClient:
 											})
 
 				# Parse revisions to get ON/OFF state
-				# Revisions are in the last element of data, containing items with format:
+				# Revisions are in a list containing items with format:
 				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
 				# type_flag: 1=bedtime, 2=schooltime
 				# state_flag: 2=ON, 1=OFF
-				# NOTE: Revisions have EXACTLY 4 elements (schedules have 7+)
 				bedtime_enabled = False
 				school_time_enabled = False
 
-				# Look for revisions in the last element of data
+				# Search through data elements to find revisions
+				# Revisions are identified by: small list (2-3 items) with UUID strings
 				revisions_found = False
-				if isinstance(data, list) and len(data) > 0:
-					_LOGGER.debug(f"[REVISION DEBUG] Data array has {len(data)} elements")
-					# Search backwards from the end to find revision list
-					for idx in range(len(data) - 1, -1, -1):
-						element = data[idx]
-						_LOGGER.debug(f"[REVISION DEBUG] Checking data[{idx}], type={type(element)}, is_list={isinstance(element, list)}")
-						if not isinstance(element, list):
-							continue
+				if isinstance(data, list):
+					for idx, element in enumerate(data):
+						if isinstance(element, list) and 1 <= len(element) <= 3:
+							# Check if items look like revisions: [str, int, int, list]
+							looks_like_revisions = all(
+								isinstance(item, list) and len(item) >= 4 and
+								isinstance(item[0], str) and len(item[0]) > 30 and  # UUID is long string
+								isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
+								isinstance(item[2], int) and item[2] in [1, 2]  # state_flag
+								for item in element if isinstance(item, list)
+							)
 
-						_LOGGER.debug(f"[REVISION DEBUG] data[{idx}] is a list with {len(element)} items")
+							if looks_like_revisions and len(element) > 0:
+								_LOGGER.debug(f"Found {len(element)} revision entries at index {idx}")
+								for revision in element:
+									if isinstance(revision, list) and len(revision) >= 3:
+										type_flag = revision[1]
+										state_flag = revision[2]
 
-						# Filter to only revision items (exactly 4 elements with timestamp list at end)
-						# This excludes schedule items which have 7+ elements
-						revision_candidates = [
-							item for item in element
-							if isinstance(item, list) and len(item) == 4 and isinstance(item[3], list)
-						]
-
-						_LOGGER.debug(f"[REVISION DEBUG] Found {len(revision_candidates)} candidates at index {idx}")
-						if len(revision_candidates) > 0:
-							_LOGGER.debug(f"[REVISION DEBUG] Candidates: {revision_candidates}")
-
-						# Check if these look like valid revisions
-						if len(revision_candidates) > 0:
-							valid_revisions = [
-								item for item in revision_candidates
-								if (isinstance(item[0], str) and len(item[0]) > 30 and  # UUID
-								    isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
-								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
-							]
-
-							_LOGGER.debug(f"[REVISION DEBUG] {len(valid_revisions)} valid revisions after validation")
-							if len(valid_revisions) > 0:
-								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
-								for revision in valid_revisions:
-									type_flag = revision[1]
-									state_flag = revision[2]
-
-									if type_flag == 1:  # downtime/bedtime
-										bedtime_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
-										revisions_found = True
-									elif type_flag == 2:  # schooltime
-										school_time_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
-										revisions_found = True
+										if type_flag == 1:  # downtime/bedtime
+											bedtime_enabled = (state_flag == 2)
+											_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+											revisions_found = True
+										elif type_flag == 2:  # schooltime
+											school_time_enabled = (state_flag == 2)
+											_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+											revisions_found = True
 								break
 
 				if not revisions_found:
@@ -1510,12 +1468,14 @@ class FamilyLinkClient:
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
-					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules), "
+					f"daily_limit_enabled={daily_limit_enabled}"
 				)
 
 				return {
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
+					"daily_limit_enabled": daily_limit_enabled,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule
 				}
