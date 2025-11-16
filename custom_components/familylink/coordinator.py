@@ -211,6 +211,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["remaining_minutes"] = time_data.get("remaining_minutes")
 					device["daily_limit_enabled"] = time_data.get("daily_limit_enabled")
 					device["daily_limit_minutes"] = time_data.get("daily_limit_minutes")
+					device["daily_limit_remaining"] = time_data.get("daily_limit_remaining")
 					device["bedtime_window"] = time_data.get("bedtime_window")
 					device["schooltime_window"] = time_data.get("schooltime_window")
 					device["bedtime_active"] = time_data.get("bedtime_active")
