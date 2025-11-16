@@ -827,8 +827,12 @@ class FamilyLinkClient:
 						# Look for schooltime window
 						# Look for CAEQBg (daily limit) tuple
 						# Format: ["CAEQBg", day, stateFlag, minutes_or_hours, ...]
+						_LOGGER.debug(f"Device {device_id}: device_data has {len(device_data)} elements")
+						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
+
 						for idx, item in enumerate(device_data):
 							if isinstance(item, list) and len(item) >= 4:
+								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
 								if isinstance(item[0], str):
 									# CAEQBg = daily limit or bedtime
 									if item[0].startswith("CAEQBg") or item[0] == "CAEQBg":
