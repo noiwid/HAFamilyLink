@@ -289,7 +289,7 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 	"""Binary sensor indicating if device has reached its daily time limit."""
 
-	_attr_device_class = BinarySensorDeviceClass.PROBLEM
+	# No device_class = returns on/off (true/false) instead of OK/PROBLEM
 
 	def __init__(
 		self,
