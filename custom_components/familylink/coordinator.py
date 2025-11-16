@@ -146,7 +146,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Fetch time limit configuration (bedtime/school time schedules and enabled states)
 			bedtime_enabled = None
 			school_time_enabled = None
-			daily_limit_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
 
@@ -154,12 +153,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
 				bedtime_enabled = time_limit_config.get("bedtime_enabled")
 				school_time_enabled = time_limit_config.get("school_time_enabled")
-				daily_limit_enabled = time_limit_config.get("daily_limit_enabled")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
-					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}, daily_limit={daily_limit_enabled}"
+					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
 				)
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
@@ -167,7 +165,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
 			devices_time_data = {}
-			daily_limit_enabled = None
 
 			try:
 				applied_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
@@ -218,6 +215,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["schooltime_window"] = time_data.get("schooltime_window")
 					device["bedtime_active"] = time_data.get("bedtime_active")
 					device["schooltime_active"] = time_data.get("schooltime_active")
+
+			# Aggregate daily_limit_enabled from devices
+			# If ANY device has daily_limit enabled, consider it globally enabled
+			daily_limit_enabled = False
+			for device in devices:
+				if device.get("daily_limit_enabled"):
+					daily_limit_enabled = True
+					break
+			_LOGGER.debug(f"Aggregated daily_limit_enabled for {child_name}: {daily_limit_enabled}")
 
 			# Fetch daily screen time data for this child
 			screen_time = None
