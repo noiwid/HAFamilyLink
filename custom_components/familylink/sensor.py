@@ -439,9 +439,24 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
                 if child_data["child_id"] == self._child_id:
                     devices_time_data = child_data.get("devices_time_data", {})
 
+                    _LOGGER.debug(
+                        f"[SENSOR] ScreenTimeRemaining for device '{self._device_id}': "
+                        f"devices_time_data keys = {list(devices_time_data.keys())}"
+                    )
+
                     if self._device_id in devices_time_data:
                         time_data = devices_time_data[self._device_id]
-                        return time_data.get("remaining_minutes", 0)
+                        remaining = time_data.get("remaining_minutes", 0)
+                        _LOGGER.debug(
+                            f"[SENSOR] Found data for {self._device_id}: remaining={remaining}, "
+                            f"total={time_data.get('total_allowed_minutes')}, used={time_data.get('used_minutes')}"
+                        )
+                        return remaining
+                    else:
+                        _LOGGER.warning(
+                            f"[SENSOR] Device ID '{self._device_id}' NOT FOUND in devices_time_data! "
+                            f"Available keys: {list(devices_time_data.keys())}"
+                        )
 
         return None
 
