@@ -1360,28 +1360,36 @@ class FamilyLinkClient:
 						"school_time_schedule": []
 					}
 
-				data = await response.json()
-				_LOGGER.debug(f"Time limit rules response: {data}")
-				_LOGGER.debug(f"[STRUCTURE] data type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
-				if isinstance(data, list) and len(data) > 0:
-					_LOGGER.debug(f"[STRUCTURE] data[0] type: {type(data[0])}, len: {len(data[0]) if isinstance(data[0], list) else 'N/A'}, content: {data[0]}")
-				if isinstance(data, list) and len(data) > 1:
-					_LOGGER.debug(f"[STRUCTURE] data[1] type: {type(data[1])}, len: {len(data[1]) if isinstance(data[1], list) else 'N/A'}")
+				response_data = await response.json()
+				_LOGGER.debug(f"Time limit rules response: {response_data}")
+
+				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
+				if not isinstance(response_data, list) or len(response_data) < 2:
+					_LOGGER.error(f"Unexpected response structure: {response_data}")
+					return {
+						"bedtime_enabled": False,
+						"school_time_enabled": False,
+						"bedtime_schedule": [],
+						"school_time_schedule": []
+					}
+
+				data = response_data[1]  # Extract the real data array (index 1)
+				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
 
 				# Parse bedtime and schooltime schedules, and daily limit configuration
 				bedtime_schedule = []
 				school_time_schedule = []
 				daily_limit_enabled = False
 
-				# The response structure is:
-				# [metadata, [bedtime_config], [daily_limit_config], [history], None, [1], [current_states]]
-				# Index 1: bedtime schedules
-				# Index 2: daily limit configuration
-				# Index -1 (6): current states
+				# The response structure after unwrapping is:
+				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
+				# Index 0: bedtime schedules
+				# Index 1: daily limit configuration
+				# Index -1 (5): current states (revisions)
 
-				# Extract bedtime schedules from index 1
-				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-					bedtime_config = data[1]
+				# Extract bedtime schedules from index 0
+				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+					bedtime_config = data[0]
 					# Format: [[2, [schedules], timestamp, timestamp, 1]]
 					if len(bedtime_config) > 0 and isinstance(bedtime_config[0], list):
 						schedule_data = bedtime_config[0]
@@ -1402,10 +1410,10 @@ class FamilyLinkClient:
 														"end": end  # [hh, mm]
 													})
 
-				# Extract school time schedules and daily limit from index 2
-				if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
-					daily_limit_config = data[2]
-					_LOGGER.debug(f"Daily limit config at data[2]: {daily_limit_config}")
+				# Extract school time schedules and daily limit from index 1
+				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+					daily_limit_config = data[1]
+					_LOGGER.debug(f"Daily limit config at data[1]: {daily_limit_config}")
 					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
 					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
 						config_data = daily_limit_config[0]
