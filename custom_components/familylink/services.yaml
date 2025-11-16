@@ -40,3 +40,139 @@ unblock_app:
       example: "com.youtube.android"
       selector:
         text:
+
+# Time management services
+
+add_time_bonus:
+  name: Add Time Bonus
+  description: Add extra screen time bonus to a device (e.g., 30 minutes)
+  fields:
+    device_id:
+      name: Device ID
+      description: Device ID (device token) to add bonus time to
+      required: true
+      example: "ABCD1234567890"
+      selector:
+        text:
+    bonus_minutes:
+      name: Bonus Minutes
+      description: Number of minutes to add as bonus time (1-1440)
+      required: true
+      example: 30
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 1440
+          mode: box
+          unit_of_measurement: "minutes"
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+enable_bedtime:
+  name: Enable Bedtime
+  description: Enable bedtime (downtime) restrictions for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+disable_bedtime:
+  name: Disable Bedtime
+  description: Disable bedtime (downtime) restrictions for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+enable_school_time:
+  name: Enable School Time
+  description: Enable school time (evening limit) restrictions for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+disable_school_time:
+  name: Disable School Time
+  description: Disable school time (evening limit) restrictions for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+enable_daily_limit:
+  name: Enable Daily Limit
+  description: Enable daily time limit for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+disable_daily_limit:
+  name: Disable Daily Limit
+  description: Disable daily time limit for a child
+  fields:
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+set_daily_limit:
+  name: Set Daily Limit
+  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours)
+  fields:
+    device_id:
+      name: Device ID
+      description: Device ID (device token) to set daily limit for
+      required: true
+      example: "ABCD1234567890"
+      selector:
+        text:
+    daily_minutes:
+      name: Daily Minutes
+      description: Number of minutes allowed per day (1-1440)
+      required: true
+      example: 120
+      default: 120
+      selector:
+        number:
+          min: 1
+          max: 1440
+          mode: box
+          unit_of_measurement: "minutes"
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional, uses first supervised child if not provided)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:

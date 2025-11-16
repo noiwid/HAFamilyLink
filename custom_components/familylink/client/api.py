@@ -17,7 +17,6 @@ from ..auth.addon_client import AddonCookieClient
 from ..const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
-	FAMILYLINK_BASE_URL,
 	LOGGER_NAME,
 )
 from ..exceptions import (
@@ -53,7 +52,7 @@ class FamilyLinkClient:
 		# Load cookies from add-on
 		_LOGGER.debug("Loading cookies from Family Link Auth add-on")
 
-		if not self.addon_client.cookies_available():
+		if not await self.addon_client.cookies_available():
 			raise AuthenticationError(
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
 			)
@@ -720,14 +719,25 @@ class FamilyLinkClient:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
 
-	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, bool]:
-		"""Get applied time limits to determine device lock states.
+	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Get applied time limits for all devices (time remaining, windows, etc.).
 
 		Args:
 			account_id: User ID of the supervised child (optional)
 
 		Returns:
-			Dictionary mapping device_id to locked state (True = locked, False = unlocked)
+			Dictionary with:
+			- device_lock_states: Dict mapping device_id to locked state
+			- devices: Dict mapping device_id to device time limit data:
+				- total_allowed_minutes: Total allowed today
+				- used_minutes: Time used today
+				- remaining_minutes: Time remaining
+				- daily_limit_enabled: Boolean
+				- daily_limit_minutes: Configured daily limit
+				- bedtime_window: {start_ms, end_ms} or None
+				- schooltime_window: {start_ms, end_ms} or None
+				- bedtime_active: Boolean
+				- schooltime_active: Boolean
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -755,61 +765,791 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					return {}
+					return {"device_lock_states": {}, "devices": {}}
 
 				data = await response.json()
-				_LOGGER.debug(f"Applied time limits response: {data}")
+				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")
 
-				# Parse lock states from response
-				# Response format: [[null, timestamp], [device_arrays]]
 				device_lock_states = {}
+				devices = {}
 
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
 						if not isinstance(device_data, list) or len(device_data) < 25:
 							continue
 
-						# Get device ID from the data
-						# When unlocked: [0] contains an array with device_id at [3]
-						# When locked: [0] is null
+						# Extract device ID
 						device_id = None
-
-						# Try to find device_id
 						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
-							# Found in unlock override
 							device_id = device_data[0][3]
 						elif len(device_data) > 25 and device_data[25]:
-							# Found at index 25 (device_id field always present)
 							device_id = device_data[25]
 
-						if device_id:
-							# Determine lock state by checking for active time limit override:
-							# When LOCKED: device_data[0] contains the lock override [null, null, action_code, device_id]
-							# When UNLOCKED: device_data[0] is null (no active override)
-							has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+						if not device_id:
+							continue
 
-							# Additional check: action code at [0][2]
-							# Code 1 = LOCK, Code 4 = UNLOCK
-							# If there's an override, check if it's a lock (1) or unlock (4)
-							if has_lock_override and len(device_data[0]) > 2:
-								action_code = device_data[0][2]
-								is_locked = (action_code == 1)  # 1 = lock, 4 = unlock
-							else:
-								# No override means unlocked (normal state)
-								is_locked = False
+						# Parse lock state
+						has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+						if has_lock_override and len(device_data[0]) > 2:
+							action_code = device_data[0][2]
+							is_locked = (action_code == 1)
+						else:
+							is_locked = False
+						device_lock_states[device_id] = is_locked
 
-							device_lock_states[device_id] = is_locked
-							_LOGGER.debug(
-								f"Device {device_id}: locked={is_locked}, "
-								f"has_override={has_lock_override}, "
-								f"action_code={device_data[0][2] if has_lock_override and len(device_data[0]) > 2 else None}"
-							)
+						# Initialize device data
+						device_info = {
+							"total_allowed_minutes": 0,
+							"used_minutes": 0,
+							"remaining_minutes": 0,
+							"daily_limit_enabled": False,
+							"daily_limit_minutes": 0,
+							"bedtime_window": None,
+							"schooltime_window": None,
+							"bedtime_active": False,
+							"schooltime_active": False
+						}
 
-				return device_lock_states
+						# Parse time data (usually at indices 1-3)
+						# Index 1: total allowed (ms string)
+						# Index 2: used (ms string)
+						if len(device_data) > 2:
+							if isinstance(device_data[1], str) and device_data[1].isdigit():
+								total_ms = int(device_data[1])
+								device_info["total_allowed_minutes"] = total_ms // 60000
+							if isinstance(device_data[2], str) and device_data[2].isdigit():
+								used_ms = int(device_data[2])
+								device_info["used_minutes"] = used_ms // 60000
+							device_info["remaining_minutes"] = max(0, device_info["total_allowed_minutes"] - device_info["used_minutes"])
+
+						# Parse windows and CAEQBg/CAMQ tuples
+						# Look for bedtime window (indices vary, usually around 3-10)
+						# Look for schooltime window
+						# Look for CAEQBg (daily limit) tuple
+						# Format: ["CAEQBg", day, stateFlag, minutes_or_hours, ...]
+						_LOGGER.debug(f"Device {device_id}: device_data has {len(device_data)} elements")
+						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
+
+						# Get current day of week (1=Monday, 7=Sunday)
+						current_day = datetime.now().isoweekday()
+						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
+
+						for idx, item in enumerate(device_data):
+							if isinstance(item, list) and len(item) >= 4:
+								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
+								if isinstance(item[0], str):
+									# CAEQ* = daily limit (6 elem) OR bedtime window (8 elem)
+									if item[0].startswith("CAEQ"):
+										if len(item) == 6:
+											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
+											day = item[1] if len(item) > 1 else None
+											state_flag = item[2] if len(item) > 2 else None
+											minutes = item[3] if len(item) > 3 else None
+
+											_LOGGER.debug(
+												f"Device {device_id}: Found CAEQ daily limit at index {idx}: "
+												f"day={day}, state_flag={state_flag}, minutes={minutes}"
+											)
+
+											# Daily limit is ACTIVE only if:
+											# 1. It's for the CURRENT day
+											# 2. Index < 10 (active section, not config/historical)
+											# 3. state_flag == 2 (enabled)
+											if isinstance(day, int) and isinstance(state_flag, int) and isinstance(minutes, int):
+												if day == current_day:
+													is_active_position = (idx < 10)
+													is_enabled_flag = (state_flag == 2)
+													daily_enabled = is_active_position and is_enabled_flag
+
+													device_info["daily_limit_enabled"] = daily_enabled
+													device_info["daily_limit_minutes"] = minutes
+
+													_LOGGER.debug(
+														f"Device {device_id}: CURRENT DAY ({day}) daily_limit - "
+														f"index={idx}, position_active={is_active_position}, "
+														f"state_flag={state_flag}, enabled_flag={is_enabled_flag}, "
+														f"FINAL enabled={daily_enabled}, minutes={minutes}"
+													)
+										elif len(item) == 8:
+											# Bedtime window: ["CAEQ*", day, stateFlag, [start], [end], createdMs, updatedMs, policyId]
+											_LOGGER.debug(f"Device {device_id}: CAEQ is bedtime window (8 elements)")
+									# CAMQ = schooltime
+									elif item[0].startswith("CAMQ"):
+										state_flag = item[2] if len(item) > 2 else None
+										if isinstance(state_flag, int):
+											device_info["schooltime_active"] = (state_flag == 2)
+
+							# Look for window objects (arrays with 2 epoch timestamps)
+							elif isinstance(item, list) and len(item) == 2:
+								if all(isinstance(x, (int, str)) for x in item):
+									try:
+										start_ms = int(item[0]) if isinstance(item[0], str) else item[0]
+										end_ms = int(item[1]) if isinstance(item[1], str) else item[1]
+										# Heuristic: if both are large epoch ms values
+										if start_ms > 1000000000000 and end_ms > 1000000000000:
+											# First window = bedtime, second = schooltime (heuristic)
+											if device_info["bedtime_window"] is None:
+												device_info["bedtime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
+												device_info["bedtime_active"] = True
+												_LOGGER.debug(f"Device {device_id}: bedtime window {start_ms}-{end_ms}")
+											elif device_info["schooltime_window"] is None:
+												device_info["schooltime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
+												device_info["schooltime_active"] = True
+												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
+									except (ValueError, TypeError):
+										pass
+
+						# Log final daily_limit values for this device
+						_LOGGER.debug(
+							f"[DAILY_LIMIT] Device {device_id}: FINAL VALUES - "
+							f"daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
+							f"daily_limit_minutes={device_info.get('daily_limit_minutes', 0)}"
+						)
+
+						devices[device_id] = device_info
+						_LOGGER.debug(f"Device {device_id} parsed: {device_info}")
+
+				return {
+					"device_lock_states": device_lock_states,
+					"devices": devices
+				}
 
 		except Exception as err:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
+
+	async def async_add_time_bonus(
+		self,
+		bonus_minutes: int,
+		device_id: str,
+		account_id: str | None = None
+	) -> bool:
+		"""Add a time bonus to a device (e.g., 30 minutes extra screen time).
+
+		Args:
+			bonus_minutes: Number of minutes to add (e.g., 30 for 30 minutes)
+			device_id: Device ID (device token)
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Convert minutes to seconds
+			bonus_seconds = bonus_minutes * 60
+
+			# Payload format: [null, account_id, [[null, null, 10, device_token, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, 10, device_id, None, None, None, None, None, None, None, None, None, [[str(bonus_seconds), 0]]]],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Adding {bonus_minutes} minutes time bonus to device {device_id}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to add time bonus {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully added {bonus_minutes} minutes time bonus to device {device_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error adding time bonus: {err}")
+			return False
+
+	async def async_enable_bedtime(self, account_id: str | None = None) -> bool:
+		"""Enable bedtime (downtime) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling bedtime for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable bedtime {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled bedtime for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling bedtime: {err}")
+			return False
+
+	async def async_disable_bedtime(self, account_id: str | None = None) -> bool:
+		"""Disable bedtime (downtime) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling bedtime for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable bedtime {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled bedtime for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling bedtime: {err}")
+			return False
+
+	async def async_enable_school_time(self, account_id: str | None = None) -> bool:
+		"""Enable school time (evening limit) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling school time for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable school time {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled school time for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling school time: {err}")
+			return False
+
+	async def async_disable_school_time(self, account_id: str | None = None) -> bool:
+		"""Disable school time (evening limit) restrictions for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling school time for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable school time {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled school time for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling school time: {err}")
+			return False
+
+	async def async_enable_daily_limit(self, account_id: str | None = None) -> bool:
+		"""Enable daily time limit for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [null, [[2, null, null, null]]], null, [1]]
+			# Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, [[2, None, None, None]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Enabling daily limit for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to enable daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully enabled daily limit for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error enabling daily limit: {err}")
+			return False
+
+	async def async_disable_daily_limit(self, account_id: str | None = None) -> bool:
+		"""Disable daily time limit for a child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [null, [[1, null, null, null]]], null, [1]]
+			# Status 1 = disabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, [[1, None, None, None]]],
+				None,
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			_LOGGER.debug(f"Disabling daily limit for account {account_id}")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload,
+				params={"$httpMethod": "PUT"}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to disable daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully disabled daily limit for account {account_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error disabling daily limit: {err}")
+			return False
+
+	async def async_set_daily_limit(
+		self,
+		daily_minutes: int,
+		device_id: str,
+		account_id: str | None = None
+	) -> bool:
+		"""Set daily time limit duration for a device.
+
+		Args:
+			daily_minutes: Number of minutes allowed per day (e.g., 120 for 2 hours)
+			device_id: Device ID (device token)
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, "CAEQBg"]]], [1]]
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, 8, device_id, None, None, None, None, None, None, None, [2, daily_minutes, "CAEQBg"]]],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to set daily limit {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully set daily limit to {daily_minutes} minutes for device {device_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
+			return False
+
+	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
+		"""Get time limit rules and schedules (bedtime/schooltime).
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			Dictionary with:
+			- bedtime_enabled: Boolean
+			- school_time_enabled: Boolean
+			- bedtime_schedule: List of {day, start, end} dicts
+			- school_time_schedule: List of {day, start, end} dicts
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
+			params = [
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
+				("timeLimitKey.type", "SUPERVISED_DEVICES")
+			]
+
+			_LOGGER.debug(f"Fetching time limit rules from {url}")
+
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to fetch time limit rules {response.status}: {response_text}")
+					return {
+						"bedtime_enabled": False,
+						"school_time_enabled": False,
+						"bedtime_schedule": [],
+						"school_time_schedule": []
+					}
+
+				response_data = await response.json()
+				_LOGGER.debug(f"Time limit rules response: {response_data}")
+
+				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
+				if not isinstance(response_data, list) or len(response_data) < 2:
+					_LOGGER.error(f"Unexpected response structure: {response_data}")
+					return {
+						"bedtime_enabled": False,
+						"school_time_enabled": False,
+						"bedtime_schedule": [],
+						"school_time_schedule": []
+					}
+
+				data = response_data[1]  # Extract the real data array (index 1)
+				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
+
+				# Parse bedtime and schooltime schedules
+				bedtime_schedule = []
+				school_time_schedule = []
+
+				# The response structure after unwrapping is:
+				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
+				# Index 0: bedtime schedules
+				# Index 1: daily limit + school time schedules
+				# Index -1 (5): current states (revisions for bedtime/schooltime)
+
+				# Extract bedtime schedules from index 0
+				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+					bedtime_config = data[0]
+					# Format: [[2, [schedules], timestamp, timestamp, 1]]
+					if len(bedtime_config) > 0 and isinstance(bedtime_config[0], list):
+						schedule_data = bedtime_config[0]
+						# schedules are in index 1
+						if len(schedule_data) > 1 and isinstance(schedule_data[1], list):
+							for schedule_list in schedule_data[1]:
+								if isinstance(schedule_list, list):
+									for item in schedule_list:
+										if isinstance(item, list) and len(item) >= 4:
+											if isinstance(item[0], str) and item[0].startswith("CAEQ"):
+												day = item[1] if len(item) > 1 else None
+												start = item[2] if len(item) > 2 else None
+												end = item[3] if len(item) > 3 else None
+												if day and start and end:
+													bedtime_schedule.append({
+														"day": day,
+														"start": start,  # [hh, mm]
+														"end": end  # [hh, mm]
+													})
+
+				# Extract school time schedules from index 1
+				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+					daily_limit_config = data[1]
+					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
+					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
+						config_data = daily_limit_config[0]
+
+						# School time schedules are in index 2
+						if len(config_data) > 2 and isinstance(config_data[2], list):
+							for item in config_data[2]:
+								if isinstance(item, list) and len(item) >= 4:
+									if isinstance(item[0], str) and item[0].startswith("CAMQ"):
+										day = item[1] if len(item) > 1 else None
+										start = item[2] if len(item) > 2 else None
+										end = item[3] if len(item) > 3 else None
+										if day and start and end:
+											school_time_schedule.append({
+												"day": day,
+												"start": start,
+												"end": end
+											})
+
+				# Parse revisions to get ON/OFF state
+				# Revisions are in the last element of data, containing items with format:
+				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
+				# type_flag: 1=bedtime, 2=schooltime
+				# state_flag: 2=ON, 1=OFF
+				# NOTE: Revisions have EXACTLY 4 elements (schedules have 7+)
+				bedtime_enabled = False
+				school_time_enabled = False
+
+				# Look for revisions in the last element of data
+				revisions_found = False
+				if isinstance(data, list) and len(data) > 0:
+					_LOGGER.debug(f"[REVISION DEBUG] Data array has {len(data)} elements")
+					# Search backwards from the end to find revision list
+					for idx in range(len(data) - 1, -1, -1):
+						element = data[idx]
+						_LOGGER.debug(f"[REVISION DEBUG] Checking data[{idx}], type={type(element)}, is_list={isinstance(element, list)}")
+						if not isinstance(element, list):
+							continue
+
+						_LOGGER.debug(f"[REVISION DEBUG] data[{idx}] is a list with {len(element)} items")
+
+						# Filter to only revision items (exactly 4 elements with timestamp list at end)
+						# This excludes schedule items which have 7+ elements
+						revision_candidates = [
+							item for item in element
+							if isinstance(item, list) and len(item) == 4 and isinstance(item[3], list)
+						]
+
+						_LOGGER.debug(f"[REVISION DEBUG] Found {len(revision_candidates)} candidates at index {idx}")
+						if len(revision_candidates) > 0:
+							_LOGGER.debug(f"[REVISION DEBUG] Candidates: {revision_candidates}")
+
+						# Check if these look like valid revisions
+						if len(revision_candidates) > 0:
+							valid_revisions = [
+								item for item in revision_candidates
+								if (isinstance(item[0], str) and len(item[0]) > 30 and  # UUID
+								    isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
+								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
+							]
+
+							_LOGGER.debug(f"[REVISION DEBUG] {len(valid_revisions)} valid revisions after validation")
+							if len(valid_revisions) > 0:
+								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
+								for revision in valid_revisions:
+									type_flag = revision[1]
+									state_flag = revision[2]
+
+									if type_flag == 1:  # downtime/bedtime
+										bedtime_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+										revisions_found = True
+									elif type_flag == 2:  # schooltime
+										school_time_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+										revisions_found = True
+								break
+
+				if not revisions_found:
+					_LOGGER.warning("No revision data found in response")
+
+				_LOGGER.info(
+					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
+				)
+
+				return {
+					"bedtime_enabled": bedtime_enabled,
+					"school_time_enabled": school_time_enabled,
+					"bedtime_schedule": bedtime_schedule,
+					"school_time_schedule": school_time_schedule
+				}
+
+		except Exception as err:
+			_LOGGER.error("Failed to fetch time limit rules: %s", err)
+			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
 
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
