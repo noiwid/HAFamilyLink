@@ -1439,11 +1439,15 @@ class FamilyLinkClient:
 				# Look for revisions in the last element of data
 				revisions_found = False
 				if isinstance(data, list) and len(data) > 0:
+					_LOGGER.debug(f"[REVISION DEBUG] Data array has {len(data)} elements")
 					# Search backwards from the end to find revision list
 					for idx in range(len(data) - 1, -1, -1):
 						element = data[idx]
+						_LOGGER.debug(f"[REVISION DEBUG] Checking data[{idx}], type={type(element)}, is_list={isinstance(element, list)}")
 						if not isinstance(element, list):
 							continue
+
+						_LOGGER.debug(f"[REVISION DEBUG] data[{idx}] is a list with {len(element)} items")
 
 						# Filter to only revision items (exactly 4 elements with timestamp list at end)
 						# This excludes schedule items which have 7+ elements
@@ -1451,6 +1455,10 @@ class FamilyLinkClient:
 							item for item in element
 							if isinstance(item, list) and len(item) == 4 and isinstance(item[3], list)
 						]
+
+						_LOGGER.debug(f"[REVISION DEBUG] Found {len(revision_candidates)} candidates at index {idx}")
+						if len(revision_candidates) > 0:
+							_LOGGER.debug(f"[REVISION DEBUG] Candidates: {revision_candidates}")
 
 						# Check if these look like valid revisions
 						if len(revision_candidates) > 0:
@@ -1461,6 +1469,7 @@ class FamilyLinkClient:
 								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
 							]
 
+							_LOGGER.debug(f"[REVISION DEBUG] {len(valid_revisions)} valid revisions after validation")
 							if len(valid_revisions) > 0:
 								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
 								for revision in valid_revisions:
