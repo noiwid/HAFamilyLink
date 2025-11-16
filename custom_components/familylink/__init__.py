@@ -17,7 +17,7 @@ from .exceptions import FamilyLinkException
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH]
 
 # Service schemas
 SERVICE_BLOCK_DEVICE_FOR_SCHOOL = "block_device_for_school"

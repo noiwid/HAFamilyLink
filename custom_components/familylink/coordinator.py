@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.components import persistent_notification
 
 from .client.api import FamilyLinkClient
 from .const import (
@@ -173,6 +174,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Prevent infinite retry loops
 			if self._is_retrying_auth:
 				_LOGGER.error("Session still expired after refresh - cookies are invalid")
+				self._create_session_expired_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
@@ -185,11 +187,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.info("Retrying data fetch after authentication refresh...")
 				result = await self._async_update_data()
 				self._is_retrying_auth = False  # Reset flag on success
+				# Clear any previous notifications since session is working again
+				persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_session_expired")
 				return result
 
 			except SessionExpiredError:
 				# If it still fails after refresh, cookies are truly invalid
 				_LOGGER.error("Session still expired after refresh - please re-authenticate via add-on")
+				self._create_session_expired_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 			except Exception as retry_err:
 				_LOGGER.error(f"Retry after auth refresh failed: {retry_err}")
@@ -238,6 +243,22 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.error("Failed to refresh authentication: %s", err)
 			# Clear client to force re-authentication on next update
 			self.client = None
+
+	def _create_session_expired_notification(self) -> None:
+		"""Create a persistent notification when the session expires."""
+		persistent_notification.async_create(
+			self.hass,
+			title="Family Link - Cookie expiré",
+			message=(
+				"Le cookie d'authentification Family Link n'est plus valide.\n\n"
+				"Veuillez vous ré-authentifier via l'add-on Family Link Auth "
+				"à l'adresse http://homeassistant.local:8099\n\n"
+				"L'intégration ne pourra pas récupérer les données tant que "
+				"vous ne vous serez pas reconnecté."
+			),
+			notification_id=f"{DOMAIN}_session_expired",
+		)
+		_LOGGER.info("Created persistent notification for expired session")
 
 	async def async_control_device(
 		self, device_id: str, action: str, child_id: str | None = None
