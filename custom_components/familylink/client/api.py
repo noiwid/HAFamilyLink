@@ -843,21 +843,23 @@ class FamilyLinkClient:
 
 
 						# Parse time data from positions 19-20
-						# Position 19: bonus REMAINING time (ms string) - time left on active bonus
+						# Position 19: bonus REMAINING time (ms string) - ONLY if bonus override exists!
 						# Position 20: used time on daily_limit (ms string)
 						if len(device_data) > 20:
-							# Parse bonus remaining time from position 19
-							if isinstance(device_data[19], str) and device_data[19].isdigit():
-								bonus_remaining_ms = int(device_data[19])
-								bonus_remaining_minutes = bonus_remaining_ms // 60000
-								if bonus_remaining_minutes > 0:
-									# Override the bonus_minutes with the REMAINING time from API
-									# This is more accurate than the total from override
-									device_info["bonus_minutes"] = bonus_remaining_minutes
-									_LOGGER.debug(
-										f"Device {device_id}: Bonus REMAINING time = {bonus_remaining_minutes} minutes "
-										f"({bonus_remaining_ms} ms)"
-									)
+							# Parse bonus remaining time from position 19 ONLY if override_id exists
+							# Position 19 may contain other data when no bonus is active
+							if device_info.get("bonus_override_id") is not None:
+								if isinstance(device_data[19], str) and device_data[19].isdigit():
+									bonus_remaining_ms = int(device_data[19])
+									bonus_remaining_minutes = bonus_remaining_ms // 60000
+									if bonus_remaining_minutes > 0:
+										# Override the bonus_minutes with the REMAINING time from API
+										# This is more accurate than the total from override
+										device_info["bonus_minutes"] = bonus_remaining_minutes
+										_LOGGER.debug(
+											f"Device {device_id}: Bonus REMAINING time = {bonus_remaining_minutes} minutes "
+											f"({bonus_remaining_ms} ms)"
+										)
 
 							# Parse used time from position 20
 							if isinstance(device_data[20], str) and device_data[20].isdigit():
