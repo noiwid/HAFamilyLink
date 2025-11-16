@@ -1,11 +1,10 @@
-# Google Family Link Home Assistant Integration (Beta)
+# Google Family Link Home Assistant Integration
 
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]][license]
 [![HACS][hacs-shield]][hacs]
 
-
-An Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage apps, and lock/unlock your child's devices directly from Home Assistant.
+A comprehensive Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage time limits, control bedtime/school schedules, and manage time bonuses directly from Home Assistant.
 
 ## 🚨 Important Disclaimer
 
@@ -19,11 +18,21 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - **Multi-device Support** - Manage multiple supervised devices
 - **Bi-directional Control** - Changes made in Family Link app reflect in Home Assistant
 
+### ⏰ Time Management
+- **Bedtime Control** - Enable/disable bedtime (downtime) restrictions
+- **School Time Control** - Enable/disable school time restrictions
+- **Daily Limit Control** - Enable/disable daily screen time limits
+- **Time Bonuses** - Add extra time (15min, 30min, 60min) or cancel active bonuses
+- **Smart Detection** - Automatically detects when device is in bedtime/school time window
+- **Schedule Visibility** - View bedtime and school time schedules in sensor attributes
+
 ### 📊 Screen Time Monitoring
-- **Daily Screen Time** - Track total daily usage in minutes or formatted time (HH:MM:SS)
+- **Daily Screen Time** - Track total daily usage per child
+- **Screen Time Remaining** - See remaining time per device (accounts for bonuses and used time)
+- **Daily Limit Tracking** - Monitor daily limit quota per device
+- **Active Bonus Display** - See active time bonuses per device
 - **Top 10 Apps** - Monitor most-used apps with detailed usage statistics
-- **App Breakdown** - Per-application usage breakdown with hours, minutes, seconds
-- **Real-time Updates** - Automatic polling every 5 minutes (customizable)
+- **App Breakdown** - Per-application usage breakdown
 
 ### 📲 App Management
 - **Installed Apps Count** - Total number of apps on supervised devices
@@ -38,26 +47,100 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 
 ## 📋 Available Entities
 
-### Sensors
+### Per-Child Switches (Global Controls)
+- `switch.<child>_bedtime` - Enable/disable bedtime restrictions
+- `switch.<child>_school_time` - Enable/disable school time restrictions
+- `switch.<child>_daily_limit` - Enable/disable daily screen time limit
 
-#### Screen Time
-- `sensor.family_link_daily_screen_time` - Daily screen time in **minutes** (numeric, ideal for graphs and automations)
-- `sensor.family_link_screen_time_formatted` - Daily screen time in **HH:MM:SS** format (text, ideal for display)
+### Per-Device Entities
 
-#### Apps
-- `sensor.family_link_installed_apps` - Number of installed apps
-- `sensor.family_link_blocked_apps` - Number and list of blocked apps
-- `sensor.family_link_apps_with_time_limits` - Apps with usage restrictions
-- `sensor.family_link_top_app_1` through `sensor.family_link_top_app_10` - Top 10 most-used apps
+#### Sensors
+- `sensor.<device>_screen_time_remaining` - Remaining screen time in minutes
+- `sensor.<device>_next_restriction` - Next upcoming restriction (bedtime/school time)
+- `sensor.<device>_daily_limit` - Daily limit quota in minutes
+- `sensor.<device>_active_bonus` - Active time bonus in minutes
 
-#### Devices & Family
-- `sensor.family_link_device_count` - Number of supervised devices
-- `sensor.family_link_child_info` - Supervised child's profile information
+#### Binary Sensors
+- `binary_sensor.<device>_bedtime_active` - Currently in bedtime window
+  - Attributes: `bedtime_start`, `bedtime_end` (ISO timestamps)
+- `binary_sensor.<device>_school_time_active` - Currently in school time window
+  - Attributes: `schooltime_start`, `schooltime_end` (ISO timestamps)
+- `binary_sensor.<device>_daily_limit_reached` - Daily limit reached (true/false, ignores bonuses)
 
-### Switches
-- `switch.<device_name>` - Lock/unlock device
-  - **ON** = Device unlocked (child can use phone) 📱
-  - **OFF** = Device locked (phone is locked) 🔒
+#### Switches
+- `switch.<device>` - Lock/unlock device
+  - **ON** = Device unlocked (child can use device) 📱
+  - **OFF** = Device locked (device is locked) 🔒
+
+#### Buttons
+- `button.<device>_15min` - Add 15 minutes bonus
+- `button.<device>_30min` - Add 30 minutes bonus
+- `button.<device>_60min` - Add 60 minutes bonus
+- `button.<device>_reset_bonus` - Cancel active bonus (only available when bonus is active)
+
+### Legacy Sensors (Child Level)
+- `sensor.<child>_daily_screen_time` - Daily screen time in **minutes**
+- `sensor.<child>_screen_time_formatted` - Daily screen time in **HH:MM:SS** format
+- `sensor.<child>_installed_apps` - Number of installed apps
+- `sensor.<child>_blocked_apps` - Number and list of blocked apps
+- `sensor.<child>_apps_with_time_limits` - Apps with usage restrictions
+- `sensor.<child>_top_app_1` through `sensor.<child>_top_app_10` - Top 10 most-used apps
+- `sensor.<child>_device_count` - Number of supervised devices
+- `sensor.<child>_child_info` - Supervised child's profile information
+
+## 🎯 What's New in v0.8.0
+
+### Major Features
+✨ **Time Bonus Management**
+- Active Bonus sensors per device
+- Reset Bonus button to cancel bonuses
+- +15min, +30min, +60min buttons with auto-refresh
+
+✨ **Enhanced Time Tracking**
+- Daily Limit sensor per device
+- Screen Time Remaining accounts for actual usage
+- Next Restriction sensor
+- Active Bonus sensor
+
+✨ **Functional Binary Sensors**
+- Bedtime Active detection (with midnight-crossing support)
+- School Time Active detection
+- Daily Limit Reached (true/false, ignores bonuses)
+
+### Critical Fixes
+🔧 **Bedtime/School Time Window Parsing** (v0.7.4)
+- Complete parsing of bedtime windows from API
+- Complete parsing of school time windows from API
+- Correct detection when device is in window
+- Midnight-crossing support (e.g., 20:55 → 10:00)
+
+🔧 **Time Calculations Fixed** (v0.7.6)
+- Screen Time Remaining = actual available time
+  - With bonus: shows bonus only
+  - Without bonus: daily_limit - used_time
+  - Never negative
+- Used time parsed from correct API position (position 20)
+- Bonus replaces normal time (doesn't add to it)
+
+🔧 **Accurate State Detection**
+- Daily Limit switch: Correct detection based on current day + position + flag
+- Daily Limit Reached sensor: Ignores bonuses, based only on daily_limit vs used
+- Bonus detection: Avoids false positives via `bonus_override_id` parsing
+
+🔧 **Bonus Cancellation** (v0.7.6)
+- Parse `override_id` from API response
+- DELETE API call to cancel bonuses
+- Reset Bonus button only available when bonus is active
+
+### Cleanup & Optimizations (v0.8.0)
+🗑️ **Removed Redundant Sensors**
+- ❌ `sensor.<child>_bedtime_schedule` (showed "Not configured")
+- ❌ `sensor.<child>_school_time_schedule` (showed "Not configured")
+- ❌ `sensor.<child>_daily_limit` (showed "Not configured")
+
+**Why?** This data doesn't exist at child level in the API. Schedules are available in binary_sensor attributes per device.
+
+**Migration:** Manually delete these entities in Home Assistant UI after update.
 
 ## 🏗️ Architecture
 
@@ -75,7 +158,7 @@ Provides monitoring and control:
 - **Config Flow** - User-friendly setup wizard
 - **API Client** - Communicates with Google Family Link API
 - **Coordinator** - Manages data updates and caching
-- **Entities** - Sensors and switches for monitoring and control
+- **Entities** - Sensors, binary sensors, switches, and buttons
 
 ### Why Two Components?
 
@@ -96,16 +179,17 @@ See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
    - Add repository to Home Assistant
    - Install and start the add-on
    - Authenticate via Web UI
-     
-3. **Install Integration**
+
+2. **Install Integration**
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noiwid&repository=HAFamilyLink&category=integration)
    - Via HACS (recommended) or manually
    - Configure through Home Assistant UI
    - Cookies automatically loaded from add-on
 
-4. **Enjoy!**
+3. **Enjoy!**
    - Monitor screen time
-   - Control device locks
+   - Control time limits
+   - Manage bonuses
    - Create automations
 
 ## ⚙️ Configuration
@@ -122,7 +206,7 @@ familylink:
 
 ### Lock State Synchronization
 
-Device lock states are fetched from Google's `appliedTimeLimits` API endpoint. Changes made from the Family Link app or website are reflected in Home Assistant within the next update cycle.
+Device states are fetched from Google's `appliedTimeLimits` API endpoint. Changes made from the Family Link app or website are reflected in Home Assistant within the next update cycle.
 
 ## 🔧 API Endpoints Used
 
@@ -133,8 +217,11 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 | `/families/mine/members` | Family member information |
 | `/people/{userId}/apps` | Installed apps list |
 | `/people/{userId}/appsandusage` | App usage data |
-| `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices |
-| `/people/{userId}/appliedTimeLimits` | Current lock states |
+| `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices, add time bonuses |
+| `/people/{userId}/timeLimitOverride/{id}?$httpMethod=DELETE` | Cancel time bonuses |
+| `/people/{userId}/appliedTimeLimits` | Current time limits and lock states |
+| `/people/{userId}/timeLimit` | Time limit rules and schedules |
+| `/people/{userId}/timeLimit:update` | Enable/disable bedtime, school time, daily limit |
 
 ## 🐛 Troubleshooting
 
@@ -158,13 +245,27 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 3. Wait for next update cycle (default: 5 minutes)
 4. Manually lock/unlock from Family Link app to test sync
 
-### Top Apps Unavailable
+### Bedtime/School Time Not Detected
 
-**Symptoms**: Top app sensors show as "unavailable"
+**Symptoms**: Binary sensors always show "off"
 
-**Cause**: No app usage data for current date
+**Solutions**:
+1. Verify schedules are configured in Family Link app
+2. Check sensor attributes for `bedtime_start` and `bedtime_end` timestamps
+3. Ensure schedules are enabled for current day of week
+4. Check Home Assistant timezone matches your actual timezone
 
-**Solution**: Wait until the child uses apps today. Sensors will populate automatically.
+### Sensors Show "Not Configured" or "Unavailable"
+
+**Symptoms**: Some sensors don't show data
+
+**Cause**:
+- Child-level schedule sensors removed in v0.8.0 (use device-level binary sensors instead)
+- No app usage data for current date
+
+**Solution**:
+- Manually delete old entities from UI
+- Wait until child uses apps today for usage data
 
 ### Cookies Expired
 
@@ -200,6 +301,27 @@ automation:
           entity_id: switch.child_phone
 ```
 
+### Enable Bedtime Mode on Weeknights
+
+```yaml
+automation:
+  - alias: "Enable bedtime on weeknights"
+    trigger:
+      - platform: time
+        at: "20:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - mon
+          - tue
+          - wed
+          - thu
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.maceo_collin_bedtime
+```
+
 ### Screen Time Alert
 
 ```yaml
@@ -207,21 +329,88 @@ automation:
   - alias: "Alert on excessive screen time"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.family_link_daily_screen_time
-        above: 180  # 3 hours in minutes
+        entity_id: sensor.galaxy_tab_maceo_screen_time_remaining
+        below: 30  # Less than 30 minutes remaining
     action:
       - service: notify.mobile_app
         data:
-          message: "Child has used phone for over 3 hours today"
+          message: "Only {{ states('sensor.galaxy_tab_maceo_screen_time_remaining') }} minutes remaining!"
+```
+
+### Add Bonus Time on Homework Completion
+
+```yaml
+automation:
+  - alias: "Bonus time for homework"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.homework_done
+        to: "on"
+    action:
+      - service: button.press
+        target:
+          entity_id: button.galaxy_tab_maceo_30min
+      - service: notify.mobile_app
+        data:
+          message: "Good job! Added 30 minutes bonus time."
+```
+
+### Daily Limit Reached Notification
+
+```yaml
+automation:
+  - alias: "Notify when daily limit reached"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.galaxy_tab_maceo_daily_limit_reached
+        to: "on"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "{{ trigger.to_state.attributes.device_name }} has reached its daily limit"
 ```
 
 ## 📈 Version History
+
+- **v0.8.0** (2025-01) - Release Candidate
+  - Time bonus management (add/cancel bonuses)
+  - Enhanced per-device sensors (daily limit, active bonus, screen time remaining)
+  - Fixed bedtime/school time window parsing
+  - Fixed time calculations (bonus replaces time, not adds)
+  - Daily Limit Reached sensor returns true/false
+  - Removed redundant child-level schedule sensors
+
+- **v0.7.6** (2025-01) - Bonus cancellation and fixes
+  - Parse bonus override_id from API
+  - Reset Bonus button implementation
+  - Fixed bonus detection false positives
+  - Fixed used time parsing (position 20)
+
+- **v0.7.4** (2025-01) - Bedtime/School Time parsing
+  - Complete bedtime window parsing
+  - Complete school time window parsing
+  - Midnight-crossing support
+  - Binary sensors for active detection
+
+- **v0.6.5** (2024-12) - Stable base version
+  - Bedtime, School Time, Daily Limit switches
+  - Device lock/unlock functionality
+  - Screen time monitoring
 
 - **v0.5.0** - Real-time device lock state synchronization
 - **v0.4.x** - Device lock/unlock functionality
 - **v0.3.0** - App usage and screen time sensors
 - **v0.2.x** - Authentication fixes and improvements
 - **v0.1.0** - Initial release
+
+## 🎯 Roadmap to v1.0
+
+v0.8.0 is a **Release Candidate**. Before v1.0 release:
+- [ ] Long-term stability testing
+- [ ] Multi-child / multi-device validation
+- [ ] Complete user documentation
+- [ ] Integration with Home Assistant automations testing
+- [ ] Community feedback integration
 
 ## 🤝 Contributing
 
