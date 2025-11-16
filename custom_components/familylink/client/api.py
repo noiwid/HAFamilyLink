@@ -1432,6 +1432,7 @@ class FamilyLinkClient:
 				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
 				# type_flag: 1=bedtime, 2=schooltime
 				# state_flag: 2=ON, 1=OFF
+				# NOTE: Revisions have EXACTLY 4 elements (schedules have 7+)
 				bedtime_enabled = False
 				school_time_enabled = False
 
@@ -1444,8 +1445,12 @@ class FamilyLinkClient:
 						if not isinstance(element, list):
 							continue
 
-						# Filter to only list items within this element
-						revision_candidates = [item for item in element if isinstance(item, list) and len(item) >= 4]
+						# Filter to only revision items (exactly 4 elements with timestamp list at end)
+						# This excludes schedule items which have 7+ elements
+						revision_candidates = [
+							item for item in element
+							if isinstance(item, list) and len(item) == 4 and isinstance(item[3], list)
+						]
 
 						# Check if these look like valid revisions
 						if len(revision_candidates) > 0:
@@ -1456,7 +1461,7 @@ class FamilyLinkClient:
 								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
 							]
 
-							if len(valid_revisions) > 0 and len(valid_revisions) <= 3:  # Should be 1-3 revisions
+							if len(valid_revisions) > 0:
 								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
 								for revision in valid_revisions:
 									type_flag = revision[1]
