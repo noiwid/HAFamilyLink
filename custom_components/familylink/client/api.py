@@ -1400,13 +1400,17 @@ class FamilyLinkClient:
 				# Extract school time schedules and daily limit from index 2
 				if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
 					daily_limit_config = data[2]
+					_LOGGER.debug(f"Daily limit config at data[2]: {daily_limit_config}")
 					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
 					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
 						config_data = daily_limit_config[0]
+						_LOGGER.debug(f"Daily limit config_data[0]: {config_data[0] if len(config_data) > 0 else 'empty'}")
 						# First element is the enabled flag (2 = enabled)
 						if len(config_data) > 0 and config_data[0] == 2:
 							daily_limit_enabled = True
 							_LOGGER.debug(f"Daily limit is enabled (flag={config_data[0]})")
+						else:
+							_LOGGER.debug(f"Daily limit is disabled (flag={config_data[0] if len(config_data) > 0 else 'empty'})")
 
 						# School time schedules are in index 2
 						if len(config_data) > 2 and isinstance(config_data[2], list):
