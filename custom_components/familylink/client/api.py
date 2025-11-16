@@ -1424,43 +1424,48 @@ class FamilyLinkClient:
 											})
 
 				# Parse revisions to get ON/OFF state
-				# Revisions are in a list containing items with format:
+				# Revisions are in the last element of data, containing items with format:
 				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
 				# type_flag: 1=bedtime, 2=schooltime
 				# state_flag: 2=ON, 1=OFF
 				bedtime_enabled = False
 				school_time_enabled = False
 
-				# Search through data elements to find revisions
-				# Revisions are identified by: small list (2-3 items) with UUID strings
+				# Look for revisions in the last element of data
 				revisions_found = False
-				if isinstance(data, list):
-					for idx, element in enumerate(data):
-						if isinstance(element, list) and 1 <= len(element) <= 3:
-							# Check if items look like revisions: [str, int, int, list]
-							looks_like_revisions = all(
-								isinstance(item, list) and len(item) >= 4 and
-								isinstance(item[0], str) and len(item[0]) > 30 and  # UUID is long string
-								isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
-								isinstance(item[2], int) and item[2] in [1, 2]  # state_flag
-								for item in element if isinstance(item, list)
-							)
+				if isinstance(data, list) and len(data) > 0:
+					# Search backwards from the end to find revision list
+					for idx in range(len(data) - 1, -1, -1):
+						element = data[idx]
+						if not isinstance(element, list):
+							continue
 
-							if looks_like_revisions and len(element) > 0:
-								_LOGGER.debug(f"Found {len(element)} revision entries at index {idx}")
-								for revision in element:
-									if isinstance(revision, list) and len(revision) >= 3:
-										type_flag = revision[1]
-										state_flag = revision[2]
+						# Filter to only list items within this element
+						revision_candidates = [item for item in element if isinstance(item, list) and len(item) >= 4]
 
-										if type_flag == 1:  # downtime/bedtime
-											bedtime_enabled = (state_flag == 2)
-											_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
-											revisions_found = True
-										elif type_flag == 2:  # schooltime
-											school_time_enabled = (state_flag == 2)
-											_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
-											revisions_found = True
+						# Check if these look like valid revisions
+						if len(revision_candidates) > 0:
+							valid_revisions = [
+								item for item in revision_candidates
+								if (isinstance(item[0], str) and len(item[0]) > 30 and  # UUID
+								    isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
+								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
+							]
+
+							if len(valid_revisions) > 0 and len(valid_revisions) <= 3:  # Should be 1-3 revisions
+								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
+								for revision in valid_revisions:
+									type_flag = revision[1]
+									state_flag = revision[2]
+
+									if type_flag == 1:  # downtime/bedtime
+										bedtime_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+										revisions_found = True
+									elif type_flag == 2:  # schooltime
+										school_time_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+										revisions_found = True
 								break
 
 				if not revisions_found:
