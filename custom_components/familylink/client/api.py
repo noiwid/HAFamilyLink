@@ -830,6 +830,10 @@ class FamilyLinkClient:
 						_LOGGER.debug(f"Device {device_id}: device_data has {len(device_data)} elements")
 						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
 
+						# Get current day of week (1=Monday, 7=Sunday)
+						current_day = datetime.now().isoweekday()
+						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
+
 						for idx, item in enumerate(device_data):
 							if isinstance(item, list) and len(item) >= 4:
 								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
@@ -838,18 +842,34 @@ class FamilyLinkClient:
 									if item[0].startswith("CAEQ"):
 										if len(item) == 6:
 											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
-											_LOGGER.debug(f"Device {device_id}: Found CAEQ daily limit at index {idx}: {item}")
+											day = item[1] if len(item) > 1 else None
 											state_flag = item[2] if len(item) > 2 else None
 											minutes = item[3] if len(item) > 3 else None
-											if isinstance(state_flag, int) and isinstance(minutes, int):
-												# Daily limit: ON if stateFlag==2 AND minutes>0 (per doc)
-												daily_enabled = (state_flag == 2 and minutes > 0)
-												device_info["daily_limit_enabled"] = daily_enabled
-												device_info["daily_limit_minutes"] = minutes
-												_LOGGER.debug(
-													f"Device {device_id}: daily_limit state_flag={state_flag}, "
-													f"minutes={minutes}, enabled={daily_enabled}"
-												)
+
+											_LOGGER.debug(
+												f"Device {device_id}: Found CAEQ daily limit at index {idx}: "
+												f"day={day}, state_flag={state_flag}, minutes={minutes}"
+											)
+
+											# Daily limit is ACTIVE only if:
+											# 1. It's for the CURRENT day
+											# 2. Index < 10 (active section, not config/historical)
+											# 3. state_flag == 2 (enabled)
+											if isinstance(day, int) and isinstance(state_flag, int) and isinstance(minutes, int):
+												if day == current_day:
+													is_active_position = (idx < 10)
+													is_enabled_flag = (state_flag == 2)
+													daily_enabled = is_active_position and is_enabled_flag
+
+													device_info["daily_limit_enabled"] = daily_enabled
+													device_info["daily_limit_minutes"] = minutes
+
+													_LOGGER.debug(
+														f"Device {device_id}: CURRENT DAY ({day}) daily_limit - "
+														f"index={idx}, position_active={is_active_position}, "
+														f"state_flag={state_flag}, enabled_flag={is_enabled_flag}, "
+														f"FINAL enabled={daily_enabled}, minutes={minutes}"
+													)
 										elif len(item) == 8:
 											# Bedtime window: ["CAEQ*", day, stateFlag, [start], [end], createdMs, updatedMs, policyId]
 											_LOGGER.debug(f"Device {device_id}: CAEQ is bedtime window (8 elements)")
@@ -878,6 +898,13 @@ class FamilyLinkClient:
 												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
 									except (ValueError, TypeError):
 										pass
+
+						# Log final daily_limit values for this device
+						_LOGGER.debug(
+							f"[DAILY_LIMIT] Device {device_id}: FINAL VALUES - "
+							f"daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
+							f"daily_limit_minutes={device_info.get('daily_limit_minutes', 0)}"
+						)
 
 						devices[device_id] = device_info
 						_LOGGER.debug(f"Device {device_id} parsed: {device_info}")
