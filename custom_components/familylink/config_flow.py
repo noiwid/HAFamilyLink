@@ -50,7 +50,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 		# Check if add-on has provided cookies
 		addon_client = AddonCookieClient(hass)
 
-		if not addon_client.cookies_available():
+		if not await addon_client.cookies_available():
 			raise AuthenticationError(
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first. "
 				"Install and run the add-on, then return here to complete setup."

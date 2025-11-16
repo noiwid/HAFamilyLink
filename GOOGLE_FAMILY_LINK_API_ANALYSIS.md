@@ -1,167 +1,167 @@
 
-# Google Family Link – API Analysis (consolidé)
+# Google Family Link – API Analysis (consolidated)
 
-> **But** : documenter les endpoints observés, les capabilities utiles, **la structure exacte des réponses** (notamment `timeLimit` & `appliedTimeLimits`), et fournir un **guide de parsing robuste** + scénarios de test.  
-> **Contexte** : déductions confirmées à partir de captures réelles (logs/dumps) et de l’interface Family Link. Ce document vise l’exploitation _client_ (lecture), pas l’ingénierie inverse complète du protocole propriétaire.
-
----
-
-## ⚠️ Avertissement
-- L’API n’est **pas publique** et peut changer sans préavis.  
-- Les formats sont **proto/JSON-like** avec beaucoup d’arrays **positionnels** (index sensibles).  
-- Les exemples ci-dessous sont **fiables** dans le périmètre observé, mais restent sujets à évolution côté Google.
+> **Goal**: document observed endpoints, useful capabilities, **exact response structure** (particularly `timeLimit` & `appliedTimeLimits`), and provide a **robust parsing guide** + test scenarios.
+> **Context**: deductions confirmed from real captures (logs/dumps) and the Family Link interface. This document targets _client_ exploitation (reading), not complete reverse engineering of the proprietary protocol.
 
 ---
 
-## 🔐 Authentification & en-têtes nécessaires (observé)
+## ⚠️ Warning
+- The API is **not public** and may change without notice.
+- Formats are **proto/JSON-like** with many **positional** arrays (index-sensitive).
+- The examples below are **reliable** within the observed scope, but remain subject to evolution on Google's side.
+
+---
+
+## 🔐 Authentication & required headers (observed)
 
 - `Authorization: SAPISIDHASH <hash>`
 - `X-Goog-AuthUser: 0`
 - `X-Goog-Api-Key: <key>`
-- `Content-Type: application/json+protobuf` (ou `application/json protobuf` selon l’outil)
+- `Content-Type: application/json+protobuf` (or `application/json protobuf` depending on tool)
 - `x-goog-ext-223261916-bin: ...`
 - `x-goog-ext-202964622-bin: ...`
 - `x-goog-ext-198889211-bin: ...`
 
-> Ces `x-goog-ext-*` varient par session / navigateur. Conserver tels quels côté client, sans journaliser en clair.
+> These `x-goog-ext-*` vary by session / browser. Keep as-is on client side, without logging in clear text.
 
 ---
 
-## 🧭 Endpoints (lecture)
+## 🧭 Endpoints (read)
 
-| Capability / Domaine | Endpoint | Query / Notes |
+| Capability / Domain | Endpoint | Query / Notes |
 |---|---|---|
-| **Restrictions** (politiques appareil) | `/kidsmanagement/v1/people/{childId}/restrictions:listByGroups` | Renvoie les restrictions par groupes (ex. DISALLOW_ADD_USER, DISALLOW_DEBUGGING_FEATURES, etc.). |
-| **Paramètres globaux (menu “settings”)** | `/kidsmanagement/v1/people/settingResources` | Liste des “sections” de réglages (Play, YouTube, Chrome/Web, Search, Communication, Assistant, Gemini, App limits, Location, Devices). |
-| **Localisation – écran d’activation** | `/kidsmanagement/v1/people/{childId}/location/settings` *(via settingResources path)* | Texte d’information + explications par device. |
-| **Photos membres famille** | `/kidsmanagement/v1/families/mine/familyMembersPhotos` | `pageSize`, `supportedPhotoOrigins=...` (GOOGLE_PROFILE, FAMILY_MEMBERS_PHOTO, etc.). |
-| **Notifications** | `/kidsmanagement/v1/people/me/notificationElements?clientCapabilities=CAPABILITY_TIMEZONE&userTimeZone=Europe/Paris` | Événements (ex. _Nouvelle application installée_). |
-| **Apps & usage** | `/kidsmanagement/v1/people/{childId}/appsandusage?capabilities=CAPABILITY_APP_USAGE_SESSION&capabilities=CAPABILITY_SUPERVISION_CAPABILITIES` | Liste d’apps (package, nom, icône, devices) + (dans d’autres réponses) planifications **downtime/schooltime** (heures). |
-| **TimeLimit (programmation)** | `/kidsmanagement/v1/people/{childId}/timeLimit?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME&timeLimitKey.type=SUPERVISED_DEVICES` | **Programmation** Bedtime & Schooltime + **switches globaux** (ON/OFF) via “révisions”. |
-| **AppliedTimeLimits (état appliqué)** | `/kidsmanagement/v1/people/{childId}/appliedTimeLimits?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME` | **État du jour par device** : limites quotidiennes, fenêtres actives, agrégats autorisé/consommé. |
+| **Restrictions** (device policies) | `/kidsmanagement/v1/people/{childId}/restrictions:listByGroups` | Returns restrictions by groups (e.g. DISALLOW_ADD_USER, DISALLOW_DEBUGGING_FEATURES, etc.). |
+| **Global settings (settings menu)** | `/kidsmanagement/v1/people/settingResources` | List of settings "sections" (Play, YouTube, Chrome/Web, Search, Communication, Assistant, Gemini, App limits, Location, Devices). |
+| **Location – activation screen** | `/kidsmanagement/v1/people/{childId}/location/settings` *(via settingResources path)* | Information text + explanations per device. |
+| **Family member photos** | `/kidsmanagement/v1/families/mine/familyMembersPhotos` | `pageSize`, `supportedPhotoOrigins=...` (GOOGLE_PROFILE, FAMILY_MEMBERS_PHOTO, etc.). |
+| **Notifications** | `/kidsmanagement/v1/people/me/notificationElements?clientCapabilities=CAPABILITY_TIMEZONE&userTimeZone=Europe/Paris` | Events (e.g. _New app installed_). |
+| **Apps & usage** | `/kidsmanagement/v1/people/{childId}/appsandusage?capabilities=CAPABILITY_APP_USAGE_SESSION&capabilities=CAPABILITY_SUPERVISION_CAPABILITIES` | List of apps (package, name, icon, devices) + (in other responses) **downtime/schooltime** schedules (hours). |
+| **TimeLimit (scheduling)** | `/kidsmanagement/v1/people/{childId}/timeLimit?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME&timeLimitKey.type=SUPERVISED_DEVICES` | **Scheduling** Bedtime & Schooltime + **global switches** (ON/OFF) via "revisions". |
+| **AppliedTimeLimits (applied state)** | `/kidsmanagement/v1/people/{childId}/appliedTimeLimits?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME` | **Daily state per device**: daily limits, active windows, allowed/consumed aggregates. |
 
-> D’autres endpoints existent sans être exhaustifs ici (liste “capabilities” non publique). Ce doc couvre ceux nécessaires à la lecture **bedtime/schooltime/daily-limit** & usage d’apps/notifications/photos.
+> Other endpoints exist without being exhaustive here (capability list not public). This doc covers those necessary for reading **bedtime/schooltime/daily-limit** & app usage/notifications/photos.
 
 ---
 
-## 🧱 Modèles de données — clés observées
+## 🧱 Data models — observed keys
 
-### 1) `timeLimit` — **Programmation** (théorique)
-- Contient **les créneaux** pour chaque jour + **révisions** indiquant l’état **global ON/OFF** de Bedtime & Schooltime.
-- Deux familles de tuples (dans un grand tableau) :  
-  - **Bedtime** : entrées **`CAEQ*`** (par jour)  
-  - **Schooltime** : entrées **`CAMQ*`** (par jour)
+### 1) `timeLimit` — **Scheduling** (theoretical)
+- Contains **time slots** for each day + **revisions** indicating the **global ON/OFF** state of Bedtime & Schooltime.
+- Two families of tuples (in a large array):
+  - **Bedtime**: **`CAEQ*`** entries (per day)
+  - **Schooltime**: **`CAMQ*`** entries (per day)
 
-#### 1.1. Tuples `CAEQ*` (Bedtime / Downtime)
+#### 1.1. `CAEQ*` tuples (Bedtime / Downtime)
 ```
 ["CAEQAQ"|"CAEQAg"|..., day, stateFlag, [startH,startM], [endH,endM], createdEpochMs, updatedEpochMs, policyId]
 ```
-- `day` : 1..7 (lundi..dimanche)
-- `stateFlag` : **2 = ON**, **1 = OFF** (pour ce jour)
-- `start/end` : heures locales (24h)
-- `policyId` : identifiant interne (ex. `487088e7-...`) — utile pour croiser avec “révisions”
+- `day`: 1..7 (Monday..Sunday)
+- `stateFlag`: **2 = ON**, **1 = OFF** (for this day)
+- `start/end`: local hours (24h)
+- `policyId`: internal identifier (e.g. `487088e7-...`) — useful for cross-referencing with "revisions"
 
-#### 1.2. Tuples `CAMQ*` (Schooltime)
+#### 1.2. `CAMQ*` tuples (Schooltime)
 ```
 ["CAMQAS..."|..., day, stateFlag, [startH,startM], [endH,endM], createdEpochMs, updatedEpochMs, policyId]
 ```
-- Même sémantique que `CAEQ*`, pour le domaine **Schooltime**.
+- Same semantics as `CAEQ*`, for the **Schooltime** domain.
 
-#### 1.3. Bloc “révisions” (états globaux ON/OFF)
-En fin de réponse, un bloc de tuples indique l’état global des switches :
+#### 1.3. "Revisions" block (global ON/OFF states)
+At the end of response, a block of tuples indicates the global state of switches:
 ```
 [ policyId, type, state, [sec, nanos] ]
 ```
-- `type` : **1 = Bedtime**, **2 = Schooltime**
-- `state` : **2 = ON**, **1 = OFF**
-- `policyId` : correspond aux `policyId` vus dans les tuples `CAEQ*/CAMQ*`
+- `type`: **1 = Bedtime**, **2 = Schooltime**
+- `state`: **2 = ON**, **1 = OFF**
+- `policyId`: corresponds to the `policyId` seen in `CAEQ*/CAMQ*` tuples
 
-> Le tout **premier entier** du 1er gros bloc reflète **souvent** l’état global Bedtime (`2` quand ON, `1` quand OFF). Ne pas s’y fier seul : utiliser les **révisions** comme source de vérité.
+> The **very first integer** of the 1st large block **often** reflects the global Bedtime state (`2` when ON, `1` when OFF). Don't rely on it alone: use **revisions** as the source of truth.
 
 ---
 
-### 2) `appliedTimeLimits` — **État appliqué aujourd’hui (par device)**
-- Chaque **device** apparaît dans un **bloc**. À l’intérieur, on retrouve :
-  - **Daily limit (minutes)** sous forme de tuple **`CAEQBg`** avec une **valeur minutes**.
-  - **Bedtime** (fenêtre) via tuple **`CAEQBg`** mais **avec heures `[start],[end]`** (oui, même clé racine, contenu différent).
-  - **Schooltime** via un tuple **`CAMQ*`** (ex. `CAMQBi...`) avec **heures** et `stateFlag`.
-  - Des **agrégats** “autorisé / consommé” sur la journée (souvent deux entiers proches, parfois `0` si OFF).
+### 2) `appliedTimeLimits` — **Applied state today (per device)**
+- Each **device** appears in a **block**. Inside, we find:
+  - **Daily limit (minutes)** as a **`CAEQBg`** tuple with a **minutes value**.
+  - **Bedtime** (window) via **`CAEQBg`** tuple but **with hours `[start],[end]`** (yes, same root key, different content).
+  - **Schooltime** via a **`CAMQ*`** tuple (e.g. `CAMQBi...`) with **hours** and `stateFlag`.
+  - **Aggregates** "allowed / consumed" for the day (often two close integers, sometimes `0` if OFF).
 
-#### 2.1. Daily limit (par device & par jour)
+#### 2.1. Daily limit (per device & per day)
 ```
 ["CAEQBg", day, stateFlag, minutes, createdEpochMs, updatedEpochMs]
 ```
-- `stateFlag` : **2 = ON**, **1 = OFF**
-- `minutes` : quota journalier (ex. `120` pour 2h)
-- **ON** si `stateFlag == 2` **ET** `minutes > 0`
+- `stateFlag`: **2 = ON**, **1 = OFF**
+- `minutes`: daily quota (e.g. `120` for 2h)
+- **ON** if `stateFlag == 2` **AND** `minutes > 0`
 
-#### 2.2. Bedtime (fenêtre appliquée ce jour, par device)
+#### 2.2. Bedtime (applied window this day, per device)
 ```
 ["CAEQBg", day, stateFlag, [startH,startM], [endH,endM], createdEpochMs, updatedEpochMs, policyId]
 ```
-- `stateFlag` : **2 = ON**, **1 = OFF**
-- Horaires dans le tuple. Chevauche minuit si `end < start`.
+- `stateFlag`: **2 = ON**, **1 = OFF**
+- Hours in the tuple. Crosses midnight if `end < start`.
 
-#### 2.3. Schooltime (fenêtre appliquée ce jour, par device)
+#### 2.3. Schooltime (applied window this day, per device)
 ```
 ["CAMQBi...", day, stateFlag, [startH,startM], [endH,endM], createdEpochMs, updatedEpochMs, policyId]
 ```
-- `stateFlag` : **2 = ON**, **1 = OFF**
+- `stateFlag`: **2 = ON**, **1 = OFF**
 
-> **Remarque** : `appliedTimeLimits` peut résumer plusieurs **policies** mais ne garantit pas une “flatten” parfaite. Se fier au **jour courant** et aux tuples présents pour la **détection ON/OFF**.
+> **Note**: `appliedTimeLimits` may summarize several **policies** but doesn't guarantee a perfect "flatten". Rely on the **current day** and present tuples for **ON/OFF detection**.
 
 ---
 
-## 🧭 Indexation (positions critiques)
+## 🧭 Indexing (critical positions)
 
-### Tuples horaires (bedtime/schooltime)
+### Time window tuples (bedtime/schooltime)
 ```
 [ key, day(1), stateFlag(2), start(3), end(4), createdMs(5), updatedMs(6), policyId(7) ]
 ```
 - `stateFlag ∈ {1,2}`
-- `start/end` : 2-uplets `[hh,mm]`
+- `start/end`: 2-tuples `[hh,mm]`
 
 ### Daily limit (minutes)
 ```
 [ "CAEQBg", day(1), stateFlag(2), minutes(3), createdMs(4), updatedMs(5) ]
 ```
 
-### Révisions (timeLimit, fin de réponse)
+### Revisions (timeLimit, end of response)
 ```
 [ policyId(0), type(1), state(2), [sec(3).0, nanos(3).1] ]
 ```
 
-> Dans certains dumps, des champs additionnels précèdent/suivent (null, zéros, timestamps) — **ne jamais indexer en absolu** sur toute la ligne, mais **repérer la clé racine** (`"CAEQ..."`/`"CAMQ..."`) puis parser **relativement**.
+> In some dumps, additional fields precede/follow (null, zeros, timestamps) — **never index absolutely** on the entire line, but **locate the root key** (`"CAEQ..."`/`"CAMQ..."`) then parse **relatively**.
 
 ---
 
-## ✅ Matrice des scénarios (vérifié)
+## ✅ Scenario matrix (verified)
 
-| Scénario | Bedtime (global) | Schooltime (global) | Daily limit |
+| Scenario | Bedtime (global) | Schooltime (global) | Daily limit |
 |---|---:|---:|---:|
 | 1. Bedtime ON, School ON, Daily ON | `timeLimit: revisions → type=1, state=2` | `revisions → type=2, state=2` | `appliedTimeLimits: ["CAEQBg", d, 2, minutes>0]` |
-| 2. Bedtime OFF, School ON, Daily ON | `revisions → type=1, state=1` | `revisions → type=2, state=2` | idem (ON) |
-| 3. Bedtime OFF, School OFF, Daily ON | `revisions → type=1, state=1` | `revisions → type=2, state=1` | idem (ON) |
-| 4. Daily OFF (par device) | (selon précédent) | (selon précédent) | `appliedTimeLimits: ["CAEQBg", d, 1, minutes]` **ou** agrégats du jour à `0` |
+| 2. Bedtime OFF, School ON, Daily ON | `revisions → type=1, state=1` | `revisions → type=2, state=2` | same (ON) |
+| 3. Bedtime OFF, School OFF, Daily ON | `revisions → type=1, state=1` | `revisions → type=2, state=1` | same (ON) |
+| 4. Daily OFF (per device) | (as previous) | (as previous) | `appliedTimeLimits: ["CAEQBg", d, 1, minutes]` **or** day aggregates at `0` |
 
-> **Note** : la **programmation** (les tuples `CAEQ*/CAMQ*` dans `timeLimit`) reste **présente** même si le **switch global** est OFF. C’est le **state global** (révisions) qui arbitre l’application.
+> **Note**: the **scheduling** (the `CAEQ*/CAMQ*` tuples in `timeLimit`) remains **present** even if the **global switch** is OFF. It's the **global state** (revisions) that arbitrates application.
 
 ---
 
-## 🧪 Parsing — Algorithme conseillé (pseudo-code)
+## 🧪 Parsing — Recommended algorithm (pseudo-code)
 
 ```python
 def parse_time_limit(payload):
-	# 1) Extraire programmation Bedtime (CAEQ*) et Schooltime (CAMQ*)
+	# 1) Extract Bedtime (CAEQ*) and Schooltime (CAMQ*) scheduling
 	bedtime = extract_schedules(payload, key_prefix="CAEQ")
 	school  = extract_schedules(payload, key_prefix="CAMQ")
 
-	# 2) Lire l’état global ON/OFF via révisions (source de vérité)
+	# 2) Read global ON/OFF state via revisions (source of truth)
 	globals = extract_revisions(payload)  # { bedtime: on/off, school: on/off }
 
 	return {
 		"bedtime_schedules": bedtime,   # [{day,start,end,policyId,stateFlag}]
-		"schooltime_schedules": school, # idem
+		"schooltime_schedules": school, # same
 		"global": globals               # {"bedtime": True/False, "schooltime": True/False}
 	}
 
@@ -180,83 +180,83 @@ def parse_applied_time_limits(payload, today_day):
 			"bedtime_window": bed and (bed.start, bed.end),
 			"schooltime_on": school and school.stateFlag == 2,
 			"schooltime_window": school and (school.start, school.end),
-			"allowed_used_ms": extract_aggregates(dev)  # optionnel
+			"allowed_used_ms": extract_aggregates(dev)  # optional
 		})
 	return devices
 ```
 
-**Règles d’interprétation** :
-- `stateFlag == 2` → **ON**, `1` → **OFF** (valable pour toutes les familles de tuples).
-- `minutes > 0` requis pour considérer la **daily limit** active.
-- Les **heures** sont locales (Europe/Paris si contexte utilisateur ; attention au DST).  
-- Les fenêtres `start > end` **chevauchent minuit** (ex. 20:30 → 07:30).
+**Interpretation rules**:
+- `stateFlag == 2` → **ON**, `1` → **OFF** (valid for all tuple families).
+- `minutes > 0` required to consider the **daily limit** active.
+- **Hours** are local (Europe/Paris if user context; beware of DST).
+- Windows `start > end` **cross midnight** (e.g. 20:30 → 07:30).
 
 ---
 
-## 🧩 Champs agrégés (appliedTimeLimits)
-Dans chaque bloc device, deux entiers (souvent contigus) représentent l’**autorisé/consommé** du jour (ms). Ils peuvent être `0` si la limite est **OFF** même si une valeur minute existe dans le tuple.
+## 🧩 Aggregated fields (appliedTimeLimits)
+In each device block, two integers (often contiguous) represent the **allowed/consumed** for the day (ms). They can be `0` if the limit is **OFF** even if a minute value exists in the tuple.
 
 ---
 
 ## 🧷 Apps & Usage (`appsandusage`)
-- **Liste d’apps** (package, label, icône, devices). Exemple d’item :
+- **App list** (package, label, icon, devices). Example item:
 ```
 [ packageName, appName, iconUrl, [], installedEpochMs, null, 0, 1, null, null, deviceCount, [deviceIds...], stateFlag ]
 ```
-- `stateFlag` (en fin) : statut par app côté supervision (observé 1/2).  
-- D’autres formes de cette réponse peuvent inclure les fenêtres **downtime/schooltime** (heures) et révisions (horodotées).
+- `stateFlag` (at end): per-app status on supervision side (observed 1/2).
+- Other forms of this response may include **downtime/schooltime** windows (hours) and revisions (timestamped).
 
 ---
 
 ## 📣 Notifications (`notificationElements`)
-- Ex. “Nouvelle application installée” avec **horodatage** (`["1763148569", 431000000]`) et **liens** vers l’app concernée (`/member/{childId}/app/{package}`).  
-- `clientCapabilities=CAPABILITY_TIMEZONE` + `userTimeZone=Europe/Paris` conseillés pour des timestamps locaux.
+- E.g. "New app installed" with **timestamp** (`["1763148569", 431000000]`) and **links** to the concerned app (`/member/{childId}/app/{package}`).
+- `clientCapabilities=CAPABILITY_TIMEZONE` + `userTimeZone=Europe/Paris` recommended for local timestamps.
 
 ---
 
-## 🖼️ Photos famille (`familyMembersPhotos`)
-- Réponse : `[ personId, null, photoUrl, origin, familyId, optionalColor ]`  
-- `supportedPhotoOrigins=` : `GOOGLE_PROFILE`, `FAMILY_MEMBERS_PHOTO`, `DEFAULT_SILHOUETTE`, `CHILD_DEFAULT_AVATAR`, `UNKNOWN_PHOTO_ORIGIN`.
+## 🖼️ Family photos (`familyMembersPhotos`)
+- Response: `[ personId, null, photoUrl, origin, familyId, optionalColor ]`
+- `supportedPhotoOrigins=`: `GOOGLE_PROFILE`, `FAMILY_MEMBERS_PHOTO`, `DEFAULT_SILHOUETTE`, `CHILD_DEFAULT_AVATAR`, `UNKNOWN_PHOTO_ORIGIN`.
 
 ---
 
-## ❗ Points d’attention & bonnes pratiques client
+## ❗ Key points & client best practices
 
-- **Ne pas indexer en dur** sur toute la ligne : _matcher la clé racine_ (`"CAEQ..."` / `"CAMQ..."`) puis interpréter **relativement**.
-- **Tolérance aux `null`/champs absents** : prévoir des `get()`/`try` sur les positions.
-- **Horaires** : toujours **normaliser** `[hh,mm]` (0–23 / 0–59) ; gérer **minuit** (`end < start`).
-- **Fusos & DST** : convertir les epoch ms → `datetime` local ; préférer des utilitaires timezone-aware.
-- **Secrets** : ne jamais logger les headers auth/keys ; masquer dans diagnostics.
-- **Rate limiting** : retries bornés (429/5xx) + backoff + jitter ; 401/403 → reauth/config.
+- **Don't hardcode indexes** on the entire line: _match the root key_ (`"CAEQ..."` / `"CAMQ..."`) then interpret **relatively**.
+- **Tolerance to `null`/missing fields**: provide `get()`/`try` on positions.
+- **Hours**: always **normalize** `[hh,mm]` (0–23 / 0–59); handle **midnight** (`end < start`).
+- **Timezones & DST**: convert epoch ms → local `datetime`; prefer timezone-aware utilities.
+- **Secrets**: never log auth/key headers; mask in diagnostics.
+- **Rate limiting**: bounded retries (429/5xx) + backoff + jitter; 401/403 → reauth/config.
 
 ---
 
-## 🧪 Tests (recommandé)
-- **Fixtures** 4 scénarios :  
-  1. Bedtime ON + School ON + Daily ON  
-  2. Bedtime OFF + School ON + Daily ON  
-  3. Bedtime OFF + School OFF + Daily ON  
-  4. Daily OFF (par device), avec comparaison entre 2 devices
-- **Asserts** :  
-  - `daily_limit_on`, `daily_limit_minutes` corrects par device/jour.  
-  - `bedtime_on`, `schooltime_on` + fenêtres `[start,end]`.  
+## 🧪 Tests (recommended)
+- **Fixtures** 4 scenarios:
+  1. Bedtime ON + School ON + Daily ON
+  2. Bedtime OFF + School ON + Daily ON
+  3. Bedtime OFF + School OFF + Daily ON
+  4. Daily OFF (per device), with comparison between 2 devices
+- **Asserts**:
+  - `daily_limit_on`, `daily_limit_minutes` correct per device/day.
+  - `bedtime_on`, `schooltime_on` + windows `[start,end]`.
   - Mapping `revisions` (type=1/2 → state=2/1).
 
 ---
 
-## 📝 Glossaire rapide
-- **CAEQ*** : famille Bedtime ou Daily (selon charge utile : minutes vs fenêtre).  
-- **CAMQ*** : famille Schooltime.  
-- **stateFlag** : 2=ON, 1=OFF.  
-- **policyId** : identifiant de règle (liaison avec révisions).
+## 📝 Quick glossary
+- **CAEQ***: Bedtime or Daily family (depending on payload: minutes vs window).
+- **CAMQ***: Schooltime family.
+- **stateFlag**: 2=ON, 1=OFF.
+- **policyId**: rule identifier (link with revisions).
 
 ---
 
-## ❓ Manques connus / Ouvertures
-- **Liste exhaustive des capabilities** : non publique ; documenter **à l’usage**.  
-- **Schéma proto complet** : non disponible ; rester défensif côté parsing.  
-- **Agrégats “allowed/used ms”** : positions exactes non garanties → détecter par clé/structure lorsque présent.
+## ❓ Known gaps / Openings
+- **Exhaustive capability list**: not public; document **as you use**.
+- **Complete proto schema**: not available; remain defensive on parsing side.
+- **"allowed/used ms" aggregates**: exact positions not guaranteed → detect by key/structure when present.
 
 ---
 
-*Dernière mise à jour : générée depuis l’analyse des dumps concrets et de l’UI Family Link. PRs bienvenues si vous observez des variantes.*
+*Last update: generated from analysis of concrete dumps and Family Link UI. PRs welcome if you observe variants.*
