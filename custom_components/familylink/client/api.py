@@ -833,6 +833,8 @@ class FamilyLinkClient:
 										bonus_minutes_from_override = bonus_seconds // 60
 
 										device_info["bonus_override_id"] = override_id
+										# Store bonus minutes from override
+										device_info["bonus_minutes"] = bonus_minutes_from_override
 										_LOGGER.debug(
 											f"Device {override_device_id}: Found bonus override - "
 											f"id={override_id}, duration={bonus_minutes_from_override}min "
@@ -840,17 +842,15 @@ class FamilyLinkClient:
 										)
 
 
-						# Parse time data (usually at indices 1-3)
-						# Index 1: total allowed (ms string)
-						# Index 2: used (ms string)
-						if len(device_data) > 2:
-							if isinstance(device_data[1], str) and device_data[1].isdigit():
-								total_ms = int(device_data[1])
-								device_info["total_allowed_minutes"] = total_ms // 60000
-							if isinstance(device_data[2], str) and device_data[2].isdigit():
-								used_ms = int(device_data[2])
+						# Parse time data from positions 19-20
+						# Position 19: bonus time (ms string) - deprecated, use override instead
+						# Position 20: used time (ms string)
+						if len(device_data) > 20:
+							# Parse used time from position 20
+							if isinstance(device_data[20], str) and device_data[20].isdigit():
+								used_ms = int(device_data[20])
 								device_info["used_minutes"] = used_ms // 60000
-							device_info["remaining_minutes"] = max(0, device_info["total_allowed_minutes"] - device_info["used_minutes"])
+								_LOGGER.debug(f"Device {device_id}: Used time = {device_info['used_minutes']} minutes ({used_ms} ms)")
 
 						# Parse windows and CAEQBg/CAMQ tuples
 						# Look for bedtime window (indices vary, usually around 3-10)
@@ -1014,35 +1014,25 @@ class FamilyLinkClient:
 									except (ValueError, TypeError):
 										pass
 
-						# Parse bonus time (position 19 in device_data)
-						# Format: "3600000" (string, milliseconds) = 60 minutes bonus
-						# "0" = no bonus
-						if len(device_data) > 19:
-							bonus_item = device_data[19]
-							if isinstance(bonus_item, str) and bonus_item.isdigit():
-								bonus_ms = int(bonus_item)
-								bonus_minutes = bonus_ms // 60000
-								device_info["bonus_minutes"] = bonus_minutes
-								if bonus_minutes > 0:
-									_LOGGER.debug(
-										f"Device {device_id}: Active bonus time = {bonus_minutes} minutes "
-										f"({bonus_ms} ms)"
-									)
-
-						# Fix total_allowed_minutes calculation
-						# When daily limit is enabled, total_allowed should come from daily_limit_minutes
-						# not from the API's device_data[1] which can be 0
+						# Calculate total_allowed_minutes and remaining_minutes
+						# total_allowed = daily_limit + bonus (if bonus active)
+						# remaining = total_allowed - used
 						if device_info.get("daily_limit_enabled", False):
 							daily_limit_mins = device_info.get("daily_limit_minutes", 0)
+							bonus_mins = device_info.get("bonus_minutes", 0)
+							used_mins = device_info.get("used_minutes", 0)
+
 							if daily_limit_mins > 0:
-								device_info["total_allowed_minutes"] = daily_limit_mins
-								# Recalculate remaining minutes
-								used_mins = device_info.get("used_minutes", 0)
-								device_info["remaining_minutes"] = max(0, daily_limit_mins - used_mins)
+								# Total allowed = daily limit + active bonus
+								device_info["total_allowed_minutes"] = daily_limit_mins + bonus_mins
+								# Remaining = total allowed - used
+								device_info["remaining_minutes"] = max(0, device_info["total_allowed_minutes"] - used_mins)
+
 								_LOGGER.debug(
-									f"Device {device_id}: Daily limit enabled - "
-									f"set total_allowed={daily_limit_mins}, used={used_mins}, "
-									f"remaining={device_info['remaining_minutes']}"
+									f"Device {device_id}: Time calculation - "
+									f"daily_limit={daily_limit_mins}, bonus={bonus_mins}, "
+									f"total_allowed={device_info['total_allowed_minutes']}, "
+									f"used={used_mins}, remaining={device_info['remaining_minutes']}"
 								)
 
 						# Log final daily_limit values for this device
