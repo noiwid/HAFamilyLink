@@ -834,22 +834,25 @@ class FamilyLinkClient:
 							if isinstance(item, list) and len(item) >= 4:
 								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
 								if isinstance(item[0], str):
-									# CAEQBg = daily limit or bedtime
-									if item[0].startswith("CAEQBg") or item[0] == "CAEQBg":
-										_LOGGER.debug(f"Device {device_id}: Found CAEQBg tuple at index {idx}: {item}")
-										state_flag = item[2] if len(item) > 2 else None
-										value = item[3] if len(item) > 3 else None
-										if isinstance(state_flag, int) and isinstance(value, int):
-											# Daily limit: ON if stateFlag==2 AND minutes>0 (per doc)
-											daily_enabled = (state_flag == 2 and value > 0)
-											device_info["daily_limit_enabled"] = daily_enabled
-											device_info["daily_limit_minutes"] = value
-											_LOGGER.debug(
-												f"Device {device_id}: daily_limit state_flag={state_flag}, "
-												f"minutes={value}, enabled={daily_enabled}"
-											)
-										elif isinstance(value, list):
-											_LOGGER.debug(f"Device {device_id}: CAEQBg is bedtime window (item[3] is list)")
+									# CAEQ* = daily limit (6 elem) OR bedtime window (8 elem)
+									if item[0].startswith("CAEQ"):
+										if len(item) == 6:
+											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
+											_LOGGER.debug(f"Device {device_id}: Found CAEQ daily limit at index {idx}: {item}")
+											state_flag = item[2] if len(item) > 2 else None
+											minutes = item[3] if len(item) > 3 else None
+											if isinstance(state_flag, int) and isinstance(minutes, int):
+												# Daily limit: ON if stateFlag==2 AND minutes>0 (per doc)
+												daily_enabled = (state_flag == 2 and minutes > 0)
+												device_info["daily_limit_enabled"] = daily_enabled
+												device_info["daily_limit_minutes"] = minutes
+												_LOGGER.debug(
+													f"Device {device_id}: daily_limit state_flag={state_flag}, "
+													f"minutes={minutes}, enabled={daily_enabled}"
+												)
+										elif len(item) == 8:
+											# Bedtime window: ["CAEQ*", day, stateFlag, [start], [end], createdMs, updatedMs, policyId]
+											_LOGGER.debug(f"Device {device_id}: CAEQ is bedtime window (8 elements)")
 									# CAMQ = schooltime
 									elif item[0].startswith("CAMQ"):
 										state_flag = item[2] if len(item) > 2 else None
