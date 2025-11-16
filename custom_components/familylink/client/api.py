@@ -1424,34 +1424,47 @@ class FamilyLinkClient:
 											})
 
 				# Parse revisions to get ON/OFF state
-				# The last element of data contains current state revisions
-				# Format: [["uuid", type_flag, state_flag, timestamp], ...]
+				# Revisions are in a list containing items with format:
+				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
 				# type_flag: 1=bedtime, 2=schooltime
 				# state_flag: 2=ON, 1=OFF
 				bedtime_enabled = False
 				school_time_enabled = False
 
-				# Look in the last element of data (index -1) for current states
-				if isinstance(data, list) and len(data) > 0:
-					revisions = data[-1] if isinstance(data[-1], list) else None
+				# Search through data elements to find revisions
+				# Revisions are identified by: small list (2-3 items) with UUID strings
+				revisions_found = False
+				if isinstance(data, list):
+					for idx, element in enumerate(data):
+						if isinstance(element, list) and 1 <= len(element) <= 3:
+							# Check if items look like revisions: [str, int, int, list]
+							looks_like_revisions = all(
+								isinstance(item, list) and len(item) >= 4 and
+								isinstance(item[0], str) and len(item[0]) > 30 and  # UUID is long string
+								isinstance(item[1], int) and item[1] in [1, 2] and  # type_flag
+								isinstance(item[2], int) and item[2] in [1, 2]  # state_flag
+								for item in element if isinstance(item, list)
+							)
 
-					if revisions:
-						_LOGGER.debug(f"Found {len(revisions)} revision entries in last element")
-						for revision in revisions:
-							if isinstance(revision, list) and len(revision) >= 3:
-								uuid = revision[0]
-								type_flag = revision[1]
-								state_flag = revision[2]
+							if looks_like_revisions and len(element) > 0:
+								_LOGGER.debug(f"Found {len(element)} revision entries at index {idx}")
+								for revision in element:
+									if isinstance(revision, list) and len(revision) >= 3:
+										type_flag = revision[1]
+										state_flag = revision[2]
 
-								if isinstance(type_flag, int) and isinstance(state_flag, int):
-									if type_flag == 1:  # downtime/bedtime
-										bedtime_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
-									elif type_flag == 2:  # schooltime
-										school_time_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
-					else:
-						_LOGGER.warning("No revision data found in last element of response")
+										if type_flag == 1:  # downtime/bedtime
+											bedtime_enabled = (state_flag == 2)
+											_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+											revisions_found = True
+										elif type_flag == 2:  # schooltime
+											school_time_enabled = (state_flag == 2)
+											_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+											revisions_found = True
+								break
+
+				if not revisions_found:
+					_LOGGER.warning("No revision data found in response")
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
