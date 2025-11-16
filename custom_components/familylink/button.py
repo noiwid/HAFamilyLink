@@ -28,10 +28,14 @@ async def async_setup_entry(
 
 	entities = []
 
-	# Wait for first data fetch to get children
+	# Check if data is available (should be after async_config_entry_first_refresh)
 	if not coordinator.data or "children_data" not in coordinator.data:
-		_LOGGER.warning("No children data available yet, buttons will be added on first update")
-		return
+		_LOGGER.error(
+			"CRITICAL: No children data in coordinator after first refresh! "
+			"Buttons will NOT be created. "
+			f"coordinator.data keys: {list(coordinator.data.keys()) if coordinator.data else 'None'}"
+		)
+		# Don't return - this prevents entities from ever being created!
 
 	# Get device registry
 	device_registry = dr.async_get(hass)
