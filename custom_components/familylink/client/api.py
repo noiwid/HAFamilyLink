@@ -1376,16 +1376,15 @@ class FamilyLinkClient:
 				data = response_data[1]  # Extract the real data array (index 1)
 				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
 
-				# Parse bedtime and schooltime schedules, and daily limit configuration
+				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
 				school_time_schedule = []
-				daily_limit_enabled = False
 
 				# The response structure after unwrapping is:
 				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
 				# Index 0: bedtime schedules
-				# Index 1: daily limit configuration
-				# Index -1 (5): current states (revisions)
+				# Index 1: daily limit + school time schedules
+				# Index -1 (5): current states (revisions for bedtime/schooltime)
 
 				# Extract bedtime schedules from index 0
 				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
@@ -1410,20 +1409,12 @@ class FamilyLinkClient:
 														"end": end  # [hh, mm]
 													})
 
-				# Extract school time schedules and daily limit from index 1
+				# Extract school time schedules from index 1
 				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
 					daily_limit_config = data[1]
-					_LOGGER.debug(f"Daily limit config at data[1]: {daily_limit_config}")
 					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
 					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
 						config_data = daily_limit_config[0]
-						_LOGGER.debug(f"Daily limit config_data[0]: {config_data[0] if len(config_data) > 0 else 'empty'}")
-						# First element is the enabled flag (2 = enabled)
-						if len(config_data) > 0 and config_data[0] == 2:
-							daily_limit_enabled = True
-							_LOGGER.debug(f"Daily limit is enabled (flag={config_data[0]})")
-						else:
-							_LOGGER.debug(f"Daily limit is disabled (flag={config_data[0] if len(config_data) > 0 else 'empty'})")
 
 						# School time schedules are in index 2
 						if len(config_data) > 2 and isinstance(config_data[2], list):
@@ -1504,14 +1495,12 @@ class FamilyLinkClient:
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
-					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules), "
-					f"daily_limit_enabled={daily_limit_enabled}"
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
 				)
 
 				return {
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
-					"daily_limit_enabled": daily_limit_enabled,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule
 				}
