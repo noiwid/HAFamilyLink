@@ -1337,6 +1337,9 @@ class FamilyLinkClient:
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
 			params = [
 				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_BEDTIME"),
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_DOWNTIME"),
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_DAILY_LIMIT"),
 				("timeLimitKey.type", "SUPERVISED_DEVICES")
 			]
 
