@@ -832,12 +832,20 @@ class FamilyLinkClient:
 								if isinstance(item[0], str):
 									# CAEQBg = daily limit or bedtime
 									if item[0].startswith("CAEQBg") or item[0] == "CAEQBg":
+										_LOGGER.debug(f"Device {device_id}: Found CAEQBg tuple at index {idx}: {item}")
 										state_flag = item[2] if len(item) > 2 else None
 										value = item[3] if len(item) > 3 else None
 										if isinstance(state_flag, int) and isinstance(value, int):
-											device_info["daily_limit_enabled"] = (state_flag == 2)
+											# Daily limit: ON if stateFlag==2 AND minutes>0 (per doc)
+											daily_enabled = (state_flag == 2 and value > 0)
+											device_info["daily_limit_enabled"] = daily_enabled
 											device_info["daily_limit_minutes"] = value
-											_LOGGER.debug(f"Device {device_id}: daily_limit enabled={state_flag==2}, minutes={value}")
+											_LOGGER.debug(
+												f"Device {device_id}: daily_limit state_flag={state_flag}, "
+												f"minutes={value}, enabled={daily_enabled}"
+											)
+										elif isinstance(value, list):
+											_LOGGER.debug(f"Device {device_id}: CAEQBg is bedtime window (item[3] is list)")
 									# CAMQ = schooltime
 									elif item[0].startswith("CAMQ"):
 										state_flag = item[2] if len(item) > 2 else None
