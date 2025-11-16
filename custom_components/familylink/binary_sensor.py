@@ -308,16 +308,17 @@ class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if device has reached or exceeded its daily limit."""
+		"""Return True if device has reached or exceeded its daily limit (ignoring bonus)."""
 		time_data = self._get_device_time_data()
 		if not time_data:
 			return False
 
-		remaining_minutes = time_data.get("remaining_minutes")
-		if remaining_minutes is None:
+		# Use daily_limit_remaining which ignores bonus time
+		daily_limit_remaining = time_data.get("daily_limit_remaining")
+		if daily_limit_remaining is None:
 			return False
 
-		return remaining_minutes <= 0
+		return daily_limit_remaining <= 0
 
 	@property
 	def icon(self) -> str:
