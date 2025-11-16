@@ -106,10 +106,11 @@ async def async_setup_entry(
         entities.append(FamilyLinkDeviceCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
 
-        # Time management schedule sensors (3 sensors per child)
+        # Time management schedule sensors (2 sensors per child)
         entities.append(BedtimeScheduleSensor(coordinator, child_id, child_name))
         entities.append(SchoolTimeScheduleSensor(coordinator, child_id, child_name))
-        entities.append(DailyLimitSensor(coordinator, child_id, child_name))
+        # DailyLimitSensor removed - now using DailyLimitDeviceSensor per device instead
+        # entities.append(DailyLimitSensor(coordinator, child_id, child_name))
 
         # Create device sensors for each device (4 sensors per device)
         for device in child_data.get("devices", []):

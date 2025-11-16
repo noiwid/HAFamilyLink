@@ -215,6 +215,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["schooltime_window"] = time_data.get("schooltime_window")
 					device["bedtime_active"] = time_data.get("bedtime_active")
 					device["schooltime_active"] = time_data.get("schooltime_active")
+					device["bonus_minutes"] = time_data.get("bonus_minutes")
+					device["bonus_override_id"] = time_data.get("bonus_override_id")
 
 			# Aggregate daily_limit_enabled from devices
 			# If ANY device has daily_limit enabled, consider it globally enabled
