@@ -843,9 +843,22 @@ class FamilyLinkClient:
 
 
 						# Parse time data from positions 19-20
-						# Position 19: bonus time (ms string) - deprecated, use override instead
-						# Position 20: used time (ms string)
+						# Position 19: bonus REMAINING time (ms string) - time left on active bonus
+						# Position 20: used time on daily_limit (ms string)
 						if len(device_data) > 20:
+							# Parse bonus remaining time from position 19
+							if isinstance(device_data[19], str) and device_data[19].isdigit():
+								bonus_remaining_ms = int(device_data[19])
+								bonus_remaining_minutes = bonus_remaining_ms // 60000
+								if bonus_remaining_minutes > 0:
+									# Override the bonus_minutes with the REMAINING time from API
+									# This is more accurate than the total from override
+									device_info["bonus_minutes"] = bonus_remaining_minutes
+									_LOGGER.debug(
+										f"Device {device_id}: Bonus REMAINING time = {bonus_remaining_minutes} minutes "
+										f"({bonus_remaining_ms} ms)"
+									)
+
 							# Parse used time from position 20
 							if isinstance(device_data[20], str) and device_data[20].isdigit():
 								used_ms = int(device_data[20])
@@ -1015,25 +1028,35 @@ class FamilyLinkClient:
 										pass
 
 						# Calculate total_allowed_minutes and remaining_minutes
-						# total_allowed = daily_limit + bonus (if bonus active)
-						# remaining = total_allowed - used
+						# IMPORTANT: Bonus REPLACES normal time, it doesn't add to it!
+						# - If bonus > 0: remaining = bonus only (position 19 = already remaining bonus time)
+						# - If bonus == 0: remaining = max(0, daily_limit - used)
 						if device_info.get("daily_limit_enabled", False):
 							daily_limit_mins = device_info.get("daily_limit_minutes", 0)
 							bonus_mins = device_info.get("bonus_minutes", 0)
 							used_mins = device_info.get("used_minutes", 0)
 
 							if daily_limit_mins > 0:
-								# Total allowed = daily limit + active bonus
-								device_info["total_allowed_minutes"] = daily_limit_mins + bonus_mins
-								# Remaining = total allowed - used
-								device_info["remaining_minutes"] = max(0, device_info["total_allowed_minutes"] - used_mins)
-
-								_LOGGER.debug(
-									f"Device {device_id}: Time calculation - "
-									f"daily_limit={daily_limit_mins}, bonus={bonus_mins}, "
-									f"total_allowed={device_info['total_allowed_minutes']}, "
-									f"used={used_mins}, remaining={device_info['remaining_minutes']}"
-								)
+								if bonus_mins > 0:
+									# Bonus is active: bonus REPLACES normal time
+									# Position 19 already contains REMAINING bonus time
+									device_info["total_allowed_minutes"] = bonus_mins
+									device_info["remaining_minutes"] = bonus_mins
+									_LOGGER.debug(
+										f"Device {device_id}: BONUS ACTIVE - "
+										f"bonus_remaining={bonus_mins} min, "
+										f"daily_limit={daily_limit_mins} min (not consumed), "
+										f"used_on_daily={used_mins} min (paused)"
+									)
+								else:
+									# No bonus: use daily_limit - used
+									device_info["total_allowed_minutes"] = daily_limit_mins
+									device_info["remaining_minutes"] = max(0, daily_limit_mins - used_mins)
+									_LOGGER.debug(
+										f"Device {device_id}: NO BONUS - "
+										f"daily_limit={daily_limit_mins}, used={used_mins}, "
+										f"remaining={device_info['remaining_minutes']}"
+									)
 
 						# Log final daily_limit values for this device
 						_LOGGER.debug(
