@@ -1363,66 +1363,106 @@ class FamilyLinkClient:
 				data = await response.json()
 				_LOGGER.debug(f"Time limit rules response: {data}")
 
-				# Parse bedtime and schooltime schedules
+				# Parse bedtime and schooltime schedules, and daily limit configuration
 				bedtime_schedule = []
 				school_time_schedule = []
+				daily_limit_enabled = False
 
-				# Extract downtime (bedtime) schedules
-				if isinstance(data, list) and len(data) > 0:
-					for item in data:
-						if isinstance(item, list):
-							# Look for downtime entries (CAEQ* patterns)
-							if len(item) >= 5 and isinstance(item[0], str) and item[0].startswith("CAEQ"):
-								day = item[1] if len(item) > 1 else None
-								start = item[2] if len(item) > 2 else None
-								end = item[3] if len(item) > 3 else None
-								if day and start and end:
-									bedtime_schedule.append({
-										"day": day,
-										"start": start,  # [hh, mm]
-										"end": end  # [hh, mm]
-									})
-							# Look for schooltime entries (CAMQ* patterns)
-							elif len(item) >= 5 and isinstance(item[0], str) and item[0].startswith("CAMQ"):
-								day = item[1] if len(item) > 1 else None
-								start = item[2] if len(item) > 2 else None
-								end = item[3] if len(item) > 3 else None
-								if day and start and end:
-									school_time_schedule.append({
-										"day": day,
-										"start": start,
-										"end": end
-									})
+				# The response structure is:
+				# [metadata, [bedtime_config], [daily_limit_config], [history], None, [1], [current_states]]
+				# Index 1: bedtime schedules
+				# Index 2: daily limit configuration
+				# Index -1 (6): current states
+
+				# Extract bedtime schedules from index 1
+				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+					bedtime_config = data[1]
+					# Format: [[2, [schedules], timestamp, timestamp, 1]]
+					if len(bedtime_config) > 0 and isinstance(bedtime_config[0], list):
+						schedule_data = bedtime_config[0]
+						# schedules are in index 1
+						if len(schedule_data) > 1 and isinstance(schedule_data[1], list):
+							for schedule_list in schedule_data[1]:
+								if isinstance(schedule_list, list):
+									for item in schedule_list:
+										if isinstance(item, list) and len(item) >= 4:
+											if isinstance(item[0], str) and item[0].startswith("CAEQ"):
+												day = item[1] if len(item) > 1 else None
+												start = item[2] if len(item) > 2 else None
+												end = item[3] if len(item) > 3 else None
+												if day and start and end:
+													bedtime_schedule.append({
+														"day": day,
+														"start": start,  # [hh, mm]
+														"end": end  # [hh, mm]
+													})
+
+				# Extract school time schedules and daily limit from index 2
+				if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
+					daily_limit_config = data[2]
+					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
+					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
+						config_data = daily_limit_config[0]
+						# First element is the enabled flag (2 = enabled)
+						if len(config_data) > 0 and config_data[0] == 2:
+							daily_limit_enabled = True
+							_LOGGER.debug(f"Daily limit is enabled (flag={config_data[0]})")
+
+						# School time schedules are in index 2
+						if len(config_data) > 2 and isinstance(config_data[2], list):
+							for item in config_data[2]:
+								if isinstance(item, list) and len(item) >= 4:
+									if isinstance(item[0], str) and item[0].startswith("CAMQ"):
+										day = item[1] if len(item) > 1 else None
+										start = item[2] if len(item) > 2 else None
+										end = item[3] if len(item) > 3 else None
+										if day and start and end:
+											school_time_schedule.append({
+												"day": day,
+												"start": start,
+												"end": end
+											})
 
 				# Parse revisions to get ON/OFF state
-				# Format: ["uuid", type_flag, state_flag, timestamp]
+				# The last element of data contains current state revisions
+				# Format: [["uuid", type_flag, state_flag, timestamp], ...]
 				# type_flag: 1=bedtime, 2=schooltime
 				# state_flag: 2=ON, 1=OFF
 				bedtime_enabled = False
 				school_time_enabled = False
 
-				for item in data:
-					if isinstance(item, list) and len(item) >= 4:
-						uuid = item[0]
-						type_flag = item[1] if len(item) > 1 else None
-						state_flag = item[2] if len(item) > 2 else None
+				# Look in the last element of data (index -1) for current states
+				if isinstance(data, list) and len(data) > 0:
+					revisions = data[-1] if isinstance(data[-1], list) else None
 
-						if isinstance(type_flag, int) and isinstance(state_flag, int):
-							if type_flag == 1:  # downtime/bedtime
-								bedtime_enabled = (state_flag == 2)
-								_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
-							elif type_flag == 2:  # schooltime
-								school_time_enabled = (state_flag == 2)
-								_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+					if revisions:
+						_LOGGER.debug(f"Found {len(revisions)} revision entries in last element")
+						for revision in revisions:
+							if isinstance(revision, list) and len(revision) >= 3:
+								uuid = revision[0]
+								type_flag = revision[1]
+								state_flag = revision[2]
+
+								if isinstance(type_flag, int) and isinstance(state_flag, int):
+									if type_flag == 1:  # downtime/bedtime
+										bedtime_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+									elif type_flag == 2:  # schooltime
+										school_time_enabled = (state_flag == 2)
+										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+					else:
+						_LOGGER.warning("No revision data found in last element of response")
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
-					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules), "
+					f"daily_limit_enabled={daily_limit_enabled}"
 				)
 
 				return {
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
+					"daily_limit_enabled": daily_limit_enabled,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule
 				}
