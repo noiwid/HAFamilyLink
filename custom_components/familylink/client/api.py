@@ -807,7 +807,8 @@ class FamilyLinkClient:
 							"bedtime_window": None,
 							"schooltime_window": None,
 							"bedtime_active": False,
-							"schooltime_active": False
+							"schooltime_active": False,
+							"bonus_minutes": 0
 						}
 
 						# Parse time data (usually at indices 1-3)
@@ -983,6 +984,21 @@ class FamilyLinkClient:
 												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
 									except (ValueError, TypeError):
 										pass
+
+						# Parse bonus time (position 19 in device_data)
+						# Format: "3600000" (string, milliseconds) = 60 minutes bonus
+						# "0" = no bonus
+						if len(device_data) > 19:
+							bonus_item = device_data[19]
+							if isinstance(bonus_item, str) and bonus_item.isdigit():
+								bonus_ms = int(bonus_item)
+								bonus_minutes = bonus_ms // 60000
+								device_info["bonus_minutes"] = bonus_minutes
+								if bonus_minutes > 0:
+									_LOGGER.debug(
+										f"Device {device_id}: Active bonus time = {bonus_minutes} minutes "
+										f"({bonus_ms} ms)"
+									)
 
 						# Fix total_allowed_minutes calculation
 						# When daily limit is enabled, total_allowed should come from daily_limit_minutes
