@@ -843,10 +843,10 @@ class FamilyLinkClient:
 
 
 						# Parse time data from positions 19-20
-						# Position 19: ??? (need more investigation - may be daily_limit remaining, not bonus)
+						# Position 19: appears to contain remaining time when bonus is active
 						# Position 20: used time on daily_limit (ms string)
 						if len(device_data) > 20:
-							# DEBUG: Log position 19 to understand what it contains
+							# Log position 19 for debugging
 							if isinstance(device_data[19], str) and device_data[19].isdigit():
 								pos19_ms = int(device_data[19])
 								pos19_mins = pos19_ms // 60000
@@ -1061,8 +1061,7 @@ class FamilyLinkClient:
 
 						# Log final daily_limit values for this device
 						_LOGGER.debug(
-							f"[DAILY_LIMIT] Device {device_id}: FINAL VALUES - "
-							f"daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
+							f"Device {device_id}: daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
 							f"daily_limit_minutes={device_info.get('daily_limit_minutes', 0)}"
 						)
 
