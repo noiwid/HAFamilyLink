@@ -410,7 +410,7 @@ class FamilyLinkClient:
 				f"({len(app_breakdown)} apps, {total_seconds} total seconds)"
 			)
 			if not app_breakdown:
-				_LOGGER.warning(f"No app usage data found for {target_date.date()}")
+				_LOGGER.debug(f"No app usage data found for {target_date.date()}")
 			else:
 				_LOGGER.debug(f"App breakdown: {app_breakdown}")
 
