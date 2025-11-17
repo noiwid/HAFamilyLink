@@ -49,6 +49,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Prevent infinite retry loops
 			if self._is_retrying_auth:
 				_LOGGER.error("Session still expired after refresh - cookies are invalid")
+				await self._create_auth_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
@@ -66,6 +67,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				# If it still fails after refresh, cookies are truly invalid
 				_LOGGER.error("Session still expired after refresh - please re-authenticate via add-on")
+				await self._create_auth_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 			except Exception as retry_err:
 				_LOGGER.error(f"Retry after auth refresh failed: {retry_err}")
@@ -399,6 +401,26 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
 		"""Get device data by ID."""
 		return self._devices.get(device_id)
+
+	async def _create_auth_notification(self) -> None:
+		"""Create a persistent notification when authentication fails."""
+		await self.hass.services.async_call(
+			"persistent_notification",
+			"create",
+			{
+				"title": "Google Family Link - Authentication Required",
+				"message": (
+					"Your Google Family Link session has expired.\n\n"
+					"Please re-authenticate using the **Family Link Auth** add-on:\n"
+					"1. Open the add-on in Supervisor\n"
+					"2. Click 'Open Web UI'\n"
+					"3. Log in with your Google account\n"
+					"4. The integration will automatically resume once authenticated."
+				),
+				"notification_id": "familylink_auth_expired",
+			},
+		)
+		_LOGGER.info("Created authentication notification for user")
 
 	async def async_cleanup(self) -> None:
 		"""Clean up coordinator resources."""
