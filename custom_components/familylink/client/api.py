@@ -1600,7 +1600,9 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch time limit rules {response.status}: {response_text}")
+					# Use warning for temporary errors (503), error for others
+					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
+					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
@@ -1622,7 +1624,7 @@ class FamilyLinkClient:
 					}
 
 				data = response_data[1]  # Extract the real data array (index 1)
-				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
+				_LOGGER.debug(f"Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
 
 				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
