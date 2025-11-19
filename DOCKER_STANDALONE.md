@@ -93,11 +93,15 @@ docker run -d \
 
 ### 1. Cookie Path Configuration
 
-The addon stores cookies in `/share/familylink/cookies.json`. You need to make this accessible to your Home Assistant instance.
+The addon stores **encrypted** cookies in `/share/familylink/cookies.enc` and the encryption key in `/share/familylink/.key`. You need to make this directory accessible to your Home Assistant instance.
+
+**Important**: The integration reads cookies from `/share/familylink/` **inside** the Home Assistant container. This path must exist inside your Home Assistant container, not on your host system.
 
 #### For Home Assistant Container:
 
-Mount the same volume in your Home Assistant container:
+You need to mount the familylink data directory into your Home Assistant container at `/share/familylink/`.
+
+**Option A: Update your docker-compose.yml (Recommended)**
 
 ```yaml
 # docker-compose.yml for Home Assistant
@@ -109,17 +113,54 @@ services:
       - ./familylink-data:/share/familylink:ro  # Read-only access
 ```
 
-#### For Home Assistant Core:
+This creates `/share/familylink/` inside the container, mapped to `./familylink-data/` on your host.
 
-Create a symbolic link or copy the cookies file to a location accessible by Home Assistant:
+**Option B: Create /share manually inside the container**
+
+If you don't want to modify docker-compose.yml, you can create the directory manually:
 
 ```bash
-# Option A: Symbolic link
-ln -s /path/to/familylink-data/cookies.json /config/familylink-cookies.json
+# Create /share/familylink inside the Home Assistant container
+docker exec homeassistant mkdir -p /share/familylink
 
-# Option B: Automated copy (with a cron job)
-cp /path/to/familylink-data/cookies.json /config/familylink-cookies.json
+# Copy the files from your familylink-data volume
+docker cp /path/to/familylink-data/cookies.enc homeassistant:/share/familylink/
+docker cp /path/to/familylink-data/.key homeassistant:/share/familylink/
 ```
+
+**Note**: With Option B, you'll need to recopy files when cookies are refreshed.
+
+#### For Home Assistant Core:
+
+For Home Assistant Core (Python venv), the integration runs on your host system, so `/share/familylink/` must exist on your host.
+
+**If `/share` doesn't exist on your system, create it:**
+
+```bash
+# Create the directory structure (requires sudo on most systems)
+sudo mkdir -p /share/familylink
+
+# Set permissions so Home Assistant can read the files
+sudo chown -R homeassistant:homeassistant /share/familylink  # Adjust user/group as needed
+```
+
+**Then, link or copy the cookie files:**
+
+```bash
+# Option A: Symbolic link (recommended - automatic updates)
+sudo ln -s /path/to/familylink-data/cookies.enc /share/familylink/cookies.enc
+sudo ln -s /path/to/familylink-data/.key /share/familylink/.key
+
+# Option B: Copy files (requires manual sync when cookies refresh)
+sudo cp /path/to/familylink-data/cookies.enc /share/familylink/
+sudo cp /path/to/familylink-data/.key /share/familylink/
+sudo chmod 644 /share/familylink/*
+```
+
+**Note**:
+- Both `cookies.enc` and `.key` files are required for the integration to work
+- The integration expects files at exactly `/share/familylink/` (not `/opt` or other paths)
+- With Option B (copy), you'll need to recopy files when the addon refreshes cookies
 
 ### 2. Integration Configuration
 
@@ -127,9 +168,10 @@ When setting up the Family Link integration in Home Assistant:
 
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for "Google Family Link"
-3. When prompted for cookies:
-   - **For Container**: Use `/share/familylink/cookies.json`
-   - **For Core**: Use the path to your copied/linked cookies file
+3. Complete the setup wizard:
+   - The integration automatically reads cookies from `/share/familylink/cookies.enc`
+   - No need to manually specify a cookie file path
+   - The encrypted cookies and key are loaded automatically
 
 ## 🐳 Building Your Own Image
 
@@ -166,9 +208,10 @@ docker buildx build \
 ## 🔒 Security Considerations
 
 1. **Cookie Security**
-   - Cookies contain authentication credentials
-   - Ensure proper file permissions: `chmod 600 cookies.json`
-   - Never commit cookies to version control
+   - Cookies contain authentication credentials (stored encrypted in `cookies.enc`)
+   - Ensure proper file permissions: `chmod 644 cookies.enc` and `chmod 644 .key`
+   - Never commit cookies or encryption keys to version control
+   - The `.key` file is required to decrypt cookies - keep it secure
 
 2. **Network Security**
    - If exposing port 8099 externally, use a reverse proxy with SSL
@@ -202,15 +245,70 @@ netstat -tulpn | grep -E '8099|5900'
 
 ### Cookies Not Found by Integration
 
+**Symptom**: Integration setup fails with "No cookies found" or "Failed to load cookies from add-on"
+
+**Diagnostic Steps**:
+
 ```bash
-# Verify cookies file exists
-ls -la /path/to/familylink-data/cookies.json
+# 1. Verify cookies files exist in the addon volume
+ls -la /path/to/familylink-data/cookies.enc
+ls -la /path/to/familylink-data/.key
 
-# Check file permissions
-chmod 644 /path/to/familylink-data/cookies.json
+# 2. Check if /share/familylink exists INSIDE Home Assistant container
+docker exec homeassistant ls -la /share/familylink/
 
-# Verify JSON format
-cat /path/to/familylink-data/cookies.json | python3 -m json.tool
+# 3. For Container: Verify volume mount is correct
+docker inspect homeassistant | grep familylink
+```
+
+**Common Issue**: `/share/familylink/` doesn't exist inside the Home Assistant container
+
+**Solution for Home Assistant Container**:
+
+```bash
+# Check if the directory exists inside the container
+docker exec homeassistant ls -la /share/familylink/
+
+# If it doesn't exist, you have two options:
+
+# Option 1: Add volume mount to docker-compose.yml (recommended)
+# Add this to your homeassistant service volumes:
+#   - ./familylink-data:/share/familylink:ro
+
+# Then recreate the container:
+docker-compose up -d homeassistant
+
+# Option 2: Create directory and copy files manually
+docker exec homeassistant mkdir -p /share/familylink
+docker cp /path/to/familylink-data/cookies.enc homeassistant:/share/familylink/
+docker cp /path/to/familylink-data/.key homeassistant:/share/familylink/
+```
+
+**Solution for Home Assistant Core**:
+
+```bash
+# Create /share/familylink on your host system if it doesn't exist
+sudo mkdir -p /share/familylink
+
+# Copy or link the files
+sudo cp /path/to/familylink-data/cookies.enc /share/familylink/
+sudo cp /path/to/familylink-data/.key /share/familylink/
+sudo chmod 644 /share/familylink/*
+
+# Adjust ownership if needed
+sudo chown homeassistant:homeassistant /share/familylink/*
+```
+
+**Verification**:
+
+```bash
+# For Container: Check inside the container
+docker exec homeassistant ls -la /share/familylink/
+# Should show: cookies.enc and .key
+
+# For Core: Check on host
+ls -la /share/familylink/
+# Should show: cookies.enc and .key
 ```
 
 ### Container Health Check Failing
