@@ -93,7 +93,7 @@ docker run -d \
 
 ### 1. Cookie Path Configuration
 
-The addon stores cookies in `/share/familylink/cookies.json`. You need to make this accessible to your Home Assistant instance.
+The addon stores **encrypted** cookies in `/share/familylink/cookies.enc` and the encryption key in `/share/familylink/.key`. You need to make this directory accessible to your Home Assistant instance.
 
 #### For Home Assistant Container:
 
@@ -111,15 +111,19 @@ services:
 
 #### For Home Assistant Core:
 
-Create a symbolic link or copy the cookies file to a location accessible by Home Assistant:
+Mount or link the entire shared directory to make both the encrypted cookies and the encryption key accessible:
 
 ```bash
-# Option A: Symbolic link
-ln -s /path/to/familylink-data/cookies.json /config/familylink-cookies.json
+# Option A: Symbolic link to the entire directory
+ln -s /path/to/familylink-data /share/familylink
 
-# Option B: Automated copy (with a cron job)
-cp /path/to/familylink-data/cookies.json /config/familylink-cookies.json
+# Option B: Create /share/familylink and copy files (requires periodic sync)
+mkdir -p /share/familylink
+cp /path/to/familylink-data/cookies.enc /share/familylink/
+cp /path/to/familylink-data/.key /share/familylink/
 ```
+
+**Note**: Both `cookies.enc` and `.key` files are required for the integration to work.
 
 ### 2. Integration Configuration
 
@@ -127,9 +131,10 @@ When setting up the Family Link integration in Home Assistant:
 
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for "Google Family Link"
-3. When prompted for cookies:
-   - **For Container**: Use `/share/familylink/cookies.json`
-   - **For Core**: Use the path to your copied/linked cookies file
+3. Complete the setup wizard:
+   - The integration automatically reads cookies from `/share/familylink/cookies.enc`
+   - No need to manually specify a cookie file path
+   - The encrypted cookies and key are loaded automatically
 
 ## 🐳 Building Your Own Image
 
@@ -203,14 +208,17 @@ netstat -tulpn | grep -E '8099|5900'
 ### Cookies Not Found by Integration
 
 ```bash
-# Verify cookies file exists
-ls -la /path/to/familylink-data/cookies.json
+# Verify cookies files exist
+ls -la /path/to/familylink-data/cookies.enc
+ls -la /path/to/familylink-data/.key
 
 # Check file permissions
-chmod 644 /path/to/familylink-data/cookies.json
+chmod 644 /path/to/familylink-data/cookies.enc
+chmod 644 /path/to/familylink-data/.key
 
-# Verify JSON format
-cat /path/to/familylink-data/cookies.json | python3 -m json.tool
+# Verify files are accessible from Home Assistant
+# For Container: check volume mount
+docker inspect homeassistant | grep familylink
 ```
 
 ### Container Health Check Failing
