@@ -13,10 +13,8 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
-	CONF_COOKIE_FILE,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
-	DEFAULT_COOKIE_FILE,
 	DEFAULT_TIMEOUT,
 	DEFAULT_UPDATE_INTERVAL,
 	DOMAIN,
@@ -30,7 +28,6 @@ _LOGGER = logging.getLogger(LOGGER_NAME)
 STEP_USER_DATA_SCHEMA = vol.Schema(
 	{
 		vol.Required(CONF_NAME, default=INTEGRATION_NAME): str,
-		vol.Optional(CONF_COOKIE_FILE, default=DEFAULT_COOKIE_FILE): str,
 		vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): vol.All(
 			vol.Coerce(int), vol.Range(min=30, max=3600)
 		),

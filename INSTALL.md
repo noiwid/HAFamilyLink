@@ -203,12 +203,14 @@ You can install the integration via HACS (recommended) or manually.
    - Read the information  
    - Click **Submit**
 
-2. **Integration Name** (optional) ✍️  
-   - Enter a custom name or leave default: "Google Family Link"  
+2. **Integration Name** (optional) ✍️
+   - Enter a custom name or leave default: "Google Family Link"
+   - Optionally adjust update interval and timeout settings
+   - **Note**: No cookie file path is required - cookies are loaded automatically
    - Click **Submit**
 
-3. **Cookie Loading** 🍪  
-   - The integration will automatically load cookies from the add-on  
+3. **Cookie Loading** 🍪
+   - The integration will automatically load cookies from `/share/familylink/cookies.enc`
    - If successful, you'll see: "Successfully loaded cookies from add-on"
 
 4. **Success!** 🎉  
