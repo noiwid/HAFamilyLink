@@ -64,7 +64,7 @@ async def async_setup_entry(
 
 
 class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
-	"""Representation of a Family Link device as a switch."""
+	"""Representation of a Family Link device as a smart switch that accounts for all restrictions."""
 
 	def __init__(
 		self,
@@ -83,6 +83,25 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		self._attr_name = device.get("name", f"{child_name} Device {self._device_id}")
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_{self._device_id}"
 
+	def _get_device_time_data(self) -> dict[str, Any] | None:
+		"""Get time data for this device."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+					return devices_time_data.get(self._device_id)
+		return None
+
+	def _get_current_device(self) -> dict[str, Any] | None:
+		"""Get current device data."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					for device in child_data.get("devices", []):
+						if device["id"] == self._device_id:
+							return device
+		return self._device
+
 	@property
 	def device_info(self) -> DeviceInfo:
 		"""Return device information."""
@@ -97,18 +116,32 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if device is unlocked (switch on = unlocked)."""
-		if self.coordinator.data and "children_data" in self.coordinator.data:
-			# Find current device data for this child
-			for child_data in self.coordinator.data["children_data"]:
-				if child_data["child_id"] == self._child_id:
-					for device in child_data.get("devices", []):
-						if device["id"] == self._device_id:
-							# Switch is "on" when device is unlocked
-							return not device.get("locked", False)
+		"""Return True if device is usable (not restricted)."""
+		device = self._get_current_device()
+		if not device:
+			return True
 
-		# Fallback to cached device data
-		return not self._device.get("locked", False)
+		# If manually locked, always OFF
+		if device.get("locked", False):
+			return False
+
+		# Get time restrictions
+		time_data = self._get_device_time_data()
+		if time_data:
+			bedtime_active = time_data.get("bedtime_active", False)
+			daily_limit_remaining = time_data.get("daily_limit_remaining", 1)
+			bonus_active = time_data.get("bonus_minutes", 0) > 0
+
+			# If bonus is active, device is usable regardless of other restrictions
+			if bonus_active:
+				return True
+
+			# If restrictions active and no bonus, device is not usable
+			if bedtime_active or daily_limit_remaining <= 0:
+				return False
+
+		# No restrictions, device is usable
+		return True
 
 	@property
 	def available(self) -> bool:
@@ -117,12 +150,30 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 	@property
 	def icon(self) -> str:
-		"""Return the icon for the switch."""
-		return "mdi:cellphone-lock" if not self.is_on else "mdi:cellphone"
+		"""Return dynamic icon based on device state."""
+		device = self._get_current_device()
+		time_data = self._get_device_time_data()
+
+		if device and device.get("locked", False):
+			return "mdi:cellphone-lock"
+
+		if time_data:
+			bonus_active = time_data.get("bonus_minutes", 0) > 0
+			bedtime_active = time_data.get("bedtime_active", False)
+			daily_limit_remaining = time_data.get("daily_limit_remaining", 1)
+
+			if bonus_active:
+				return "mdi:cellphone-clock"  # Bonus active
+			if bedtime_active:
+				return "mdi:cellphone-off"  # Bedtime
+			if daily_limit_remaining <= 0:
+				return "mdi:cellphone-remove"  # Daily limit reached
+
+		return "mdi:cellphone"  # Normal/usable
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
-		"""Return extra state attributes."""
+		"""Return extra state attributes including restriction info."""
 		attributes = {
 			ATTR_DEVICE_ID: self._device_id,
 			ATTR_DEVICE_NAME: self._attr_name,
@@ -130,28 +181,45 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			"child_name": self._child_name,
 		}
 
-		# Add additional device information if available
-		if self.coordinator.data and "children_data" in self.coordinator.data:
-			for child_data in self.coordinator.data["children_data"]:
-				if child_data["child_id"] == self._child_id:
-					for device in child_data.get("devices", []):
-						if device["id"] == self._device_id:
-							if "type" in device:
-								attributes[ATTR_DEVICE_TYPE] = device["type"]
-							if "last_activity" in device:
-								attributes[ATTR_LAST_SEEN] = device["last_activity"]
-							if "locked" in device:
-								attributes[ATTR_LOCKED] = device["locked"]
-							if "model" in device:
-								attributes["model"] = device["model"]
-							break
-					break
+		# Get device data
+		device = self._get_current_device()
+		if device:
+			if "type" in device:
+				attributes[ATTR_DEVICE_TYPE] = device["type"]
+			if "last_activity" in device:
+				attributes[ATTR_LAST_SEEN] = device["last_activity"]
+			if "locked" in device:
+				attributes[ATTR_LOCKED] = device["locked"]
+			if "model" in device:
+				attributes["model"] = device["model"]
+
+		# Get time restrictions
+		time_data = self._get_device_time_data()
+		if time_data:
+			attributes["bedtime_active"] = time_data.get("bedtime_active", False)
+			attributes["school_time_active"] = time_data.get("schooltime_active", False)
+			attributes["daily_limit_reached"] = time_data.get("daily_limit_remaining", 1) <= 0
+			attributes["bonus_active"] = time_data.get("bonus_minutes", 0) > 0
+			attributes["bonus_minutes"] = time_data.get("bonus_minutes", 0)
+			attributes["remaining_minutes"] = time_data.get("remaining_minutes", 0)
+
+			# Add restriction reason
+			if device and device.get("locked", False):
+				attributes["restriction_reason"] = "manually_locked"
+			elif time_data.get("bonus_minutes", 0) > 0:
+				attributes["restriction_reason"] = "bonus_active"
+			elif time_data.get("bedtime_active", False):
+				attributes["restriction_reason"] = "bedtime_active"
+			elif time_data.get("daily_limit_remaining", 1) <= 0:
+				attributes["restriction_reason"] = "daily_limit_reached"
+			else:
+				attributes["restriction_reason"] = "none"
 
 		return attributes
 
 	async def async_turn_on(self) -> None:
-		"""Turn the switch on (unlock device)."""
-		_LOGGER.debug("Unlocking device %s for child %s", self._device_id, self._child_name)
+		"""Unlock device (bypass restrictions without disabling bedtime/daily_limit)."""
+		_LOGGER.info("Unlocking device %s for child %s (bypass restrictions)", self._device_id, self._child_name)
 
 		success = await self.coordinator.async_control_device(
 			self._device_id, DEVICE_UNLOCK_ACTION, self._child_id
@@ -161,11 +229,28 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.error("Failed to unlock device %s", self._device_id)
 		else:
 			_LOGGER.info("Successfully unlocked device %s", self._device_id)
+			await self.coordinator.async_request_refresh()
 
 	async def async_turn_off(self) -> None:
-		"""Turn the switch off (lock device)."""
-		_LOGGER.debug("Locking device %s for child %s", self._device_id, self._child_name)
+		"""Lock device (cancel bonus if active, then lock)."""
+		_LOGGER.info("Locking device %s for child %s", self._device_id, self._child_name)
 
+		# First, cancel any active bonus
+		time_data = self._get_device_time_data()
+		if time_data:
+			override_id = time_data.get("bonus_override_id")
+			if override_id:
+				_LOGGER.info("Cancelling active bonus (override_id=%s) before locking", override_id)
+				bonus_cancelled = await self.coordinator.client.async_cancel_time_bonus(
+					override_id=override_id,
+					account_id=self._child_id,
+				)
+				if bonus_cancelled:
+					_LOGGER.info("Successfully cancelled bonus for device %s", self._device_id)
+				else:
+					_LOGGER.warning("Failed to cancel bonus for device %s", self._device_id)
+
+		# Then lock the device
 		success = await self.coordinator.async_control_device(
 			self._device_id, DEVICE_LOCK_ACTION, self._child_id
 		)
@@ -174,6 +259,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.error("Failed to lock device %s", self._device_id)
 		else:
 			_LOGGER.info("Successfully locked device %s", self._device_id)
+			await self.coordinator.async_request_refresh()
 
 
 class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):

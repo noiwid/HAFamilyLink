@@ -181,6 +181,75 @@ capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME
 **Parsing :**
 - `[0][0][2]` : `action_code=1` → **Device locked (is_locked=True)**
 
+### Scénario 4 : Time bonus active
+
+**Bonus de temps actif (30 minutes = 1800 secondes)**
+
+```json
+[
+  null,
+  [
+    [
+      ["override-uuid-123", 1737123456789, 10, "device123", null, null, null, null, null, null, null, null, null, [["1800", 0]]],
+      "7200000",
+      "3600000",
+      null, null, null, null, null, null, null,
+      ["CAEQBg", 1, 2, 120, null],
+      null, null, null, null, null, null, null, null,
+      "0",
+      "1800000",
+      null, null, null, null,
+      "device123"
+    ]
+  ]
+]
+```
+
+**Structure du bonus override (position [0]) :**
+- `[0][0]` : UUID de l'override (utilisé pour annuler)
+- `[0][1]` : Timestamp
+- `[0][2]` : Type = 10 (time bonus)
+- `[0][3]` : Device ID
+- `[0][13][0][0]` : **Bonus en secondes** = `"1800"` (30 minutes)
+
+**Position 19-20 :**
+- `[0][19]` : `"0"` (peut contenir des données relatives au bonus, à investiguer)
+- `[0][20]` : `"1800000"` ms = 30 minutes de temps utilisé
+
+**Parsing :**
+- Bonus minutes = `int(device_data[0][13][0][0]) // 60` = 30 minutes
+- Used minutes = `int(device_data[20]) // 60000` = 30 minutes
+- **IMPORTANT** : Le bonus **remplace** le temps normal, ne s'ajoute pas
+  - Temps restant = 30 minutes (bonus)
+  - PAS: 120 (daily limit) - 30 (used) + 30 (bonus) = 120 minutes ❌
+
+### Scénario 5 : Daily limit inactif (jour différent)
+
+**Daily limit configuré mais pour un jour différent (devrait être ignoré)**
+
+```json
+[
+  null,
+  [
+    [
+      [null, null, 4, "device123"],
+      "7200000",
+      "0",
+      null, null, null, null, null, null, null,
+      ["CAEQBg", 2, 2, 120, null],
+      null, null, null, null, null, null, null, null, null, null, null, null,
+      "device123"
+    ]
+  ]
+]
+```
+
+**Parsing (si aujourd'hui = lundi = 1) :**
+- `[0][10]` : Daily limit tuple pour le mardi (day=2)
+- Même si `state_flag=2` (enabled), ce n'est **pas le jour actuel**
+- → `daily_limit_enabled=False` pour aujourd'hui
+- → Seuls les tuples avec `day == current_day` sont actifs
+
 ---
 
 ## Mapping des flags
@@ -205,6 +274,15 @@ capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME
 |------|--------|------|
 | `1` | Lock | Device verrouillé |
 | `4` | Unlock | Device déverrouillé |
+
+### Override Types (timeLimitOverrides)
+
+| Type | Action | Utilisation |
+|------|--------|-------------|
+| `1` | Lock device | Verrouiller un appareil |
+| `4` | Unlock device | Déverrouiller un appareil |
+| `8` | Set daily limit | Définir la durée de limite quotidienne |
+| `10` | Add time bonus | Ajouter un bonus de temps |
 
 ### Préfixes de schedule
 

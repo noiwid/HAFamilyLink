@@ -76,7 +76,7 @@ The add-on handles Google authentication using Playwright browser automation.
    ```yaml
    port: 8099
    log_level: info
-   cookie_path: /share/familylink/cookies.json
+   # Cookies are stored as /share/familylink/cookies.enc (encrypted)
    ```
 4. Change settings if needed (usually defaults are fine)  
 5. Click **Save** 💾
@@ -115,9 +115,9 @@ The add-on handles Google authentication using Playwright browser automation.
 - Grant permissions if asked  
 - **Keep the VNC window open** until you see the Family Link dashboard 🧭
 
-**Step 5: Verify Success**  
-- The web interface (port 8099) will show "Authentication successful" ✅  
-- The add-on extracts cookies and saves them to `/share/familylink/cookies.json` 🍪  
+**Step 5: Verify Success**
+- The web interface (port 8099) will show "Authentication successful" ✅
+- The add-on extracts cookies and saves them to `/share/familylink/cookies.enc` (encrypted) 🍪
 - You can now close the VNC connection
 
 **Important Notes:** ⚠️  
@@ -131,7 +131,7 @@ Check the add-on logs (**Log** tab):
 ```
 INFO: Navigating to https://families.google.com/families
 INFO: Successfully extracted 26 cookies
-INFO: Cookies saved to /share/familylink/cookies.json
+INFO: Cookies saved to /share/familylink/cookies.enc (encrypted)
 ```
 If you see "Successfully extracted X cookies", authentication is complete! 🎉
 
@@ -203,26 +203,44 @@ You can install the integration via HACS (recommended) or manually.
    - Read the information  
    - Click **Submit**
 
-2. **Integration Name** (optional) ✍️  
-   - Enter a custom name or leave default: "Google Family Link"  
+2. **Integration Name** (optional) ✍️
+   - Enter a custom name or leave default: "Google Family Link"
+   - Optionally adjust update interval and timeout settings
+   - **Note**: No cookie file path is required - cookies are loaded automatically
    - Click **Submit**
 
-3. **Cookie Loading** 🍪  
-   - The integration will automatically load cookies from the add-on  
-   - If successful, you'll see: "Successfully loaded cookies from add-on"
+3. **Cookie Loading** 🍪
+   - The integration will automatically load cookies from `/share/familylink/cookies.enc`
+   - This happens in the background - no visible progress
+   - **If successful**: The setup completes and you can click **Finish**
+   - **If it fails**: You'll see an error message like "No cookies found" or "Failed to authenticate"
 
-4. **Success!** 🎉  
-   - Click **Finish**  
+4. **Success!** 🎉
+   - If setup completed without errors, click **Finish**
    - The integration is now configured
 
 ### 3.3 Verify Integration Setup 🔎
 
-1. Go to **Settings** > **Devices & Services**  
-2. Find **"Google Family Link"** in the list  
-3. You should see:  
-   - Integration badge (blue/green) 🟦🟩  
-   - Number of devices  
+1. Go to **Settings** > **Devices & Services**
+2. Find **"Google Family Link"** in the list
+3. You should see:
+   - Integration badge (blue/green) 🟦🟩
+   - Number of devices
    - Number of entities
+
+### 3.4 Check Logs (Optional) 📋
+
+To verify cookies were loaded successfully, check the Home Assistant logs:
+
+1. Go to **Settings** > **System** > **Logs**
+2. Search for: `familylink`
+3. Look for messages like:
+   ```
+   Successfully loaded X cookies from add-on
+   Successfully set up Family Link integration
+   ```
+
+**Note**: These detailed messages appear in logs, not in the UI during setup.
 
 ---
 
@@ -287,17 +305,27 @@ You can install the integration via HACS (recommended) or manually.
 
 ### Cookies Not Loading 🍪
 
-**Problem:** "Failed to load cookies from add-on" error  
+**Problem:** Setup fails with error "No cookies found" or "invalid_auth" in the UI
 
-**Solution:**  
-1. Verify add-on is running  
-2. Check `/share/familylink/cookies.json` exists:  
+**Where you see it:**
+- **During setup**: Error message appears in the configuration dialog
+- **In logs**: "Failed to load cookies from add-on" or "No cookies found"
+
+**Solution:**
+1. Verify add-on is running and has been used to authenticate at least once
+2. Check `/share/familylink/cookies.enc` and `.key` exist:
    ```bash
    ls -la /share/familylink/
+   # You should see: cookies.enc and .key (both files required)
    ```
-3. Restart add-on  
-4. Re-authenticate via add-on Web UI  
-5. Reload integration
+3. Verify file permissions allow Home Assistant to read them:
+   ```bash
+   chmod 644 /share/familylink/cookies.enc
+   chmod 644 /share/familylink/.key
+   ```
+4. Restart add-on
+5. Re-authenticate via add-on Web UI (port 8099)
+6. Try adding the integration again
 
 ### 401 Authentication Errors 🔐
 
