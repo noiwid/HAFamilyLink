@@ -76,7 +76,7 @@ The add-on handles Google authentication using Playwright browser automation.
    ```yaml
    port: 8099
    log_level: info
-   cookie_path: /share/familylink/cookies.json
+   # Cookies are stored as /share/familylink/cookies.enc (encrypted)
    ```
 4. Change settings if needed (usually defaults are fine)  
 5. Click **Save** 💾
@@ -115,9 +115,9 @@ The add-on handles Google authentication using Playwright browser automation.
 - Grant permissions if asked  
 - **Keep the VNC window open** until you see the Family Link dashboard 🧭
 
-**Step 5: Verify Success**  
-- The web interface (port 8099) will show "Authentication successful" ✅  
-- The add-on extracts cookies and saves them to `/share/familylink/cookies.json` 🍪  
+**Step 5: Verify Success**
+- The web interface (port 8099) will show "Authentication successful" ✅
+- The add-on extracts cookies and saves them to `/share/familylink/cookies.enc` (encrypted) 🍪
 - You can now close the VNC connection
 
 **Important Notes:** ⚠️  
@@ -131,7 +131,7 @@ Check the add-on logs (**Log** tab):
 ```
 INFO: Navigating to https://families.google.com/families
 INFO: Successfully extracted 26 cookies
-INFO: Cookies saved to /share/familylink/cookies.json
+INFO: Cookies saved to /share/familylink/cookies.enc (encrypted)
 ```
 If you see "Successfully extracted X cookies", authentication is complete! 🎉
 
@@ -289,11 +289,12 @@ You can install the integration via HACS (recommended) or manually.
 
 **Problem:** "Failed to load cookies from add-on" error  
 
-**Solution:**  
-1. Verify add-on is running  
-2. Check `/share/familylink/cookies.json` exists:  
+**Solution:**
+1. Verify add-on is running
+2. Check `/share/familylink/cookies.enc` and `.key` exist:
    ```bash
    ls -la /share/familylink/
+   # You should see: cookies.enc and .key
    ```
 3. Restart add-on  
 4. Re-authenticate via add-on Web UI  
