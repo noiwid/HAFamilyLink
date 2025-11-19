@@ -231,7 +231,7 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 
 **Solutions**:
 1. Verify Family Link Auth add-on is running
-2. Check cookies file exists: `/share/familylink/cookies.json`
+2. Check cookies files exist: `/share/familylink/cookies.enc` and `/share/familylink/.key`
 3. Restart add-on to refresh authentication
 4. Reload integration in Home Assistant
 
