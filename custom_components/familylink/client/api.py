@@ -410,7 +410,7 @@ class FamilyLinkClient:
 				f"({len(app_breakdown)} apps, {total_seconds} total seconds)"
 			)
 			if not app_breakdown:
-				_LOGGER.warning(f"No app usage data found for {target_date.date()}")
+				_LOGGER.debug(f"No app usage data found for {target_date.date()}")
 			else:
 				_LOGGER.debug(f"App breakdown: {app_breakdown}")
 
@@ -843,10 +843,10 @@ class FamilyLinkClient:
 
 
 						# Parse time data from positions 19-20
-						# Position 19: ??? (need more investigation - may be daily_limit remaining, not bonus)
+						# Position 19: appears to contain remaining time when bonus is active
 						# Position 20: used time on daily_limit (ms string)
 						if len(device_data) > 20:
-							# DEBUG: Log position 19 to understand what it contains
+							# Log position 19 for debugging
 							if isinstance(device_data[19], str) and device_data[19].isdigit():
 								pos19_ms = int(device_data[19])
 								pos19_mins = pos19_ms // 60000
@@ -1061,8 +1061,7 @@ class FamilyLinkClient:
 
 						# Log final daily_limit values for this device
 						_LOGGER.debug(
-							f"[DAILY_LIMIT] Device {device_id}: FINAL VALUES - "
-							f"daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
+							f"Device {device_id}: daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
 							f"daily_limit_minutes={device_info.get('daily_limit_minutes', 0)}"
 						)
 
@@ -1601,7 +1600,9 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch time limit rules {response.status}: {response_text}")
+					# Use warning for temporary errors (503), error for others
+					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
+					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
@@ -1623,7 +1624,7 @@ class FamilyLinkClient:
 					}
 
 				data = response_data[1]  # Extract the real data array (index 1)
-				_LOGGER.debug(f"[STRUCTURE] Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
+				_LOGGER.debug(f"Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
 
 				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
