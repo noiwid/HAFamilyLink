@@ -43,15 +43,17 @@ docker-compose up -d
 
 5. **Authenticate with Google:**
    - Click "Start Authentication"
-   - If the window doesn't open, connect via VNC (see below)
+   - **Important**: The browser opens inside the Docker container, not on your computer
+   - **You must connect via VNC** to see and interact with the browser
 
-6. **Access via VNC (if needed):**
-   - VNC Server: `vnc://localhost:5900`
+6. **Access via VNC (Required):**
+   - VNC Server: `vnc://localhost:5900` (or `vnc://YOUR_SERVER_IP:5900`)
    - Password: `familylink`
    - Recommended VNC clients:
-     - **macOS**: Built-in Screen Sharing or RealVNC Viewer
+     - **macOS**: Built-in Screen Sharing (Finder → Go → Connect to Server) or RealVNC Viewer
      - **Windows**: TightVNC Viewer, RealVNC Viewer
      - **Linux**: Remmina, TigerVNC Viewer
+   - Once connected, you'll see the Chromium browser with Google login page
 
 ### Option 2: Using Docker Run
 
