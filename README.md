@@ -319,7 +319,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.maceo_collin_bedtime
+          entity_id: switch.firstname_lastname_bedtime
 ```
 
 ### Screen Time Alert
@@ -329,12 +329,12 @@ automation:
   - alias: "Alert on excessive screen time"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.galaxy_tab_maceo_screen_time_remaining
+        entity_id: sensor.galaxy_tab_firstname_screen_time_remaining
         below: 30  # Less than 30 minutes remaining
     action:
       - service: notify.mobile_app
         data:
-          message: "Only {{ states('sensor.galaxy_tab_maceo_screen_time_remaining') }} minutes remaining!"
+          message: "Only {{ states('sensor.galaxy_tab_firstname_screen_time_remaining') }} minutes remaining!"
 ```
 
 ### Add Bonus Time on Homework Completion
@@ -349,7 +349,7 @@ automation:
     action:
       - service: button.press
         target:
-          entity_id: button.galaxy_tab_maceo_30min
+          entity_id: button.galaxy_tab_firstname_30min
       - service: notify.mobile_app
         data:
           message: "Good job! Added 30 minutes bonus time."
@@ -362,7 +362,7 @@ automation:
   - alias: "Notify when daily limit reached"
     trigger:
       - platform: state
-        entity_id: binary_sensor.galaxy_tab_maceo_daily_limit_reached
+        entity_id: binary_sensor.galaxy_tab_firstname_daily_limit_reached
         to: "on"
     action:
       - service: notify.mobile_app
