@@ -2,12 +2,12 @@ version: '3.8'
 
 services:
   familylink-auth:
-    # Build from standalone Dockerfile instead of pulling pre-built image
-    build:
-      context: .
-      dockerfile: Dockerfile.standalone
-    # Alternatively, use pre-built standalone image when available:
-    # image: ghcr.io/noiwid/familylink-auth:standalone
+    # Option 1: Use pre-built standalone image (recommended after v0.9.2)
+    image: ghcr.io/noiwid/familylink-auth:standalone
+    # Option 2: Build locally from Dockerfile.standalone
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.standalone
     container_name: familylink-auth
     ports:
       - "8099:8099"  # Web interface
