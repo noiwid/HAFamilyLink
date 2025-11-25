@@ -1528,16 +1528,31 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, "CAEQBg"]]], [1]]
+			# Get current day of week (1=Monday, 7=Sunday) and map to CAEQ code
+			# The CAEQ suffix encodes the day: CAEQAQ=1, CAEQAg=2, CAEQAw=3, CAEQBA=4, CAEQBQ=5, CAEQBg=6, CAEQBw=7
+			from datetime import datetime
+			day_codes = {
+				1: "CAEQAQ",  # Monday
+				2: "CAEQAg",  # Tuesday
+				3: "CAEQAw",  # Wednesday
+				4: "CAEQBA",  # Thursday
+				5: "CAEQBQ",  # Friday
+				6: "CAEQBg",  # Saturday
+				7: "CAEQBw",  # Sunday
+			}
+			current_day = datetime.now().isoweekday()
+			day_code = day_codes[current_day]
+
+			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
 			payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, 8, device_id, None, None, None, None, None, None, None, [2, daily_minutes, "CAEQBg"]]],
+				[[None, None, 8, device_id, None, None, None, None, None, None, None, [2, daily_minutes, day_code]]],
 				[1]
 			])
 
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
-			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id}")
+			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id} (day={current_day}, code={day_code})")
 
 			async with session.post(
 				url,
