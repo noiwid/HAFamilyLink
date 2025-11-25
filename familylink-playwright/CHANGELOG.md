@@ -2,6 +2,22 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.3.0] - 2025-01-25
+
+### Added
+- HTTP API endpoint for cookie retrieval (`/api/cookies`)
+- Support for Docker standalone installations without shared volumes
+- Automatic detection of authentication source (API, local URL, or file fallback)
+
+### Changed
+- Integration now tries HTTP API first, then falls back to file storage
+- Improved config flow with manual URL input option
+
+### Fixed
+- Docker standalone users can now configure the auth server URL manually
+
+---
+
 ## [1.0.0] - 2025-01-07
 
 ### Added
@@ -46,4 +62,5 @@ All notable changes to the Google Family Link Auth Add-on will be documented in 
 
 ---
 
+[1.3.0]: https://github.com/noiwid/HAFamilyLink/releases/tag/v1.3.0
 [1.0.0]: https://github.com/noiwid/HAFamilyLink/releases/tag/v1.0.0
