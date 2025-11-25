@@ -1,0 +1,37 @@
+{
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Detecting authentication source..."
+			},
+			"manual_url": {
+				"title": "Authentication Server URL",
+				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`",
+				"data": {
+					"auth_url": "Authentication Server URL"
+				}
+			},
+			"configure": {
+				"title": "Configure Family Link",
+				"description": "Authentication source: {auth_source}",
+				"data": {
+					"name": "Integration Name",
+					"update_interval": "Update Interval (seconds)",
+					"timeout": "Request Timeout (seconds)"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Cannot connect to authentication server. Please verify the URL and ensure the container is running.",
+			"invalid_auth": "No cookies found. Please authenticate first using the Family Link Auth add-on or container.",
+			"url_required": "URL is required",
+			"no_cookies": "Server is reachable but no cookies found. Please authenticate first via the web interface.",
+			"unknown": "Unexpected error occurred"
+		},
+		"abort": {
+			"already_configured": "Integration is already configured",
+			"invalid_config": "Invalid configuration"
+		}
+	}
+}
