@@ -42,7 +42,9 @@ class FamilyLinkClient:
 		"""Initialize the Family Link client."""
 		self.hass = hass
 		self.config = config
-		self.addon_client = AddonCookieClient(hass)
+		# Get auth_url from config if available (for Docker standalone mode)
+		auth_url = config.get("auth_url")
+		self.addon_client = AddonCookieClient(hass, auth_url=auth_url)
 		self._session: aiohttp.ClientSession | None = None
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
