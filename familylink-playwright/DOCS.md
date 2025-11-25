@@ -31,6 +31,8 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 - Returns decrypted cookies directly (JSON format)
 - No shared volumes needed
 
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
+
 #### 2. Shared File Storage (Default for HA OS/Supervised)
 - **Add-on writes**: Encrypted cookies to `/share/familylink/cookies.enc`
 - **Integration reads**: Cookies from the same location

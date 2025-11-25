@@ -145,6 +145,8 @@ Starting with v0.9.4, the integration supports **two methods** to retrieve cooki
 
 The addon exposes an HTTP API at `/api/cookies` that the integration can use directly. **No shared volumes needed!**
 
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
+
 This is the simplest setup:
 1. Make sure the addon is running and accessible from Home Assistant
 2. The integration will automatically detect and use `http://localhost:8099/api/cookies`
