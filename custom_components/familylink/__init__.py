@@ -48,38 +48,47 @@ SCHEMA_UNBLOCK_APP = vol.Schema({
 })
 
 # Time management service schemas
+# Note: entity_id is optional - if provided, device_id/child_id are extracted from entity attributes
 SCHEMA_ADD_TIME_BONUS = vol.Schema({
-	vol.Required("device_id"): cv.string,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("device_id"): cv.string,
 	vol.Required("bonus_minutes"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1440)),
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_ENABLE_BEDTIME = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_DISABLE_BEDTIME = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_ENABLE_SCHOOL_TIME = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_DISABLE_SCHOOL_TIME = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_ENABLE_DAILY_LIMIT = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_DISABLE_DAILY_LIMIT = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_SET_DAILY_LIMIT = vol.Schema({
-	vol.Required("device_id"): cv.string,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("device_id"): cv.string,
 	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1440)),
 	vol.Optional("child_id"): cv.string,
 })
@@ -115,6 +124,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	except Exception as err:
 		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
 		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
+
+
+def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_device_id: bool = False) -> tuple[str | None, str | None]:
+	"""Extract device_id and child_id from entity attributes.
+
+	Args:
+		hass: Home Assistant instance
+		entity_id: Entity ID to get attributes from
+		require_device_id: If True, raises error if device_id not found
+
+	Returns:
+		Tuple of (device_id, child_id) - either or both may be None
+
+	Raises:
+		ValueError: If entity not found or required attributes missing
+	"""
+	if not entity_id:
+		return None, None
+
+	state = hass.states.get(entity_id)
+	if not state:
+		raise ValueError(f"Entity {entity_id} not found")
+
+	attributes = state.attributes
+	device_id = attributes.get("device_id")
+	child_id = attributes.get("child_id")
+
+	if require_device_id and not device_id:
+		raise ValueError(f"Entity {entity_id} does not have a device_id attribute. Please select a device switch entity.")
+
+	_LOGGER.debug(f"Extracted from {entity_id}: device_id={device_id}, child_id={child_id}")
+	return device_id, child_id
 
 
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
@@ -187,9 +228,22 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_add_time_bonus(call: ServiceCall) -> None:
 		"""Handle add_time_bonus service call."""
-		device_id = call.data["device_id"]
 		bonus_minutes = call.data["bonus_minutes"]
+
+		# Get device_id and child_id from entity or direct parameters
+		entity_id = call.data.get("entity_id")
+		device_id = call.data.get("device_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract IDs from entity attributes
+		if entity_id:
+			extracted_device_id, extracted_child_id = extract_ids_from_entity(hass, entity_id, require_device_id=True)
+			device_id = device_id or extracted_device_id
+			child_id = child_id or extracted_child_id
+
+		if not device_id:
+			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
@@ -209,7 +263,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_bedtime(call: ServiceCall) -> None:
 		"""Handle enable_bedtime service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: enable_bedtime")
 
 		try:
@@ -225,7 +286,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_bedtime(call: ServiceCall) -> None:
 		"""Handle disable_bedtime service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: disable_bedtime")
 
 		try:
@@ -241,7 +309,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_school_time(call: ServiceCall) -> None:
 		"""Handle enable_school_time service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: enable_school_time")
 
 		try:
@@ -257,7 +332,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_school_time(call: ServiceCall) -> None:
 		"""Handle disable_school_time service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: disable_school_time")
 
 		try:
@@ -273,7 +355,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_daily_limit(call: ServiceCall) -> None:
 		"""Handle enable_daily_limit service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: enable_daily_limit")
 
 		try:
@@ -289,7 +378,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_daily_limit(call: ServiceCall) -> None:
 		"""Handle disable_daily_limit service call."""
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
 		_LOGGER.info(f"Service called: disable_daily_limit")
 
 		try:
@@ -305,9 +401,22 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_set_daily_limit(call: ServiceCall) -> None:
 		"""Handle set_daily_limit service call."""
-		device_id = call.data["device_id"]
 		daily_minutes = call.data["daily_minutes"]
+
+		# Get device_id and child_id from entity or direct parameters
+		entity_id = call.data.get("entity_id")
+		device_id = call.data.get("device_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract IDs from entity attributes
+		if entity_id:
+			extracted_device_id, extracted_child_id = extract_ids_from_entity(hass, entity_id, require_device_id=True)
+			device_id = device_id or extracted_device_id
+			child_id = child_id or extracted_child_id
+
+		if not device_id:
+			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+
 		_LOGGER.info(f"Service called: set_daily_limit ({daily_minutes} minutes) for device {device_id}")
 
 		try:
