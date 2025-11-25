@@ -164,6 +164,8 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 - ✅ Browser isolation in container
 - ✅ No external network dependencies
 
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The `/api/cookies` endpoint returns authentication cookies in plain JSON. This port should only be accessible on your local network. If you need remote access, use a VPN or SSH tunnel.
+
 ### Browser Automation
 
 The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
