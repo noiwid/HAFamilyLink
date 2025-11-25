@@ -45,15 +45,16 @@ unblock_app:
 
 add_time_bonus:
   name: Add Time Bonus
-  description: Add extra screen time bonus to a device (e.g., 30 minutes)
+  description: Add extra screen time bonus to a device (e.g., 30 minutes). You can either select a device entity OR provide device_id/child_id manually.
   fields:
-    device_id:
-      name: Device ID
-      description: Device ID (device token) to add bonus time to
-      required: true
-      example: "ABCD1234567890"
+    entity_id:
+      name: Device Entity
+      description: Select a Family Link device switch (recommended - automatically extracts device_id and child_id)
+      required: false
       selector:
-        text:
+        entity:
+          integration: familylink
+          domain: switch
     bonus_minutes:
       name: Bonus Minutes
       description: Number of minutes to add as bonus time (1-1440)
@@ -66,9 +67,16 @@ add_time_bonus:
           max: 1440
           mode: box
           unit_of_measurement: "minutes"
+    device_id:
+      name: Device ID (manual)
+      description: Device ID (device token) - only needed if not using entity selector
+      required: false
+      example: "ABCD1234567890"
+      selector:
+        text:
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -76,11 +84,18 @@ add_time_bonus:
 
 enable_bedtime:
   name: Enable Bedtime
-  description: Enable bedtime (downtime) restrictions for a child
+  description: Enable bedtime (downtime) restrictions for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -88,11 +103,18 @@ enable_bedtime:
 
 disable_bedtime:
   name: Disable Bedtime
-  description: Disable bedtime (downtime) restrictions for a child
+  description: Disable bedtime (downtime) restrictions for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -100,11 +122,18 @@ disable_bedtime:
 
 enable_school_time:
   name: Enable School Time
-  description: Enable school time (evening limit) restrictions for a child
+  description: Enable school time (evening limit) restrictions for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -112,11 +141,18 @@ enable_school_time:
 
 disable_school_time:
   name: Disable School Time
-  description: Disable school time (evening limit) restrictions for a child
+  description: Disable school time (evening limit) restrictions for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -124,11 +160,18 @@ disable_school_time:
 
 enable_daily_limit:
   name: Enable Daily Limit
-  description: Enable daily time limit for a child
+  description: Enable daily time limit for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -136,11 +179,18 @@ enable_daily_limit:
 
 disable_daily_limit:
   name: Disable Daily Limit
-  description: Disable daily time limit for a child
+  description: Disable daily time limit for a child. You can either select an entity OR provide child_id manually.
   fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -148,15 +198,16 @@ disable_daily_limit:
 
 set_daily_limit:
   name: Set Daily Limit
-  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours)
+  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours). You can either select a device entity OR provide device_id/child_id manually.
   fields:
-    device_id:
-      name: Device ID
-      description: Device ID (device token) to set daily limit for
-      required: true
-      example: "ABCD1234567890"
+    entity_id:
+      name: Device Entity
+      description: Select a Family Link device switch (recommended - automatically extracts device_id and child_id)
+      required: false
       selector:
-        text:
+        entity:
+          integration: familylink
+          domain: switch
     daily_minutes:
       name: Daily Minutes
       description: Number of minutes allowed per day (1-1440)
@@ -169,9 +220,16 @@ set_daily_limit:
           max: 1440
           mode: box
           unit_of_measurement: "minutes"
+    device_id:
+      name: Device ID (manual)
+      description: Device ID (device token) - only needed if not using entity selector
+      required: false
+      example: "ABCD1234567890"
+      selector:
+        text:
     child_id:
-      name: Child ID
-      description: Child's user ID (optional, uses first supervised child if not provided)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
