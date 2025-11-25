@@ -15,27 +15,48 @@ The Family Link Auth addon can run as a standalone Docker container, making it c
 - Docker Compose (optional, but recommended)
 - Network access from your Home Assistant instance to the addon container
 
+## ⚠️ Important Note
+
+The standalone deployment uses a **different Dockerfile** (`Dockerfile.standalone`) than the Home Assistant Supervisor addon. This is because:
+- The addon version uses Home Assistant's `bashio` tools which don't work outside Supervisor
+- The standalone version uses a clean Debian base and standard bash scripts
+- **If you see errors about `bashio` or `s6-rc`, you're using the wrong image!**
+
 ## 🚀 Quick Start
 
 ### Option 1: Using Docker Compose (Recommended)
 
-1. **Download the docker-compose file:**
+1. **Clone the repository or download the standalone files:**
 
 ```bash
-curl -o docker-compose.yml https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/docker-compose.standalone.yml
+# Option A: Clone the repository
+git clone https://github.com/noiwid/HAFamilyLink.git
+cd HAFamilyLink/familylink-playwright
+
+# Option B: Download just the necessary files
+mkdir familylink-auth && cd familylink-auth
+curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/docker-compose.standalone.yml
+curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/Dockerfile.standalone
+curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/run-standalone.sh
+curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/requirements.txt
+# Download the app directory
+curl -L https://github.com/noiwid/HAFamilyLink/archive/refs/heads/main.zip -o repo.zip
+unzip repo.zip "HAFamilyLink-main/familylink-playwright/app/*" && mv HAFamilyLink-main/familylink-playwright/app . && rm -rf HAFamilyLink-main repo.zip
 ```
 
 2. **Create data directory:**
 
 ```bash
-mkdir -p ./familylink-data
+mkdir -p ./data
 ```
 
-3. **Start the container:**
+3. **Build and start the container:**
 
 ```bash
-docker-compose up -d
+docker-compose -f docker-compose.standalone.yml up -d --build
 ```
+
+This will build the image locally using `Dockerfile.standalone` which doesn't use bashio.
 
 4. **Access the web interface:**
    - Open: http://localhost:8099
@@ -229,7 +250,26 @@ docker buildx build \
 
 ## 🛠️ Troubleshooting
 
-### Container Won't Start
+### "bashio: unbound variable" or "s6-rc failed" Errors
+
+**Symptom**: Container fails to start with errors like:
+```
+/usr/lib/bashio/log.sh: line 107: info: unbound variable
+s6-rc: warning: unable to start service base-addon-banner: command exited 1
+```
+
+**Cause**: You're using the Home Assistant Supervisor addon image (`ghcr.io/noiwid/familylink-auth:latest`) instead of the standalone image.
+
+**Solution**: Build the standalone image locally:
+
+```bash
+cd familylink-playwright
+docker-compose -f docker-compose.standalone.yml up -d --build
+```
+
+This uses `Dockerfile.standalone` which doesn't require Home Assistant Supervisor or bashio.
+
+### Container Won't Start (Other Reasons)
 
 ```bash
 # Check logs
