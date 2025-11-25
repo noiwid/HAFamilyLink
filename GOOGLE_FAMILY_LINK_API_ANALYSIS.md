@@ -52,7 +52,7 @@
 | **Block/Unblock app** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], [1]]]]` for block<br>`[childId, [[[packageName], []]]]` for unblock | `[1]` = block, `[]` = unblock |
 | **Device lock/unlock** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, action_code, deviceId]], [1]]` | `action_code`: 1=LOCK, 4=UNLOCK |
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
-| **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, "CAEQBg"]]], [1]]` | Type 8 = set daily limit duration |
+| **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
 | **Cancel time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverride/{overrideId}?$httpMethod=DELETE` | No body | Google API convention: POST with $httpMethod=DELETE |
 | **Enable/Disable bedtime** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF |
 | **Enable/Disable school time** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF |
@@ -67,6 +67,21 @@
 - **4**: UNLOCK device
 - **8**: SET daily limit duration (per device)
 - **10**: ADD time bonus (per device)
+
+### Day Codes (CAEQ* - for daily limit)
+The `day_code` in the daily limit payload encodes the day of the week. **You MUST use the code corresponding to the current day** for the change to take effect immediately.
+
+| Day | Code | ISO weekday |
+|---|---|---|
+| Monday | `CAEQAQ` | 1 |
+| Tuesday | `CAEQAg` | 2 |
+| Wednesday | `CAEQAw` | 3 |
+| Thursday | `CAEQBA` | 4 |
+| Friday | `CAEQBQ` | 5 |
+| Saturday | `CAEQBg` | 6 |
+| Sunday | `CAEQBw` | 7 |
+
+> ⚠️ **Important**: If you send a day code that doesn't match the current day, the API will create an override for that day instead of the current day, resulting in **no visible change** to the daily limit. Always compute the day code dynamically based on the current date.
 
 ---
 
@@ -349,6 +364,7 @@ Each session represents daily usage for one app:
 - **Revisions identification**: Exactly 4 elements `[uuid, type_flag, state_flag, timestamp]`, filter by length to avoid confusion with schedules (7+ elements)
 - **Policy UUIDs**: Hardcoded per policy type (bedtime, schooltime), same across all accounts
 - **Device control**: Use action codes (1=LOCK, 4=UNLOCK) not boolean values
+- **Set daily limit day code**: The CAEQ day code in `set_daily_limit` payload **MUST match the current day** (CAEQAQ=Monday...CAEQBw=Sunday). Using a hardcoded code will create an override for the wrong day!
 
 ---
 
