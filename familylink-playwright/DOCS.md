@@ -23,15 +23,21 @@ The Google Family Link Auth Add-on provides a browser-based authentication servi
 
 ### Communication Between Add-on and Integration
 
-The add-on and integration communicate through **shared file storage**:
+The add-on provides **two methods** for the integration to retrieve cookies:
 
+#### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
+- **Endpoint**: `GET /api/cookies`
+- **URL**: `http://<addon-ip>:8099/api/cookies`
+- Returns encrypted cookies and key directly
+- No shared volumes needed
+
+#### 2. Shared File Storage (Default for HA OS/Supervised)
 - **Add-on writes**: Encrypted cookies to `/share/familylink/cookies.enc`
 - **Integration reads**: Cookies from the same location
 - **Encryption**: Shared key in `/share/familylink/.key`
 
-This approach is:
+Both approaches are:
 - ✅ Simple and reliable
-- ✅ No network dependencies
 - ✅ Survives restarts
 - ✅ Secure (encrypted at rest)
 
@@ -386,8 +392,8 @@ A: Typically 24 hours to several weeks, depending on Google's security settings 
 **Q: Can I use this with multiple Google accounts?**
 A: Currently no. Only one account at a time. Feature request welcome!
 
-**Q: Does this work on Home Assistant Container?**
-A: No, this add-on requires Home Assistant OS or Supervised. Container users need alternative solutions.
+**Q: Does this work on Home Assistant Container/Core (Docker)?**
+A: Yes! Starting with v0.9.4/v1.3.0, Docker standalone is supported. Run the add-on as a standalone Docker container and configure the integration with the auth server URL. See [Docker Standalone Guide](../DOCKER_STANDALONE.md).
 
 **Q: Can I run this on Raspberry Pi?**
 A: Yes, but performance may be slow during authentication due to browser automation overhead. ARM builds are supported.
