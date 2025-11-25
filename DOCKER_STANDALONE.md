@@ -24,24 +24,13 @@ The standalone deployment uses a **different Dockerfile** (`Dockerfile.standalon
 
 ## 🚀 Quick Start
 
-### Option 1: Using Docker Compose (Recommended)
+### Option 1: Using Pre-built Image (Easiest - Recommended for v0.9.2+)
 
-1. **Clone the repository or download the standalone files:**
+1. **Download the docker-compose file:**
 
 ```bash
-# Option A: Clone the repository
-git clone https://github.com/noiwid/HAFamilyLink.git
-cd HAFamilyLink/familylink-playwright
-
-# Option B: Download just the necessary files
 mkdir familylink-auth && cd familylink-auth
 curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/docker-compose.standalone.yml
-curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/Dockerfile.standalone
-curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/run-standalone.sh
-curl -O https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/familylink-playwright/requirements.txt
-# Download the app directory
-curl -L https://github.com/noiwid/HAFamilyLink/archive/refs/heads/main.zip -o repo.zip
-unzip repo.zip "HAFamilyLink-main/familylink-playwright/app/*" && mv HAFamilyLink-main/familylink-playwright/app . && rm -rf HAFamilyLink-main repo.zip
 ```
 
 2. **Create data directory:**
@@ -50,13 +39,41 @@ unzip repo.zip "HAFamilyLink-main/familylink-playwright/app/*" && mv HAFamilyLin
 mkdir -p ./data
 ```
 
-3. **Build and start the container:**
+3. **Start the container:**
 
 ```bash
-docker-compose -f docker-compose.standalone.yml up -d --build
+docker-compose -f docker-compose.standalone.yml up -d
 ```
 
-This will build the image locally using `Dockerfile.standalone` which doesn't use bashio.
+This will pull the pre-built `ghcr.io/noiwid/familylink-auth:standalone` image which is built specifically for standalone Docker (no bashio).
+
+### Option 2: Build Locally (For latest development version)
+
+1. **Clone the repository:**
+
+```bash
+git clone https://github.com/noiwid/HAFamilyLink.git
+cd HAFamilyLink/familylink-playwright
+```
+
+2. **Edit docker-compose.standalone.yml** to use local build:
+
+```yaml
+# Comment out the image line:
+# image: ghcr.io/noiwid/familylink-auth:standalone
+
+# Uncomment the build lines:
+build:
+  context: .
+  dockerfile: Dockerfile.standalone
+```
+
+3. **Create data directory and build:**
+
+```bash
+mkdir -p ./data
+docker-compose -f docker-compose.standalone.yml up -d --build
+```
 
 4. **Access the web interface:**
    - Open: http://localhost:8099
@@ -76,9 +93,13 @@ This will build the image locally using `Dockerfile.standalone` which doesn't us
      - **Linux**: Remmina, TigerVNC Viewer
    - Once connected, you'll see the Chromium browser with Google login page
 
-### Option 2: Using Docker Run
+### Option 3: Using Docker Run (Without Docker Compose)
 
 ```bash
+# Create data directory
+mkdir -p ./familylink-data
+
+# Run the standalone container
 docker run -d \
   --name familylink-auth \
   -p 8099:8099 \
@@ -88,8 +109,10 @@ docker run -d \
   -e AUTH_TIMEOUT=300 \
   -e SESSION_DURATION=86400 \
   --restart unless-stopped \
-  ghcr.io/noiwid/familylink-auth:latest
+  ghcr.io/noiwid/familylink-auth:standalone
 ```
+
+**Important**: Use the `:standalone` tag, not `:latest` (which is for Home Assistant Supervisor).
 
 ## 🔧 Configuration
 
