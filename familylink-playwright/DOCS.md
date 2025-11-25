@@ -28,7 +28,7 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 #### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
 - **Endpoint**: `GET /api/cookies`
 - **URL**: `http://<addon-ip>:8099/api/cookies`
-- Returns encrypted cookies and key directly
+- Returns decrypted cookies directly (JSON format)
 - No shared volumes needed
 
 #### 2. Shared File Storage (Default for HA OS/Supervised)
