@@ -30,6 +30,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
+		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 
@@ -43,7 +44,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	async def _async_update_data(self) -> dict[str, Any]:
 		"""Fetch data from Family Link API."""
 		try:
-			return await self._async_fetch_data()
+			result = await self._async_fetch_data()
+			# Reset notification flag on successful fetch (allows new notification if auth fails again later)
+			if self._auth_notification_sent:
+				self._auth_notification_sent = False
+				_LOGGER.debug("Auth notification flag reset after successful data fetch")
+			return result
 
 		except SessionExpiredError as err:
 			# Prevent infinite retry loops
@@ -106,6 +112,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					supervised_children.append(member)
 
 			_LOGGER.debug(f"Fetched {len(family_members)} family members, {len(supervised_children)} supervised children")
+		except SessionExpiredError:
+			raise  # Re-raise to trigger auth notification
 		except Exception as err:
 			_LOGGER.warning(f"Failed to fetch family members: {err}")
 
@@ -126,6 +134,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
 					f"{len(apps_usage_data.get('appUsageSessions', []))} usage sessions"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
 
@@ -161,6 +171,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
 
@@ -177,6 +189,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"{len(device_lock_states)} device lock states, "
 					f"{len(devices_time_data)} devices with time data"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
 
@@ -238,6 +252,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
 
@@ -403,7 +419,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		return self._devices.get(device_id)
 
 	async def _create_auth_notification(self) -> None:
-		"""Create a persistent notification when authentication fails."""
+		"""Create a persistent notification when authentication fails (only once)."""
+		if self._auth_notification_sent:
+			_LOGGER.debug("Auth notification already sent, skipping")
+			return
+
 		await self.hass.services.async_call(
 			"persistent_notification",
 			"create",
@@ -420,6 +440,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"notification_id": "familylink_auth_expired",
 			},
 		)
+		self._auth_notification_sent = True
 		_LOGGER.info("Created authentication notification for user")
 
 	async def async_cleanup(self) -> None:
