@@ -426,6 +426,8 @@ class FamilyLinkClient:
 				"date": target_date.date(),
 			}
 
+		except SessionExpiredError:
+			raise  # Re-raise to trigger auth notification
 		except Exception as err:
 			_LOGGER.error("Failed to fetch daily screen time: %s", err)
 			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
@@ -764,6 +766,10 @@ class FamilyLinkClient:
 					"Cookie": cookie_header
 				}
 			) as response:
+				if response.status == 401:
+					response_text = await response.text()
+					_LOGGER.error(f"✗ 401 Unauthorized - Session expired fetching applied time limits")
+					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
@@ -1615,6 +1621,9 @@ class FamilyLinkClient:
 					"Cookie": cookie_header
 				}
 			) as response:
+				if response.status == 401:
+					_LOGGER.error(f"✗ 401 Unauthorized - Session expired fetching time limit rules")
+					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
 					# Use warning for temporary errors (503), error for others
