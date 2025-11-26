@@ -13,7 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the branch/tag the release was created from
           ref: ${{ github.event.release.target_commitish }}
           fetch-depth: 0
 
@@ -39,7 +38,23 @@ jobs:
           echo "Updated manifest.json:"
           cat custom_components/familylink/manifest.json
 
-      - name: Commit and push changes
+      - name: Create integration ZIP with correct version
+        run: |
+          # Create a ZIP of the integration folder with the correct version
+          cd custom_components
+          zip -r ../familylink.zip familylink
+          cd ..
+          echo "✅ Created familylink.zip with version ${{ steps.version.outputs.version }}"
+          unzip -l familylink.zip
+
+      - name: Upload ZIP to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: familylink.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push version update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
