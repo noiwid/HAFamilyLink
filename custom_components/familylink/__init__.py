@@ -32,7 +32,7 @@ from .exceptions import FamilyLinkException
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.SWITCH]
 
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
