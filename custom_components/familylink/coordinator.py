@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .client.api import FamilyLinkClient
 from .const import (
+	CONF_ENABLE_LOCATION_TRACKING,
 	DEFAULT_UPDATE_INTERVAL,
 	DOMAIN,
 	LOGGER_NAME,
@@ -33,6 +34,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
+		self._location_tracking_enabled = entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)
 
 		super().__init__(
 			hass,
@@ -257,6 +259,31 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
 
+			# Fetch location data for this child (if enabled)
+			location = None
+			if self._location_tracking_enabled:
+				try:
+					location = await self.client.async_get_location(account_id=child_id)
+					if location:
+						# Resolve source device name from device ID
+						source_device_id = location.get("source_device_id")
+						source_device_name = None
+						if source_device_id:
+							for device in devices:
+								if device.get("id") == source_device_id:
+									source_device_name = device.get("name")
+									break
+						location["source_device_name"] = source_device_name
+						_LOGGER.debug(
+							f"Fetched location for {child_name}: "
+							f"({location['latitude']}, {location['longitude']}) "
+							f"place={location.get('place_name') or 'unknown'}"
+						)
+				except SessionExpiredError:
+					raise  # Re-raise to trigger auth notification
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch location data for {child_name}: {err}")
+
 			# Store data for this child
 			child_data = {
 				"child": child,
@@ -264,6 +291,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"child_name": child_name,
 				"devices": devices,
 				"screen_time": screen_time,
+				"location": location,
 				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,

@@ -18,7 +18,11 @@
 				"data": {
 					"name": "Integration Name",
 					"update_interval": "Update Interval (seconds)",
-					"timeout": "Request Timeout (seconds)"
+					"timeout": "Request Timeout (seconds)",
+					"enable_location_tracking": "Enable GPS location tracking"
+				},
+				"data_description": {
+					"enable_location_tracking": "⚠️ When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
 				}
 			}
 		},

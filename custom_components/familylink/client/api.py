@@ -432,6 +432,152 @@ class FamilyLinkClient:
 			_LOGGER.error("Failed to fetch daily screen time: %s", err)
 			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
 
+	async def async_get_location(
+		self,
+		account_id: str | None = None,
+		refresh: bool = False
+	) -> dict[str, Any] | None:
+		"""Get location data for a supervised child.
+
+		Args:
+			account_id: User ID of the supervised child (optional)
+			refresh: If True, request fresh location from device (uses more battery)
+					If False, return cached location from Google servers
+
+		Returns:
+			Dictionary with location data:
+			- latitude: Latitude coordinate
+			- longitude: Longitude coordinate
+			- accuracy: GPS accuracy in meters
+			- timestamp: Location timestamp in milliseconds
+			- timestamp_iso: ISO formatted timestamp
+			- place_id: ID of the saved place (if in a known location)
+			- place_name: Name of the saved place (e.g., "Maison")
+			- place_address: Address of the saved place
+			- source_device_id: Device ID that provided the location
+			Or None if location is not available
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			url = f"{self.BASE_URL}/families/mine/location/{account_id}"
+			params = [
+				("locationRefreshMode", "REFRESH" if refresh else "DO_NOT_REFRESH"),
+				("supportedConsents", "SUPERVISED_LOCATION_SHARING"),
+			]
+
+			_LOGGER.debug(f"Fetching location for child {account_id} (refresh={refresh})")
+
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				}
+			) as response:
+				if response.status == 401:
+					_LOGGER.error("✗ 401 Unauthorized - Session expired fetching location")
+					raise SessionExpiredError("Session expired, please re-authenticate")
+				if response.status == 404:
+					_LOGGER.warning(f"Location not available for child {account_id}")
+					return None
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to fetch location (HTTP {response.status}): {response_text}")
+					return None
+
+				data = await response.json()
+				_LOGGER.debug(f"Location response: {str(data)[:500]}")
+
+				# Parse the protobuf-like JSON response
+				# Structure: [[null, timestamp], [child_id, status, [location_data], ...]]
+				if not isinstance(data, list) or len(data) < 2:
+					_LOGGER.warning(f"Unexpected location response structure: {data}")
+					return None
+
+				child_data = data[1] if len(data) > 1 else None
+				if not isinstance(child_data, list) or len(child_data) < 3:
+					_LOGGER.warning(f"No location data in response for child {account_id}")
+					return None
+
+				location_array = child_data[2] if len(child_data) > 2 else None
+				if not isinstance(location_array, list) or len(location_array) < 2:
+					_LOGGER.warning(f"Invalid location array for child {account_id}")
+					return None
+
+				# Extract coordinates [lat, lng]
+				coords = location_array[0] if len(location_array) > 0 else None
+				if not isinstance(coords, list) or len(coords) < 2:
+					_LOGGER.warning(f"Invalid coordinates for child {account_id}")
+					return None
+
+				latitude = coords[0]
+				longitude = coords[1]
+
+				# Extract timestamp (milliseconds)
+				timestamp_ms = location_array[1] if len(location_array) > 1 else None
+				timestamp_ms = int(timestamp_ms) if timestamp_ms else None
+
+				# Extract accuracy (meters)
+				accuracy = location_array[2] if len(location_array) > 2 else None
+				accuracy = int(accuracy) if accuracy else None
+
+				# Extract place info if available (index 4)
+				place_info = location_array[4] if len(location_array) > 4 else None
+				place_id = None
+				place_name = None
+				place_address = None
+
+				if isinstance(place_info, list) and len(place_info) > 2:
+					place_id = place_info[0]
+					place_name = place_info[1]
+					place_address = place_info[2]
+
+				# Extract source device ID (index 6)
+				source_device_id = location_array[6] if len(location_array) > 6 else None
+
+				# Convert timestamp to ISO format
+				timestamp_iso = None
+				if timestamp_ms:
+					try:
+						timestamp_iso = datetime.fromtimestamp(timestamp_ms / 1000).isoformat()
+					except (ValueError, OSError):
+						pass
+
+				result = {
+					"latitude": latitude,
+					"longitude": longitude,
+					"accuracy": accuracy,
+					"timestamp": timestamp_ms,
+					"timestamp_iso": timestamp_iso,
+					"place_id": place_id,
+					"place_name": place_name,
+					"place_address": place_address,
+					"source_device_id": source_device_id,
+				}
+
+				_LOGGER.debug(
+					f"Location for child {account_id}: "
+					f"({latitude}, {longitude}) accuracy={accuracy}m, "
+					f"place={place_name or 'unknown'}, device={source_device_id}"
+				)
+
+				return result
+
+		except SessionExpiredError:
+			raise  # Re-raise to trigger auth notification
+		except Exception as err:
+			_LOGGER.error(f"Failed to fetch location for child {account_id}: {err}")
+			return None
+
 	async def async_block_app(self, package_name: str, account_id: str | None = None) -> bool:
 		"""Block a specific app.
 
