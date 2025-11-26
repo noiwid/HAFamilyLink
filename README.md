@@ -418,12 +418,17 @@ automation:
 
 ## 📈 Version History
 
-- **v0.9.4-rc3** (2025-11) - GPS Location Tracking
+- **v0.9.4** (2025-11) - GPS Location & Docker Standalone
   - **GPS Device Tracker** - Track child location via `device_tracker` entity
-  - Opt-in configuration (disabled by default for privacy)
-  - Shows saved places (Home, School) and full address
-  - **Auth Notification Fix** - Properly triggers notification when session expires
-  - Anti-spam: notification sent only once per auth failure
+    - Opt-in configuration (disabled by default for privacy)
+    - Shows saved places (Home, School) and full address
+  - **Docker Standalone Mode** - Run without Home Assistant Supervisor
+    - HTTP API for cookie retrieval
+    - Separate Docker images for addon vs standalone
+  - **Entity Selectors** - Services now show entity pickers in UI
+  - **French & English translations** - Full i18n support
+  - **Auth Notification Fix** - Properly triggers when session expires (no spam)
+  - **Bug Fixes** - Fixed set_daily_limit dynamic day codes, bashio errors
 
 - **v0.8.0** (2025-01) - Release Candidate
   - Time bonus management (add/cancel bonuses)
