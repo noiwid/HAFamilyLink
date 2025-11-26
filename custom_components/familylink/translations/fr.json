@@ -1,0 +1,79 @@
+{
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Détection de la source d'authentification..."
+			},
+			"manual_url": {
+				"title": "URL du serveur d'authentification",
+				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`",
+				"data": {
+					"auth_url": "URL du serveur d'authentification"
+				}
+			},
+			"configure": {
+				"title": "Configurer Family Link",
+				"description": "Source d'authentification : {auth_source}",
+				"data": {
+					"name": "Nom de l'intégration",
+					"update_interval": "Intervalle de mise à jour (secondes)",
+					"timeout": "Délai d'expiration des requêtes (secondes)",
+					"enable_location_tracking": "Activer le suivi GPS"
+				},
+				"data_description": {
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité."
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Impossible de se connecter au serveur d'authentification. Vérifiez l'URL et assurez-vous que le conteneur est en cours d'exécution.",
+			"invalid_auth": "Aucun cookie trouvé. Veuillez d'abord vous authentifier via le module complémentaire ou le conteneur Family Link Auth.",
+			"url_required": "L'URL est requise",
+			"no_cookies": "Le serveur est accessible mais aucun cookie n'a été trouvé. Veuillez d'abord vous authentifier via l'interface web.",
+			"unknown": "Une erreur inattendue s'est produite"
+		},
+		"abort": {
+			"already_configured": "L'intégration est déjà configurée",
+			"invalid_config": "Configuration invalide"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Temps d'écran quotidien"
+			},
+			"screen_time_formatted": {
+				"name": "Temps d'écran (formaté)"
+			},
+			"installed_apps": {
+				"name": "Applications installées"
+			},
+			"blocked_apps": {
+				"name": "Applications bloquées"
+			},
+			"apps_with_time_limits": {
+				"name": "Applications avec limite de temps"
+			},
+			"device_count": {
+				"name": "Nombre d'appareils"
+			},
+			"child_info": {
+				"name": "Infos enfant"
+			},
+			"top_app": {
+				"name": "Top application {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Verrouillage appareil"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Localisation"
+			}
+		}
+	}
+}

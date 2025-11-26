@@ -22,7 +22,7 @@
 					"enable_location_tracking": "Enable GPS location tracking"
 				},
 				"data_description": {
-					"enable_location_tracking": "⚠️ When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
 				}
 			}
 		},
@@ -36,6 +36,44 @@
 		"abort": {
 			"already_configured": "Integration is already configured",
 			"invalid_config": "Invalid configuration"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Daily Screen Time"
+			},
+			"screen_time_formatted": {
+				"name": "Screen Time (formatted)"
+			},
+			"installed_apps": {
+				"name": "Installed Apps"
+			},
+			"blocked_apps": {
+				"name": "Blocked Apps"
+			},
+			"apps_with_time_limits": {
+				"name": "Apps with Time Limits"
+			},
+			"device_count": {
+				"name": "Device Count"
+			},
+			"child_info": {
+				"name": "Child Info"
+			},
+			"top_app": {
+				"name": "Top App {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Device Lock"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Location"
+			}
 		}
 	}
 }
