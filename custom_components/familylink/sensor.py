@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -504,6 +504,8 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
 
 class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
     """Sensor showing the next upcoming time restriction."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
