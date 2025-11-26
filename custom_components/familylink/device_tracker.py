@@ -72,7 +72,9 @@ class FamilyLinkDeviceTracker(CoordinatorEntity[FamilyLinkDataUpdateCoordinator]
 		super().__init__(coordinator)
 		self._child_id = child_id
 		self._child_name = child_name
-		self._attr_name = child_name
+		# _attr_name = None means entity uses device name only (no suffix)
+		# Result: device_tracker.child_name_family_link
+		self._attr_name = None
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_location"
 
 	def _get_child_data(self) -> dict[str, Any] | None:
