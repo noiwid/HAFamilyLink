@@ -40,6 +40,14 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - **Apps with Time Limits** - Track apps with usage restrictions
 - **App Details** - Package names, titles, and limit information
 
+### 📍 GPS Location Tracking (Optional)
+- **Device Tracker** - Track your child's location via `device_tracker` entity
+- **Place Detection** - Automatically shows when child is at a saved place (Home, School, etc.)
+- **Address Display** - Full address of current location
+- **Source Device** - Shows which device provided the location
+- **Privacy First** - Disabled by default, opt-in via configuration
+- **⚠️ Warning** - Each location poll may notify the child's device
+
 ### 👶 Child Information
 - **Profile Details** - Child's name, email, birthday, age band
 - **Device Information** - Device model, name, capabilities, last activity
@@ -47,7 +55,19 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 
 ## 📋 Available Entities
 
-### Per-Child Switches (Global Controls)
+### Per-Child Entities
+
+#### Device Tracker (GPS Location - Optional)
+- `device_tracker.<child>` - Child's GPS location
+  - **State**: `home`, `not_home`, or zone name
+  - **Attributes**:
+    - `source_device` - Device name providing the location
+    - `place_name` - Saved place name (e.g., "Home", "School")
+    - `address` - Full address of the location
+    - `location_timestamp` - When the location was captured
+  - **Note**: Requires enabling "GPS location tracking" in integration config
+
+#### Switches (Global Controls)
 - `switch.<child>_bedtime` - Enable/disable bedtime restrictions
 - `switch.<child>_school_time` - Enable/disable school time restrictions
 - `switch.<child>_daily_limit` - Enable/disable daily screen time limit
@@ -215,6 +235,7 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 | Endpoint | Purpose |
 |----------|---------|
 | `/families/mine/members` | Family member information |
+| `/families/mine/location/{userId}` | Child GPS location |
 | `/people/{userId}/apps` | Installed apps list |
 | `/people/{userId}/appsandusage` | App usage data |
 | `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices, add time bonuses |
@@ -371,7 +392,39 @@ automation:
           message: "{{ trigger.to_state.attributes.device_name }} has reached its daily limit"
 ```
 
+### Location-Based Automation (GPS Tracking)
+
+```yaml
+automation:
+  - alias: "Notify when child leaves school"
+    trigger:
+      - platform: state
+        entity_id: device_tracker.firstname
+        from: "School"
+    action:
+      - service: notify.mobile_app_parent
+        data:
+          message: "{{ trigger.to_state.name }} has left school"
+
+  - alias: "Notify when child arrives home"
+    trigger:
+      - platform: state
+        entity_id: device_tracker.firstname
+        to: "home"
+    action:
+      - service: notify.mobile_app_parent
+        data:
+          message: "{{ trigger.to_state.name }} is home!"
+```
+
 ## 📈 Version History
+
+- **v0.9.4-rc3** (2025-11) - GPS Location Tracking
+  - **GPS Device Tracker** - Track child location via `device_tracker` entity
+  - Opt-in configuration (disabled by default for privacy)
+  - Shows saved places (Home, School) and full address
+  - **Auth Notification Fix** - Properly triggers notification when session expires
+  - Anti-spam: notification sent only once per auth failure
 
 - **v0.8.0** (2025-01) - Release Candidate
   - Time bonus management (add/cancel bonuses)

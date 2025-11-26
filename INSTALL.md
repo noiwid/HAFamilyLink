@@ -206,6 +206,9 @@ You can install the integration via HACS (recommended) or manually.
 2. **Integration Name** (optional) ✍️
    - Enter a custom name or leave default: "Google Family Link"
    - Optionally adjust update interval and timeout settings
+   - **GPS Location Tracking** (optional): Enable to track your child's location
+     - ⚠️ Warning: Each location poll may send a notification to the child's device
+     - Disabled by default for privacy
    - **Note**: No cookie file path is required - cookies are loaded automatically
    - Click **Submit**
 
@@ -252,17 +255,20 @@ To verify cookies were loaded successfully, check the Home Assistant logs:
 2. Click on the integration to see all entities  
 3. You should see:
 
-   **Sensors:** 📟  
-   - `sensor.family_link_daily_screen_time`  
-   - `sensor.family_link_screen_time_formatted`  
-   - `sensor.family_link_installed_apps`  
-   - `sensor.family_link_blocked_apps`  
-   - `sensor.family_link_apps_with_time_limits`  
-   - `sensor.family_link_top_app_1` through `sensor.family_link_top_app_10`  
-   - `sensor.family_link_device_count`  
-   - `sensor.family_link_child_info`  
+   **Device Trackers (if GPS enabled):** 📍
+   - `device_tracker.<child_name>` (one per child)
 
-   **Switches:** 🎚️  
+   **Sensors:** 📟
+   - `sensor.family_link_daily_screen_time`
+   - `sensor.family_link_screen_time_formatted`
+   - `sensor.family_link_installed_apps`
+   - `sensor.family_link_blocked_apps`
+   - `sensor.family_link_apps_with_time_limits`
+   - `sensor.family_link_top_app_1` through `sensor.family_link_top_app_10`
+   - `sensor.family_link_device_count`
+   - `sensor.family_link_child_info`
+
+   **Switches:** 🎚️
    - `switch.<device_name>` (for each supervised device)
 
 ### Test Device Control 🧪
