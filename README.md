@@ -195,12 +195,15 @@ See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
 ### Quick Start (Home Assistant OS / Supervised)
 
 1. **Install Family Link Auth Add-on**
+
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
-   - Add repository to Home Assistant
+   - Add repository to Home Assistant 
    - Install and start the add-on
    - Authenticate via Web UI (requires VNC client - see [Installation Guide](INSTALL.md))
 
+
 2. **Install Integration**
+
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noiwid&repository=HAFamilyLink&category=integration)
    - Via HACS (recommended) or manually
    - Configure through Home Assistant UI
@@ -419,12 +422,17 @@ automation:
 
 ## 📈 Version History
 
-- **v0.9.4-rc3** (2025-11) - GPS Location Tracking
+- **v0.9.4** (2025-11) - GPS Location & Docker Standalone
   - **GPS Device Tracker** - Track child location via `device_tracker` entity
-  - Opt-in configuration (disabled by default for privacy)
-  - Shows saved places (Home, School) and full address
-  - **Auth Notification Fix** - Properly triggers notification when session expires
-  - Anti-spam: notification sent only once per auth failure
+    - Opt-in configuration (disabled by default for privacy)
+    - Shows saved places (Home, School) and full address
+  - **Docker Standalone Mode** - Run without Home Assistant Supervisor
+    - HTTP API for cookie retrieval
+    - Separate Docker images for addon vs standalone
+  - **Entity Selectors** - Services now show entity pickers in UI
+  - **French & English translations** - Full i18n support
+  - **Auth Notification Fix** - Properly triggers when session expires (no spam)
+  - **Bug Fixes** - Fixed set_daily_limit dynamic day codes, bashio errors
 
 - **v0.8.0** (2025-01) - Release Candidate
   - Time bonus management (add/cancel bonuses)

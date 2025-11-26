@@ -6,23 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.4] - Unreleased (RC2)
+## [0.9.4] - 2025-11-26
 
 ### Added
+- **GPS Device Tracker** - Track child location via `device_tracker.<child>_family_link`
+  - Opt-in configuration (disabled by default for privacy)
+  - Shows saved places (Home, School) and full address
+  - Attributes: source_device, place_name, address, location_timestamp
 - Entity selector support for Family Link services (easier device selection in UI)
 - HTTP API support for cookie retrieval (`/api/cookies`) - no shared volumes needed
 - Auto-detection of auth source (API → file fallback)
 - Manual URL configuration in config flow for Docker standalone
+- **French & English translations** - Full i18n support for config flow and entities
 
 ### Changed
 - Services now show entity picker dropdown instead of requiring manual device ID input
 
+### Fixed
+- **Auth notification** - `SessionExpiredError` now properly triggers persistent notification
+- Auth notification sent only once (no spam every minute)
+- Standalone Docker bashio errors (#28)
+
 ### Security
 - Added warning: never expose port 8099 to internet (cookies returned in plain JSON)
+- GPS tracking opt-in by default (each poll may notify child's device)
 
 ---
 
-## [0.9.3] - 2025-01-24
+## [0.9.3] - 2025-11-24
 
 ### Fixed
 - `set_daily_limit` service now uses dynamic day code based on current day
@@ -31,7 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.2] - 2025-01-20
+## [0.9.2] - 2025-11-20
 
 ### Fixed
 - Version correction (was incorrectly bumped)
@@ -39,7 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.0] - 2025-01-15
+## [0.9.0] - 2025-11-15
 
 ### Added
 - `set_daily_limit` service to change daily screen time limit
