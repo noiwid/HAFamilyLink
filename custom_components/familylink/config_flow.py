@@ -14,6 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
 	CONF_AUTH_URL,
+	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_TIMEOUT,
@@ -169,6 +170,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(
 				vol.Coerce(int), vol.Range(min=10, max=120)
 			),
+			vol.Optional(CONF_ENABLE_LOCATION_TRACKING, default=False): bool,
 		})
 
 		# Add description about detected source
