@@ -1,6 +1,6 @@
 # Google Family Link Auth Add-on
 
-![Version](https://img.shields.io/badge/version-1.2.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 
 A Home Assistant add-on that provides browser-based authentication for the Google Family Link integration.
 
@@ -142,10 +142,16 @@ session_duration: 86400
 
 ## Technical Details
 
-### Shared Storage
+### Cookie Retrieval Methods
 
-The add-on communicates with the integration through Home Assistant's shared storage:
+The add-on provides **two methods** for the integration to retrieve cookies:
 
+#### 1. HTTP API (Recommended for Docker standalone)
+- **Endpoint**: `GET /api/cookies`
+- **URL**: `http://<addon-ip>:8099/api/cookies`
+- No shared volumes needed
+
+#### 2. Shared Storage (Default for HA OS/Supervised)
 - **Location**: `/share/familylink/`
 - **Cookie File**: `cookies.enc` (encrypted with Fernet)
 - **Key File**: `.key` (encryption key)
@@ -157,6 +163,8 @@ The add-on communicates with the integration through Home Assistant's shared sto
 - ✅ Automatic session cleanup
 - ✅ Browser isolation in container
 - ✅ No external network dependencies
+
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The `/api/cookies` endpoint returns authentication cookies in plain JSON. This port should only be accessible on your local network. If you need remote access, use a VPN or SSH tunnel.
 
 ### Browser Automation
 
