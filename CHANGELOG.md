@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.4] - 2025-11
+## [0.9.4] - 2025-11-26
 
 ### Added
 - **GPS Device Tracker** - Track child location via `device_tracker.<child>_family_link`
@@ -42,7 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.3] - 2025-01-24
+## [0.9.3] - 2025-11-24
 
 ### Fixed
 - `set_daily_limit` service now uses dynamic day code based on current day
@@ -51,7 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.2] - 2025-01-20
+## [0.9.2] - 2025-11-20
 
 ### Fixed
 - Version correction (was incorrectly bumped)
@@ -59,7 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.9.0] - 2025-01-15
+## [0.9.0] - 2025-11-15
 
 ### Added
 - `set_daily_limit` service to change daily screen time limit
