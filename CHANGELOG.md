@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.5] - 2025-11
+
+### Fixed
+- **Bedtime/School Time toggle** - Now uses dynamic rule IDs instead of hardcoded UUIDs (#44)
+  - Previously, enable/disable bedtime and school time failed with "invalid argument" error
+  - Each Family Link account has unique rule UUIDs that are now fetched dynamically
+
+---
+
 ## [0.9.4] - 2025-11-26
 
 ### Added

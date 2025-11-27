@@ -1338,11 +1338,12 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
 			return False
 
-	async def async_enable_bedtime(self, account_id: str | None = None) -> bool:
+	async def async_enable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Enable bedtime (downtime) restrictions for a child.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
+			rule_id: Bedtime rule UUID (optional, fetched dynamically if not provided)
 
 		Returns:
 			True if successful, False otherwise
@@ -1353,22 +1354,30 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
+		# Fetch rule_id dynamically if not provided
+		if not rule_id:
+			time_limit_data = await self.async_get_time_limit(account_id)
+			rule_id = time_limit_data.get("bedtime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find bedtime rule ID for this account")
+				return False
+
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]], null, [1]]
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 2]]]], null, [1]]
 			# Status 2 = enabled
 			payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 2]]]],
+				[[None, None, None, None], None, None, None, [None, [[rule_id, 2]]]],
 				None,
 				[1]
 			])
 
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Enabling bedtime for account {account_id}")
+			_LOGGER.debug(f"Enabling bedtime for account {account_id} with rule_id {rule_id}")
 
 			async with session.put(
 				url,
@@ -1391,11 +1400,12 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error enabling bedtime: {err}")
 			return False
 
-	async def async_disable_bedtime(self, account_id: str | None = None) -> bool:
+	async def async_disable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Disable bedtime (downtime) restrictions for a child.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
+			rule_id: Bedtime rule UUID (optional, fetched dynamically if not provided)
 
 		Returns:
 			True if successful, False otherwise
@@ -1406,22 +1416,30 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
+		# Fetch rule_id dynamically if not provided
+		if not rule_id:
+			time_limit_data = await self.async_get_time_limit(account_id)
+			rule_id = time_limit_data.get("bedtime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find bedtime rule ID for this account")
+				return False
+
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]], null, [1]]
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 1]]]], null, [1]]
 			# Status 1 = disabled
 			payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, None, None], None, None, None, [None, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", 1]]]],
+				[[None, None, None, None], None, None, None, [None, [[rule_id, 1]]]],
 				None,
 				[1]
 			])
 
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Disabling bedtime for account {account_id}")
+			_LOGGER.debug(f"Disabling bedtime for account {account_id} with rule_id {rule_id}")
 
 			async with session.put(
 				url,
@@ -1444,11 +1462,12 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error disabling bedtime: {err}")
 			return False
 
-	async def async_enable_school_time(self, account_id: str | None = None) -> bool:
+	async def async_enable_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Enable school time (evening limit) restrictions for a child.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
+			rule_id: School time rule UUID (optional, fetched dynamically if not provided)
 
 		Returns:
 			True if successful, False otherwise
@@ -1459,22 +1478,30 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
+		# Fetch rule_id dynamically if not provided
+		if not rule_id:
+			time_limit_data = await self.async_get_time_limit(account_id)
+			rule_id = time_limit_data.get("schooltime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find school time rule ID for this account")
+				return False
+
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]], null, [1]]
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 2]]]], null, [1]]
 			# Status 2 = enabled
 			payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 2]]]],
+				[[None, None, None, None], None, None, None, [None, [[rule_id, 2]]]],
 				None,
 				[1]
 			])
 
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Enabling school time for account {account_id}")
+			_LOGGER.debug(f"Enabling school time for account {account_id} with rule_id {rule_id}")
 
 			async with session.put(
 				url,
@@ -1497,11 +1524,12 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error enabling school time: {err}")
 			return False
 
-	async def async_disable_school_time(self, account_id: str | None = None) -> bool:
+	async def async_disable_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Disable school time (evening limit) restrictions for a child.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
+			rule_id: School time rule UUID (optional, fetched dynamically if not provided)
 
 		Returns:
 			True if successful, False otherwise
@@ -1512,22 +1540,30 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
+		# Fetch rule_id dynamically if not provided
+		if not rule_id:
+			time_limit_data = await self.async_get_time_limit(account_id)
+			rule_id = time_limit_data.get("schooltime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find school time rule ID for this account")
+				return False
+
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]], null, [1]]
+			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 1]]]], null, [1]]
 			# Status 1 = disabled
 			payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, None, None], None, None, None, [None, [["579e5e01-8dfd-42f3-be6b-d77984842202", 1]]]],
+				[[None, None, None, None], None, None, None, [None, [[rule_id, 1]]]],
 				None,
 				[1]
 			])
 
 			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Disabling school time for account {account_id}")
+			_LOGGER.debug(f"Disabling school time for account {account_id} with rule_id {rule_id}")
 
 			async with session.put(
 				url,
@@ -1779,7 +1815,9 @@ class FamilyLinkClient:
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
 						"bedtime_schedule": [],
-						"school_time_schedule": []
+						"school_time_schedule": [],
+						"bedtime_rule_id": None,
+						"schooltime_rule_id": None
 					}
 
 				response_data = await response.json()
@@ -1792,7 +1830,9 @@ class FamilyLinkClient:
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
 						"bedtime_schedule": [],
-						"school_time_schedule": []
+						"school_time_schedule": [],
+						"bedtime_rule_id": None,
+						"schooltime_rule_id": None
 					}
 
 				data = response_data[1]  # Extract the real data array (index 1)
@@ -1853,7 +1893,7 @@ class FamilyLinkClient:
 												"end": end
 											})
 
-				# Parse revisions to get ON/OFF state
+				# Parse revisions to get ON/OFF state and rule IDs
 				# Revisions are in the last element of data, containing items with format:
 				# ["uuid", type_flag, state_flag, [timestamp, nanos]]
 				# type_flag: 1=bedtime, 2=schooltime
@@ -1861,6 +1901,8 @@ class FamilyLinkClient:
 				# NOTE: Revisions have EXACTLY 4 elements (schedules have 7+)
 				bedtime_enabled = False
 				school_time_enabled = False
+				bedtime_rule_id = None
+				schooltime_rule_id = None
 
 				# Look for revisions in the last element of data
 				revisions_found = False
@@ -1899,16 +1941,19 @@ class FamilyLinkClient:
 							if len(valid_revisions) > 0:
 								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
 								for revision in valid_revisions:
+									rule_id = revision[0]
 									type_flag = revision[1]
 									state_flag = revision[2]
 
 									if type_flag == 1:  # downtime/bedtime
 										bedtime_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found bedtime revision: type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+										bedtime_rule_id = rule_id
+										_LOGGER.debug(f"Found bedtime revision: rule_id={rule_id}, type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
 										revisions_found = True
 									elif type_flag == 2:  # schooltime
 										school_time_enabled = (state_flag == 2)
-										_LOGGER.debug(f"Found schooltime revision: type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+										schooltime_rule_id = rule_id
+										_LOGGER.debug(f"Found schooltime revision: rule_id={rule_id}, type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
 										revisions_found = True
 								break
 
@@ -1916,15 +1961,17 @@ class FamilyLinkClient:
 					_LOGGER.warning("No revision data found in response")
 
 				_LOGGER.info(
-					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
-					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules)"
+					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
+					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules)"
 				)
 
 				return {
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
 					"bedtime_schedule": bedtime_schedule,
-					"school_time_schedule": school_time_schedule
+					"school_time_schedule": school_time_schedule,
+					"bedtime_rule_id": bedtime_rule_id,
+					"schooltime_rule_id": schooltime_rule_id
 				}
 
 		except Exception as err:
