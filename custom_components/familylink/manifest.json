@@ -1,7 +1,7 @@
 {
   "domain": "familylink",
   "name": "Google Family Link",
-  "version": "0.9.5-rc1",
+  "version": "0.9.5",
   "documentation": "https://github.com/noiwid/HAFamilyLink",
   "issue_tracker": "https://github.com/noiwid/HAFamilyLink/issues",
   "codeowners": [
