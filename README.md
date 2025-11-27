@@ -195,12 +195,15 @@ See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
 ### Quick Start (Home Assistant OS / Supervised)
 
 1. **Install Family Link Auth Add-on**
+
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
-   - Add repository to Home Assistant
+   - Add repository to Home Assistant 
    - Install and start the add-on
    - Authenticate via Web UI (requires VNC client - see [Installation Guide](INSTALL.md))
 
+
 2. **Install Integration**
+
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noiwid&repository=HAFamilyLink&category=integration)
    - Via HACS (recommended) or manually
    - Configure through Home Assistant UI
@@ -252,9 +255,10 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 
 **Solutions**:
 1. Verify Family Link Auth add-on is running
-2. Check cookies files exist: `/share/familylink/cookies.enc` and `/share/familylink/.key`
-3. Restart add-on to refresh authentication
-4. Reload integration in Home Assistant
+2. Check API is accessible: `curl http://localhost:8099/api/cookies` (or your addon IP)
+3. For file fallback: Check `/share/familylink/cookies.enc` and `.key` exist
+4. Restart add-on to refresh authentication
+5. Reload integration in Home Assistant
 
 ### Lock State Not Updating
 
