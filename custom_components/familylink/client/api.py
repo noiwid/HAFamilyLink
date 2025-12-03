@@ -70,6 +70,14 @@ class FamilyLinkClient:
 		"""Refresh the authentication session."""
 		# Clear current cookies and reload from add-on
 		self._cookies = None
+
+		# CRITICAL: Also clear cached cookie dict and header to force rebuild
+		# Without this, the retry mechanism would reuse stale cached cookies
+		if hasattr(self, '_cookie_dict'):
+			del self._cookie_dict
+		if hasattr(self, '_cookie_header'):
+			del self._cookie_header
+
 		if self._session:
 			await self._session.close()
 			self._session = None
@@ -148,12 +156,15 @@ class FamilyLinkClient:
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
-						if ".google.com" in cookie_domain:
+						# Accept any google.com domain (with or without leading dot)
+						# Playwright may store as ".google.com" or "google.com"
+						domain_lower = cookie_domain.lower().lstrip(".")
+						if domain_lower == "google.com" or domain_lower.endswith(".google.com"):
 							sapisid = cookie.get("value", "").strip('"')
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
-							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected .google.com)")
+							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.com)")
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
