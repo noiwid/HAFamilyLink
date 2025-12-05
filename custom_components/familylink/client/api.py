@@ -1775,6 +1775,95 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
 			return False
 
+	async def async_set_bedtime(
+		self,
+		start_time: str,
+		end_time: str,
+		day: int | None = None,
+		account_id: str | None = None
+	) -> bool:
+		"""Set bedtime (downtime) schedule for a specific day.
+
+		Args:
+			start_time: Bedtime start time in HH:MM format (e.g., "20:45")
+			end_time: Bedtime end time in HH:MM format (e.g., "07:30")
+			day: Day of week (1=Monday, 7=Sunday). Defaults to today if not specified.
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			# Parse start and end times
+			start_parts = start_time.split(":")
+			end_parts = end_time.split(":")
+			start_hour, start_min = int(start_parts[0]), int(start_parts[1])
+			end_hour, end_min = int(end_parts[0]), int(end_parts[1])
+
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Day codes mapping
+			day_codes = {
+				1: "CAEQAQ",  # Monday
+				2: "CAEQAg",  # Tuesday
+				3: "CAEQAw",  # Wednesday
+				4: "CAEQBA",  # Thursday
+				5: "CAEQBQ",  # Friday
+				6: "CAEQBg",  # Saturday
+				7: "CAEQBw",  # Sunday
+			}
+
+			# Use provided day or default to today
+			if day is None:
+				day = datetime.now().isoweekday()
+
+			if day not in day_codes:
+				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
+
+			day_code = day_codes[day]
+
+			# Payload format: [null, account_id, [[null,null,9,null,null,null,null,null,null,null,null,null,[2,[startH,startM],[endH,endM],dayCode]]], [1]]
+			# Type 9 = bedtime override, Status 2 = enabled
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, 9, None, None, None, None, None, None, None, None, None, [2, [start_hour, start_min], [end_hour, end_min], day_code]]],
+				[1]
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(f"Setting bedtime {start_time}-{end_time} for day={day} (code={day_code})")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Failed to set bedtime {response.status}: {response_text}")
+					return False
+
+				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time} for day {day}")
+				return True
+
+		except ValueError as err:
+			_LOGGER.error(f"Invalid time format: {err}")
+			return False
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error setting bedtime: {err}")
+			return False
+
 	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
 		"""Get time limit rules and schedules (bedtime/schooltime).
 

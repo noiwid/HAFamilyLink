@@ -23,6 +23,7 @@ from .const import (
 	SERVICE_ENABLE_BEDTIME,
 	SERVICE_ENABLE_DAILY_LIMIT,
 	SERVICE_ENABLE_SCHOOL_TIME,
+	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
 	SERVICE_UNBLOCK_ALL_APPS,
 	SERVICE_UNBLOCK_APP,
@@ -90,6 +91,13 @@ SCHEMA_SET_DAILY_LIMIT = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("device_id"): cv.string,
 	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_BEDTIME = vol.Schema({
+	vol.Required("start_time"): cv.string,
+	vol.Required("end_time"): cv.string,
+	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -434,6 +442,35 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise
 
+	async def handle_set_bedtime(call: ServiceCall) -> None:
+		"""Handle set_bedtime service call."""
+		start_time = call.data["start_time"]
+		end_time = call.data["end_time"]
+		day = call.data.get("day")  # Optional, defaults to today
+		child_id = call.data.get("child_id")
+
+		# Convert day to int if provided as string (from UI selector)
+		if day is not None:
+			day = int(day)
+
+		_LOGGER.info(f"Service called: set_bedtime ({start_time}-{end_time}) for day={day or 'today'}")
+
+		try:
+			success = await coordinator.client.async_set_bedtime(
+				start_time=start_time,
+				end_time=end_time,
+				day=day,
+				account_id=child_id
+			)
+			if success:
+				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+				await coordinator.async_request_refresh()
+			else:
+				_LOGGER.error("Failed to set bedtime")
+		except Exception as err:
+			_LOGGER.error(f"Error setting bedtime: {err}")
+			raise
+
 	# Register services
 	hass.services.async_register(
 		DOMAIN,
@@ -519,6 +556,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_SET_DAILY_LIMIT,
 	)
 
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_SET_BEDTIME,
+		handle_set_bedtime,
+		schema=SCHEMA_SET_BEDTIME,
+	)
+
 	_LOGGER.debug("Family Link services registered")
 
 
@@ -551,6 +595,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_ENABLE_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_DISABLE_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok
