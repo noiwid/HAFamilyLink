@@ -53,6 +53,7 @@
 | **Device lock/unlock** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, action_code, deviceId]], [1]]` | `action_code`: 1=LOCK, 4=UNLOCK |
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
 | **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
+| **Set bedtime schedule** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [2, [startH, startM], [endH, endM], day_code]]], [1]]` | Type 9 = set bedtime. Format: `[status, [startHour, startMin], [endHour, endMin], day_code]`. Status 2=enabled. |
 | **Cancel time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverride/{overrideId}?$httpMethod=DELETE` | No body | Google API convention: POST with $httpMethod=DELETE |
 | **Enable/Disable bedtime** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF |
 | **Enable/Disable school time** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF |
@@ -66,6 +67,7 @@
 - **1**: LOCK device
 - **4**: UNLOCK device
 - **8**: SET daily limit duration (per device)
+- **9**: SET bedtime schedule (per child)
 - **10**: ADD time bonus (per device)
 
 ### Day Codes (CAEQ* - for daily limit)
