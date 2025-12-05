@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.6] - 2025-12
+
+### Added
+- **`set_bedtime` service** - Set bedtime start/end times for a specific day (#46)
+  - Parameters: `start_time`, `end_time`, `day` (optional, defaults to today), `child_id`
+  - UI provides time pickers and dropdown for day selection
+  - Example: Set bedtime to 20:45-07:30 for today or any specific day
+
+### Fixed
+- **Authentication loop fix** - Resolved issue where integration would continuously prompt for re-authentication (#48)
+  - Root cause: Cookie cache (`_cookie_dict`, `_cookie_header`) was not invalidated on session refresh
+  - The retry mechanism now properly reloads fresh cookies from the addon
+- **SAPISID domain validation** - Now accepts both `.google.com` and `google.com` cookie domains
+- **`set_daily_limit` now accepts 0 minutes** - Allows disabling device for the day without fully locking it (#47)
+  - Useful for keeping unrestricted apps accessible while blocking screen time
+
+---
+
 ## [0.9.5] - 2025-11
 
 ### Fixed

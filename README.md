@@ -20,8 +20,10 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 
 ### ⏰ Time Management
 - **Bedtime Control** - Enable/disable bedtime (downtime) restrictions
+- **Set Bedtime Schedule** - Modify bedtime start/end times for any day (or today by default)
 - **School Time Control** - Enable/disable school time restrictions
-- **Daily Limit Control** - Enable/disable daily screen time limits
+- **Daily Limit Control** - Enable/disable daily screen time limits (0-1440 minutes)
+- **Set Daily Limit** - Change daily screen time limit duration per device
 - **Time Bonuses** - Add extra time (15min, 30min, 60min) or cancel active bonuses
 - **Smart Detection** - Automatically detects when device is in bedtime/school time window
 - **Schedule Visibility** - View bedtime and school time schedules in sensor attributes

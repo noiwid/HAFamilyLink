@@ -120,6 +120,53 @@ disable_bedtime:
       selector:
         text:
 
+set_bedtime:
+  name: Set Bedtime
+  description: Set bedtime start and end times for a specific day. If no day is specified, applies to today.
+  fields:
+    start_time:
+      name: Start Time
+      description: Bedtime start time (e.g., 20:45)
+      required: true
+      example: "20:45"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: Bedtime end time, typically next morning (e.g., 07:30)
+      required: true
+      example: "07:30"
+      selector:
+        time:
+    day:
+      name: Day
+      description: Day of the week. If not specified, applies to today.
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Monday"
+              value: "1"
+            - label: "Tuesday"
+              value: "2"
+            - label: "Wednesday"
+              value: "3"
+            - label: "Thursday"
+              value: "4"
+            - label: "Friday"
+              value: "5"
+            - label: "Saturday"
+              value: "6"
+            - label: "Sunday"
+              value: "7"
+    child_id:
+      name: Child ID
+      description: Child's user ID (optional if only one child)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
 enable_school_time:
   name: Enable School Time
   description: Enable school time (evening limit) restrictions for a child. You can either select an entity OR provide child_id manually.
@@ -210,13 +257,13 @@ set_daily_limit:
           domain: switch
     daily_minutes:
       name: Daily Minutes
-      description: Number of minutes allowed per day (1-1440)
+      description: Number of minutes allowed per day (0-1440). Use 0 to disable the device for the day without fully locking it.
       required: true
       example: 120
       default: 120
       selector:
         number:
-          min: 1
+          min: 0
           max: 1440
           mode: box
           unit_of_measurement: "minutes"
