@@ -210,13 +210,13 @@ set_daily_limit:
           domain: switch
     daily_minutes:
       name: Daily Minutes
-      description: Number of minutes allowed per day (1-1440)
+      description: Number of minutes allowed per day (0-1440). Use 0 to disable the device for the day without fully locking it.
       required: true
       example: 120
       default: 120
       selector:
         number:
-          min: 1
+          min: 0
           max: 1440
           mode: box
           unit_of_measurement: "minutes"

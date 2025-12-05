@@ -89,7 +89,7 @@ SCHEMA_DISABLE_DAILY_LIMIT = vol.Schema({
 SCHEMA_SET_DAILY_LIMIT = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("device_id"): cv.string,
-	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1440)),
+	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
 	vol.Optional("child_id"): cv.string,
 })
 
