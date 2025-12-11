@@ -156,15 +156,15 @@ class FamilyLinkClient:
 
 					# Find SAPISID cookie
 					if cookie_name == "SAPISID":
-						# Accept any google.com domain (with or without leading dot)
-						# Playwright may store as ".google.com" or "google.com"
+						# Accept any Google domain including regional TLDs
+						# Examples: .google.com, .google.com.au, .google.co.uk, .google.fr
 						domain_lower = cookie_domain.lower().lstrip(".")
-						if domain_lower == "google.com" or domain_lower.endswith(".google.com"):
+						if domain_lower.startswith("google.") or ".google." in domain_lower:
 							sapisid = cookie.get("value", "").strip('"')
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
 							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
-							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.com)")
+							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
