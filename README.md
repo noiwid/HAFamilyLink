@@ -1,4 +1,4 @@
-# Google Family Link Home Assistant Integration
+# <img src="https://brands.home-assistant.io/familylink/icon.png" alt="Google Family Link" width="30" > Google Family Link Home Assistant Integration
 
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]][license]
