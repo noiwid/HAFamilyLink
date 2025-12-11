@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.7] - 2025-12
+
+### Fixed
+- **Regional Google domain cookie prioritization** - Fixed authentication for users with regional Google accounts (#48)
+  - Users in Australia, UK, etc. may have SAPISID cookies from both `.google.com` and regional domains (e.g., `.google.com.au`)
+  - The integration now correctly prioritizes `.google.com` cookies for SAPISIDHASH generation
+  - Also applies to cookie header building, ensuring API compatibility
+
+---
+
 ## [0.9.6] - 2025-12
 
 ### Added
@@ -18,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Authentication loop fix** - Resolved issue where integration would continuously prompt for re-authentication (#48)
   - Root cause: Cookie cache (`_cookie_dict`, `_cookie_header`) was not invalidated on session refresh
   - The retry mechanism now properly reloads fresh cookies from the addon
-- **SAPISID domain validation** - Now accepts both `.google.com` and `google.com` cookie domains
+- **SAPISID domain validation** - Now accepts regional Google domains (`.google.com.au`, `.google.co.uk`, etc.)
 - **`set_daily_limit` now accepts 0 minutes** - Allows disabling device for the day without fully locking it (#47)
   - Useful for keeping unrestricted apps accessible while blocking screen time
 
