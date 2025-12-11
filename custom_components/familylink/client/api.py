@@ -110,17 +110,52 @@ class FamilyLinkClient:
 
 		CookieJar doesn't work properly with cross-domain cookies from Playwright,
 		so we pass cookies directly in each request instead.
+
+		When multiple cookies have the same name from different domains,
+		we prioritize .google.com over regional TLDs like .google.com.au
 		"""
 		if not hasattr(self, '_cookie_dict'):
 			self._cookie_dict = {}
+			cookie_domains = {}  # Track which domain each cookie came from
+
 			if self._cookies:
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
 					cookie_value = cookie.get("value", "")
+					cookie_domain = cookie.get("domain", "").lower().lstrip(".")
+
 					if cookie_name and cookie_value:
 						# Strip quotes from cookie values (Playwright may add them)
 						cookie_value = cookie_value.strip('"')
-						self._cookie_dict[cookie_name] = cookie_value
+
+						# Check if we already have this cookie from a different domain
+						if cookie_name in self._cookie_dict:
+							existing_domain = cookie_domains.get(cookie_name, "")
+
+							# Priority: google.com > other domains > regional TLDs
+							def domain_priority(d):
+								if d == "google.com":
+									return 0
+								elif d.startswith("google.com.") or d.startswith("google.co."):
+									return 2  # Regional TLDs
+								else:
+									return 1
+
+							# Only replace if new domain has higher priority (lower value)
+							if domain_priority(cookie_domain) < domain_priority(existing_domain):
+								_LOGGER.debug(
+									f"Cookie '{cookie_name}': replacing {existing_domain} with {cookie_domain} (higher priority)"
+								)
+								self._cookie_dict[cookie_name] = cookie_value
+								cookie_domains[cookie_name] = cookie_domain
+							else:
+								_LOGGER.debug(
+									f"Cookie '{cookie_name}': keeping {existing_domain} over {cookie_domain}"
+								)
+						else:
+							self._cookie_dict[cookie_name] = cookie_value
+							cookie_domains[cookie_name] = cookie_domain
+
 				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
 		return self._cookie_dict
 
@@ -144,11 +179,16 @@ class FamilyLinkClient:
 		if self._session is None:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
+			sapisid_domain = None
 
 			_LOGGER.debug("Creating new session with authentication")
 
 			if self._cookies:
 				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
+
+				# Collect all SAPISID cookies and prioritize .google.com over regional domains
+				# The API expects SAPISID from .google.com, not regional TLDs like .google.com.au
+				sapisid_candidates = []
 
 				for cookie in self._cookies:
 					cookie_name = cookie.get("name", "")
@@ -160,11 +200,41 @@ class FamilyLinkClient:
 						# Examples: .google.com, .google.com.au, .google.co.uk, .google.fr
 						domain_lower = cookie_domain.lower().lstrip(".")
 						if domain_lower.startswith("google.") or ".google." in domain_lower:
-							sapisid = cookie.get("value", "").strip('"')
+							cookie_value = cookie.get("value", "").strip('"')
+							sapisid_candidates.append({
+								"value": cookie_value,
+								"domain": cookie_domain,
+								"domain_lower": domain_lower
+							})
 							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
-							_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 						else:
 							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
+
+				# Prioritize .google.com (main domain) over regional variants
+				# Regional TLDs like .google.com.au won't work with the API
+				if sapisid_candidates:
+					# Sort: google.com first, then others
+					def domain_priority(candidate):
+						d = candidate["domain_lower"]
+						if d == "google.com":
+							return 0  # Highest priority
+						elif d.startswith("google.com.") or d.startswith("google.co."):
+							return 2  # Regional TLD - lowest priority
+						else:
+							return 1  # Other google domains
+
+					sapisid_candidates.sort(key=domain_priority)
+					best_candidate = sapisid_candidates[0]
+					sapisid = best_candidate["value"]
+					sapisid_domain = best_candidate["domain"]
+
+					if len(sapisid_candidates) > 1:
+						_LOGGER.info(
+							f"Found {len(sapisid_candidates)} SAPISID cookies, "
+							f"using {sapisid_domain} (prioritized over regional domains)"
+						)
+					_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
+					_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
