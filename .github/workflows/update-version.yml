@@ -22,6 +22,7 @@ jobs:
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"  # Remove 'v' prefix if present
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
 
       - name: Update manifest.json version
@@ -38,6 +39,35 @@ jobs:
           echo "Updated manifest.json:"
           cat custom_components/familylink/manifest.json
 
+      - name: Commit version update and move tag
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Check if there are changes to commit
+          if git diff --quiet custom_components/familylink/manifest.json; then
+            echo "No changes to commit - version already up to date"
+            echo "tag_updated=false" >> $GITHUB_OUTPUT
+          else
+            # Commit the version update
+            git add custom_components/familylink/manifest.json
+            git commit -m "chore: bump integration version to $VERSION"
+
+            # Push the commit to the branch
+            git push origin ${{ github.event.release.target_commitish }}
+
+            # Move the tag to point to the new commit (with version updated)
+            git tag -f "$TAG"
+            git push origin "$TAG" --force
+
+            echo "✅ Version updated, committed, and tag moved to new commit"
+            echo "tag_updated=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create integration ZIP with correct version
         run: |
           # Create a ZIP of the integration folder with the correct version
@@ -53,18 +83,3 @@ jobs:
           files: familylink.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push version update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Check if there are changes to commit
-          if git diff --quiet custom_components/familylink/manifest.json; then
-            echo "No changes to commit - version already up to date"
-          else
-            git add custom_components/familylink/manifest.json
-            git commit -m "chore: bump integration version to ${{ steps.version.outputs.version }}"
-            git push origin ${{ github.event.release.target_commitish }}
-            echo "✅ Version updated and pushed"
-          fi
