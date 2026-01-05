@@ -154,8 +154,6 @@ class FamilyLinkDeviceTracker(CoordinatorEntity[FamilyLinkDataUpdateCoordinator]
 		# Battery information
 		if location.get("battery_level") is not None:
 			attrs["battery_level"] = location["battery_level"]
-		if location.get("battery_charging") is not None:
-			attrs["battery_charging"] = location["battery_charging"]
 
 		return attrs
 
