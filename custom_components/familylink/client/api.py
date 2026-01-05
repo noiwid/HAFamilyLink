@@ -625,6 +625,14 @@ class FamilyLinkClient:
 				# Extract source device ID (index 6)
 				source_device_id = location_array[6] if len(location_array) > 6 else None
 
+				# Extract battery info (index 8) - format: [battery_level, battery_state]
+				battery_level = None
+				if len(location_array) > 8 and isinstance(location_array[8], list):
+					battery_info = location_array[8]
+					if len(battery_info) > 0 and battery_info[0] is not None:
+						battery_level = int(battery_info[0])
+					# Note: battery_info[1] may contain charging state but not confirmed yet
+
 				# Convert timestamp to ISO format
 				timestamp_iso = None
 				if timestamp_ms:
@@ -643,12 +651,14 @@ class FamilyLinkClient:
 					"place_name": place_name,
 					"place_address": place_address,
 					"source_device_id": source_device_id,
+					"battery_level": battery_level,
 				}
 
 				_LOGGER.debug(
 					f"Location for child {account_id}: "
 					f"({latitude}, {longitude}) accuracy={accuracy}m, "
-					f"place={place_name or 'unknown'}, device={source_device_id}"
+					f"place={place_name or 'unknown'}, device={source_device_id}, "
+					f"battery={battery_level}%"
 				)
 
 				return result

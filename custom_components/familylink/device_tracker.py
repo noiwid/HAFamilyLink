@@ -151,6 +151,10 @@ class FamilyLinkDeviceTracker(CoordinatorEntity[FamilyLinkDataUpdateCoordinator]
 		if location.get("timestamp_iso"):
 			attrs["location_timestamp"] = location["timestamp_iso"]
 
+		# Battery information
+		if location.get("battery_level") is not None:
+			attrs["battery_level"] = location["battery_level"]
+
 		return attrs
 
 	@property
