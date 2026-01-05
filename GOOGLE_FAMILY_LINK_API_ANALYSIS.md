@@ -38,6 +38,7 @@
 | **Family member photos** | `/kidsmanagement/v1/families/mine/familyMembersPhotos` | `pageSize`, `supportedPhotoOrigins=...` (GOOGLE_PROFILE, FAMILY_MEMBERS_PHOTO, etc.). |
 | **Notifications** | `/kidsmanagement/v1/people/me/notificationElements?clientCapabilities=CAPABILITY_TIMEZONE&userTimeZone=Europe/Paris` | Events (e.g. _New app installed_). |
 | **Apps & usage** | `/kidsmanagement/v1/people/{childId}/appsandusage?capabilities=CAPABILITY_APP_USAGE_SESSION&capabilities=CAPABILITY_SUPERVISION_CAPABILITIES` | List of apps (package, name, icon, devices) + **appUsageSessions** with daily screen time per app. |
+| **Location** | `/kidsmanagement/v1/families/mine/location/{childId}?locationRefreshMode=...&supportedConsents=SUPERVISED_LOCATION_SHARING` | Child's GPS location + **battery level** of source device. |
 | **TimeLimit (scheduling)** | `/kidsmanagement/v1/people/{childId}/timeLimit?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME&timeLimitKey.type=SUPERVISED_DEVICES` | **Scheduling** Bedtime & Schooltime + **global switches** (ON/OFF) via "revisions". |
 | **AppliedTimeLimits (applied state)** | `/kidsmanagement/v1/people/{childId}/appliedTimeLimits?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME` | **Daily state per device**: daily limits, active windows, allowed/consumed aggregates, **bonus overrides**. |
 
@@ -296,6 +297,60 @@ Returns the list of all family members (parents and supervised children).
 - `userId`: Unique identifier for the family member (used as `childId` in other endpoints)
 - `profile.displayName`: Display name
 - `memberSupervisionInfo.isSupervisedMember`: Boolean indicating if this is a supervised child
+
+---
+
+## 📍 Location (`families/mine/location/{childId}`)
+
+Returns the GPS location of a supervised child, along with battery information.
+
+### Query parameters
+- `locationRefreshMode`: `REFRESH` (forces fresh location, uses battery) or `DO_NOT_REFRESH` (cached)
+- `supportedConsents`: `SUPERVISED_LOCATION_SHARING`
+
+### Response structure (protobuf-like array)
+```
+[
+    [null, "timestamp_ms"],                    // Metadata
+    [
+        "childId",                              // [0] Child account ID
+        1,                                      // [1] Status
+        [                                       // [2] Location data array
+            [latitude, longitude],              // [0] Coordinates
+            "timestamp_ms",                     // [1] Location timestamp
+            "accuracy_meters",                  // [2] GPS accuracy
+            "unknown",                          // [3] Unknown (e.g., "300000")
+            null,                               // [4] null or place info
+            "address_string",                   // [5] Full address
+            "source_device_id",                 // [6] Device ID providing location
+            null,                               // [7] null
+            [battery_level, battery_state]      // [8] Battery info
+        ],
+        null,
+        1
+    ]
+]
+```
+
+### Battery info (index [8])
+- Position `[0]`: Battery level percentage (integer, e.g., `42`)
+- Position `[1]`: Battery state (integer, suspected: `1`=not charging, `2`=charging — **not confirmed**)
+
+### Key fields
+| Index | Field | Type | Description |
+|-------|-------|------|-------------|
+| `[2][0]` | coordinates | `[lat, lng]` | GPS coordinates |
+| `[2][1]` | timestamp | string | Milliseconds since epoch |
+| `[2][2]` | accuracy | string | GPS accuracy in meters |
+| `[2][5]` | address | string | Full address (may be null) |
+| `[2][6]` | source_device_id | string | Device providing location |
+| `[2][8][0]` | battery_level | int | Battery percentage (0-100) |
+| `[2][8][1]` | battery_state | int | Charging state (unconfirmed) |
+
+### Important notes
+- Battery data corresponds to the **device selected for location tracking** in Family Link app
+- In Family Link app, users can choose which device provides location ("Change device" screen) or let Family Link choose automatically
+- Battery level is **not available per-device** — only for the location source device
 
 ---
 

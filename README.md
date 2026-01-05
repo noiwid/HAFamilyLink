@@ -47,6 +47,7 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - **Place Detection** - Automatically shows when child is at a saved place (Home, School, etc.)
 - **Address Display** - Full address of current location
 - **Source Device** - Shows which device provided the location
+- **Battery Level** - Monitor battery percentage of the location source device
 - **Privacy First** - Disabled by default, opt-in via configuration
 - **⚠️ Warning** - Each location poll may notify the child's device
 
@@ -67,7 +68,18 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
     - `place_name` - Saved place name (e.g., "Home", "School")
     - `address` - Full address of the location
     - `location_timestamp` - When the location was captured
+    - `battery_level` - Battery percentage of source device
   - **Note**: Requires enabling "GPS location tracking" in integration config
+
+#### Battery Sensor (GPS Location - Optional)
+- `sensor.<child>_battery_level` - Battery level of location source device
+  - **State**: Battery percentage (0-100%)
+  - **Device Class**: `battery`
+  - **Attributes**:
+    - `source_device` - Device name providing the battery data
+    - `last_update` - Timestamp of last update
+  - **Note**: Requires enabling "GPS location tracking" in integration config
+  - **⚠️ Limitation**: Shows battery of the device selected for location tracking in Family Link app, not all devices
 
 #### Switches (Global Controls)
 - `switch.<child>_bedtime` - Enable/disable bedtime restrictions
@@ -423,6 +435,11 @@ automation:
 ```
 
 ## 📈 Version History
+
+- **v0.9.8** (2025-01) - Battery Level Support
+  - **Battery Level Sensor** - Monitor battery % of location source device
+  - Requires location tracking to be enabled
+  - Shows battery of the device selected for location in Family Link app
 
 - **v0.9.4** (2025-11) - GPS Location & Docker Standalone
   - **GPS Device Tracker** - Track child location via `device_tracker` entity
