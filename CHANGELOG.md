@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.8] - 2025-01
+
+### Added
+- **Battery Level Sensor** - New `sensor.<child>_battery_level` entity (#54)
+  - Displays battery percentage of the device providing location data
+  - Dynamic icon based on battery level (full → alert)
+  - Attributes: `source_device`, `last_update`
+  - Also available as `battery_level` attribute on device tracker entity
+
+### Important Limitations
+- **Requires location tracking**: Battery data comes from the location API endpoint
+- **One device per child**: Battery level corresponds to the device selected for location tracking in Family Link app (see "Change device" screen), not all devices
+- **Charging state**: The API returns what appears to be a charging state value, but it has not been confirmed yet and is disabled until validated
+
+---
+
 ## [0.9.7] - 2025-12
 
 ### Fixed
