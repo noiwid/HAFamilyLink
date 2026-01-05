@@ -11,13 +11,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_NAME, LOGGER_NAME
+from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, INTEGRATION_NAME, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -105,6 +105,10 @@ async def async_setup_entry(
         # Device sensors
         entities.append(FamilyLinkDeviceCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
+
+        # Battery sensor (only if location tracking is enabled, as battery comes from location data)
+        if entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False):
+            entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
         # Time management schedule sensors removed - data not available at child level
         # Schedules are available in binary_sensor attributes per device instead
@@ -1373,3 +1377,113 @@ class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 						attributes["has_bonus"] = bonus_mins > 0
 
 		return attributes
+
+
+class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Sensor for device battery level (from location data)."""
+
+	_attr_device_class = SensorDeviceClass.BATTERY
+	_attr_state_class = SensorStateClass.MEASUREMENT
+	_attr_native_unit_of_measurement = PERCENTAGE
+	_attr_icon = "mdi:battery"
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+
+		self._attr_name = f"{child_name} Battery Level"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_battery_level"
+
+	@property
+	def native_value(self) -> int | None:
+		"""Return the battery level percentage."""
+		child_data = self._get_child_data()
+		if not child_data or "location" not in child_data:
+			return None
+
+		location = child_data["location"]
+		if not location:
+			return None
+
+		return location.get("battery_level")
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		child_data = self._get_child_data()
+		if not (
+			self.coordinator.last_update_success
+			and child_data is not None
+			and "location" in child_data
+			and child_data["location"] is not None
+		):
+			return False
+
+		# Only available if we have battery data
+		return child_data["location"].get("battery_level") is not None
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon based on battery level and charging state."""
+		child_data = self._get_child_data()
+		if not child_data or not child_data.get("location"):
+			return "mdi:battery-unknown"
+
+		location = child_data["location"]
+		battery_level = location.get("battery_level")
+		battery_charging = location.get("battery_charging", False)
+
+		if battery_level is None:
+			return "mdi:battery-unknown"
+
+		if battery_charging:
+			if battery_level >= 90:
+				return "mdi:battery-charging-high"
+			elif battery_level >= 50:
+				return "mdi:battery-charging-medium"
+			elif battery_level >= 20:
+				return "mdi:battery-charging-low"
+			else:
+				return "mdi:battery-charging-outline"
+		else:
+			if battery_level >= 90:
+				return "mdi:battery"
+			elif battery_level >= 70:
+				return "mdi:battery-80"
+			elif battery_level >= 50:
+				return "mdi:battery-60"
+			elif battery_level >= 30:
+				return "mdi:battery-40"
+			elif battery_level >= 10:
+				return "mdi:battery-20"
+			else:
+				return "mdi:battery-alert-variant-outline"
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		child_data = self._get_child_data()
+		if not child_data or "location" not in child_data:
+			return {}
+
+		location = child_data["location"]
+		if not location:
+			return {}
+
+		attrs = {}
+
+		if location.get("battery_charging") is not None:
+			attrs["charging"] = location["battery_charging"]
+
+		if location.get("source_device_name"):
+			attrs["source_device"] = location["source_device_name"]
+
+		if location.get("timestamp_iso"):
+			attrs["last_update"] = location["timestamp_iso"]
+
+		return attrs
