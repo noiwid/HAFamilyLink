@@ -1429,40 +1429,29 @@ class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEnti
 
 	@property
 	def icon(self) -> str:
-		"""Return the icon based on battery level and charging state."""
+		"""Return the icon based on battery level."""
 		child_data = self._get_child_data()
 		if not child_data or not child_data.get("location"):
 			return "mdi:battery-unknown"
 
 		location = child_data["location"]
 		battery_level = location.get("battery_level")
-		battery_charging = location.get("battery_charging", False)
 
 		if battery_level is None:
 			return "mdi:battery-unknown"
 
-		if battery_charging:
-			if battery_level >= 90:
-				return "mdi:battery-charging-high"
-			elif battery_level >= 50:
-				return "mdi:battery-charging-medium"
-			elif battery_level >= 20:
-				return "mdi:battery-charging-low"
-			else:
-				return "mdi:battery-charging-outline"
+		if battery_level >= 90:
+			return "mdi:battery"
+		elif battery_level >= 70:
+			return "mdi:battery-80"
+		elif battery_level >= 50:
+			return "mdi:battery-60"
+		elif battery_level >= 30:
+			return "mdi:battery-40"
+		elif battery_level >= 10:
+			return "mdi:battery-20"
 		else:
-			if battery_level >= 90:
-				return "mdi:battery"
-			elif battery_level >= 70:
-				return "mdi:battery-80"
-			elif battery_level >= 50:
-				return "mdi:battery-60"
-			elif battery_level >= 30:
-				return "mdi:battery-40"
-			elif battery_level >= 10:
-				return "mdi:battery-20"
-			else:
-				return "mdi:battery-alert-variant-outline"
+			return "mdi:battery-alert-variant-outline"
 
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
@@ -1476,9 +1465,6 @@ class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEnti
 			return {}
 
 		attrs = {}
-
-		if location.get("battery_charging") is not None:
-			attrs["charging"] = location["battery_charging"]
 
 		if location.get("source_device_name"):
 			attrs["source_device"] = location["source_device_name"]

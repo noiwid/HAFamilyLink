@@ -627,14 +627,11 @@ class FamilyLinkClient:
 
 				# Extract battery info (index 8) - format: [battery_level, battery_state]
 				battery_level = None
-				battery_charging = None
 				if len(location_array) > 8 and isinstance(location_array[8], list):
 					battery_info = location_array[8]
 					if len(battery_info) > 0 and battery_info[0] is not None:
 						battery_level = int(battery_info[0])
-					if len(battery_info) > 1 and battery_info[1] is not None:
-						# 1 = not charging, 2 = charging (hypothesis based on common patterns)
-						battery_charging = battery_info[1] == 2
+					# Note: battery_info[1] may contain charging state but not confirmed yet
 
 				# Convert timestamp to ISO format
 				timestamp_iso = None
@@ -655,7 +652,6 @@ class FamilyLinkClient:
 					"place_address": place_address,
 					"source_device_id": source_device_id,
 					"battery_level": battery_level,
-					"battery_charging": battery_charging,
 				}
 
 				_LOGGER.debug(
