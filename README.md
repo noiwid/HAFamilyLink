@@ -124,7 +124,7 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 
 ## 🎯 What's New in v1.0.0
 
-### 🎉 Per-App Daily Time Limits (#59)
+### 🔠 Per-App Daily Time Limits (#59)
 
 New `set_app_daily_limit` service to control screen time per application:
 
