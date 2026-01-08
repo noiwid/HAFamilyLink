@@ -69,6 +69,44 @@ unblock_app:
       selector:
         text:
 
+set_app_daily_limit:
+  name: Set App Daily Limit
+  description: Set a daily time limit for a specific app (e.g., 60 minutes for TikTok). Use 0 to remove the limit. If no child is specified, applies to ALL supervised children.
+  fields:
+    package_name:
+      name: Package Name
+      description: Android package name (e.g., com.zhiliaoapp.musically for TikTok)
+      required: true
+      example: "com.zhiliaoapp.musically"
+      selector:
+        text:
+    minutes:
+      name: Daily Limit (minutes)
+      description: Daily time limit in minutes (0-1440). Use 0 to remove the limit.
+      required: true
+      example: 60
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 1440
+          mode: box
+          unit_of_measurement: "minutes"
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
 # Time management services
 
 add_time_bonus:

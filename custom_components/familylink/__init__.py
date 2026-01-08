@@ -23,6 +23,7 @@ from .const import (
 	SERVICE_ENABLE_BEDTIME,
 	SERVICE_ENABLE_DAILY_LIMIT,
 	SERVICE_ENABLE_SCHOOL_TIME,
+	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
 	SERVICE_UNBLOCK_ALL_APPS,
@@ -48,6 +49,13 @@ SCHEMA_BLOCK_APP = vol.Schema({
 
 SCHEMA_UNBLOCK_APP = vol.Schema({
 	vol.Required("package_name"): cv.string,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_APP_DAILY_LIMIT = vol.Schema({
+	vol.Required("package_name"): cv.string,
+	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
@@ -294,6 +302,52 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Error unblocking app {package_name}: {err}")
+			raise
+
+	async def handle_set_app_daily_limit(call: ServiceCall) -> None:
+		"""Handle set_app_daily_limit service call."""
+		package_name = call.data["package_name"]
+		minutes = call.data["minutes"]
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
+		try:
+			if child_id:
+				# Apply to specific child
+				_LOGGER.info(f"Service called: set_app_daily_limit for {package_name} = {minutes} min (child_id: {child_id})")
+				success = await coordinator.client.async_set_app_daily_limit(package_name, minutes, account_id=child_id)
+				if success:
+					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} min for child {child_id}")
+				else:
+					_LOGGER.error(f"Failed to set app daily limit: {package_name} for child {child_id}")
+			else:
+				# Apply to ALL supervised children
+				_LOGGER.info(f"Service called: set_app_daily_limit for {package_name} = {minutes} min (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				success_count = 0
+				fail_count = 0
+
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					result = await coordinator.client.async_set_app_daily_limit(package_name, minutes, account_id=child_account_id)
+					if result:
+						success_count += 1
+						_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} min for {child_name}")
+					else:
+						fail_count += 1
+						_LOGGER.error(f"Failed to set app daily limit: {package_name} for {child_name}")
+
+				_LOGGER.info(f"Set app daily limit {package_name}: {success_count} succeeded, {fail_count} failed")
+
+			await coordinator.async_request_refresh()
+		except Exception as err:
+			_LOGGER.error(f"Error setting app daily limit for {package_name}: {err}")
 			raise
 
 	async def handle_add_time_bonus(call: ServiceCall) -> None:
@@ -561,6 +615,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_UNBLOCK_APP,
 	)
 
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_SET_APP_DAILY_LIMIT,
+		handle_set_app_daily_limit,
+		schema=SCHEMA_SET_APP_DAILY_LIMIT,
+	)
+
 	# Register time management services
 	hass.services.async_register(
 		DOMAIN,
@@ -649,6 +710,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_UNBLOCK_ALL_APPS)
 			hass.services.async_remove(DOMAIN, SERVICE_BLOCK_APP)
 			hass.services.async_remove(DOMAIN, SERVICE_UNBLOCK_APP)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_APP_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_ADD_TIME_BONUS)
 			hass.services.async_remove(DOMAIN, SERVICE_ENABLE_BEDTIME)
 			hass.services.async_remove(DOMAIN, SERVICE_DISABLE_BEDTIME)

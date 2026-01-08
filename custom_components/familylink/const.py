@@ -63,6 +63,7 @@ SERVICE_BLOCK_DEVICE_FOR_SCHOOL: Final = "block_device_for_school"
 SERVICE_UNBLOCK_ALL_APPS: Final = "unblock_all_apps"
 SERVICE_BLOCK_APP: Final = "block_app"
 SERVICE_UNBLOCK_APP: Final = "unblock_app"
+SERVICE_SET_APP_DAILY_LIMIT: Final = "set_app_daily_limit"
 
 # Time management services
 SERVICE_ADD_TIME_BONUS: Final = "add_time_bonus"
