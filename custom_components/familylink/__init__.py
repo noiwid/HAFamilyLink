@@ -55,7 +55,7 @@ SCHEMA_UNBLOCK_APP = vol.Schema({
 
 SCHEMA_SET_APP_DAILY_LIMIT = vol.Schema({
 	vol.Required("package_name"): cv.string,
-	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
+	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=-1, max=1440)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
