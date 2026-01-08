@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.0] - 2025-01 🎉
+
+### Added
+- **Per-app daily time limits** - New `set_app_daily_limit` service (#59)
+  - Set daily time limits for specific apps (e.g., 60 minutes for TikTok)
+  - Use `minutes: 0` to remove the limit and restore unlimited access
+  - Supports targeting specific children via `entity_id` or `child_id`
+  - When no child specified, applies to ALL supervised children
+
+- **Multi-child support for app control services** (#57)
+  - `block_app` and `unblock_app` now apply to ALL children when no `child_id` specified
+  - Added optional `entity_id` parameter for easier child selection via UI
+  - Added optional `child_id` parameter for direct targeting
+
+- **New API method**: `async_get_all_supervised_children()` to retrieve all supervised children
+- **New API method**: `async_set_app_daily_limit()` for per-app time limit control
+
+### Changed
+- App control services (`block_app`, `unblock_app`) now default to applying to all children instead of just the first one
+- Improved service descriptions to clarify multi-child behavior
+
+---
+
 ## [0.9.8] - 2025-01
 
 ### Added

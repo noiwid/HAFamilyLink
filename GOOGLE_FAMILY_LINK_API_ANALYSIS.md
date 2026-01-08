@@ -51,6 +51,7 @@
 | Capability / Domain | Method | Endpoint | Payload Format | Notes |
 |---|---|---|---|---|
 | **Block/Unblock app** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], [1]]]]` for block<br>`[childId, [[[packageName], []]]]` for unblock | `[1]` = block, `[]` = unblock |
+| **Set per-app time limit** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], null, [minutes, 1]]]]` for set<br>`[childId, [[[packageName], null, [0, 0]]]]` to remove | `minutes` = daily limit, `1` = enabled |
 | **Device lock/unlock** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, action_code, deviceId]], [1]]` | `action_code`: 1=LOCK, 4=UNLOCK |
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
 | **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
@@ -395,6 +396,52 @@ Each session represents daily usage for one app:
 
 ---
 
+## ⏱️ Per-App Time Limits (`apps:updateRestrictions`)
+
+### Endpoint
+`POST /kidsmanagement/v1/people/{childId}/apps:updateRestrictions`
+
+### Payload Format
+```
+[childId, [[[packageName], null, [minutes, enabled_flag]]]]
+```
+
+### Parameters
+| Position | Field | Type | Description |
+|----------|-------|------|-------------|
+| `[0]` | childId | string | Child's user ID |
+| `[1][0][0][0]` | packageName | string | Android package name |
+| `[1][0][1]` | (reserved) | null | Always null for time limits |
+| `[1][0][2][0]` | minutes | int | Daily limit in minutes (0-1440) |
+| `[1][0][2][1]` | enabled_flag | int | 1 = enabled, 0 = disabled |
+
+### Examples
+
+**Set 60 minutes daily limit for TikTok:**
+```json
+["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [60, 1]]]]
+```
+
+**Remove time limit (restore unlimited):**
+```json
+["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [0, 0]]]]
+```
+
+### Response
+```json
+[[null, "1767881631499"]]
+```
+Returns a transaction ID/timestamp on success.
+
+### Notes
+- This endpoint is the same as block/unblock app but with different payload structure
+- Setting a limit on an app without an existing limit will create the limit
+- Setting `minutes: 0` with `enabled_flag: 0` removes the limit entirely
+- The limit is **per-app, per-child** (not per-device)
+- Updated limits are reflected in `sensor.<child>_apps_with_time_limits`
+
+---
+
 ## 📣 Notifications (`notificationElements`)
 - E.g. "New app installed" with **timestamp** (`["1763148569", 431000000]`) and **links** to the concerned app (`/member/{childId}/app/{package}`).
 - `clientCapabilities=CAPABILITY_TIMEZONE` + `userTimeZone=Europe/Paris` recommended for local timestamps.
@@ -468,7 +515,7 @@ Each session represents daily usage for one app:
 - **Other override types**: Only types 1, 4, 8, 10 documented. Other types may exist.
 - **Bedtime/Schooltime schedule updates**: Write endpoints for updating schedules (not just ON/OFF) not yet documented.
 - **Daily limit per-device enable/disable**: Currently only global ON/OFF documented, per-device toggle may exist.
-- **App blocking granularity**: Whitelist/blacklist modes, time-based restrictions not fully explored.
+- **App blocking granularity**: Whitelist/blacklist modes not fully explored. Per-app time limits now documented (see section above).
 
 ---
 
