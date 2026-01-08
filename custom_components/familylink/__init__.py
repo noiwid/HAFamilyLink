@@ -42,10 +42,14 @@ SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
 
 SCHEMA_BLOCK_APP = vol.Schema({
 	vol.Required("package_name"): cv.string,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_UNBLOCK_APP = vol.Schema({
 	vol.Required("package_name"): cv.string,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
 })
 
 # Time management service schemas
@@ -205,15 +209,44 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_block_app(call: ServiceCall) -> None:
 		"""Handle block_app service call."""
 		package_name = call.data["package_name"]
-		_LOGGER.info(f"Service called: block_app for {package_name}")
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
 
 		try:
-			success = await coordinator.client.async_block_app(package_name)
-			if success:
-				_LOGGER.info(f"Successfully blocked app: {package_name}")
-				await coordinator.async_request_refresh()
+			if child_id:
+				# Apply to specific child
+				_LOGGER.info(f"Service called: block_app for {package_name} (child_id: {child_id})")
+				success = await coordinator.client.async_block_app(package_name, account_id=child_id)
+				if success:
+					_LOGGER.info(f"Successfully blocked app: {package_name} for child {child_id}")
+				else:
+					_LOGGER.error(f"Failed to block app: {package_name} for child {child_id}")
 			else:
-				_LOGGER.error(f"Failed to block app: {package_name}")
+				# Apply to ALL supervised children
+				_LOGGER.info(f"Service called: block_app for {package_name} (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				success_count = 0
+				fail_count = 0
+
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					result = await coordinator.client.async_block_app(package_name, account_id=child_account_id)
+					if result:
+						success_count += 1
+						_LOGGER.info(f"Successfully blocked app: {package_name} for {child_name}")
+					else:
+						fail_count += 1
+						_LOGGER.error(f"Failed to block app: {package_name} for {child_name}")
+
+				_LOGGER.info(f"Block app {package_name}: {success_count} succeeded, {fail_count} failed")
+
+			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Error blocking app {package_name}: {err}")
 			raise
@@ -221,15 +254,44 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_unblock_app(call: ServiceCall) -> None:
 		"""Handle unblock_app service call."""
 		package_name = call.data["package_name"]
-		_LOGGER.info(f"Service called: unblock_app for {package_name}")
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
 
 		try:
-			success = await coordinator.client.async_unblock_app(package_name)
-			if success:
-				_LOGGER.info(f"Successfully unblocked app: {package_name}")
-				await coordinator.async_request_refresh()
+			if child_id:
+				# Apply to specific child
+				_LOGGER.info(f"Service called: unblock_app for {package_name} (child_id: {child_id})")
+				success = await coordinator.client.async_unblock_app(package_name, account_id=child_id)
+				if success:
+					_LOGGER.info(f"Successfully unblocked app: {package_name} for child {child_id}")
+				else:
+					_LOGGER.error(f"Failed to unblock app: {package_name} for child {child_id}")
 			else:
-				_LOGGER.error(f"Failed to unblock app: {package_name}")
+				# Apply to ALL supervised children
+				_LOGGER.info(f"Service called: unblock_app for {package_name} (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				success_count = 0
+				fail_count = 0
+
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					result = await coordinator.client.async_unblock_app(package_name, account_id=child_account_id)
+					if result:
+						success_count += 1
+						_LOGGER.info(f"Successfully unblocked app: {package_name} for {child_name}")
+					else:
+						fail_count += 1
+						_LOGGER.error(f"Failed to unblock app: {package_name} for {child_name}")
+
+				_LOGGER.info(f"Unblock app {package_name}: {success_count} succeeded, {fail_count} failed")
+
+			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Error unblocking app {package_name}: {err}")
 			raise

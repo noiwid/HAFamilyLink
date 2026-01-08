@@ -337,6 +337,32 @@ class FamilyLinkClient:
 
 		raise ValueError("No supervised child found in family")
 
+	async def async_get_all_supervised_children(self) -> list[dict[str, str]]:
+		"""Get all supervised children in the family.
+
+		Returns:
+			List of dictionaries with 'id' and 'name' for each supervised child.
+
+		Raises:
+			ValueError: If no supervised children are found.
+		"""
+		members_data = await self.async_get_family_members()
+		children = []
+
+		for member in members_data.get("members", []):
+			supervision_info = member.get("memberSupervisionInfo")
+			if supervision_info and supervision_info.get("isSupervisedMember"):
+				child_id = member["userId"]
+				child_name = member.get("profile", {}).get("displayName", "Unknown")
+				children.append({"id": child_id, "name": child_name})
+				_LOGGER.debug(f"Found supervised child: {child_name} (ID: {child_id})")
+
+		if not children:
+			raise ValueError("No supervised children found in family")
+
+		_LOGGER.info(f"Found {len(children)} supervised children")
+		return children
+
 	async def async_get_apps_and_usage(self, account_id: str | None = None) -> dict[str, Any]:
 		"""Get apps, devices, and usage data for a supervised account.
 
