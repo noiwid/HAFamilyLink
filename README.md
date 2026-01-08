@@ -122,40 +122,43 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `sensor.<child>_device_count` - Number of supervised devices
 - `sensor.<child>_child_info` - Supervised child's profile information
 
-## 🎯 What's New in v0.9.9
+## 🎯 What's New in v1.0.0
 
-### Bug Fixes
+### 🎉 Per-App Daily Time Limits (#59)
 
-- **block_app and unblock_app now apply to all children** (#57)
-  
-  Previously, `block_app` and `unblock_app` services only affected the first supervised child in the family. Now, when no specific child is specified, these actions apply to **all supervised children**.
+New `set_app_daily_limit` service to control screen time per application:
 
-### New Features
-
-- **Optional `child_id` and `entity_id` parameters** for `block_app` and `unblock_app` services
-  - Use `entity_id` to select a specific child via any Family Link entity
-  - Use `child_id` to specify a child directly by their user ID
-  - When neither is provided, the action applies to **all children**
-
-### Example Usage
-
-Block an app for all children:
 ```yaml
-service: familylink.block_app
+# Set TikTok to 60 minutes/day for ALL children
+service: familylink.set_app_daily_limit
 data:
-  package_name: com.spotify.music
+  package_name: com.zhiliaoapp.musically
+  minutes: 60
+
+# Remove the limit (restore unlimited)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 0
 ```
 
-Block an app for a specific child:
+### 👨‍👩‍👧‍👦 Multi-Child Support (#57)
+
+App control services now apply to **ALL children** by default:
+- `block_app`, `unblock_app`, and `set_app_daily_limit` affect all supervised children when no specific child is selected
+- Use `entity_id` or `child_id` to target a specific child
+
 ```yaml
+# Block YouTube for a specific child only
 service: familylink.block_app
 data:
-  package_name: com.spotify.music
-  child_id: "123456789012345678901"
+  package_name: com.youtube.android
+  entity_id: sensor.emma_screen_time
 ```
 
 ### API Changes
-  - Added async_get_all_supervised_children() method to retrieve all supervised children in the family
+- New `async_get_all_supervised_children()` method
+- New `async_set_app_daily_limit()` method
 
 
 ## 🏗️ Architecture
@@ -418,9 +421,10 @@ automation:
 
 ## 📈 Version History
 
-- **v0.9.9** (2025-01) - Block/Unblock App Multi-Child Support
-  - `block_app` and `unblock_app` now apply to ALL children when no child_id specified
-  - Added optional `child_id` and `entity_id` parameters for targeting specific children
+- **v1.0.0** (2025-01) - Per-App Time Limits & Multi-Child Support 🎉
+  - **New service `set_app_daily_limit`** - Set daily time limits per app (e.g., 60 min for TikTok)
+  - **Multi-child support** - `block_app`, `unblock_app`, `set_app_daily_limit` apply to ALL children by default
+  - Optional `entity_id` and `child_id` parameters for targeting specific children
  
 - **v0.9.8** (2025-01) - Battery Level Support
   - **Battery Level Sensor** - Monitor battery % of location source device
@@ -493,15 +497,6 @@ automation:
 - **v0.3.0** - App usage and screen time sensors
 - **v0.2.x** - Authentication fixes and improvements
 - **v0.1.0** - Initial release
-
-## 🎯 Roadmap to v1.0
-
-v0.8.0 is a **Release Candidate**. Before v1.0 release:
-- [ ] Long-term stability testing
-- [ ] Multi-child / multi-device validation
-- [ ] Complete user documentation
-- [ ] Integration with Home Assistant automations testing
-- [ ] Community feedback integration
 
 ## 🤝 Contributing
 

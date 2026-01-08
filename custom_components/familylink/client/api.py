@@ -785,6 +785,67 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error unblocking app {package_name}: {err}")
 			return False
 
+	async def async_set_app_daily_limit(
+		self,
+		package_name: str,
+		minutes: int,
+		account_id: str | None = None
+	) -> bool:
+		"""Set a daily time limit for a specific app.
+
+		Args:
+			package_name: Android package name (e.g., com.zhiliaoapp.musically)
+			minutes: Daily limit in minutes (e.g., 60 for 1 hour). Use -1 to remove the limit entirely.
+			account_id: User ID of the supervised child (optional)
+
+		Returns:
+			True if successful, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			if minutes >= 0:
+				# Set limit: [account_id, [[[package_name], null, [minutes, 1]]]]
+				# Note: minutes=0 means 0 minutes allowed (app completely blocked for today)
+				payload = json.dumps([account_id, [[[package_name], None, [minutes, 1]]]])
+				_LOGGER.debug(f"Setting app daily limit: {package_name} = {minutes} minutes")
+			else:
+				# Remove limit entirely: [account_id, [[[package_name]]]]
+				# This disables the per-app limit (app becomes unlimited)
+				payload = json.dumps([account_id, [[[package_name]]]])
+				_LOGGER.debug(f"Removing app daily limit: {package_name}")
+
+			async with session.post(
+				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				response.raise_for_status()
+				if minutes >= 0:
+					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} minutes")
+				else:
+					_LOGGER.info(f"Successfully removed app daily limit: {package_name}")
+				return True
+
+		except aiohttp.ClientResponseError as err:
+			if err.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate") from err
+			_LOGGER.error(f"Failed to set app daily limit for {package_name}: {err}")
+			return False
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error setting app daily limit for {package_name}: {err}")
+			return False
+
 	async def async_block_device_for_school(
 		self,
 		account_id: str | None = None,
