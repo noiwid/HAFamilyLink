@@ -795,7 +795,7 @@ class FamilyLinkClient:
 
 		Args:
 			package_name: Android package name (e.g., com.zhiliaoapp.musically)
-			minutes: Daily limit in minutes (e.g., 60 for 1 hour). Use 0 to remove the limit.
+			minutes: Daily limit in minutes (e.g., 60 for 1 hour). Use -1 to remove the limit entirely.
 			account_id: User ID of the supervised child (optional)
 
 		Returns:
@@ -811,15 +811,15 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Format: [account_id, [[[package_name], null, [minutes, enabled_flag]]]]
-			# enabled_flag: 1 = enabled, 0 = disabled
-			if minutes > 0:
-				# Set limit: [minutes, 1]
+			if minutes >= 0:
+				# Set limit: [account_id, [[[package_name], null, [minutes, 1]]]]
+				# Note: minutes=0 means 0 minutes allowed (app completely blocked for today)
 				payload = json.dumps([account_id, [[[package_name], None, [minutes, 1]]]])
 				_LOGGER.debug(f"Setting app daily limit: {package_name} = {minutes} minutes")
 			else:
-				# Remove limit: [0, 0] or just remove the restriction
-				payload = json.dumps([account_id, [[[package_name], None, [0, 0]]]])
+				# Remove limit entirely: [account_id, [[[package_name]]]]
+				# This disables the per-app limit (app becomes unlimited)
+				payload = json.dumps([account_id, [[[package_name]]]])
 				_LOGGER.debug(f"Removing app daily limit: {package_name}")
 
 			async with session.post(
@@ -831,7 +831,7 @@ class FamilyLinkClient:
 				data=payload
 			) as response:
 				response.raise_for_status()
-				if minutes > 0:
+				if minutes >= 0:
 					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} minutes")
 				else:
 					_LOGGER.info(f"Successfully removed app daily limit: {package_name}")

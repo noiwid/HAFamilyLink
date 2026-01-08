@@ -71,7 +71,7 @@ unblock_app:
 
 set_app_daily_limit:
   name: Set App Daily Limit
-  description: Set a daily time limit for a specific app (e.g., 60 minutes for TikTok). Use 0 to remove the limit. If no child is specified, applies to ALL supervised children.
+  description: "Set a daily time limit for a specific app. Use -1 to disable the limit (unlimited). Use 0 for completely blocked. If no child is specified, applies to ALL supervised children."
   fields:
     package_name:
       name: Package Name
@@ -82,13 +82,13 @@ set_app_daily_limit:
         text:
     minutes:
       name: Daily Limit (minutes)
-      description: Daily time limit in minutes (0-1440). Use 0 to remove the limit.
+      description: "Daily time limit: -1 = unlimited (disable limit), 0 = blocked, 1-1440 = limit in minutes"
       required: true
       example: 60
       default: 60
       selector:
         number:
-          min: 0
+          min: -1
           max: 1440
           mode: box
           unit_of_measurement: "minutes"

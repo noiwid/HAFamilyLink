@@ -51,7 +51,7 @@
 | Capability / Domain | Method | Endpoint | Payload Format | Notes |
 |---|---|---|---|---|
 | **Block/Unblock app** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], [1]]]]` for block<br>`[childId, [[[packageName], []]]]` for unblock | `[1]` = block, `[]` = unblock |
-| **Set per-app time limit** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], null, [minutes, 1]]]]` for set<br>`[childId, [[[packageName], null, [0, 0]]]]` to remove | `minutes` = daily limit, `1` = enabled |
+| **Set per-app time limit** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], null, [minutes, 1]]]]` for set<br>`[childId, [[[packageName]]]]` to disable limit | `minutes` = daily limit (0 = blocked), disable = unlimited |
 | **Device lock/unlock** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, action_code, deviceId]], [1]]` | `action_code`: 1=LOCK, 4=UNLOCK |
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
 | **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
@@ -422,9 +422,14 @@ Each session represents daily usage for one app:
 ["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [60, 1]]]]
 ```
 
-**Remove time limit (restore unlimited):**
+**Set limit to 0 minutes (completely blocked):**
 ```json
-["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [0, 0]]]]
+["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [0, 1]]]]
+```
+
+**Disable limit (restore unlimited):**
+```json
+["116774149781348048793", [[["com.zhiliaoapp.musically"]]]]
 ```
 
 ### Response
@@ -436,7 +441,8 @@ Returns a transaction ID/timestamp on success.
 ### Notes
 - This endpoint is the same as block/unblock app but with different payload structure
 - Setting a limit on an app without an existing limit will create the limit
-- Setting `minutes: 0` with `enabled_flag: 0` removes the limit entirely
+- `minutes: 0` with `enabled_flag: 1` means **0 minutes allowed** (completely blocked for today)
+- To **disable** the limit entirely (unlimited), use `[childId, [[[packageName]]]]` without the time limit array
 - The limit is **per-app, per-child** (not per-device)
 - Updated limits are reflected in `sensor.<child>_apps_with_time_limits`
 
