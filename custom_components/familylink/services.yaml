@@ -19,7 +19,7 @@ unblock_all_apps:
 
 block_app:
   name: Block App
-  description: Block a specific app by package name
+  description: Block a specific app by package name. If no child is specified, blocks the app for ALL supervised children.
   fields:
     package_name:
       name: Package Name
@@ -28,16 +28,44 @@ block_app:
       example: "com.youtube.android"
       selector:
         text:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
 
 unblock_app:
   name: Unblock App
-  description: Unblock a specific app by package name
+  description: Unblock a specific app by package name. If no child is specified, unblocks the app for ALL supervised children.
   fields:
     package_name:
       name: Package Name
       description: Android package name to unblock
       required: true
       example: "com.youtube.android"
+      selector:
+        text:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
       selector:
         text:
 
