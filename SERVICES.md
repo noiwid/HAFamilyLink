@@ -44,38 +44,89 @@ service: familylink.unblock_all_apps
 ---
 
 ### 3. `familylink.block_app`
-Blocks a specific app by its package name.
+Blocks a specific app by its package name. If no child is specified, blocks the app for **ALL supervised children**.
 
 **Parameters:**
 - `package_name` (required): Android package name (e.g., `com.youtube.android`)
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
 
-**Example:**
+**Examples:**
 ```yaml
+# Block YouTube for ALL children
 service: familylink.block_app
 data:
   package_name: com.youtube.android
+
+# Block YouTube for a specific child
+service: familylink.block_app
+data:
+  package_name: com.youtube.android
+  entity_id: sensor.emma_screen_time
 ```
 
 ---
 
 ### 4. `familylink.unblock_app`
-Unblocks a specific app by its package name.
+Unblocks a specific app by its package name. If no child is specified, unblocks the app for **ALL supervised children**.
 
 **Parameters:**
 - `package_name` (required): Android package name
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
 
-**Example:**
+**Examples:**
 ```yaml
+# Unblock YouTube for ALL children
 service: familylink.unblock_app
 data:
   package_name: com.youtube.android
+
+# Unblock YouTube for a specific child
+service: familylink.unblock_app
+data:
+  package_name: com.youtube.android
+  child_id: "123456789012345678901"
+```
+
+---
+
+### 5. `familylink.set_app_daily_limit`
+Sets a daily time limit for a specific app. If no child is specified, applies to **ALL supervised children**.
+
+**Parameters:**
+- `package_name` (required): Android package name (e.g., `com.zhiliaoapp.musically` for TikTok)
+- `minutes` (required): Daily limit in minutes (0-1440). Use `0` to remove the limit.
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
+
+**Examples:**
+```yaml
+# Set TikTok to 60 minutes/day for ALL children
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 60
+
+# Set TikTok to 45 minutes for a specific child
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 45
+  entity_id: sensor.emma_screen_time
+
+# Remove TikTok time limit (restore unlimited)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 0
 ```
 
 ---
 
 ## ⏰ Time Management Services
 
-### 5. `familylink.set_daily_limit`
+### 6. `familylink.set_daily_limit`
 Sets the daily screen time limit for a device.
 
 **Parameters:**
@@ -102,7 +153,7 @@ data:
 
 ---
 
-### 6. `familylink.set_bedtime`
+### 7. `familylink.set_bedtime`
 Sets bedtime start and end times for a specific day.
 
 **Parameters:**
@@ -129,7 +180,7 @@ data:
 
 ---
 
-### 7. `familylink.enable_bedtime` / `familylink.disable_bedtime`
+### 8. `familylink.enable_bedtime` / `familylink.disable_bedtime`
 Enables or disables bedtime restrictions for a child.
 
 **Parameters:**
@@ -145,7 +196,7 @@ data:
 
 ---
 
-### 8. `familylink.add_time_bonus`
+### 9. `familylink.add_time_bonus`
 Adds bonus time to a device.
 
 **Parameters:**
@@ -319,7 +370,7 @@ automation:
 
 4. **Persistence:** Blocks persist until you manually unblock or via automation
 
-5. **Multiple children:** If you have multiple supervised children, services affect the first child found. Specify `child_id` to target a specific child.
+5. **Multiple children:** App control services (`block_app`, `unblock_app`, `set_app_daily_limit`) apply to **ALL children** by default. Specify `entity_id` or `child_id` to target a specific child.
 
 ---
 
