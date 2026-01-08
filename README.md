@@ -418,10 +418,26 @@ automation:
 
 ## 📈 Version History
 
+- **v0.9.9** (2025-01) - Block/Unblock App Multi-Child Support
+  - `block_app` and `unblock_app` now apply to ALL children when no child_id specified
+  - Added optional `child_id` and `entity_id` parameters for targeting specific children
+ 
 - **v0.9.8** (2025-01) - Battery Level Support
   - **Battery Level Sensor** - Monitor battery % of location source device
   - Requires location tracking to be enabled
   - Shows battery of the device selected for location in Family Link app
+
+- **v0.9.7** (2024-12) - Regional Google Domains Auth Fix
+  - Fixed authentication loop with regional Google domains (.google.com.au, .google.co.uk, etc.)
+
+- **v0.9.6** (2024-12) - Set Bedtime Service
+  - New `familylink.set_bedtime` service to modify bedtime schedules dynamically
+  - Fixed authentication issues
+  - `set_daily_limit` now accepts 0 minutes to disable device
+
+- **v0.9.5** (2024-11) - Bedtime/School Time Toggle Fix
+  - Fixed bedtime/school time toggle (was using hardcoded UUIDs)
+  - Now dynamically fetches rule IDs from timeLimit API
 
 - **v0.9.4** (2025-11) - GPS Location & Docker Standalone
   - **GPS Device Tracker** - Track child location via `device_tracker` entity
@@ -434,6 +450,18 @@ automation:
   - **French & English translations** - Full i18n support
   - **Auth Notification Fix** - Properly triggers when session expires (no spam)
   - **Bug Fixes** - Fixed set_daily_limit dynamic day codes, bashio errors
+
+- **v0.9.3** (2024-11) - Set Daily Limit Fix
+  - Fixed `set_daily_limit` applying to wrong day of week
+
+- **v0.9.2** (2024-11) - Standalone Docker Fix
+  - Fixed bashio errors in standalone Docker deployment
+  - Created separate Docker images for HA OS/Supervised vs pure Docker
+
+- **v0.9.1** (2024-11) - Auth Expiration Notification
+  - Persistent notification when Google authentication expires
+  - Re-authentication instructions included
+  - "No app usage data" moved from warning to debug log
 
 - **v0.8.0** (2025-01) - Release Candidate
   - Time bonus management (add/cancel bonuses)
