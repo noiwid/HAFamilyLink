@@ -122,59 +122,41 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `sensor.<child>_device_count` - Number of supervised devices
 - `sensor.<child>_child_info` - Supervised child's profile information
 
-## 🎯 What's New in v0.8.0
+## 🎯 What's New in v0.9.9
 
-### Major Features
-✨ **Time Bonus Management**
-- Active Bonus sensors per device
-- Reset Bonus button to cancel bonuses
-- +15min, +30min, +60min buttons with auto-refresh
+### Bug Fixes
 
-✨ **Enhanced Time Tracking**
-- Daily Limit sensor per device
-- Screen Time Remaining accounts for actual usage
-- Next Restriction sensor
-- Active Bonus sensor
+- **block_app and unblock_app now apply to all children** (#57)
+  
+  Previously, `block_app` and `unblock_app` services only affected the first supervised child in the family. Now, when no specific child is specified, these actions apply to **all supervised children**.
 
-✨ **Functional Binary Sensors**
-- Bedtime Active detection (with midnight-crossing support)
-- School Time Active detection
-- Daily Limit Reached (true/false, ignores bonuses)
+### New Features
 
-### Critical Fixes
-🔧 **Bedtime/School Time Window Parsing** (v0.7.4)
-- Complete parsing of bedtime windows from API
-- Complete parsing of school time windows from API
-- Correct detection when device is in window
-- Midnight-crossing support (e.g., 20:55 → 10:00)
+- **Optional `child_id` and `entity_id` parameters** for `block_app` and `unblock_app` services
+  - Use `entity_id` to select a specific child via any Family Link entity
+  - Use `child_id` to specify a child directly by their user ID
+  - When neither is provided, the action applies to **all children**
 
-🔧 **Time Calculations Fixed** (v0.7.6)
-- Screen Time Remaining = actual available time
-  - With bonus: shows bonus only
-  - Without bonus: daily_limit - used_time
-  - Never negative
-- Used time parsed from correct API position (position 20)
-- Bonus replaces normal time (doesn't add to it)
+### Example Usage
 
-🔧 **Accurate State Detection**
-- Daily Limit switch: Correct detection based on current day + position + flag
-- Daily Limit Reached sensor: Ignores bonuses, based only on daily_limit vs used
-- Bonus detection: Avoids false positives via `bonus_override_id` parsing
+Block an app for all children:
+```yaml
+service: familylink.block_app
+data:
+  package_name: com.spotify.music
+```
 
-🔧 **Bonus Cancellation** (v0.7.6)
-- Parse `override_id` from API response
-- DELETE API call to cancel bonuses
-- Reset Bonus button only available when bonus is active
+Block an app for a specific child:
+```yaml
+service: familylink.block_app
+data:
+  package_name: com.spotify.music
+  child_id: "123456789012345678901"
+```
 
-### Cleanup & Optimizations (v0.8.0)
-🗑️ **Removed Redundant Sensors**
-- ❌ `sensor.<child>_bedtime_schedule` (showed "Not configured")
-- ❌ `sensor.<child>_school_time_schedule` (showed "Not configured")
-- ❌ `sensor.<child>_daily_limit` (showed "Not configured")
+### API Changes
+  - Added async_get_all_supervised_children() method to retrieve all supervised children in the family
 
-**Why?** This data doesn't exist at child level in the API. Schedules are available in binary_sensor attributes per device.
-
-**Migration:** Manually delete these entities in Home Assistant UI after update.
 
 ## 🏗️ Architecture
 
@@ -436,10 +418,26 @@ automation:
 
 ## 📈 Version History
 
+- **v0.9.9** (2025-01) - Block/Unblock App Multi-Child Support
+  - `block_app` and `unblock_app` now apply to ALL children when no child_id specified
+  - Added optional `child_id` and `entity_id` parameters for targeting specific children
+ 
 - **v0.9.8** (2025-01) - Battery Level Support
   - **Battery Level Sensor** - Monitor battery % of location source device
   - Requires location tracking to be enabled
   - Shows battery of the device selected for location in Family Link app
+
+- **v0.9.7** (2024-12) - Regional Google Domains Auth Fix
+  - Fixed authentication loop with regional Google domains (.google.com.au, .google.co.uk, etc.)
+
+- **v0.9.6** (2024-12) - Set Bedtime Service
+  - New `familylink.set_bedtime` service to modify bedtime schedules dynamically
+  - Fixed authentication issues
+  - `set_daily_limit` now accepts 0 minutes to disable device
+
+- **v0.9.5** (2024-11) - Bedtime/School Time Toggle Fix
+  - Fixed bedtime/school time toggle (was using hardcoded UUIDs)
+  - Now dynamically fetches rule IDs from timeLimit API
 
 - **v0.9.4** (2025-11) - GPS Location & Docker Standalone
   - **GPS Device Tracker** - Track child location via `device_tracker` entity
@@ -452,6 +450,18 @@ automation:
   - **French & English translations** - Full i18n support
   - **Auth Notification Fix** - Properly triggers when session expires (no spam)
   - **Bug Fixes** - Fixed set_daily_limit dynamic day codes, bashio errors
+
+- **v0.9.3** (2024-11) - Set Daily Limit Fix
+  - Fixed `set_daily_limit` applying to wrong day of week
+
+- **v0.9.2** (2024-11) - Standalone Docker Fix
+  - Fixed bashio errors in standalone Docker deployment
+  - Created separate Docker images for HA OS/Supervised vs pure Docker
+
+- **v0.9.1** (2024-11) - Auth Expiration Notification
+  - Persistent notification when Google authentication expires
+  - Re-authentication instructions included
+  - "No app usage data" moved from warning to debug log
 
 - **v0.8.0** (2025-01) - Release Candidate
   - Time bonus management (add/cancel bonuses)
