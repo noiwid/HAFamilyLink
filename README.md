@@ -421,25 +421,25 @@ automation:
 
 ## 📈 Version History
 
-- **v1.0.0** (2025-01) - Per-App Time Limits & Multi-Child Support 🎉
+- **v1.0.0** (2026-01) - Per-App Time Limits & Multi-Child Support 🎉
   - **New service `set_app_daily_limit`** - Set daily time limits per app (e.g., 60 min for TikTok)
   - **Multi-child support** - `block_app`, `unblock_app`, `set_app_daily_limit` apply to ALL children by default
   - Optional `entity_id` and `child_id` parameters for targeting specific children
  
-- **v0.9.8** (2025-01) - Battery Level Support
+- **v0.9.8** (2026-01) - Battery Level Support
   - **Battery Level Sensor** - Monitor battery % of location source device
   - Requires location tracking to be enabled
   - Shows battery of the device selected for location in Family Link app
 
-- **v0.9.7** (2024-12) - Regional Google Domains Auth Fix
+- **v0.9.7** (2025-12) - Regional Google Domains Auth Fix
   - Fixed authentication loop with regional Google domains (.google.com.au, .google.co.uk, etc.)
 
-- **v0.9.6** (2024-12) - Set Bedtime Service
+- **v0.9.6** (2025-12) - Set Bedtime Service
   - New `familylink.set_bedtime` service to modify bedtime schedules dynamically
   - Fixed authentication issues
   - `set_daily_limit` now accepts 0 minutes to disable device
 
-- **v0.9.5** (2024-11) - Bedtime/School Time Toggle Fix
+- **v0.9.5** (2025-11) - Bedtime/School Time Toggle Fix
   - Fixed bedtime/school time toggle (was using hardcoded UUIDs)
   - Now dynamically fetches rule IDs from timeLimit API
 
@@ -455,14 +455,14 @@ automation:
   - **Auth Notification Fix** - Properly triggers when session expires (no spam)
   - **Bug Fixes** - Fixed set_daily_limit dynamic day codes, bashio errors
 
-- **v0.9.3** (2024-11) - Set Daily Limit Fix
+- **v0.9.3** (2025-11) - Set Daily Limit Fix
   - Fixed `set_daily_limit` applying to wrong day of week
 
-- **v0.9.2** (2024-11) - Standalone Docker Fix
+- **v0.9.2** (2025-11) - Standalone Docker Fix
   - Fixed bashio errors in standalone Docker deployment
   - Created separate Docker images for HA OS/Supervised vs pure Docker
 
-- **v0.9.1** (2024-11) - Auth Expiration Notification
+- **v0.9.1** (2025-11) - Auth Expiration Notification
   - Persistent notification when Google authentication expires
   - Re-authentication instructions included
   - "No app usage data" moved from warning to debug log
