@@ -1,4 +1,21 @@
 {
+	"options": {
+		"step": {
+			"init": {
+				"title": "Configurer Family Link",
+				"description": "Modifier les paramètres de l'intégration. Les changements prendront effet après la sauvegarde.",
+				"data": {
+					"update_interval": "Intervalle de mise à jour (secondes)",
+					"timeout": "Délai d'expiration des requêtes (secondes)",
+					"enable_location_tracking": "Activer le suivi GPS"
+				},
+				"data_description": {
+					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant"
+				}
+			}
+		}
+	},
 	"config": {
 		"step": {
 			"user": {
