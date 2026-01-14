@@ -1,4 +1,21 @@
 {
+	"options": {
+		"step": {
+			"init": {
+				"title": "Configure Family Link",
+				"description": "Adjust integration settings. Changes will take effect after saving.",
+				"data": {
+					"update_interval": "Update Interval (seconds)",
+					"timeout": "Request Timeout (seconds)",
+					"enable_location_tracking": "Enable GPS location tracking"
+				},
+				"data_description": {
+					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device"
+				}
+			}
+		}
+	},
 	"config": {
 		"step": {
 			"user": {
