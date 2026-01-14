@@ -216,15 +216,24 @@ See the detailed [Installation Guide](INSTALL.md) for step-by-step instructions.
 
 ## ⚙️ Configuration
 
+This integration is configured entirely through the Home Assistant UI (Config Flow). **YAML configuration is not supported.**
+
+### Setup via UI
+
+1. Go to **Settings → Devices & Services → Add Integration**
+2. Search for "**Family Link**" and select it
+3. Configure the following options in the setup wizard:
+   - **Name**: Display name for the integration (default: "Google Family Link")
+   - **Update Interval**: How often to fetch data, in seconds (default: 300, range: 30-3600)
+   - **Timeout**: API request timeout in seconds (default: 30)
+   - **Enable GPS Location Tracking**: Opt-in for device location tracking (default: disabled)
+
 ### Update Interval
 
-The default update interval is 5 minutes (300 seconds). You can customize this in `configuration.yaml`:
-
-```yaml
-# configuration.yaml (optional)
-familylink:
-  scan_interval: 300  # seconds
-```
+The default update interval is 5 minutes (300 seconds). You can change this value during initial setup or by reconfiguring the integration:
+1. Go to **Settings → Devices & Services**
+2. Find the Family Link integration
+3. Click **Configure** to modify settings
 
 ### Lock State Synchronization
 

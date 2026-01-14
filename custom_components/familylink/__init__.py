@@ -121,13 +121,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	try:
 		# Create coordinator for data updates
 		coordinator = FamilyLinkDataUpdateCoordinator(hass, entry)
-		
+
 		# Perform initial data fetch
 		await coordinator.async_config_entry_first_refresh()
-		
+
 		# Store coordinator in hass data
 		hass.data.setdefault(DOMAIN, {})
 		hass.data[DOMAIN][entry.entry_id] = coordinator
+
+		# Add options update listener
+		entry.async_on_unload(entry.add_update_listener(async_options_updated))
 
 		# Forward setup to platforms
 		await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -144,6 +147,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	except Exception as err:
 		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
 		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
+
+
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+	"""Handle options update - reload the config entry."""
+	_LOGGER.debug("Options updated, reloading integration")
+	await hass.config_entries.async_reload(entry.entry_id)
 
 
 def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_device_id: bool = False) -> tuple[str | None, str | None]:
