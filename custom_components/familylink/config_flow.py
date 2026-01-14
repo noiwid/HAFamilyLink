@@ -75,7 +75,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		config_entry: config_entries.ConfigEntry,
 	) -> config_entries.OptionsFlow:
 		"""Get the options flow for this handler."""
-		return OptionsFlowHandler(config_entry)
+		return OptionsFlowHandler()
 
 	async def async_step_user(
 		self, user_input: dict[str, Any] | None = None
@@ -219,10 +219,6 @@ class InvalidAuth(HomeAssistantError):
 class OptionsFlowHandler(config_entries.OptionsFlow):
 	"""Handle options flow for Family Link."""
 
-	def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-		"""Initialize options flow."""
-		self.config_entry = config_entry
-
 	async def async_step_init(
 		self, user_input: dict[str, Any] | None = None
 	) -> FlowResult:
@@ -231,7 +227,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 			# Update the config entry with new options
 			return self.async_create_entry(title="", data=user_input)
 
-		# Get current values from config entry data
+		# Get current values from config entry data (options first, then data)
+		current_options = self.config_entry.options
 		current_data = self.config_entry.data
 
 		return self.async_show_form(
@@ -239,15 +236,24 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 			data_schema=vol.Schema({
 				vol.Optional(
 					CONF_UPDATE_INTERVAL,
-					default=current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+					default=current_options.get(
+						CONF_UPDATE_INTERVAL,
+						current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+					),
 				): vol.All(vol.Coerce(int), vol.Range(min=30, max=3600)),
 				vol.Optional(
 					CONF_TIMEOUT,
-					default=current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+					default=current_options.get(
+						CONF_TIMEOUT,
+						current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+					),
 				): vol.All(vol.Coerce(int), vol.Range(min=10, max=120)),
 				vol.Optional(
 					CONF_ENABLE_LOCATION_TRACKING,
-					default=current_data.get(CONF_ENABLE_LOCATION_TRACKING, False),
+					default=current_options.get(
+						CONF_ENABLE_LOCATION_TRACKING,
+						current_data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+					),
 				): bool,
 			}),
 		)
