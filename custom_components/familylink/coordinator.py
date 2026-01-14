@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .client.api import FamilyLinkClient
 from .const import (
 	CONF_ENABLE_LOCATION_TRACKING,
+	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
 	DOMAIN,
 	LOGGER_NAME,
@@ -34,14 +35,24 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
-		self._location_tracking_enabled = entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+
+		# Get settings from options (runtime changes) or fall back to data (initial config)
+		self._location_tracking_enabled = entry.options.get(
+			CONF_ENABLE_LOCATION_TRACKING,
+			entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+		)
+		update_interval = entry.options.get(
+			CONF_UPDATE_INTERVAL,
+			entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+		)
 
 		super().__init__(
 			hass,
 			_LOGGER,
 			name=DOMAIN,
-			update_interval=timedelta(seconds=DEFAULT_UPDATE_INTERVAL),
+			update_interval=timedelta(seconds=update_interval),
 		)
+		_LOGGER.debug(f"Coordinator initialized with update_interval={update_interval}s, location_tracking={self._location_tracking_enabled}")
 
 	async def _async_update_data(self) -> dict[str, Any]:
 		"""Fetch data from Family Link API."""

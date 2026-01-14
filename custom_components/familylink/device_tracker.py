@@ -24,8 +24,12 @@ async def async_setup_entry(
 	async_add_entities: AddEntitiesCallback,
 ) -> None:
 	"""Set up Family Link device tracker entities from a config entry."""
-	# Check if location tracking is enabled
-	if not entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False):
+	# Check if location tracking is enabled (check options first, then data)
+	location_enabled = entry.options.get(
+		CONF_ENABLE_LOCATION_TRACKING,
+		entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+	)
+	if not location_enabled:
 		_LOGGER.debug("Location tracking is disabled, skipping device_tracker setup")
 		return
 
