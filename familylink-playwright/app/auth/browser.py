@@ -34,6 +34,8 @@ class BrowserAuthManager:
 
         try:
             # Launch browser (non-headless so user can interact)
+            # GPU flags are critical for virtualized environments (VirtualBox, VMware, etc.)
+            # where hardware acceleration is not available and can cause "Aw, Snap!" crashes
             browser = await self._playwright.chromium.launch(
                 headless=False,
                 args=[
@@ -41,6 +43,19 @@ class BrowserAuthManager:
                     '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled',
                     '--disable-features=IsolateOrigins,site-per-process',
+                    # GPU-related flags for VM compatibility
+                    '--disable-gpu',
+                    '--disable-gpu-sandbox',
+                    '--disable-software-rasterizer',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-accelerated-video-decode',
+                    # Additional stability flags
+                    '--disable-background-networking',
+                    '--disable-default-apps',
+                    '--disable-extensions',
+                    '--disable-sync',
+                    '--no-first-run',
+                    '--disable-backgrounding-occluded-windows',
                 ]
             )
 
@@ -73,8 +88,10 @@ class BrowserAuthManager:
             context.on("page", on_page)
 
             # Navigate to Google Family Link
+            # Using 'load' instead of 'networkidle' for better reliability
+            # 'networkidle' can timeout on pages with continuous background requests
             _LOGGER.info("Navigating to Google Family Link...")
-            await page.goto('https://families.google.com', wait_until='networkidle', timeout=30000)
+            await page.goto('https://families.google.com', wait_until='load', timeout=30000)
 
             # Start monitoring in background
             asyncio.create_task(self._monitor_authentication(session_id))
@@ -124,7 +141,7 @@ class BrowserAuthManager:
                         # Navigate to families.google.com to ensure cookies are properly configured
                         _LOGGER.info("Navigating to families.google.com to finalize cookie configuration...")
                         try:
-                            await page.goto('https://families.google.com/families/', wait_until='networkidle', timeout=15000)
+                            await page.goto('https://families.google.com/families/', wait_until='load', timeout=15000)
                             _LOGGER.info("Successfully navigated to families.google.com")
                             # Wait a moment for any final cookie updates
                             await asyncio.sleep(2)
