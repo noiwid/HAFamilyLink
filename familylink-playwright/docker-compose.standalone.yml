@@ -14,6 +14,8 @@ services:
       - "5900:5900"  # VNC server
     volumes:
       - ./data:/share/familylink:rw
+    # Increase shared memory size for Chromium (default 64MB is too small)
+    shm_size: '2gb'
     environment:
       - LOG_LEVEL=info
       - AUTH_TIMEOUT=300
