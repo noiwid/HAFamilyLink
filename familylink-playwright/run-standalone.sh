@@ -29,8 +29,9 @@ chmod 755 /share/familylink
 echo "✓ Shared storage ready at /share/familylink"
 
 # Start Xvfb (virtual display)
+# Using 16-bit color depth for better VM compatibility and lower memory usage
 echo "Starting virtual display (Xvfb)..."
-Xvfb :99 -screen 0 1280x1024x24 >/dev/null 2>&1 &
+Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99
 
 # Wait for Xvfb to start
