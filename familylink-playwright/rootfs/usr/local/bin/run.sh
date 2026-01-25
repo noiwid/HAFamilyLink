@@ -27,8 +27,9 @@ chmod 700 /share/familylink
 bashio::log.info "Shared storage ready at /share/familylink"
 
 # Start Xvfb (virtual display)
+# Using 16-bit color depth for better VM compatibility and lower memory usage
 bashio::log.info "Starting virtual display (Xvfb)..."
-Xvfb :99 -screen 0 1280x1024x24 &
+Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp &
 export DISPLAY=:99
 
 # Wait for Xvfb to start

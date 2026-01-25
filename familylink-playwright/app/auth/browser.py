@@ -34,28 +34,44 @@ class BrowserAuthManager:
 
         try:
             # Launch browser (non-headless so user can interact)
-            # GPU flags are critical for virtualized environments (VirtualBox, VMware, etc.)
-            # where hardware acceleration is not available and can cause "Aw, Snap!" crashes
+            # Extensive flags for virtualized/nested VM environments (VirtualBox, VMware, etc.)
+            # These prevent "Aw, Snap!" crashes caused by GPU acceleration and resource constraints
             browser = await self._playwright.chromium.launch(
                 headless=False,
                 args=[
+                    # Sandbox settings
                     '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    # Memory and shared memory
                     '--disable-dev-shm-usage',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-features=IsolateOrigins,site-per-process',
-                    # GPU-related flags for VM compatibility
+                    # GPU and rendering - critical for VMs without GPU passthrough
                     '--disable-gpu',
+                    '--disable-gpu-compositing',
                     '--disable-gpu-sandbox',
                     '--disable-software-rasterizer',
                     '--disable-accelerated-2d-canvas',
                     '--disable-accelerated-video-decode',
-                    # Additional stability flags
+                    '--disable-accelerated-video-encode',
+                    '--disable-features=VizDisplayCompositor',
+                    '--use-gl=swiftshader',
+                    # Process model - single process is more stable in constrained environments
+                    '--single-process',
+                    '--no-zygote',
+                    # Anti-detection
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    # Stability flags
                     '--disable-background-networking',
                     '--disable-default-apps',
                     '--disable-extensions',
                     '--disable-sync',
                     '--no-first-run',
                     '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
+                    '--disable-background-timer-throttling',
+                    # Memory optimization
+                    '--memory-pressure-off',
+                    '--disable-low-res-tiling',
                 ]
             )
 
