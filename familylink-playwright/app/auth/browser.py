@@ -35,7 +35,7 @@ class BrowserAuthManager:
         try:
             # Launch browser (non-headless so user can interact)
             # Extensive flags for virtualized/nested VM environments (VirtualBox, VMware, etc.)
-            # These prevent "Aw, Snap!" crashes caused by GPU acceleration and resource constraints
+            # These prevent crashes caused by GPU acceleration and missing system services
             browser = await self._playwright.chromium.launch(
                 headless=False,
                 args=[
@@ -53,10 +53,10 @@ class BrowserAuthManager:
                     '--disable-accelerated-video-decode',
                     '--disable-accelerated-video-encode',
                     '--disable-features=VizDisplayCompositor',
-                    '--use-gl=swiftshader',
-                    # Process model - single process is more stable in constrained environments
-                    '--single-process',
-                    '--no-zygote',
+                    # System services - disable D-Bus to avoid missing socket errors
+                    '--disable-features=dbus',
+                    '--disable-breakpad',
+                    '--disable-component-update',
                     # Anti-detection
                     '--disable-blink-features=AutomationControlled',
                     '--disable-features=IsolateOrigins,site-per-process',
