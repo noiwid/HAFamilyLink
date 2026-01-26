@@ -1,6 +1,7 @@
 """Switch platform for Google Family Link integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -246,9 +247,10 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 					account_id=self._child_id,
 				)
 				if bonus_cancelled:
-					_LOGGER.info("Successfully cancelled bonus for device %s", self._device_id)
+					_LOGGER.info("Successfully cancelled bonus for device %s, waiting for API sync", self._device_id)
+					await asyncio.sleep(1)
 				else:
-					_LOGGER.warning("Failed to cancel bonus for device %s", self._device_id)
+					_LOGGER.warning("Failed to cancel bonus for device %s, attempting lock anyway", self._device_id)
 
 		# Then lock the device
 		success = await self.coordinator.async_control_device(
