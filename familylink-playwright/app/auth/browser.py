@@ -52,14 +52,19 @@ class BrowserAuthManager:
                     '--disable-accelerated-2d-canvas',
                     '--disable-accelerated-video-decode',
                     '--disable-accelerated-video-encode',
-                    '--disable-features=VizDisplayCompositor',
-                    # System services - disable D-Bus to avoid missing socket errors
-                    '--disable-features=dbus',
+                    # Skia and rendering - addresses SEGV crashes in VMs
+                    '--disable-skia-runtime-opts',
+                    '--disable-partial-raster',
+                    '--disable-zero-copy',
+                    '--disable-lcd-text',
+                    '--disable-font-subpixel-positioning',
+                    # Consolidated disable-features flag
+                    '--disable-features=VizDisplayCompositor,dbus,IsolateOrigins,site-per-process,UseSkiaRenderer,TranslateUI',
+                    # System services
                     '--disable-breakpad',
                     '--disable-component-update',
                     # Anti-detection
                     '--disable-blink-features=AutomationControlled',
-                    '--disable-features=IsolateOrigins,site-per-process',
                     # Stability flags
                     '--disable-background-networking',
                     '--disable-default-apps',
