@@ -38,6 +38,10 @@ class FamilyLinkClient:
 	ORIGIN = "https://familylink.google.com"
 	API_KEY = "AIzaSyAQb1gupaJhY3CXQy2xmTwJMcjmot3M2hw"
 
+	# Maximum session age before recreating (seconds)
+	# SAPISIDHASH timestamp must stay fresh for Google API authentication
+	SESSION_MAX_AGE = 1800  # 30 minutes
+
 	def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
 		"""Initialize the Family Link client."""
 		self.hass = hass
@@ -46,6 +50,7 @@ class FamilyLinkClient:
 		auth_url = config.get("auth_url")
 		self.addon_client = AddonCookieClient(hass, auth_url=auth_url)
 		self._session: aiohttp.ClientSession | None = None
+		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
 
@@ -176,6 +181,12 @@ class FamilyLinkClient:
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
+		# Recreate session if SAPISIDHASH timestamp is too old
+		if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
+			_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
+			await self._session.close()
+			self._session = None
+
 		if self._session is None:
 			# Extract SAPISID cookie for authentication
 			sapisid = None
@@ -265,6 +276,7 @@ class FamilyLinkClient:
 				headers=headers,
 				timeout=aiohttp.ClientTimeout(total=30),
 			)
+			self._session_created_at = time.time()
 
 			_LOGGER.debug("✓ Session created successfully")
 
