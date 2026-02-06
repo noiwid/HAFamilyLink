@@ -1209,17 +1209,28 @@ class FamilyLinkClient:
 							if isinstance(item, list) and len(item) >= 4:
 								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
 								if isinstance(item[0], str):
-									# CAEQ* = daily limit (6 elem) OR bedtime window (8 elem)
-									if item[0].startswith("CAEQ"):
+									first_elem = item[0]
+									is_caeq = first_elem.startswith("CAEQ")
+									is_camq = first_elem.startswith("CAMQ")
+									is_known_prefix = is_caeq or is_camq
+									is_uuid = len(first_elem) == 36 and first_elem.count('-') == 4
+
+									if is_uuid:
+										_LOGGER.debug(
+											f"Device {device_id}: UUID-format identifier detected at index {idx}: "
+											f"{first_elem} (tuple length={len(item)})"
+										)
+
+									if is_known_prefix or is_uuid:
 										if len(item) == 6:
-											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
+											# Daily limit: ["CAEQ*"/UUID, day, stateFlag, minutes, createdMs, updatedMs]
 											day = item[1] if len(item) > 1 else None
 											state_flag = item[2] if len(item) > 2 else None
 											minutes = item[3] if len(item) > 3 else None
 
 											_LOGGER.debug(
-												f"Device {device_id}: Found CAEQ daily limit at index {idx}: "
-												f"day={day}, state_flag={state_flag}, minutes={minutes}"
+												f"Device {device_id}: Found daily limit at index {idx}: "
+												f"id={first_elem}, day={day}, state_flag={state_flag}, minutes={minutes}"
 											)
 
 											# Daily limit is ACTIVE only if:
@@ -1242,18 +1253,31 @@ class FamilyLinkClient:
 														f"FINAL enabled={daily_enabled}, minutes={minutes}"
 													)
 										elif len(item) == 8:
-											# Bedtime window: ["CAEQ*", day, stateFlag, [startH, startM], [endH, endM], createdMs, updatedMs, policyId]
+											# Time window (8 elements): could be bedtime or schooltime
+											# For CAEQ prefix -> bedtime
+											# For CAMQ prefix -> schooltime
+											# For UUID -> determine by structure: if bedtime not yet set, parse as bedtime; otherwise schooltime
 											day = item[1] if len(item) > 1 else None
 											state_flag = item[2] if len(item) > 2 else None
 											start_time = item[3] if len(item) > 3 else None
 											end_time = item[4] if len(item) > 4 else None
 
+											parse_as_bedtime = is_caeq or (is_uuid and device_info["bedtime_window"] is None)
+											parse_as_schooltime = is_camq or (is_uuid and not parse_as_bedtime)
+
+											if parse_as_bedtime:
+												window_type = "bedtime"
+											elif parse_as_schooltime:
+												window_type = "schooltime"
+											else:
+												window_type = "unknown"
+
 											_LOGGER.debug(
-												f"Device {device_id}: CAEQ is bedtime window (8 elements) - "
+												f"Device {device_id}: {first_elem} is {window_type} window (8 elements) - "
 												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
 											)
 
-											# Parse bedtime window if it's for current day and enabled
+											# Parse time window if it's for current day and enabled
 											if (isinstance(day, int) and day == current_day and
 												isinstance(state_flag, int) and state_flag == 2 and
 												isinstance(start_time, list) and len(start_time) == 2 and
@@ -1269,71 +1293,34 @@ class FamilyLinkClient:
 												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
 
 												# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
-												# In this case, if current time is after start OR before end, bedtime is active
 												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
-													# Crosses midnight
-													bedtime_active = (now >= start_dt) or (now < end_dt)
+													window_active = (now >= start_dt) or (now < end_dt)
 												else:
-													# Same day window
-													bedtime_active = (start_dt <= now < end_dt)
+													window_active = (start_dt <= now < end_dt)
 
-												device_info["bedtime_window"] = {
+												window_data = {
 													"start_ms": int(start_dt.timestamp() * 1000),
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
-												device_info["bedtime_active"] = bedtime_active
 
-												_LOGGER.debug(
-													f"Device {device_id}: Bedtime window parsed - "
-													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-													f"current_time={now.strftime('%H:%M')}, active={bedtime_active}"
-												)
-									# CAMQ = schooltime
-									elif item[0].startswith("CAMQ"):
-										# Same format as bedtime
-										if len(item) == 8:
-											day = item[1] if len(item) > 1 else None
-											state_flag = item[2] if len(item) > 2 else None
-											start_time = item[3] if len(item) > 3 else None
-											end_time = item[4] if len(item) > 4 else None
+												if parse_as_bedtime:
+													device_info["bedtime_window"] = window_data
+													device_info["bedtime_active"] = window_active
 
-											_LOGGER.debug(
-												f"Device {device_id}: CAMQ is schooltime window (8 elements) - "
-												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
-											)
+													_LOGGER.debug(
+														f"Device {device_id}: Bedtime window parsed - "
+														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+													)
+												elif parse_as_schooltime:
+													device_info["schooltime_window"] = window_data
+													device_info["schooltime_active"] = window_active
 
-											# Parse schooltime window if it's for current day and enabled
-											if (isinstance(day, int) and day == current_day and
-												isinstance(state_flag, int) and state_flag == 2 and
-												isinstance(start_time, list) and len(start_time) == 2 and
-												isinstance(end_time, list) and len(end_time) == 2):
-
-												# Convert [HH, MM] to epoch milliseconds for today
-												now = datetime.now()
-												start_hour, start_min = start_time[0], start_time[1]
-												end_hour, end_min = end_time[0], end_time[1]
-
-												# Create datetime objects for start and end
-												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
-												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
-
-												# Schooltime shouldn't cross midnight, but handle it anyway
-												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
-													schooltime_active = (now >= start_dt) or (now < end_dt)
-												else:
-													schooltime_active = (start_dt <= now < end_dt)
-
-												device_info["schooltime_window"] = {
-													"start_ms": int(start_dt.timestamp() * 1000),
-													"end_ms": int(end_dt.timestamp() * 1000)
-												}
-												device_info["schooltime_active"] = schooltime_active
-
-												_LOGGER.debug(
-													f"Device {device_id}: Schooltime window parsed - "
-													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-													f"current_time={now.strftime('%H:%M')}, active={schooltime_active}"
-												)
+													_LOGGER.debug(
+														f"Device {device_id}: Schooltime window parsed - "
+														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+													)
 
 							# Look for window objects (arrays with 2 epoch timestamps)
 							elif isinstance(item, list) and len(item) == 2:
