@@ -88,7 +88,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		self._bonus_minutes = bonus_minutes
 
 		self._attr_name = f"{device['name']} +{bonus_minutes}min"
-		self._attr_unique_id = f"{DOMAIN}_{device['id']}_bonus_{bonus_minutes}min"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device['id']}_bonus_{bonus_minutes}min"
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -153,7 +153,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		self._child_name = child_name
 
 		self._attr_name = f"{device['name']} Reset Bonus"
-		self._attr_unique_id = f"{DOMAIN}_{device['id']}_reset_bonus"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device['id']}_reset_bonus"
 
 	@property
 	def device_info(self) -> DeviceInfo:
