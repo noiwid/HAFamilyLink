@@ -24,13 +24,13 @@ _LOGGER = logging.getLogger(LOGGER_NAME)
 
 # Day of week mapping
 DAYS_OF_WEEK = {
-    0: "Monday",
-    1: "Tuesday",
-    2: "Wednesday",
-    3: "Thursday",
-    4: "Friday",
-    5: "Saturday",
-    6: "Sunday",
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
 }
 
 
@@ -720,6 +720,8 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 			return {}
 
 		attributes = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"formatted_time": screen_time.get("formatted", "00:00:00"),
 			"hours": screen_time.get("hours", 0),
@@ -802,6 +804,8 @@ class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, Sen
 			return {}
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"total_minutes": round(screen_time.get("total_seconds", 0) / 60, 1),
 			"hours": screen_time.get("hours", 0),
@@ -859,6 +863,8 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		always_allowed = sum(1 for app in apps if app.get("supervisionSetting", {}).get("alwaysAllowedAppInfo"))
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_apps": len(apps),
 			"blocked_apps": blocked,
 			"apps_with_time_limits": with_limits,
@@ -920,6 +926,8 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		]
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(blocked_apps),
 			"apps": blocked_apps[:20],  # Limit to 20 to avoid attribute size issues
 		}
@@ -982,6 +990,8 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 				})
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(apps_with_limits),
 			"apps": apps_with_limits[:20],  # Limit to 20
 		}
@@ -1082,6 +1092,8 @@ class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		secs = int(seconds % 60)
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"rank": self._rank,
 			"app_name": app_name,
 			"package_name": package,
@@ -1145,6 +1157,8 @@ class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		]
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(devices),
 			"devices": device_list,
 		}
@@ -1205,6 +1219,8 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 		birthday = profile.get("birthday", {})
 
 		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"user_id": child.get("userId"),
 			"role": child.get("role"),
 			"display_name": profile.get("displayName"),
@@ -1464,7 +1480,10 @@ class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEnti
 		if not location:
 			return {}
 
-		attrs = {}
+		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+		}
 
 		if location.get("source_device_name"):
 			attrs["source_device"] = location["source_device_name"]
