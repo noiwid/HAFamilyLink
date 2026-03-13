@@ -112,6 +112,9 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 
 	async def async_press(self) -> None:
 		"""Handle the button press."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot add time bonus: client not connected")
+			return
 		_LOGGER.info(
 			f"Adding {self._bonus_minutes} minutes bonus to device {self._device_name} for {self._child_name}"
 		)
@@ -208,6 +211,10 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.warning(
 				f"Cannot cancel bonus for device {self._device_name}: no active bonus found"
 			)
+			return
+
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot cancel time bonus: client not connected")
 			return
 
 		_LOGGER.info(
