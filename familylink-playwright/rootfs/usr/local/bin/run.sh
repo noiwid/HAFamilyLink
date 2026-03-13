@@ -53,8 +53,8 @@ fluxbox &
 
 # Start VNC server for remote access
 bashio::log.info "Starting VNC server on port 5900..."
-bashio::log.info "VNC password: familylink"
-x11vnc -display :99 -forever -shared -rfbport 5900 -passwd familylink &
+VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
+x11vnc -display :99 -forever -shared -rfbport 5900 -passwd "${VNC_PASSWORD}" &
 
 bashio::log.info "Starting FastAPI application..."
 
