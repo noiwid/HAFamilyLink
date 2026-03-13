@@ -347,3 +347,24 @@ set_daily_limit:
       example: "123456789012345678901"
       selector:
         text:
+
+# Location services
+
+refresh_location:
+  name: Refresh Location
+  description: Request a fresh location update from the child's device. This forces the device to send its current GPS position (uses more battery than cached location). If no child is specified, refreshes location for ALL supervised children.
+  fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
