@@ -22,14 +22,14 @@ echo "Configuration:"
 echo "  - Log Level: ${LOG_LEVEL}"
 echo "  - Auth Timeout: ${AUTH_TIMEOUT}s"
 echo "  - Session Duration: ${SESSION_DURATION}s"
-echo "  - VNC Password: ${VNC_PASSWORD}"
+echo "  - VNC Password: [configured]"
 echo "  - Language: ${LANGUAGE}"
 echo "  - Timezone: ${TIMEZONE}"
 echo ""
 
 # Ensure shared directory exists
 mkdir -p /share/familylink
-chmod 755 /share/familylink
+chmod 700 /share/familylink
 echo "✓ Shared storage ready at /share/familylink"
 
 # Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
@@ -56,7 +56,7 @@ echo "✓ Window manager (fluxbox) started"
 # Start VNC server for remote access
 echo "Starting VNC server on port 5900..."
 x11vnc -display :99 -forever -shared -rfbport 5900 -passwd "${VNC_PASSWORD}" >/dev/null 2>&1 &
-echo "✓ VNC server started (password: ${VNC_PASSWORD})"
+echo "✓ VNC server started"
 echo ""
 
 echo "=============================================="

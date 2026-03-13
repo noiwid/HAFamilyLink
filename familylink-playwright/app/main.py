@@ -1,9 +1,10 @@
 """Main FastAPI application for Family Link Auth."""
 import logging
+import os
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,18 +31,35 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration
+# CORS configuration — restrict to local HA origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:8123",
+        "http://homeassistant.local:8123",
+        "http://supervisor:8123",
+        "http://homeassistant:8123",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
+
+# API key for protecting sensitive endpoints
+_API_KEY = os.getenv("API_KEY", "")
 
 # Global instances
 storage = SharedStorage(config.share_dir)
 browser_manager = None
+
+
+def _verify_api_key(request: Request):
+    """Verify API key for sensitive endpoints."""
+    if not _API_KEY:
+        return  # No key configured — local-only deployment
+    key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    if key != _API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
 @app.on_event("startup")
@@ -368,8 +386,10 @@ async def health_check():
 
 
 @app.post("/api/auth/start")
-async def start_authentication():
+async def start_authentication(_: None = Depends(_verify_api_key)):
     """Start browser authentication flow."""
+    if browser_manager is None:
+        raise HTTPException(status_code=503, detail="Service not ready")
     try:
         session_id = await browser_manager.start_auth_session()
         _LOGGER.info(f"Started auth session: {session_id}")
@@ -380,12 +400,14 @@ async def start_authentication():
         }
     except Exception as e:
         _LOGGER.error(f"Failed to start auth: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Authentication start failed")
 
 
 @app.get("/api/auth/status/{session_id}")
-async def check_auth_status(session_id: str):
+async def check_auth_status(session_id: str, _: None = Depends(_verify_api_key)):
     """Check authentication status."""
+    if browser_manager is None:
+        raise HTTPException(status_code=503, detail="Service not ready")
     status = await browser_manager.get_session_status(session_id)
     return status
 
@@ -398,7 +420,7 @@ async def check_cookies():
 
 
 @app.get("/api/cookies")
-async def get_cookies():
+async def get_cookies(_: None = Depends(_verify_api_key)):
     """Retrieve stored cookies (for integration)."""
     try:
         cookies = await storage.load_cookies()
@@ -411,18 +433,18 @@ async def get_cookies():
         raise HTTPException(status_code=404, detail="No cookies found")
     except Exception as e:
         _LOGGER.error(f"Failed to load cookies: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to load cookies")
 
 
 @app.delete("/api/cookies")
-async def delete_cookies():
+async def delete_cookies(_: None = Depends(_verify_api_key)):
     """Delete stored cookies."""
     try:
         await storage.clear_cookies()
         return {"status": "success", "message": "Cookies deleted"}
     except Exception as e:
         _LOGGER.error(f"Failed to delete cookies: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to delete cookies")
 
 
 if __name__ == "__main__":
