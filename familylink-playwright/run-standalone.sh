@@ -15,18 +15,29 @@ LOG_LEVEL="${LOG_LEVEL:-info}"
 AUTH_TIMEOUT="${AUTH_TIMEOUT:-300}"
 SESSION_DURATION="${SESSION_DURATION:-86400}"
 VNC_PASSWORD="${VNC_PASSWORD:-familylink}"
+LANGUAGE="${LANGUAGE:-en-US}"
+TIMEZONE="${TIMEZONE:-Europe/Paris}"
 
 echo "Configuration:"
 echo "  - Log Level: ${LOG_LEVEL}"
 echo "  - Auth Timeout: ${AUTH_TIMEOUT}s"
 echo "  - Session Duration: ${SESSION_DURATION}s"
 echo "  - VNC Password: ${VNC_PASSWORD}"
+echo "  - Language: ${LANGUAGE}"
+echo "  - Timezone: ${TIMEZONE}"
 echo ""
 
 # Ensure shared directory exists
 mkdir -p /share/familylink
 chmod 755 /share/familylink
 echo "✓ Shared storage ready at /share/familylink"
+
+# Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
+if [ ! -S /run/dbus/system_bus_socket ]; then
+    echo "Starting D-Bus system bus..."
+    mkdir -p /run/dbus
+    dbus-daemon --system --fork 2>/dev/null || echo "⚠ D-Bus not available (non-critical)"
+fi
 
 # Start Xvfb (virtual display)
 # Using 16-bit color depth for better VM compatibility and lower memory usage

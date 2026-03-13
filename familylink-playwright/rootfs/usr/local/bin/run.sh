@@ -32,6 +32,13 @@ chmod 700 /share/familylink
 
 bashio::log.info "Shared storage ready at /share/familylink"
 
+# Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
+if [ ! -S /run/dbus/system_bus_socket ]; then
+    bashio::log.info "Starting D-Bus system bus..."
+    mkdir -p /run/dbus
+    dbus-daemon --system --fork 2>/dev/null || bashio::log.warning "D-Bus not available (non-critical)"
+fi
+
 # Start Xvfb (virtual display)
 # Using 16-bit color depth for better VM compatibility and lower memory usage
 bashio::log.info "Starting virtual display (Xvfb)..."
