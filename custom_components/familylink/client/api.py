@@ -519,7 +519,11 @@ class FamilyLinkClient:
 
 					# Extract seconds from "1809.5s" format
 					usage_str = session.get("usage", "0s")
-					usage_seconds = float(usage_str.replace("s", ""))
+					try:
+						usage_seconds = float(usage_str.rstrip("s"))
+					except (ValueError, TypeError):
+						_LOGGER.debug("Invalid usage format: %s", usage_str)
+						usage_seconds = 0
 					total_seconds += usage_seconds
 
 					# Track per-app usage

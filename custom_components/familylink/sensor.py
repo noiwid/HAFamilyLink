@@ -1235,8 +1235,8 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 			"email": profile.get("email"),
 		}
 
-		if birthday:
-			attrs["birthday"] = f"{birthday.get('year')}-{birthday.get('month'):02d}-{birthday.get('day'):02d}"
+		if birthday and all(birthday.get(k) is not None for k in ("year", "month", "day")):
+			attrs["birthday"] = f"{birthday['year']}-{birthday['month']:02d}-{birthday['day']:02d}"
 
 		if "ageBandLabel" in child:
 			attrs["age_band"] = child["ageBandLabel"]
