@@ -74,6 +74,7 @@ async def startup_event():
             auth_timeout=config.auth_timeout,
             language=config.language,
             timezone=config.timezone,
+            storage=storage,
         )
         await browser_manager.initialize()
         _LOGGER.info("Service started successfully")
