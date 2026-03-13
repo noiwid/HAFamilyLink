@@ -146,7 +146,7 @@ session_duration: 86400
 
 The add-on provides **two methods** for the integration to retrieve cookies:
 
-#### 1. HTTP API (Recommended for Docker standalone)
+#### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
 - **Endpoint**: `GET /api/cookies`
 - **URL**: `http://<addon-ip>:8099/api/cookies`
 - No shared volumes needed

@@ -51,7 +51,7 @@
 | Capability / Domain | Method | Endpoint | Payload Format | Notes |
 |---|---|---|---|---|
 | **Block/Unblock app** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], [1]]]]` for block<br>`[childId, [[[packageName], []]]]` for unblock | `[1]` = block, `[]` = unblock |
-| **Set per-app time limit** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], null, [minutes, 1]]]]` for set<br>`[childId, [[[packageName]]]]` to disable limit | `minutes` = daily limit (0 = blocked), disable = unlimited |
+| **Set per-app time limit** | POST | `/kidsmanagement/v1/people/{childId}/apps:updateRestrictions` | `[childId, [[[packageName], null, [minutes, 1]]]]` for set<br>`[childId, [[[packageName]]]]` to disable limit<br>`[childId, [[[packageName], null, null, [1]]]]` for unlimited time | `minutes` = daily limit (0 = blocked), disable = follows device limits, unlimited = ignores device limits |
 | **Device lock/unlock** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, action_code, deviceId]], [1]]` | `action_code`: 1=LOCK, 4=UNLOCK |
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
 | **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
@@ -415,6 +415,17 @@ Each session represents daily usage for one app:
 | `[1][0][2][0]` | minutes | int | Daily limit in minutes (0-1440) |
 | `[1][0][2][1]` | enabled_flag | int | 1 = enabled, 0 = disabled |
 
+### App Restriction States
+
+Google Family Link supports 4 distinct states for per-app restrictions:
+
+| State | Payload | Description |
+|-------|---------|-------------|
+| **Blocked** | `[childId, [[[packageName], [1]]]]` | App completely unavailable |
+| **App limit off** | `[childId, [[[packageName]]]]` | App follows device daily limits |
+| **Set limit** | `[childId, [[[packageName], null, [minutes, 1]]]]` | App has its own time restriction |
+| **Unlimited time** | `[childId, [[[packageName], null, null, [1]]]]` | App ignores device limits entirely |
+
 ### Examples
 
 **Set 60 minutes daily limit for TikTok:**
@@ -422,14 +433,19 @@ Each session represents daily usage for one app:
 ["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [60, 1]]]]
 ```
 
-**Set limit to 0 minutes (completely blocked):**
+**Set limit to 0 minutes (completely blocked for today):**
 ```json
 ["116774149781348048793", [[["com.zhiliaoapp.musically"], null, [0, 1]]]]
 ```
 
-**Disable limit (restore unlimited):**
+**Disable app limit (app follows device limits):**
 ```json
 ["116774149781348048793", [[["com.zhiliaoapp.musically"]]]]
+```
+
+**Set app to unlimited time (ignores device limits):**
+```json
+["116774149781348048793", [[["com.zhiliaoapp.musically"], null, null, [1]]]]
 ```
 
 ### Response
@@ -442,7 +458,8 @@ Returns a transaction ID/timestamp on success.
 - This endpoint is the same as block/unblock app but with different payload structure
 - Setting a limit on an app without an existing limit will create the limit
 - `minutes: 0` with `enabled_flag: 1` means **0 minutes allowed** (completely blocked for today)
-- To **disable** the limit entirely (unlimited), use `[childId, [[[packageName]]]]` without the time limit array
+- To **disable** the app limit (app follows device limits), use `[childId, [[[packageName]]]]` without the time limit array
+- To set **unlimited time** (app ignores device limits), use `[childId, [[[packageName], null, null, [1]]]]` — the `[1]` flag at position 3 enables unlimited mode
 - The limit is **per-app, per-child** (not per-device)
 - Updated limits are reflected in `sensor.<child>_apps_with_time_limits`
 
