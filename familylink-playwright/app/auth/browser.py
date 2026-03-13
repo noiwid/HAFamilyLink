@@ -74,6 +74,8 @@ class BrowserAuthManager:
                     # Memory optimization
                     '--memory-pressure-off',
                     '--disable-low-res-tiling',
+                    # ARM64 / RPi compatibility
+                    '--ozone-platform=x11',
                 ]
             )
 
