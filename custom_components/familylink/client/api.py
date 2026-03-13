@@ -12,6 +12,7 @@ from typing import Any
 import aiohttp
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
@@ -53,6 +54,14 @@ class FamilyLinkClient:
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
+
+	@staticmethod
+	def _validate_id(value: str, name: str = "ID") -> str:
+		"""Validate that an ID is safe for URL interpolation."""
+		import re
+		if not value or not re.match(r'^[a-zA-Z0-9_\-]+$', value):
+			raise ValueError(f"Invalid {name}: contains disallowed characters")
+		return value
 
 	async def async_authenticate(self) -> None:
 		"""Authenticate with Family Link."""
@@ -245,7 +254,7 @@ class FamilyLinkClient:
 							f"using {sapisid_domain} (prioritized over regional domains)"
 						)
 					_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
-					_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
+					_LOGGER.debug("SAPISID cookie found")
 
 			if not sapisid:
 				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
@@ -253,7 +262,7 @@ class FamilyLinkClient:
 
 			# Generate authorization header
 			sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
-			_LOGGER.debug(f"Generated SAPISIDHASH (first 20 chars): {sapisidhash[:20]}...")
+			_LOGGER.debug("Generated SAPISIDHASH for session")
 
 			# Create session with Google Family Link API headers
 			# Note: We don't use a cookie jar - cookies are passed directly in each request
@@ -269,8 +278,7 @@ class FamilyLinkClient:
 				"Authorization": f"SAPISIDHASH {sapisidhash}",
 			}
 
-			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
-			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
+			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}")
 
 			self._session = aiohttp.ClientSession(
 				headers=headers,
@@ -416,13 +424,10 @@ class FamilyLinkClient:
 				params=params
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
-				_LOGGER.debug(f"Response headers: {dict(response.headers)}")
-
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"API Error {response.status}: {response_text}")
-					_LOGGER.error(f"Request URL was: {url}?{params}")
-					_LOGGER.error(f"Request headers: {dict(response.request_info.headers)}")
+					_LOGGER.error(f"Request URL was: {url}")
 
 				response.raise_for_status()
 				data = await response.json()
@@ -492,7 +497,7 @@ class FamilyLinkClient:
 			- app_breakdown: Per-app usage breakdown
 		"""
 		if target_date is None:
-			target_date = datetime.now()
+			target_date = dt_util.now()
 
 		try:
 			data = await self.async_get_apps_and_usage(account_id)
@@ -586,6 +591,7 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
+			self._validate_id(account_id, "account_id")
 			url = f"{self.BASE_URL}/families/mine/location/{account_id}"
 			params = [
 				("locationRefreshMode", "REFRESH" if refresh else "DO_NOT_REFRESH"),
@@ -1217,7 +1223,7 @@ class FamilyLinkClient:
 						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
 
 						# Get current day of week (1=Monday, 7=Sunday)
-						current_day = datetime.now().isoweekday()
+						current_day = dt_util.now().isoweekday()
 						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
 
 						for idx, item in enumerate(device_data):
@@ -1299,7 +1305,7 @@ class FamilyLinkClient:
 												isinstance(end_time, list) and len(end_time) == 2):
 
 												# Convert [HH, MM] to epoch milliseconds for today
-												now = datetime.now()
+												now = dt_util.now()
 												start_hour, start_min = start_time[0], start_time[1]
 												end_hour, end_min = end_time[0], end_time[1]
 
@@ -1407,6 +1413,8 @@ class FamilyLinkClient:
 					"devices": devices
 				}
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
@@ -1910,7 +1918,7 @@ class FamilyLinkClient:
 				6: "CAEQBg",  # Saturday
 				7: "CAEQBw",  # Sunday
 			}
-			current_day = datetime.now().isoweekday()
+			current_day = dt_util.now().isoweekday()
 			day_code = day_codes[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -1991,7 +1999,7 @@ class FamilyLinkClient:
 
 			# Use provided day or default to today
 			if day is None:
-				day = datetime.now().isoweekday()
+				day = dt_util.now().isoweekday()
 
 			if day not in day_codes:
 				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
@@ -2243,6 +2251,8 @@ class FamilyLinkClient:
 					"schooltime_rule_id": schooltime_rule_id
 				}
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Failed to fetch time limit rules: %s", err)
 			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
