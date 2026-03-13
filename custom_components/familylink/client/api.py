@@ -811,14 +811,19 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			if minutes >= 0:
+			if minutes == -2:
+				# Unlimited time: [account_id, [[[package_name], null, null, [1]]]]
+				# App ignores device daily limits entirely
+				payload = json.dumps([account_id, [[[package_name], None, None, [1]]]])
+				_LOGGER.debug(f"Setting app to unlimited time: {package_name}")
+			elif minutes >= 0:
 				# Set limit: [account_id, [[[package_name], null, [minutes, 1]]]]
 				# Note: minutes=0 means 0 minutes allowed (app completely blocked for today)
 				payload = json.dumps([account_id, [[[package_name], None, [minutes, 1]]]])
 				_LOGGER.debug(f"Setting app daily limit: {package_name} = {minutes} minutes")
 			else:
-				# Remove limit entirely: [account_id, [[[package_name]]]]
-				# This disables the per-app limit (app becomes unlimited)
+				# Remove limit entirely (minutes == -1): [account_id, [[[package_name]]]]
+				# This disables the per-app limit (app follows device limits)
 				payload = json.dumps([account_id, [[[package_name]]]])
 				_LOGGER.debug(f"Removing app daily limit: {package_name}")
 
@@ -831,7 +836,9 @@ class FamilyLinkClient:
 				data=payload
 			) as response:
 				response.raise_for_status()
-				if minutes >= 0:
+				if minutes == -2:
+					_LOGGER.info(f"Successfully set app to unlimited time: {package_name}")
+				elif minutes >= 0:
 					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} minutes")
 				else:
 					_LOGGER.info(f"Successfully removed app daily limit: {package_name}")
