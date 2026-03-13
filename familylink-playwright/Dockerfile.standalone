@@ -76,7 +76,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 LABEL \
     org.opencontainers.image.title="Google Family Link Auth (Standalone)" \
     org.opencontainers.image.description="Standalone authentication service for Google Family Link" \
-    org.opencontainers.image.version="1.2.3" \
+    org.opencontainers.image.version="1.4.0" \
     org.opencontainers.image.source="https://github.com/noiwid/HAFamilyLink"
 
 # Start the service
