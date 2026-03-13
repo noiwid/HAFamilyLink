@@ -51,6 +51,7 @@ class FamilyLinkClient:
 		auth_url = config.get("auth_url")
 		self.addon_client = AddonCookieClient(hass, auth_url=auth_url)
 		self._session: aiohttp.ClientSession | None = None
+		self._session_lock = asyncio.Lock()
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
@@ -190,105 +191,95 @@ class FamilyLinkClient:
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
-		# Recreate session if SAPISIDHASH timestamp is too old
-		if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
-			_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
-			await self._session.close()
-			self._session = None
+		async with self._session_lock:
+			# Recreate session if SAPISIDHASH timestamp is too old
+			if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
+				_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
+				await self._session.close()
+				self._session = None
 
-		if self._session is None:
-			# Extract SAPISID cookie for authentication
-			sapisid = None
-			sapisid_domain = None
+			if self._session is None:
+				# Extract SAPISID cookie for authentication
+				sapisid = None
+				sapisid_domain = None
 
-			_LOGGER.debug("Creating new session with authentication")
+				_LOGGER.debug("Creating new session with authentication")
 
-			if self._cookies:
-				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
+				if self._cookies:
+					_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
 
-				# Collect all SAPISID cookies and prioritize .google.com over regional domains
-				# The API expects SAPISID from .google.com, not regional TLDs like .google.com.au
-				sapisid_candidates = []
+					# Collect all SAPISID cookies and prioritize .google.com over regional domains
+					sapisid_candidates = []
 
-				for cookie in self._cookies:
-					cookie_name = cookie.get("name", "")
-					cookie_domain = cookie.get("domain", "")
+					for cookie in self._cookies:
+						cookie_name = cookie.get("name", "")
+						cookie_domain = cookie.get("domain", "")
 
-					# Find SAPISID cookie
-					if cookie_name == "SAPISID":
-						# Accept any Google domain including regional TLDs
-						# Examples: .google.com, .google.com.au, .google.co.uk, .google.fr
-						domain_lower = cookie_domain.lower().lstrip(".")
-						if domain_lower.startswith("google.") or ".google." in domain_lower:
-							cookie_value = cookie.get("value", "").strip('"')
-							sapisid_candidates.append({
-								"value": cookie_value,
-								"domain": cookie_domain,
-								"domain_lower": domain_lower
-							})
-							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
-						else:
-							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
+						if cookie_name == "SAPISID":
+							domain_lower = cookie_domain.lower().lstrip(".")
+							if domain_lower.startswith("google.") or ".google." in domain_lower:
+								cookie_value = cookie.get("value", "").strip('"')
+								sapisid_candidates.append({
+									"value": cookie_value,
+									"domain": cookie_domain,
+									"domain_lower": domain_lower
+								})
+								_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
+							else:
+								_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
 
-				# Prioritize .google.com (main domain) over regional variants
-				# Regional TLDs like .google.com.au won't work with the API
-				if sapisid_candidates:
-					# Sort: google.com first, then others
-					def domain_priority(candidate):
-						d = candidate["domain_lower"]
-						if d == "google.com":
-							return 0  # Highest priority
-						elif d.startswith("google.com.") or d.startswith("google.co."):
-							return 2  # Regional TLD - lowest priority
-						else:
-							return 1  # Other google domains
+					if sapisid_candidates:
+						def domain_priority(candidate):
+							d = candidate["domain_lower"]
+							if d == "google.com":
+								return 0
+							elif d.startswith("google.com.") or d.startswith("google.co."):
+								return 2
+							else:
+								return 1
 
-					sapisid_candidates.sort(key=domain_priority)
-					best_candidate = sapisid_candidates[0]
-					sapisid = best_candidate["value"]
-					sapisid_domain = best_candidate["domain"]
+						sapisid_candidates.sort(key=domain_priority)
+						best_candidate = sapisid_candidates[0]
+						sapisid = best_candidate["value"]
+						sapisid_domain = best_candidate["domain"]
 
-					if len(sapisid_candidates) > 1:
-						_LOGGER.info(
-							f"Found {len(sapisid_candidates)} SAPISID cookies, "
-							f"using {sapisid_domain} (prioritized over regional domains)"
-						)
-					_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
-					_LOGGER.debug("SAPISID cookie found")
+						if len(sapisid_candidates) > 1:
+							_LOGGER.info(
+								f"Found {len(sapisid_candidates)} SAPISID cookies, "
+								f"using {sapisid_domain} (prioritized over regional domains)"
+							)
+						_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
+						_LOGGER.debug("SAPISID cookie found")
 
-			if not sapisid:
-				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
-				raise AuthenticationError("SAPISID cookie not found in authentication data")
+				if not sapisid:
+					_LOGGER.error("✗ SAPISID cookie not found in authentication data")
+					raise AuthenticationError("SAPISID cookie not found in authentication data")
 
-			# Generate authorization header
-			sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
-			_LOGGER.debug("Generated SAPISIDHASH for session")
+				sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
+				_LOGGER.debug("Generated SAPISIDHASH for session")
 
-			# Create session with Google Family Link API headers
-			# Note: We don't use a cookie jar - cookies are passed directly in each request
-			headers = {
-				"User-Agent": (
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-					"AppleWebKit/537.36 (KHTML, like Gecko) "
-					"Chrome/120.0.0.0 Safari/537.36"
-				),
-				"Origin": self.ORIGIN,
-				"Content-Type": "application/json+protobuf",
-				"X-Goog-Api-Key": self.API_KEY,
-				"Authorization": f"SAPISIDHASH {sapisidhash}",
-			}
+				headers = {
+					"User-Agent": (
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+						"AppleWebKit/537.36 (KHTML, like Gecko) "
+						"Chrome/120.0.0.0 Safari/537.36"
+					),
+					"Origin": self.ORIGIN,
+					"Content-Type": "application/json+protobuf",
+					"X-Goog-Api-Key": self.API_KEY,
+					"Authorization": f"SAPISIDHASH {sapisidhash}",
+				}
 
-			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}")
+				_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}")
 
-			self._session = aiohttp.ClientSession(
-				headers=headers,
-				timeout=aiohttp.ClientTimeout(total=30),
-			)
-			self._session_created_at = time.time()
+				self._session = aiohttp.ClientSession(
+					headers=headers,
+					timeout=aiohttp.ClientTimeout(total=30),
+				)
+				self._session_created_at = time.time()
+				_LOGGER.debug("✓ Session created successfully")
 
-			_LOGGER.debug("✓ Session created successfully")
-
-		return self._session
+			return self._session
 
 	async def async_get_family_members(self) -> dict[str, Any]:
 		"""Get list of all family members.

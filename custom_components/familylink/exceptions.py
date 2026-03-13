@@ -22,7 +22,7 @@ class NetworkError(FamilyLinkException):
 	"""Exception raised when network operations fail."""
 
 
-class TimeoutError(FamilyLinkException):
+class FamilyLinkTimeoutError(FamilyLinkException):
 	"""Exception raised when operations timeout."""
 
 
