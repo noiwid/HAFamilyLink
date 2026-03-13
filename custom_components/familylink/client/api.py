@@ -1109,7 +1109,7 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					return {"device_lock_states": {}, "devices": {}}
+					raise NetworkError(f"Failed to fetch applied time limits: HTTP {response.status}")
 
 				data = await response.json()
 				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")

@@ -358,6 +358,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.error("Failed to refresh authentication: %s", err)
 			# Clear client to force re-authentication on next update
 			self.client = None
+			raise
 
 	async def async_control_device(
 		self, device_id: str, action: str, child_id: str | None = None
