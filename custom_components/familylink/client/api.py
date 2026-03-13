@@ -2251,4 +2251,9 @@ class FamilyLinkClient:
 		"""Clean up client resources."""
 		if self._session:
 			await self._session.close()
-			self._session = None 
+			self._session = None
+		# Clear cached cookie data
+		if hasattr(self, '_cookie_dict'):
+			del self._cookie_dict
+		if hasattr(self, '_cookie_header'):
+			del self._cookie_header
