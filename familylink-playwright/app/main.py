@@ -52,7 +52,11 @@ async def startup_event():
     _LOGGER.info(f"Configuration: log_level={config.log_level}, auth_timeout={config.auth_timeout}s")
 
     try:
-        browser_manager = BrowserAuthManager(auth_timeout=config.auth_timeout)
+        browser_manager = BrowserAuthManager(
+            auth_timeout=config.auth_timeout,
+            language=config.language,
+            timezone=config.timezone,
+        )
         await browser_manager.initialize()
         _LOGGER.info("Service started successfully")
     except Exception as e:

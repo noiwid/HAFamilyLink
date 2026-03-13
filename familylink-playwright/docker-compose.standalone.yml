@@ -21,6 +21,8 @@ services:
       - AUTH_TIMEOUT=300
       - SESSION_DURATION=86400
       - VNC_PASSWORD=familylink
+      - LANGUAGE=en-US
+      - TIMEZONE=Europe/Paris
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]
