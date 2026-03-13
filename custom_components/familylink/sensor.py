@@ -107,7 +107,7 @@ async def async_setup_entry(
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
 
         # Battery sensor (only if location tracking is enabled, as battery comes from location data)
-        if entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False):
+        if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
             entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
         # Time management schedule sensors removed - data not available at child level
@@ -641,27 +641,33 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                         # Add window details if available
                         bedtime_window = time_data.get("bedtime_window")
                         if bedtime_window:
-                            try:
-                                attributes["bedtime_start"] = datetime.fromtimestamp(
-                                    bedtime_window.get("start_ms", 0) / 1000
-                                ).isoformat()
-                                attributes["bedtime_end"] = datetime.fromtimestamp(
-                                    bedtime_window.get("end_ms", 0) / 1000
-                                ).isoformat()
-                            except (ValueError, OSError):
-                                pass
+                            start_ms = bedtime_window.get("start_ms")
+                            end_ms = bedtime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
                         schooltime_window = time_data.get("schooltime_window")
                         if schooltime_window:
-                            try:
-                                attributes["schooltime_start"] = datetime.fromtimestamp(
-                                    schooltime_window.get("start_ms", 0) / 1000
-                                ).isoformat()
-                                attributes["schooltime_end"] = datetime.fromtimestamp(
-                                    schooltime_window.get("end_ms", 0) / 1000
-                                ).isoformat()
-                            except (ValueError, OSError):
-                                pass
+                            start_ms = schooltime_window.get("start_ms")
+                            end_ms = schooltime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
         return attributes
 

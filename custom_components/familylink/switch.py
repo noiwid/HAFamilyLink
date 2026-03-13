@@ -38,13 +38,8 @@ async def async_setup_entry(
 
 	entities = []
 
-	# Wait for first data fetch to get children
-	if not coordinator.data or "children_data" not in coordinator.data:
-		_LOGGER.warning("No children data available yet, switches will be added on first update")
-		return
-
 	# Create switch entities for each child and their devices
-	for child_data in coordinator.data.get("children_data", []):
+	for child_data in coordinator.data.get("children_data", []) if coordinator.data else []:
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
 
