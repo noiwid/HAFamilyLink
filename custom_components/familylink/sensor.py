@@ -641,21 +641,27 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                         # Add window details if available
                         bedtime_window = time_data.get("bedtime_window")
                         if bedtime_window:
-                            attributes["bedtime_start"] = datetime.fromtimestamp(
-                                bedtime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["bedtime_end"] = datetime.fromtimestamp(
-                                bedtime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            try:
+                                attributes["bedtime_start"] = datetime.fromtimestamp(
+                                    bedtime_window.get("start_ms", 0) / 1000
+                                ).isoformat()
+                                attributes["bedtime_end"] = datetime.fromtimestamp(
+                                    bedtime_window.get("end_ms", 0) / 1000
+                                ).isoformat()
+                            except (ValueError, OSError):
+                                pass
 
                         schooltime_window = time_data.get("schooltime_window")
                         if schooltime_window:
-                            attributes["schooltime_start"] = datetime.fromtimestamp(
-                                schooltime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["schooltime_end"] = datetime.fromtimestamp(
-                                schooltime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            try:
+                                attributes["schooltime_start"] = datetime.fromtimestamp(
+                                    schooltime_window.get("start_ms", 0) / 1000
+                                ).isoformat()
+                                attributes["schooltime_end"] = datetime.fromtimestamp(
+                                    schooltime_window.get("end_ms", 0) / 1000
+                                ).isoformat()
+                            except (ValueError, OSError):
+                                pass
 
         return attributes
 

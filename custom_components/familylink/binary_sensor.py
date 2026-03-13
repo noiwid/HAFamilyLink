@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -215,11 +216,15 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 			start_ms = bedtime_window.get("start_ms")
 			end_ms = bedtime_window.get("end_ms")
 			if start_ms:
-				from datetime import datetime
-				attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				try:
+					attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 			if end_ms:
-				from datetime import datetime
-				attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				try:
+					attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 
 		return attributes
 
@@ -277,11 +282,15 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 			start_ms = schooltime_window.get("start_ms")
 			end_ms = schooltime_window.get("end_ms")
 			if start_ms:
-				from datetime import datetime
-				attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				try:
+					attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 			if end_ms:
-				from datetime import datetime
-				attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				try:
+					attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 
 		return attributes
 

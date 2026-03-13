@@ -668,7 +668,10 @@ class FamilyLinkClient:
 				if len(location_array) > 8 and isinstance(location_array[8], list):
 					battery_info = location_array[8]
 					if len(battery_info) > 0 and battery_info[0] is not None:
-						battery_level = int(battery_info[0])
+						try:
+							battery_level = int(battery_info[0])
+						except (ValueError, TypeError):
+							_LOGGER.debug("Invalid battery value: %s", battery_info[0])
 					# Note: battery_info[1] may contain charging state but not confirmed yet
 
 				# Convert timestamp to ISO format
