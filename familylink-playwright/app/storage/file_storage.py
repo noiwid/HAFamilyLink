@@ -21,9 +21,9 @@ class SharedStorage:
         self.key_file = self.share_dir / ".key"
         self._encryption_key = self._get_encryption_key()
 
-        # Ensure directory exists with permissions for Home Assistant to read
+        # Ensure directory exists — HA add-ons share /share via mapped volume
         self.share_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.share_dir, 0o755)  # Readable by all
+        os.chmod(self.share_dir, 0o700)
 
     def _get_encryption_key(self) -> bytes:
         """Get or create encryption key."""
@@ -34,7 +34,7 @@ class SharedStorage:
         # Generate new key
         key = Fernet.generate_key()
         self.key_file.write_bytes(key)
-        os.chmod(self.key_file, 0o644)  # Readable by all
+        os.chmod(self.key_file, 0o600)
 
         _LOGGER.info("Generated new encryption key")
         return key
@@ -59,8 +59,7 @@ class SharedStorage:
             temp_file.write_bytes(encrypted)
             temp_file.rename(self.storage_path)
 
-            # Set permissions readable by Home Assistant
-            os.chmod(self.storage_path, 0o644)  # Readable by all
+            os.chmod(self.storage_path, 0o600)
 
             _LOGGER.info(f"Saved {len(cookies)} cookies to shared storage")
 

@@ -12,11 +12,17 @@ _LOGGER = logging.getLogger(__name__)
 class BrowserAuthManager:
     """Manages browser-based authentication sessions."""
 
-    def __init__(self, auth_timeout: int = 300):
+    MAX_CONCURRENT_SESSIONS = 1
+
+    def __init__(self, auth_timeout: int = 300, language: str = "en-US", timezone: str = "Europe/Paris", storage=None):
         """Initialize browser auth manager."""
         self._sessions: Dict[str, Dict] = {}
+        self._monitor_tasks: Dict[str, asyncio.Task] = {}
         self._playwright = None
         self._auth_timeout = auth_timeout
+        self._language = language
+        self._timezone = timezone
+        self._storage = storage  # Injected SharedStorage instance
 
     async def initialize(self):
         """Initialize Playwright."""
@@ -29,6 +35,11 @@ class BrowserAuthManager:
 
     async def start_auth_session(self) -> str:
         """Start a new authentication session."""
+        # Prevent concurrent sessions (memory protection, especially on RPi)
+        active = [s for s in self._sessions.values() if s.get('status') == 'authenticating']
+        if len(active) >= self.MAX_CONCURRENT_SESSIONS:
+            raise RuntimeError("An authentication session is already in progress. Please wait or cancel it first.")
+
         session_id = str(uuid.uuid4())
         _LOGGER.info(f"Starting authentication session: {session_id}")
 
@@ -52,14 +63,19 @@ class BrowserAuthManager:
                     '--disable-accelerated-2d-canvas',
                     '--disable-accelerated-video-decode',
                     '--disable-accelerated-video-encode',
-                    '--disable-features=VizDisplayCompositor',
-                    # System services - disable D-Bus to avoid missing socket errors
-                    '--disable-features=dbus',
+                    # Skia and rendering - addresses SEGV crashes in VMs
+                    '--disable-skia-runtime-opts',
+                    '--disable-partial-raster',
+                    '--disable-zero-copy',
+                    '--disable-lcd-text',
+                    '--disable-font-subpixel-positioning',
+                    # Consolidated disable-features flag
+                    '--disable-features=VizDisplayCompositor,dbus,IsolateOrigins,site-per-process,UseSkiaRenderer,TranslateUI',
+                    # System services
                     '--disable-breakpad',
                     '--disable-component-update',
                     # Anti-detection
                     '--disable-blink-features=AutomationControlled',
-                    '--disable-features=IsolateOrigins,site-per-process',
                     # Stability flags
                     '--disable-background-networking',
                     '--disable-default-apps',
@@ -72,6 +88,8 @@ class BrowserAuthManager:
                     # Memory optimization
                     '--memory-pressure-off',
                     '--disable-low-res-tiling',
+                    # ARM64 / RPi compatibility
+                    '--ozone-platform=x11',
                 ]
             )
 
@@ -79,21 +97,23 @@ class BrowserAuthManager:
             context = await browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 viewport={'width': 1280, 'height': 800},
-                locale='fr-FR',
-                timezone_id='Europe/Paris'
+                locale=self._language,
+                timezone_id=self._timezone
             )
 
             # Create page
             page = await context.new_page()
 
             # Store session
+            import time
             self._sessions[session_id] = {
                 'browser': browser,
                 'context': context,
                 'page': page,
                 'status': 'authenticating',
                 'cookies': None,
-                'error': None
+                'error': None,
+                'created_at': time.time(),
             }
 
             # Listen for new tabs/popups
@@ -109,8 +129,10 @@ class BrowserAuthManager:
             _LOGGER.info("Navigating to Google Family Link...")
             await page.goto('https://families.google.com', wait_until='load', timeout=30000)
 
-            # Start monitoring in background
-            asyncio.create_task(self._monitor_authentication(session_id))
+            # Start monitoring in background with proper error handling
+            task = asyncio.create_task(self._monitor_authentication(session_id))
+            task.add_done_callback(lambda t: self._on_monitor_done(session_id, t))
+            self._monitor_tasks[session_id] = task
 
             return session_id
 
@@ -189,10 +211,13 @@ class BrowserAuthManager:
 
             _LOGGER.info(f"Extracted {len(google_cookies)} Google cookies")
 
-            # Save to shared storage
-            from app.storage.file_storage import SharedStorage
-            storage = SharedStorage()
-            await storage.save_cookies(google_cookies)
+            # Save to shared storage (use injected instance to avoid config mismatch)
+            if self._storage:
+                await self._storage.save_cookies(google_cookies)
+            else:
+                from app.storage.file_storage import SharedStorage
+                storage = SharedStorage()
+                await storage.save_cookies(google_cookies)
 
             # Update session
             session['status'] = 'completed'
@@ -215,6 +240,15 @@ class BrowserAuthManager:
             session['error'] = str(e)
             _LOGGER.error(f"Authentication error for session {session_id}: {e}")
             await self._cleanup_session(session_id)
+
+    def _on_monitor_done(self, session_id: str, task: asyncio.Task):
+        """Handle monitor task completion, log unhandled errors."""
+        self._monitor_tasks.pop(session_id, None)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            _LOGGER.error(f"Monitor task for session {session_id} failed: {exc}")
 
     async def get_session_status(self, session_id: str) -> Dict:
         """Get status of authentication session."""
@@ -244,10 +278,11 @@ class BrowserAuthManager:
             except Exception as e:
                 _LOGGER.warning(f"Cleanup error for session {session_id}: {e}")
             finally:
-                # Keep session info for status checks
-                session['browser'] = None
-                session['context'] = None
-                session['page'] = None
+                # Retain only minimal metadata, discard heavy objects
+                self._sessions[session_id] = {
+                    'status': session.get('status', 'cleaned_up'),
+                    'created_at': session.get('created_at'),
+                }
 
     async def cleanup(self):
         """Cleanup all resources."""

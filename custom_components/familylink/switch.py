@@ -1,6 +1,7 @@
 """Switch platform for Google Family Link integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -38,13 +39,8 @@ async def async_setup_entry(
 
 	entities = []
 
-	# Wait for first data fetch to get children
-	if not coordinator.data or "children_data" not in coordinator.data:
-		_LOGGER.warning("No children data available yet, switches will be added on first update")
-		return
-
 	# Create switch entities for each child and their devices
-	for child_data in coordinator.data.get("children_data", []):
+	for child_data in coordinator.data.get("children_data", []) if coordinator.data else []:
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
 
@@ -233,6 +229,9 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_off(self) -> None:
 		"""Lock device (cancel bonus if active, then lock)."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot lock device: client not connected")
+			return
 		_LOGGER.info("Locking device %s for child %s", self._device_id, self._child_name)
 
 		# First, cancel any active bonus
@@ -246,9 +245,10 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 					account_id=self._child_id,
 				)
 				if bonus_cancelled:
-					_LOGGER.info("Successfully cancelled bonus for device %s", self._device_id)
+					_LOGGER.info("Successfully cancelled bonus for device %s, waiting for API sync", self._device_id)
+					await asyncio.sleep(1)
 				else:
-					_LOGGER.warning("Failed to cancel bonus for device %s", self._device_id)
+					_LOGGER.warning("Failed to cancel bonus for device %s, attempting lock anyway", self._device_id)
 
 		# Then lock the device
 		success = await self.coordinator.async_control_device(
@@ -320,6 +320,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable bedtime."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot enable bedtime: client not connected")
+			return
 		_LOGGER.debug("Enabling bedtime for child %s", self._child_name)
 
 		# Set pending state immediately for instant UI feedback
@@ -330,12 +333,17 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to enable bedtime for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully enabled bedtime for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
 	async def async_turn_off(self) -> None:
 		"""Disable bedtime."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot disable bedtime: client not connected")
+			return
 		_LOGGER.debug("Disabling bedtime for child %s", self._child_name)
 
 		# Set pending state immediately for instant UI feedback
@@ -346,6 +354,8 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to disable bedtime for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully disabled bedtime for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -409,9 +419,11 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable school time."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot enable school time: client not connected")
+			return
 		_LOGGER.debug("Enabling school time for child %s", self._child_name)
 
-		# Set pending state immediately for instant UI feedback
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", True)
 		self.async_write_ha_state()
 
@@ -419,15 +431,19 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to enable school time for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully enabled school time for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
 	async def async_turn_off(self) -> None:
 		"""Disable school time."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot disable school time: client not connected")
+			return
 		_LOGGER.debug("Disabling school time for child %s", self._child_name)
 
-		# Set pending state immediately for instant UI feedback
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", False)
 		self.async_write_ha_state()
 
@@ -435,6 +451,8 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to disable school time for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully disabled school time for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -498,9 +516,11 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable daily limit."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot enable daily limit: client not connected")
+			return
 		_LOGGER.debug("Enabling daily limit for child %s", self._child_name)
 
-		# Set pending state immediately for instant UI feedback
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", True)
 		self.async_write_ha_state()
 
@@ -508,15 +528,19 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to enable daily limit for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully enabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
 	async def async_turn_off(self) -> None:
 		"""Disable daily limit."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot disable daily limit: client not connected")
+			return
 		_LOGGER.debug("Disabling daily limit for child %s", self._child_name)
 
-		# Set pending state immediately for instant UI feedback
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", False)
 		self.async_write_ha_state()
 
@@ -524,6 +548,8 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 		if not success:
 			_LOGGER.error("Failed to disable daily limit for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)
+			self.async_write_ha_state()
 		else:
 			_LOGGER.info("Successfully disabled daily limit for %s", self._child_name)
-			await self.coordinator.async_request_refresh() 
+			await self.coordinator.async_request_refresh()
