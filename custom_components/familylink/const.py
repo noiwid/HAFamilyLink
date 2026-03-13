@@ -75,3 +75,6 @@ SERVICE_ENABLE_DAILY_LIMIT: Final = "enable_daily_limit"
 SERVICE_DISABLE_DAILY_LIMIT: Final = "disable_daily_limit"
 SERVICE_SET_DAILY_LIMIT: Final = "set_daily_limit"
 SERVICE_SET_BEDTIME: Final = "set_bedtime"
+
+# Location services
+SERVICE_REFRESH_LOCATION: Final = "refresh_location"
