@@ -9,16 +9,22 @@ bashio::log.info "Starting Google Family Link Auth Service..."
 LOG_LEVEL=$(bashio::config 'log_level' 'info')
 AUTH_TIMEOUT=$(bashio::config 'auth_timeout' '300')
 SESSION_DURATION=$(bashio::config 'session_duration' '86400')
+LANGUAGE=$(bashio::config 'language' 'en-US')
+TIMEZONE=$(bashio::config 'timezone' 'Europe/Paris')
 
 # Export environment variables
 export LOG_LEVEL="${LOG_LEVEL}"
 export AUTH_TIMEOUT="${AUTH_TIMEOUT}"
 export SESSION_DURATION="${SESSION_DURATION}"
+export LANGUAGE="${LANGUAGE}"
+export TIMEZONE="${TIMEZONE}"
 
 bashio::log.info "Configuration loaded:"
 bashio::log.info "  - Log Level: ${LOG_LEVEL}"
 bashio::log.info "  - Auth Timeout: ${AUTH_TIMEOUT}s"
 bashio::log.info "  - Session Duration: ${SESSION_DURATION}s"
+bashio::log.info "  - Language: ${LANGUAGE}"
+bashio::log.info "  - Timezone: ${TIMEZONE}"
 
 # Ensure shared directory exists
 mkdir -p /share/familylink

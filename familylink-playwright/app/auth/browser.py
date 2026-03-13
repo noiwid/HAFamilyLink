@@ -12,11 +12,13 @@ _LOGGER = logging.getLogger(__name__)
 class BrowserAuthManager:
     """Manages browser-based authentication sessions."""
 
-    def __init__(self, auth_timeout: int = 300):
+    def __init__(self, auth_timeout: int = 300, language: str = "en-US", timezone: str = "Europe/Paris"):
         """Initialize browser auth manager."""
         self._sessions: Dict[str, Dict] = {}
         self._playwright = None
         self._auth_timeout = auth_timeout
+        self._language = language
+        self._timezone = timezone
 
     async def initialize(self):
         """Initialize Playwright."""
@@ -79,8 +81,8 @@ class BrowserAuthManager:
             context = await browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 viewport={'width': 1280, 'height': 800},
-                locale='fr-FR',
-                timezone_id='Europe/Paris'
+                locale=self._language,
+                timezone_id=self._timezone
             )
 
             # Create page

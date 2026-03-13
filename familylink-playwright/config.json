@@ -20,12 +20,16 @@
   "options": {
     "log_level": "info",
     "auth_timeout": 300,
-    "session_duration": 86400
+    "session_duration": 86400,
+    "language": "en-US",
+    "timezone": "Europe/Paris"
   },
   "schema": {
     "log_level": "list(trace|debug|info|warning|error)?",
     "auth_timeout": "int(60,600)?",
-    "session_duration": "int(3600,604800)?"
+    "session_duration": "int(3600,604800)?",
+    "language": "str?",
+    "timezone": "str?"
   },
   "webui": "http://[HOST]:[PORT:8099]",
   "host_network": false,
