@@ -248,10 +248,11 @@ class BrowserAuthManager:
             except Exception as e:
                 _LOGGER.warning(f"Cleanup error for session {session_id}: {e}")
             finally:
-                # Keep session info for status checks
-                session['browser'] = None
-                session['context'] = None
-                session['page'] = None
+                # Retain only minimal metadata, discard heavy objects
+                self._sessions[session_id] = {
+                    'status': session.get('status', 'cleaned_up'),
+                    'created_at': session.get('created_at'),
+                }
 
     async def cleanup(self):
         """Cleanup all resources."""
