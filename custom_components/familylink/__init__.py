@@ -107,8 +107,8 @@ SCHEMA_SET_DAILY_LIMIT = vol.Schema({
 })
 
 SCHEMA_SET_BEDTIME = vol.Schema({
-	vol.Required("start_time"): cv.string,
-	vol.Required("end_time"): cv.string,
+	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
+	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("child_id"): cv.string,
 })
