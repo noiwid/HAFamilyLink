@@ -55,9 +55,6 @@ ATTR_BATTERY_LEVEL: Final = "battery_level"
 
 # Service names
 SERVICE_REFRESH_DEVICES: Final = "refresh_devices"
-SERVICE_FORCE_UNLOCK: Final = "force_unlock"
-SERVICE_EMERGENCY_UNLOCK: Final = "emergency_unlock"
-
 # App control services
 SERVICE_BLOCK_DEVICE_FOR_SCHOOL: Final = "block_device_for_school"
 SERVICE_UNBLOCK_ALL_APPS: Final = "unblock_all_apps"
