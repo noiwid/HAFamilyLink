@@ -24,13 +24,13 @@ _LOGGER = logging.getLogger(LOGGER_NAME)
 
 # Day of week mapping
 DAYS_OF_WEEK = {
-    0: "Monday",
-    1: "Tuesday",
-    2: "Wednesday",
-    3: "Thursday",
-    4: "Friday",
-    5: "Saturday",
-    6: "Sunday",
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
 }
 
 
@@ -107,7 +107,7 @@ async def async_setup_entry(
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
 
         # Battery sensor (only if location tracking is enabled, as battery comes from location data)
-        if entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False):
+        if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
             entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
         # Time management schedule sensors removed - data not available at child level
@@ -641,21 +641,33 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                         # Add window details if available
                         bedtime_window = time_data.get("bedtime_window")
                         if bedtime_window:
-                            attributes["bedtime_start"] = datetime.fromtimestamp(
-                                bedtime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["bedtime_end"] = datetime.fromtimestamp(
-                                bedtime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            start_ms = bedtime_window.get("start_ms")
+                            end_ms = bedtime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
                         schooltime_window = time_data.get("schooltime_window")
                         if schooltime_window:
-                            attributes["schooltime_start"] = datetime.fromtimestamp(
-                                schooltime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["schooltime_end"] = datetime.fromtimestamp(
-                                schooltime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            start_ms = schooltime_window.get("start_ms")
+                            end_ms = schooltime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
         return attributes
 
@@ -720,6 +732,8 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 			return {}
 
 		attributes = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"formatted_time": screen_time.get("formatted", "00:00:00"),
 			"hours": screen_time.get("hours", 0),
@@ -802,6 +816,8 @@ class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, Sen
 			return {}
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"total_minutes": round(screen_time.get("total_seconds", 0) / 60, 1),
 			"hours": screen_time.get("hours", 0),
@@ -859,6 +875,8 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		always_allowed = sum(1 for app in apps if app.get("supervisionSetting", {}).get("alwaysAllowedAppInfo"))
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_apps": len(apps),
 			"blocked_apps": blocked,
 			"apps_with_time_limits": with_limits,
@@ -920,6 +938,8 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		]
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(blocked_apps),
 			"apps": blocked_apps[:20],  # Limit to 20 to avoid attribute size issues
 		}
@@ -982,6 +1002,8 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 				})
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(apps_with_limits),
 			"apps": apps_with_limits[:20],  # Limit to 20
 		}
@@ -1082,6 +1104,8 @@ class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		secs = int(seconds % 60)
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"rank": self._rank,
 			"app_name": app_name,
 			"package_name": package,
@@ -1145,6 +1169,8 @@ class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		]
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(devices),
 			"devices": device_list,
 		}
@@ -1205,6 +1231,8 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 		birthday = profile.get("birthday", {})
 
 		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"user_id": child.get("userId"),
 			"role": child.get("role"),
 			"display_name": profile.get("displayName"),
@@ -1213,8 +1241,8 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 			"email": profile.get("email"),
 		}
 
-		if birthday:
-			attrs["birthday"] = f"{birthday.get('year')}-{birthday.get('month'):02d}-{birthday.get('day'):02d}"
+		if birthday and all(birthday.get(k) is not None for k in ("year", "month", "day")):
+			attrs["birthday"] = f"{birthday['year']}-{birthday['month']:02d}-{birthday['day']:02d}"
 
 		if "ageBandLabel" in child:
 			attrs["age_band"] = child["ageBandLabel"]
@@ -1464,7 +1492,10 @@ class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEnti
 		if not location:
 			return {}
 
-		attrs = {}
+		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+		}
 
 		if location.get("source_device_name"):
 			attrs["source_device"] = location["source_device_name"]

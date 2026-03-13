@@ -133,7 +133,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		# Fetch data for each supervised child
 		children_data = []
 		for child in supervised_children:
-			child_id = child["userId"]
+			child_id = child.get("userId")
+			if not child_id:
+				_LOGGER.warning("Skipping child with missing userId: %s", child)
+				continue
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
 			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
@@ -358,6 +361,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.error("Failed to refresh authentication: %s", err)
 			# Clear client to force re-authentication on next update
 			self.client = None
+			raise
 
 	async def async_control_device(
 		self, device_id: str, action: str, child_id: str | None = None

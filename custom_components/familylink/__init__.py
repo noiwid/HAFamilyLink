@@ -107,8 +107,8 @@ SCHEMA_SET_DAILY_LIMIT = vol.Schema({
 })
 
 SCHEMA_SET_BEDTIME = vol.Schema({
-	vol.Required("start_time"): cv.string,
-	vol.Required("end_time"): cv.string,
+	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
+	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("child_id"): cv.string,
 })
@@ -190,8 +190,14 @@ def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
 	"""Set up services for Family Link."""
 
+	def _require_client():
+		"""Raise if the API client is not available."""
+		if coordinator.client is None:
+			raise FamilyLinkException("Family Link client is not connected. Please re-authenticate via the add-on.")
+
 	async def handle_block_device_for_school(call: ServiceCall) -> None:
 		"""Handle block_device_for_school service call."""
+		_require_client()
 		_LOGGER.info("Service called: block_device_for_school")
 		whitelist = call.data.get("whitelist")
 
@@ -209,6 +215,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_unblock_all_apps(call: ServiceCall) -> None:
 		"""Handle unblock_all_apps service call."""
+		_require_client()
 		_LOGGER.info("Service called: unblock_all_apps")
 
 		try:
@@ -225,6 +232,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_block_app(call: ServiceCall) -> None:
 		"""Handle block_app service call."""
+		_require_client()
 		package_name = call.data["package_name"]
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
@@ -270,6 +278,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_unblock_app(call: ServiceCall) -> None:
 		"""Handle unblock_app service call."""
+		_require_client()
 		package_name = call.data["package_name"]
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
@@ -315,6 +324,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_set_app_daily_limit(call: ServiceCall) -> None:
 		"""Handle set_app_daily_limit service call."""
+		_require_client()
 		package_name = call.data["package_name"]
 		minutes = call.data["minutes"]
 		entity_id = call.data.get("entity_id")
@@ -361,6 +371,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_add_time_bonus(call: ServiceCall) -> None:
 		"""Handle add_time_bonus service call."""
+		_require_client()
 		bonus_minutes = call.data["bonus_minutes"]
 
 		# Get device_id and child_id from entity or direct parameters
@@ -396,6 +407,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_bedtime(call: ServiceCall) -> None:
 		"""Handle enable_bedtime service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -419,6 +431,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_bedtime(call: ServiceCall) -> None:
 		"""Handle disable_bedtime service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -442,6 +455,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_school_time(call: ServiceCall) -> None:
 		"""Handle enable_school_time service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -465,6 +479,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_school_time(call: ServiceCall) -> None:
 		"""Handle disable_school_time service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -488,6 +503,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_enable_daily_limit(call: ServiceCall) -> None:
 		"""Handle enable_daily_limit service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -511,6 +527,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_disable_daily_limit(call: ServiceCall) -> None:
 		"""Handle disable_daily_limit service call."""
+		_require_client()
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
@@ -534,6 +551,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_set_daily_limit(call: ServiceCall) -> None:
 		"""Handle set_daily_limit service call."""
+		_require_client()
 		daily_minutes = call.data["daily_minutes"]
 
 		# Get device_id and child_id from entity or direct parameters
@@ -569,6 +587,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	async def handle_set_bedtime(call: ServiceCall) -> None:
 		"""Handle set_bedtime service call."""
+		_require_client()
 		start_time = call.data["start_time"]
 		end_time = call.data["end_time"]
 		day = call.data.get("day")  # Optional, defaults to today

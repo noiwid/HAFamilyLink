@@ -12,6 +12,7 @@ from typing import Any
 import aiohttp
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
@@ -38,6 +39,10 @@ class FamilyLinkClient:
 	ORIGIN = "https://familylink.google.com"
 	API_KEY = "AIzaSyAQb1gupaJhY3CXQy2xmTwJMcjmot3M2hw"
 
+	# Maximum session age before recreating (seconds)
+	# SAPISIDHASH timestamp must stay fresh for Google API authentication
+	SESSION_MAX_AGE = 1800  # 30 minutes
+
 	def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
 		"""Initialize the Family Link client."""
 		self.hass = hass
@@ -46,8 +51,18 @@ class FamilyLinkClient:
 		auth_url = config.get("auth_url")
 		self.addon_client = AddonCookieClient(hass, auth_url=auth_url)
 		self._session: aiohttp.ClientSession | None = None
+		self._session_lock = asyncio.Lock()
+		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
+
+	@staticmethod
+	def _validate_id(value: str, name: str = "ID") -> str:
+		"""Validate that an ID is safe for URL interpolation."""
+		import re
+		if not value or not re.match(r'^[a-zA-Z0-9_\-]+$', value):
+			raise ValueError(f"Invalid {name}: contains disallowed characters")
+		return value
 
 	async def async_authenticate(self) -> None:
 		"""Authenticate with Family Link."""
@@ -176,99 +191,95 @@ class FamilyLinkClient:
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
-		if self._session is None:
-			# Extract SAPISID cookie for authentication
-			sapisid = None
-			sapisid_domain = None
+		async with self._session_lock:
+			# Recreate session if SAPISIDHASH timestamp is too old
+			if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
+				_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
+				await self._session.close()
+				self._session = None
 
-			_LOGGER.debug("Creating new session with authentication")
+			if self._session is None:
+				# Extract SAPISID cookie for authentication
+				sapisid = None
+				sapisid_domain = None
 
-			if self._cookies:
-				_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
+				_LOGGER.debug("Creating new session with authentication")
 
-				# Collect all SAPISID cookies and prioritize .google.com over regional domains
-				# The API expects SAPISID from .google.com, not regional TLDs like .google.com.au
-				sapisid_candidates = []
+				if self._cookies:
+					_LOGGER.debug(f"Processing {len(self._cookies)} cookies for SAPISID")
 
-				for cookie in self._cookies:
-					cookie_name = cookie.get("name", "")
-					cookie_domain = cookie.get("domain", "")
+					# Collect all SAPISID cookies and prioritize .google.com over regional domains
+					sapisid_candidates = []
 
-					# Find SAPISID cookie
-					if cookie_name == "SAPISID":
-						# Accept any Google domain including regional TLDs
-						# Examples: .google.com, .google.com.au, .google.co.uk, .google.fr
-						domain_lower = cookie_domain.lower().lstrip(".")
-						if domain_lower.startswith("google.") or ".google." in domain_lower:
-							cookie_value = cookie.get("value", "").strip('"')
-							sapisid_candidates.append({
-								"value": cookie_value,
-								"domain": cookie_domain,
-								"domain_lower": domain_lower
-							})
-							_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
-						else:
-							_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
+					for cookie in self._cookies:
+						cookie_name = cookie.get("name", "")
+						cookie_domain = cookie.get("domain", "")
 
-				# Prioritize .google.com (main domain) over regional variants
-				# Regional TLDs like .google.com.au won't work with the API
-				if sapisid_candidates:
-					# Sort: google.com first, then others
-					def domain_priority(candidate):
-						d = candidate["domain_lower"]
-						if d == "google.com":
-							return 0  # Highest priority
-						elif d.startswith("google.com.") or d.startswith("google.co."):
-							return 2  # Regional TLD - lowest priority
-						else:
-							return 1  # Other google domains
+						if cookie_name == "SAPISID":
+							domain_lower = cookie_domain.lower().lstrip(".")
+							if domain_lower.startswith("google.") or ".google." in domain_lower:
+								cookie_value = cookie.get("value", "").strip('"')
+								sapisid_candidates.append({
+									"value": cookie_value,
+									"domain": cookie_domain,
+									"domain_lower": domain_lower
+								})
+								_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
+							else:
+								_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
 
-					sapisid_candidates.sort(key=domain_priority)
-					best_candidate = sapisid_candidates[0]
-					sapisid = best_candidate["value"]
-					sapisid_domain = best_candidate["domain"]
+					if sapisid_candidates:
+						def domain_priority(candidate):
+							d = candidate["domain_lower"]
+							if d == "google.com":
+								return 0
+							elif d.startswith("google.com.") or d.startswith("google.co."):
+								return 2
+							else:
+								return 1
 
-					if len(sapisid_candidates) > 1:
-						_LOGGER.info(
-							f"Found {len(sapisid_candidates)} SAPISID cookies, "
-							f"using {sapisid_domain} (prioritized over regional domains)"
-						)
-					_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
-					_LOGGER.debug(f"SAPISID value (first 10 chars): {sapisid[:10]}...")
+						sapisid_candidates.sort(key=domain_priority)
+						best_candidate = sapisid_candidates[0]
+						sapisid = best_candidate["value"]
+						sapisid_domain = best_candidate["domain"]
 
-			if not sapisid:
-				_LOGGER.error("✗ SAPISID cookie not found in authentication data")
-				raise AuthenticationError("SAPISID cookie not found in authentication data")
+						if len(sapisid_candidates) > 1:
+							_LOGGER.info(
+								f"Found {len(sapisid_candidates)} SAPISID cookies, "
+								f"using {sapisid_domain} (prioritized over regional domains)"
+							)
+						_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
+						_LOGGER.debug("SAPISID cookie found")
 
-			# Generate authorization header
-			sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
-			_LOGGER.debug(f"Generated SAPISIDHASH (first 20 chars): {sapisidhash[:20]}...")
+				if not sapisid:
+					_LOGGER.error("✗ SAPISID cookie not found in authentication data")
+					raise AuthenticationError("SAPISID cookie not found in authentication data")
 
-			# Create session with Google Family Link API headers
-			# Note: We don't use a cookie jar - cookies are passed directly in each request
-			headers = {
-				"User-Agent": (
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-					"AppleWebKit/537.36 (KHTML, like Gecko) "
-					"Chrome/120.0.0.0 Safari/537.36"
-				),
-				"Origin": self.ORIGIN,
-				"Content-Type": "application/json+protobuf",
-				"X-Goog-Api-Key": self.API_KEY,
-				"Authorization": f"SAPISIDHASH {sapisidhash}",
-			}
+				sapisidhash = self._generate_sapisidhash(sapisid, self.ORIGIN)
+				_LOGGER.debug("Generated SAPISIDHASH for session")
 
-			_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}, API_Key={self.API_KEY[:20]}...")
-			_LOGGER.debug(f"Full SAPISIDHASH: {sapisidhash}")
+				headers = {
+					"User-Agent": (
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+						"AppleWebKit/537.36 (KHTML, like Gecko) "
+						"Chrome/120.0.0.0 Safari/537.36"
+					),
+					"Origin": self.ORIGIN,
+					"Content-Type": "application/json+protobuf",
+					"X-Goog-Api-Key": self.API_KEY,
+					"Authorization": f"SAPISIDHASH {sapisidhash}",
+				}
 
-			self._session = aiohttp.ClientSession(
-				headers=headers,
-				timeout=aiohttp.ClientTimeout(total=30),
-			)
+				_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}")
 
-			_LOGGER.debug("✓ Session created successfully")
+				self._session = aiohttp.ClientSession(
+					headers=headers,
+					timeout=aiohttp.ClientTimeout(total=30),
+				)
+				self._session_created_at = time.time()
+				_LOGGER.debug("✓ Session created successfully")
 
-		return self._session
+			return self._session
 
 	async def async_get_family_members(self) -> dict[str, Any]:
 		"""Get list of all family members.
@@ -404,13 +415,10 @@ class FamilyLinkClient:
 				params=params
 			) as response:
 				_LOGGER.debug(f"Response status: {response.status}")
-				_LOGGER.debug(f"Response headers: {dict(response.headers)}")
-
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"API Error {response.status}: {response_text}")
-					_LOGGER.error(f"Request URL was: {url}?{params}")
-					_LOGGER.error(f"Request headers: {dict(response.request_info.headers)}")
+					_LOGGER.error(f"Request URL was: {url}")
 
 				response.raise_for_status()
 				data = await response.json()
@@ -480,7 +488,7 @@ class FamilyLinkClient:
 			- app_breakdown: Per-app usage breakdown
 		"""
 		if target_date is None:
-			target_date = datetime.now()
+			target_date = dt_util.now()
 
 		try:
 			data = await self.async_get_apps_and_usage(account_id)
@@ -502,7 +510,11 @@ class FamilyLinkClient:
 
 					# Extract seconds from "1809.5s" format
 					usage_str = session.get("usage", "0s")
-					usage_seconds = float(usage_str.replace("s", ""))
+					try:
+						usage_seconds = float(usage_str.rstrip("s"))
+					except (ValueError, TypeError):
+						_LOGGER.debug("Invalid usage format: %s", usage_str)
+						usage_seconds = 0
 					total_seconds += usage_seconds
 
 					# Track per-app usage
@@ -574,6 +586,7 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
+			self._validate_id(account_id, "account_id")
 			url = f"{self.BASE_URL}/families/mine/location/{account_id}"
 			params = [
 				("locationRefreshMode", "REFRESH" if refresh else "DO_NOT_REFRESH"),
@@ -656,7 +669,10 @@ class FamilyLinkClient:
 				if len(location_array) > 8 and isinstance(location_array[8], list):
 					battery_info = location_array[8]
 					if len(battery_info) > 0 and battery_info[0] is not None:
-						battery_level = int(battery_info[0])
+						try:
+							battery_level = int(battery_info[0])
+						except (ValueError, TypeError):
+							_LOGGER.debug("Invalid battery value: %s", battery_info[0])
 					# Note: battery_info[1] may contain charging state but not confirmed yet
 
 				# Convert timestamp to ISO format
@@ -1097,7 +1113,7 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					return {"device_lock_states": {}, "devices": {}}
+					raise NetworkError(f"Failed to fetch applied time limits: HTTP {response.status}")
 
 				data = await response.json()
 				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")
@@ -1202,24 +1218,35 @@ class FamilyLinkClient:
 						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
 
 						# Get current day of week (1=Monday, 7=Sunday)
-						current_day = datetime.now().isoweekday()
+						current_day = dt_util.now().isoweekday()
 						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
 
 						for idx, item in enumerate(device_data):
 							if isinstance(item, list) and len(item) >= 4:
 								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
 								if isinstance(item[0], str):
-									# CAEQ* = daily limit (6 elem) OR bedtime window (8 elem)
-									if item[0].startswith("CAEQ"):
+									first_elem = item[0]
+									is_caeq = first_elem.startswith("CAEQ")
+									is_camq = first_elem.startswith("CAMQ")
+									is_known_prefix = is_caeq or is_camq
+									is_uuid = len(first_elem) == 36 and first_elem.count('-') == 4
+
+									if is_uuid:
+										_LOGGER.debug(
+											f"Device {device_id}: UUID-format identifier detected at index {idx}: "
+											f"{first_elem} (tuple length={len(item)})"
+										)
+
+									if is_known_prefix or is_uuid:
 										if len(item) == 6:
-											# Daily limit: ["CAEQ*", day, stateFlag, minutes, createdMs, updatedMs]
+											# Daily limit: ["CAEQ*"/UUID, day, stateFlag, minutes, createdMs, updatedMs]
 											day = item[1] if len(item) > 1 else None
 											state_flag = item[2] if len(item) > 2 else None
 											minutes = item[3] if len(item) > 3 else None
 
 											_LOGGER.debug(
-												f"Device {device_id}: Found CAEQ daily limit at index {idx}: "
-												f"day={day}, state_flag={state_flag}, minutes={minutes}"
+												f"Device {device_id}: Found daily limit at index {idx}: "
+												f"id={first_elem}, day={day}, state_flag={state_flag}, minutes={minutes}"
 											)
 
 											# Daily limit is ACTIVE only if:
@@ -1242,25 +1269,38 @@ class FamilyLinkClient:
 														f"FINAL enabled={daily_enabled}, minutes={minutes}"
 													)
 										elif len(item) == 8:
-											# Bedtime window: ["CAEQ*", day, stateFlag, [startH, startM], [endH, endM], createdMs, updatedMs, policyId]
+											# Time window (8 elements): could be bedtime or schooltime
+											# For CAEQ prefix -> bedtime
+											# For CAMQ prefix -> schooltime
+											# For UUID -> determine by structure: if bedtime not yet set, parse as bedtime; otherwise schooltime
 											day = item[1] if len(item) > 1 else None
 											state_flag = item[2] if len(item) > 2 else None
 											start_time = item[3] if len(item) > 3 else None
 											end_time = item[4] if len(item) > 4 else None
 
+											parse_as_bedtime = is_caeq or (is_uuid and device_info["bedtime_window"] is None)
+											parse_as_schooltime = is_camq or (is_uuid and not parse_as_bedtime)
+
+											if parse_as_bedtime:
+												window_type = "bedtime"
+											elif parse_as_schooltime:
+												window_type = "schooltime"
+											else:
+												window_type = "unknown"
+
 											_LOGGER.debug(
-												f"Device {device_id}: CAEQ is bedtime window (8 elements) - "
+												f"Device {device_id}: {first_elem} is {window_type} window (8 elements) - "
 												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
 											)
 
-											# Parse bedtime window if it's for current day and enabled
+											# Parse time window if it's for current day and enabled
 											if (isinstance(day, int) and day == current_day and
 												isinstance(state_flag, int) and state_flag == 2 and
 												isinstance(start_time, list) and len(start_time) == 2 and
 												isinstance(end_time, list) and len(end_time) == 2):
 
 												# Convert [HH, MM] to epoch milliseconds for today
-												now = datetime.now()
+												now = dt_util.now()
 												start_hour, start_min = start_time[0], start_time[1]
 												end_hour, end_min = end_time[0], end_time[1]
 
@@ -1269,71 +1309,34 @@ class FamilyLinkClient:
 												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
 
 												# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
-												# In this case, if current time is after start OR before end, bedtime is active
 												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
-													# Crosses midnight
-													bedtime_active = (now >= start_dt) or (now < end_dt)
+													window_active = (now >= start_dt) or (now < end_dt)
 												else:
-													# Same day window
-													bedtime_active = (start_dt <= now < end_dt)
+													window_active = (start_dt <= now < end_dt)
 
-												device_info["bedtime_window"] = {
+												window_data = {
 													"start_ms": int(start_dt.timestamp() * 1000),
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
-												device_info["bedtime_active"] = bedtime_active
 
-												_LOGGER.debug(
-													f"Device {device_id}: Bedtime window parsed - "
-													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-													f"current_time={now.strftime('%H:%M')}, active={bedtime_active}"
-												)
-									# CAMQ = schooltime
-									elif item[0].startswith("CAMQ"):
-										# Same format as bedtime
-										if len(item) == 8:
-											day = item[1] if len(item) > 1 else None
-											state_flag = item[2] if len(item) > 2 else None
-											start_time = item[3] if len(item) > 3 else None
-											end_time = item[4] if len(item) > 4 else None
+												if parse_as_bedtime:
+													device_info["bedtime_window"] = window_data
+													device_info["bedtime_active"] = window_active
 
-											_LOGGER.debug(
-												f"Device {device_id}: CAMQ is schooltime window (8 elements) - "
-												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
-											)
+													_LOGGER.debug(
+														f"Device {device_id}: Bedtime window parsed - "
+														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+													)
+												elif parse_as_schooltime:
+													device_info["schooltime_window"] = window_data
+													device_info["schooltime_active"] = window_active
 
-											# Parse schooltime window if it's for current day and enabled
-											if (isinstance(day, int) and day == current_day and
-												isinstance(state_flag, int) and state_flag == 2 and
-												isinstance(start_time, list) and len(start_time) == 2 and
-												isinstance(end_time, list) and len(end_time) == 2):
-
-												# Convert [HH, MM] to epoch milliseconds for today
-												now = datetime.now()
-												start_hour, start_min = start_time[0], start_time[1]
-												end_hour, end_min = end_time[0], end_time[1]
-
-												# Create datetime objects for start and end
-												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
-												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
-
-												# Schooltime shouldn't cross midnight, but handle it anyway
-												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
-													schooltime_active = (now >= start_dt) or (now < end_dt)
-												else:
-													schooltime_active = (start_dt <= now < end_dt)
-
-												device_info["schooltime_window"] = {
-													"start_ms": int(start_dt.timestamp() * 1000),
-													"end_ms": int(end_dt.timestamp() * 1000)
-												}
-												device_info["schooltime_active"] = schooltime_active
-
-												_LOGGER.debug(
-													f"Device {device_id}: Schooltime window parsed - "
-													f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-													f"current_time={now.strftime('%H:%M')}, active={schooltime_active}"
-												)
+													_LOGGER.debug(
+														f"Device {device_id}: Schooltime window parsed - "
+														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+													)
 
 							# Look for window objects (arrays with 2 epoch timestamps)
 							elif isinstance(item, list) and len(item) == 2:
@@ -1405,6 +1408,8 @@ class FamilyLinkClient:
 					"devices": devices
 				}
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
@@ -1908,7 +1913,7 @@ class FamilyLinkClient:
 				6: "CAEQBg",  # Saturday
 				7: "CAEQBw",  # Sunday
 			}
-			current_day = datetime.now().isoweekday()
+			current_day = dt_util.now().isoweekday()
 			day_code = day_codes[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -1989,7 +1994,7 @@ class FamilyLinkClient:
 
 			# Use provided day or default to today
 			if day is None:
-				day = datetime.now().isoweekday()
+				day = dt_util.now().isoweekday()
 
 			if day not in day_codes:
 				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
@@ -2241,6 +2246,8 @@ class FamilyLinkClient:
 					"schooltime_rule_id": schooltime_rule_id
 				}
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Failed to fetch time limit rules: %s", err)
 			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
@@ -2249,4 +2256,9 @@ class FamilyLinkClient:
 		"""Clean up client resources."""
 		if self._session:
 			await self._session.close()
-			self._session = None 
+			self._session = None
+		# Clear cached cookie data
+		if hasattr(self, '_cookie_dict'):
+			del self._cookie_dict
+		if hasattr(self, '_cookie_header'):
+			del self._cookie_header

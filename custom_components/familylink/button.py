@@ -88,7 +88,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		self._bonus_minutes = bonus_minutes
 
 		self._attr_name = f"{device['name']} +{bonus_minutes}min"
-		self._attr_unique_id = f"{DOMAIN}_{device['id']}_bonus_{bonus_minutes}min"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device['id']}_bonus_{bonus_minutes}min"
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -112,6 +112,9 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 
 	async def async_press(self) -> None:
 		"""Handle the button press."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot add time bonus: client not connected")
+			return
 		_LOGGER.info(
 			f"Adding {self._bonus_minutes} minutes bonus to device {self._device_name} for {self._child_name}"
 		)
@@ -153,7 +156,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		self._child_name = child_name
 
 		self._attr_name = f"{device['name']} Reset Bonus"
-		self._attr_unique_id = f"{DOMAIN}_{device['id']}_reset_bonus"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device['id']}_reset_bonus"
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -208,6 +211,10 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.warning(
 				f"Cannot cancel bonus for device {self._device_name}: no active bonus found"
 			)
+			return
+
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot cancel time bonus: client not connected")
 			return
 
 		_LOGGER.info(
