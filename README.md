@@ -41,6 +41,7 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - **Blocked Apps** - List and count of blocked/hidden apps
 - **Apps with Time Limits** - Track apps with usage restrictions
 - **App Details** - Package names, titles, and limit information
+- **4 App States** - Block, app limit off, set limit, or unlimited time per app
 
 ### 📍 GPS Location Tracking (Optional)
 - **Device Tracker** - Track your child's location via `device_tracker` entity
@@ -48,6 +49,7 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - **Address Display** - Full address of current location
 - **Source Device** - Shows which device provided the location
 - **Battery Level** - Monitor battery percentage of the location source device
+- **On-Demand Refresh** - Force a fresh GPS update from the child's device
 - **Privacy First** - Disabled by default, opt-in via configuration
 - **⚠️ Warning** - Each location poll may notify the child's device
 
@@ -122,43 +124,49 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `sensor.<child>_device_count` - Number of supervised devices
 - `sensor.<child>_child_info` - Supervised child's profile information
 
-## 🎯 What's New in v1.0.0
+## 🎯 What's New
 
-### 🔠 Per-App Daily Time Limits (#59)
+### Unlimited Time Mode for Apps (#79)
 
-New `set_app_daily_limit` service to control screen time per application:
+The `set_app_daily_limit` service now supports all 4 Family Link app states:
 
 ```yaml
-# Set TikTok to 60 minutes/day for ALL children
+# Set app to unlimited time (ignores device daily limits)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: -2
+
+# Disable app limit (follows device limits)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: -1
+
+# Set 60 min/day limit
 service: familylink.set_app_daily_limit
 data:
   package_name: com.zhiliaoapp.musically
   minutes: 60
-
-# Remove the limit (restore unlimited)
-service: familylink.set_app_daily_limit
-data:
-  package_name: com.zhiliaoapp.musically
-  minutes: 0
 ```
 
-### 👨‍👩‍👧‍👦 Multi-Child Support (#57)
+### On-Demand Location Refresh (#78)
 
-App control services now apply to **ALL children** by default:
-- `block_app`, `unblock_app`, and `set_app_daily_limit` affect all supervised children when no specific child is selected
-- Use `entity_id` or `child_id` to target a specific child
+New `refresh_location` service to force a fresh GPS update from the child's device:
 
 ```yaml
-# Block YouTube for a specific child only
-service: familylink.block_app
+service: familylink.refresh_location
 data:
-  package_name: com.youtube.android
-  entity_id: sensor.emma_screen_time
+  entity_id: device_tracker.emma
 ```
 
-### API Changes
-- New `async_get_all_supervised_children()` method
-- New `async_set_app_daily_limit()` method
+### Per-App Daily Time Limits (#59)
+
+`set_app_daily_limit` service to control screen time per application.
+
+### Multi-Child Support (#57)
+
+App control services apply to **ALL children** by default. Use `entity_id` or `child_id` to target a specific child.
 
 
 ## 🏗️ Architecture
@@ -248,6 +256,7 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 | `/families/mine/members` | Family member information |
 | `/families/mine/location/{userId}` | Child GPS location |
 | `/people/{userId}/apps` | Installed apps list |
+| `/people/{userId}/apps:updateRestrictions` | Block/unblock apps, set per-app time limits |
 | `/people/{userId}/appsandusage` | App usage data |
 | `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices, add time bonuses |
 | `/people/{userId}/timeLimitOverride/{id}?$httpMethod=DELETE` | Cancel time bonuses |

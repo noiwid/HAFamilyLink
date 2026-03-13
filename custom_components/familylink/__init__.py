@@ -26,6 +26,7 @@ from .const import (
 	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_REFRESH_LOCATION,
 	SERVICE_UNBLOCK_ALL_APPS,
 	SERVICE_UNBLOCK_APP,
 )
@@ -55,7 +56,7 @@ SCHEMA_UNBLOCK_APP = vol.Schema({
 
 SCHEMA_SET_APP_DAILY_LIMIT = vol.Schema({
 	vol.Required("package_name"): cv.string,
-	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=-1, max=1440)),
+	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=-2, max=1440)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
@@ -110,6 +111,11 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_REFRESH_LOCATION = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -615,6 +621,43 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_LOGGER.error(f"Error setting bedtime: {err}")
 			raise
 
+	async def handle_refresh_location(call: ServiceCall) -> None:
+		"""Handle refresh_location service call - request fresh location from device."""
+		_require_client()
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
+		try:
+			if child_id:
+				_LOGGER.info(f"Service called: refresh_location (child_id: {child_id})")
+				location = await coordinator.client.async_get_location(account_id=child_id, refresh=True)
+				if location:
+					_LOGGER.info(f"Successfully refreshed location for child {child_id}: ({location['latitude']}, {location['longitude']})")
+				else:
+					_LOGGER.warning(f"No location data returned for child {child_id}")
+			else:
+				# Refresh location for ALL supervised children
+				_LOGGER.info("Service called: refresh_location (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					location = await coordinator.client.async_get_location(account_id=child_account_id, refresh=True)
+					if location:
+						_LOGGER.info(f"Successfully refreshed location for {child_name}: ({location['latitude']}, {location['longitude']})")
+					else:
+						_LOGGER.warning(f"No location data returned for {child_name}")
+
+			await coordinator.async_request_refresh()
+		except Exception as err:
+			_LOGGER.error(f"Error refreshing location: {err}")
+			raise
+
 	# Register services
 	hass.services.async_register(
 		DOMAIN,
@@ -714,6 +757,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_SET_BEDTIME,
 	)
 
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_REFRESH_LOCATION,
+		handle_refresh_location,
+		schema=SCHEMA_REFRESH_LOCATION,
+	)
+
 	_LOGGER.debug("Family Link services registered")
 
 
@@ -748,6 +798,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_DISABLE_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
+			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok
