@@ -94,9 +94,19 @@ data:
 ### 5. `familylink.set_app_daily_limit`
 Sets a daily time limit for a specific app. If no child is specified, applies to **ALL supervised children**.
 
+Google Family Link has 4 distinct app states:
+1. **Blocked** - App completely unavailable (`block_app` service)
+2. **App limit off** - App follows device daily limits (`minutes: -1`)
+3. **Set limit** - App has its own time restriction (`minutes: 1-1440`)
+4. **Unlimited time** - App ignores device limits entirely (`minutes: -2`)
+
 **Parameters:**
 - `package_name` (required): Android package name (e.g., `com.zhiliaoapp.musically` for TikTok)
-- `minutes` (required): Daily limit in minutes (0-1440). Use `0` to remove the limit.
+- `minutes` (required): Daily limit in minutes (-2 to 1440)
+  - `-2` = **Unlimited time** (app ignores device daily limits)
+  - `-1` = **App limit off** (app follows device daily limits)
+  - `0` = **Blocked** (0 minutes allowed for today)
+  - `1-1440` = **Set limit** (time limit in minutes)
 - `entity_id` (optional): Select any Family Link entity for this child
 - `child_id` (optional): Child's user ID - if not specified, applies to ALL children
 
@@ -115,11 +125,17 @@ data:
   minutes: 45
   entity_id: sensor.emma_screen_time
 
-# Remove TikTok time limit (restore unlimited)
+# Disable app limit (app follows device limits)
 service: familylink.set_app_daily_limit
 data:
   package_name: com.zhiliaoapp.musically
-  minutes: 0
+  minutes: -1
+
+# Set app to unlimited time (ignores device limits)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: -2
 ```
 
 ---
@@ -212,6 +228,62 @@ data:
   entity_id: switch.pixel_tablet
   bonus_minutes: 30
 ```
+
+---
+
+### 10. `familylink.enable_school_time` / `familylink.disable_school_time`
+Enables or disables school time (evening limit) restrictions for a child.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.enable_school_time
+data:
+  entity_id: sensor.emma_screen_time
+```
+
+---
+
+### 11. `familylink.enable_daily_limit` / `familylink.disable_daily_limit`
+Enables or disables the daily screen time limit for a child.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.enable_daily_limit
+data:
+  child_id: "123456789012345678901"
+```
+
+---
+
+## 📍 Location Services
+
+### 12. `familylink.refresh_location`
+Forces a fresh GPS location update from the child's device. This requests the device to send its current position instead of returning cached data from Google servers.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, refreshes ALL children
+
+**Examples:**
+```yaml
+# Refresh location for ALL children
+service: familylink.refresh_location
+
+# Refresh location for a specific child
+service: familylink.refresh_location
+data:
+  entity_id: device_tracker.emma
+```
+
+> **Note:** This uses more battery on the child's device than the normal cached location polling.
 
 ---
 
