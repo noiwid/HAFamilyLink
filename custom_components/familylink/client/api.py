@@ -191,7 +191,12 @@ class FamilyLinkClient:
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
-		async with self._session_lock:
+		try:
+			await asyncio.wait_for(self._session_lock.acquire(), timeout=60)
+		except asyncio.TimeoutError:
+			_LOGGER.error("Timed out waiting for session lock (60s) — possible deadlock")
+			raise
+		try:
 			# Recreate session if SAPISIDHASH timestamp is too old
 			if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
 				_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
@@ -280,6 +285,8 @@ class FamilyLinkClient:
 				_LOGGER.debug("✓ Session created successfully")
 
 			return self._session
+		finally:
+			self._session_lock.release()
 
 	async def async_get_family_members(self) -> dict[str, Any]:
 		"""Get list of all family members.
@@ -680,8 +687,8 @@ class FamilyLinkClient:
 				if timestamp_ms:
 					try:
 						timestamp_iso = datetime.fromtimestamp(timestamp_ms / 1000).isoformat()
-					except (ValueError, OSError):
-						pass
+					except (ValueError, OSError) as e:
+						_LOGGER.debug("Invalid location timestamp %s: %s", timestamp_ms, e)
 
 				result = {
 					"latitude": latitude,
@@ -2085,11 +2092,17 @@ class FamilyLinkClient:
 				if response.status == 401:
 					_LOGGER.error(f"✗ 401 Unauthorized - Session expired fetching time limit rules")
 					raise SessionExpiredError("Session expired, please re-authenticate")
-				if response.status != 200:
+				if response.status == 403:
+					_LOGGER.error(
+						"Permission denied fetching time limit rules (HTTP 403). "
+						"Try re-authenticating via the Family Link Auth add-on."
+					)
+				elif response.status != 200:
 					response_text = await response.text()
 					# Use warning for temporary errors (503), error for others
 					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
 					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
+				if response.status != 200:
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
@@ -2237,7 +2250,7 @@ class FamilyLinkClient:
 								break
 
 				if not revisions_found:
-					_LOGGER.warning("No revision data found in response")
+					_LOGGER.debug("No revision data found in response")
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
@@ -2262,7 +2275,10 @@ class FamilyLinkClient:
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
 		if self._session:
-			await self._session.close()
+			try:
+				await self._session.close()
+			except Exception as e:
+				_LOGGER.debug(f"Error closing session during cleanup: {e}")
 			self._session = None
 		# Clear cached cookie data
 		if hasattr(self, '_cookie_dict'):

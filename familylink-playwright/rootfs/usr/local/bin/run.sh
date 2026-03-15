@@ -9,8 +9,43 @@ bashio::log.info "Starting Google Family Link Auth Service..."
 LOG_LEVEL=$(bashio::config 'log_level' 'info')
 AUTH_TIMEOUT=$(bashio::config 'auth_timeout' '300')
 SESSION_DURATION=$(bashio::config 'session_duration' '86400')
-LANGUAGE=$(bashio::config 'language' 'en-US')
-TIMEZONE=$(bashio::config 'timezone' 'Europe/Paris')
+LANGUAGE=$(bashio::config 'language' '')
+TIMEZONE=$(bashio::config 'timezone' '')
+
+# Auto-detect from Home Assistant if not manually configured
+if [ -z "${LANGUAGE}" ] || [ "${LANGUAGE}" == "null" ]; then
+    bashio::log.info "Language not configured, auto-detecting from Home Assistant..."
+    HA_LANGUAGE=$(bashio::api.supervisor GET /core/api/config false '$.language' 2>/dev/null) || HA_LANGUAGE=""
+    if [ -n "${HA_LANGUAGE}" ] && [ "${HA_LANGUAGE}" != "null" ]; then
+        # Map HA short language code to full locale
+        case "${HA_LANGUAGE}" in
+            fr) LANGUAGE="fr-FR" ;;
+            en) LANGUAGE="en-US" ;;
+            de) LANGUAGE="de-DE" ;;
+            es) LANGUAGE="es-ES" ;;
+            it) LANGUAGE="it-IT" ;;
+            nl) LANGUAGE="nl-NL" ;;
+            pt) LANGUAGE="pt-PT" ;;
+            *) LANGUAGE="${HA_LANGUAGE}" ;;
+        esac
+        bashio::log.info "Auto-detected language from HA: ${LANGUAGE}"
+    else
+        LANGUAGE="en-US"
+        bashio::log.warning "Could not auto-detect language, defaulting to en-US"
+    fi
+fi
+
+if [ -z "${TIMEZONE}" ] || [ "${TIMEZONE}" == "null" ]; then
+    bashio::log.info "Timezone not configured, auto-detecting from Home Assistant..."
+    HA_TIMEZONE=$(bashio::info.timezone 2>/dev/null) || HA_TIMEZONE=""
+    if [ -n "${HA_TIMEZONE}" ] && [ "${HA_TIMEZONE}" != "null" ]; then
+        TIMEZONE="${HA_TIMEZONE}"
+        bashio::log.info "Auto-detected timezone from HA: ${TIMEZONE}"
+    else
+        TIMEZONE="Europe/Paris"
+        bashio::log.warning "Could not auto-detect timezone, defaulting to Europe/Paris"
+    fi
+fi
 
 # Export environment variables
 export LOG_LEVEL="${LOG_LEVEL}"
@@ -51,10 +86,23 @@ sleep 2
 # Start window manager
 fluxbox &
 
-# Start VNC server for remote access
-bashio::log.info "Starting VNC server on port 5900..."
+# Start VNC server (localhost only) and noVNC web interface
+bashio::log.info "Starting VNC server (localhost only)..."
 VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
-x11vnc -display :99 -forever -shared -rfbport 5900 -passwd "${VNC_PASSWORD}" &
+x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" &
+VNC_PID=$!
+sleep 1
+if ! kill -0 "${VNC_PID}" 2>/dev/null; then
+    bashio::log.warning "x11vnc failed to start — noVNC will not be available"
+fi
+
+bashio::log.info "Starting noVNC on port 6080..."
+websockify --web=/usr/share/novnc 6080 localhost:5900 &
+NOVNC_PID=$!
+sleep 1
+if ! kill -0 "${NOVNC_PID}" 2>/dev/null; then
+    bashio::log.warning "websockify/noVNC failed to start on port 6080"
+fi
 
 bashio::log.info "Starting FastAPI application..."
 

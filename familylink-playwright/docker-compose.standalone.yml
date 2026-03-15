@@ -11,7 +11,7 @@ services:
     container_name: familylink-auth
     ports:
       - "8099:8099"  # Web interface
-      - "5900:5900"  # VNC server
+      - "6080:6080"  # noVNC web interface
     volumes:
       - ./data:/share/familylink:rw
     # Increase shared memory size for Chromium (default 64MB is too small)
@@ -23,6 +23,9 @@ services:
       - VNC_PASSWORD=familylink
       - LANGUAGE=en-US
       - TIMEZONE=Europe/Paris
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]

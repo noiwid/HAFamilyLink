@@ -38,12 +38,12 @@ async def async_setup_entry(
 	# Check if data is available (should be after async_config_entry_first_refresh)
 	if not coordinator.data or "children_data" not in coordinator.data:
 		_LOGGER.error(
-			"CRITICAL: No children data in coordinator after first refresh! "
-			"Binary sensors will NOT be created. "
-			f"coordinator.data keys: {list(coordinator.data.keys()) if coordinator.data else 'None'}"
+			"No children data in coordinator after first refresh — "
+			"binary sensors will NOT be created. "
+			"coordinator.data keys: %s",
+			list(coordinator.data.keys()) if coordinator.data else None,
 		)
-		# Don't return - this prevents entities from ever being created!
-		# Instead, log the issue and let platforms handle it
+		return
 
 	# Get device registry
 	device_registry = dr.async_get(hass)
