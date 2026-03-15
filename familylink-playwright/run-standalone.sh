@@ -53,16 +53,20 @@ echo "✓ Virtual display started on :99"
 fluxbox >/dev/null 2>&1 &
 echo "✓ Window manager (fluxbox) started"
 
-# Start VNC server for remote access
-echo "Starting VNC server on port 5900..."
-x11vnc -display :99 -forever -shared -rfbport 5900 -passwd "${VNC_PASSWORD}" >/dev/null 2>&1 &
+# Start VNC server (localhost only) and noVNC web interface
+echo "Starting VNC server (localhost only)..."
+x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" >/dev/null 2>&1 &
 echo "✓ VNC server started"
+
+echo "Starting noVNC on port 6080..."
+websockify --web=/usr/share/novnc 6080 localhost:5900 >/dev/null 2>&1 &
+echo "✓ noVNC started"
 echo ""
 
 echo "=============================================="
 echo "Service Ready!"
 echo "  - Web UI: http://localhost:8099"
-echo "  - VNC:    vnc://localhost:5900"
+echo "  - noVNC:  http://localhost:6080/vnc.html"
 echo "=============================================="
 echo ""
 
