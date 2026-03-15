@@ -2,7 +2,7 @@
 
 block_device_for_school:
   name: Block Device for School
-  description: Block all apps except essential ones to simulate device lock during school hours
+  description: "Block all apps except essential ones to simulate device lock during school hours. If no child is specified, applies to ALL supervised children."
   fields:
     whitelist:
       name: Additional Whitelist
@@ -11,11 +11,39 @@ block_device_for_school:
       example: "com.example.educationalapp"
       selector:
         object:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
 
 unblock_all_apps:
   name: Unblock All Apps
-  description: Unblock all apps to end school mode and restore normal device usage
-  fields: {}
+  description: "Unblock all apps to end school mode and restore normal device usage. If no child is specified, applies to ALL supervised children."
+  fields:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
 
 block_app:
   name: Block App
