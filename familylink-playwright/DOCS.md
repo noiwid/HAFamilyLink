@@ -76,11 +76,14 @@ session_duration: 86400  # Cookies valid for 24 hours
 
 1. Click **Open Web UI** or navigate to `http://[YOUR_HA]:8099`
 2. Click "Démarrer l'authentification"
-3. Browser window opens automatically
-4. Sign in to Google
+3. The browser launches inside the container - connect via noVNC to interact with it:
+   - Open `http://[YOUR_HA]:6080/vnc.html` in your web browser
+   - Password: `familylink`
+   - Click **Connect** (no VNC client software needed)
+4. Sign in to Google in the noVNC browser window
 5. Complete 2FA if required
 6. Wait for success message
-7. Close add-on UI
+7. Close the noVNC browser tab
 
 ### Step 5: Configure Integration
 
@@ -298,7 +301,7 @@ Restrictive permissions protect sensitive data:
 
 ### Network Isolation
 
-- Add-on only exposes port 8099 (web UI)
+- Add-on exposes port 8099 (web UI) and port 6080 (noVNC browser access)
 - No external API endpoints
 - Browser communicates only with Google
 - No telemetry or analytics
