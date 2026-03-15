@@ -191,7 +191,12 @@ class FamilyLinkClient:
 
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
-		async with self._session_lock:
+		try:
+			await asyncio.wait_for(self._session_lock.acquire(), timeout=60)
+		except asyncio.TimeoutError:
+			_LOGGER.error("Timed out waiting for session lock (60s) — possible deadlock")
+			raise
+		try:
 			# Recreate session if SAPISIDHASH timestamp is too old
 			if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
 				_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
@@ -280,6 +285,8 @@ class FamilyLinkClient:
 				_LOGGER.debug("✓ Session created successfully")
 
 			return self._session
+		finally:
+			self._session_lock.release()
 
 	async def async_get_family_members(self) -> dict[str, Any]:
 		"""Get list of all family members.
@@ -680,8 +687,8 @@ class FamilyLinkClient:
 				if timestamp_ms:
 					try:
 						timestamp_iso = datetime.fromtimestamp(timestamp_ms / 1000).isoformat()
-					except (ValueError, OSError):
-						pass
+					except (ValueError, OSError) as e:
+						_LOGGER.debug("Invalid location timestamp %s: %s", timestamp_ms, e)
 
 				result = {
 					"latitude": latitude,
@@ -2262,7 +2269,10 @@ class FamilyLinkClient:
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
 		if self._session:
-			await self._session.close()
+			try:
+				await self._session.close()
+			except Exception as e:
+				_LOGGER.debug(f"Error closing session during cleanup: {e}")
 			self._session = None
 		# Clear cached cookie data
 		if hasattr(self, '_cookie_dict'):
