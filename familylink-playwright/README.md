@@ -11,7 +11,7 @@ This add-on runs a web server with Playwright browser automation to handle Googl
 ## Features
 
 - 🔐 **Secure Browser Authentication**: Uses Playwright with Chromium for Google login
-- 🖥️ **VNC Remote Access**: Browser runs in container, accessible via VNC (port 5900)
+- 🖥️ **noVNC Web Access**: Browser runs in container, accessible via noVNC in your web browser (port 6080)
 - 🔒 **Encrypted Cookie Storage**: All cookies are encrypted before storage
 - 🌐 **User-Friendly Web Interface**: Simple web UI for authentication (port 8099)
 - 🔄 **Automatic Cookie Management**: Stores cookies in shared storage for the integration
@@ -65,14 +65,12 @@ This add-on runs a web server with Playwright browser automation to handle Googl
 3. **Authenticate**:
    - Click "Démarrer l'authentification" (Start Authentication)
    - **Important**: The browser opens **inside the Docker container**, not on your computer
-   - **If you don't see a browser window**, connect via VNC to access it:
-     - **VNC Address**: `vnc://[YOUR_HA_IP]:5900`
+   - **To see and interact with the browser**, connect via noVNC in your web browser:
+     - Open `http://[YOUR_HA_IP]:6080/vnc.html`
      - **Password**: `familylink`
-     - **VNC Clients**:
-       - macOS: Built-in Screen Sharing (Finder → Go → Connect to Server)
-       - Windows: TightVNC Viewer, RealVNC Viewer
-       - Linux: Remmina, TigerVNC Viewer
-   - Once connected via VNC (or if the window opened automatically), sign in with your Google account
+     - Click **Connect**
+     - No VNC client software is needed - it runs directly in your browser!
+   - Once connected via noVNC, sign in with your Google account
    - Complete 2FA if prompted
    - Wait for the success message
 
@@ -172,14 +170,14 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 
 1. **Xvfb** creates a virtual display (`:99`) inside the container
 2. **Chromium** launches on this virtual display via Playwright
-3. **x11vnc** provides VNC access to the virtual display (port 5900)
-4. User connects via VNC to interact with the browser
+3. **noVNC** provides web-based access to the virtual display (port 6080)
+4. User connects via web browser to interact with the browser
 5. After successful login:
    - Playwright extracts Google authentication cookies
    - Cookies are encrypted and stored in `/share/familylink/cookies.enc`
    - Browser resources are cleaned up
 
-**Why VNC is needed**: The browser runs headless inside the Docker container. VNC allows you to see and interact with it remotely.
+**Why noVNC is needed**: The browser runs headless inside the Docker container. noVNC allows you to see and interact with it remotely through your web browser.
 
 ## Troubleshooting
 
@@ -193,19 +191,15 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 
 **This is expected behavior!** The browser doesn't open on your local machine - it opens inside the Docker container.
 
-**Solution**: Connect via VNC to see and interact with the browser:
+**Solution**: Connect via noVNC in your web browser to see and interact with the browser:
 
-1. **VNC Address**: `vnc://[YOUR_HA_IP]:5900` (or `localhost:5900` if running locally)
+1. **Open**: `http://[YOUR_HA_IP]:6080/vnc.html` (or `http://localhost:6080/vnc.html` if running locally)
 2. **Password**: `familylink`
-3. **Recommended VNC clients**:
-   - **macOS**: Built-in Screen Sharing (`Finder` → `Go` → `Connect to Server`)
-   - **Windows**: TightVNC Viewer, RealVNC Viewer
-   - **Linux**: Remmina, TigerVNC Viewer
+3. Click **Connect** - no VNC client software is needed!
 
-**If VNC connection fails**:
+**If noVNC connection fails**:
 - Check add-on logs: `Supervisor` → `Google Family Link Auth` → `Log`
-- Look for: `Starting VNC server on port 5900...`
-- Verify port 5900 is exposed and accessible
+- Verify port 6080 is exposed and accessible
 - Try restarting the add-on
 
 ### Integration Can't Find Cookies
