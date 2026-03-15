@@ -56,11 +56,23 @@ echo "✓ Window manager (fluxbox) started"
 # Start VNC server (localhost only) and noVNC web interface
 echo "Starting VNC server (localhost only)..."
 x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" >/dev/null 2>&1 &
-echo "✓ VNC server started"
+VNC_PID=$!
+sleep 1
+if kill -0 "${VNC_PID}" 2>/dev/null; then
+    echo "✓ VNC server started"
+else
+    echo "⚠ VNC server failed to start — noVNC will not be available"
+fi
 
 echo "Starting noVNC on port 6080..."
 websockify --web=/usr/share/novnc 6080 localhost:5900 >/dev/null 2>&1 &
-echo "✓ noVNC started"
+NOVNC_PID=$!
+sleep 1
+if kill -0 "${NOVNC_PID}" 2>/dev/null; then
+    echo "✓ noVNC started"
+else
+    echo "⚠ noVNC (websockify) failed to start on port 6080"
+fi
 echo ""
 
 echo "=============================================="

@@ -90,9 +90,19 @@ fluxbox &
 bashio::log.info "Starting VNC server (localhost only)..."
 VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
 x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" &
+VNC_PID=$!
+sleep 1
+if ! kill -0 "${VNC_PID}" 2>/dev/null; then
+    bashio::log.warning "x11vnc failed to start — noVNC will not be available"
+fi
 
 bashio::log.info "Starting noVNC on port 6080..."
 websockify --web=/usr/share/novnc 6080 localhost:5900 &
+NOVNC_PID=$!
+sleep 1
+if ! kill -0 "${NOVNC_PID}" 2>/dev/null; then
+    bashio::log.warning "websockify/noVNC failed to start on port 6080"
+fi
 
 bashio::log.info "Starting FastAPI application..."
 
