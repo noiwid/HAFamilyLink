@@ -67,7 +67,7 @@ def _verify_api_key(request: Request):
 async def startup_event():
     """Initialize services on startup."""
     global browser_manager
-    _LOGGER.info("Starting Family Link Auth Service v1.0.0")
+    _LOGGER.info("Starting Family Link Auth Service v1.6.0")
     _LOGGER.info(f"Configuration: log_level={config.log_level}, auth_timeout={config.auth_timeout}s")
 
     try:
