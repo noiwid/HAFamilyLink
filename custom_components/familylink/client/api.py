@@ -2092,11 +2092,17 @@ class FamilyLinkClient:
 				if response.status == 401:
 					_LOGGER.error(f"✗ 401 Unauthorized - Session expired fetching time limit rules")
 					raise SessionExpiredError("Session expired, please re-authenticate")
-				if response.status != 200:
+				if response.status == 403:
+					_LOGGER.error(
+						"Permission denied fetching time limit rules (HTTP 403). "
+						"Try re-authenticating via the Family Link Auth add-on."
+					)
+				elif response.status != 200:
 					response_text = await response.text()
 					# Use warning for temporary errors (503), error for others
 					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
 					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
+				if response.status != 200:
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
@@ -2244,7 +2250,7 @@ class FamilyLinkClient:
 								break
 
 				if not revisions_found:
-					_LOGGER.warning("No revision data found in response")
+					_LOGGER.debug("No revision data found in response")
 
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
