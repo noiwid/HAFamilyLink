@@ -1,6 +1,6 @@
 # Google Family Link Auth Add-on
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)
 
 A Home Assistant add-on that provides browser-based authentication for the Google Family Link integration.
 
