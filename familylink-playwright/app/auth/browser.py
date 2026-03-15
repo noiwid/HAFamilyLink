@@ -177,33 +177,72 @@ class BrowserAuthManager:
             # Poll for authentication completion
             start_time = asyncio.get_event_loop().time()
             authenticated = False
+            last_url = None
+            GOOGLE_AUTH_COOKIE_NAMES = {'SID', 'HSID', 'SSID', 'APISID', 'SAPISID'}
 
             while (asyncio.get_event_loop().time() - start_time) < self._auth_timeout:
                 # Get the current page (might have changed if new tab opened)
                 page: Page = session['page']
                 current_url = page.url
-                _LOGGER.info(f"Checking authentication - Current URL: {current_url}")
 
+                # Log URL changes at INFO, repeated polls at DEBUG
+                if current_url != last_url:
+                    _LOGGER.info(f"URL changed to: {current_url}")
+                    last_url = current_url
+                else:
+                    _LOGGER.debug(f"Polling - URL unchanged")
+
+                # Method 1: URL-based detection
                 # Check if we're past the login page
-                # Google Family Link redirects to myaccount.google.com/family after successful login
                 if 'accounts.google.com' not in current_url:
-                    # Check for Family Link dashboard URLs
-                    if ('families.google.com' in current_url or
-                        'myaccount.google.com/family' in current_url):
-                        _LOGGER.info(f"✓ Authentication detected at: {current_url}")
+                    if any(domain in current_url for domain in [
+                        'families.google.com',
+                        'myaccount.google.com',
+                    ]):
+                        _LOGGER.info(f"Authentication detected via URL: {current_url}")
 
                         # Navigate to families.google.com to ensure cookies are properly configured
                         _LOGGER.info("Navigating to families.google.com to finalize cookie configuration...")
                         try:
                             await page.goto('https://families.google.com/families/', wait_until='load', timeout=15000)
                             _LOGGER.info("Successfully navigated to families.google.com")
-                            # Wait a moment for any final cookie updates
                             await asyncio.sleep(2)
                         except Exception as e:
                             _LOGGER.warning(f"Failed to navigate to families.google.com: {e}")
 
                         authenticated = True
                         break
+
+                # Method 2: Cookie-based detection (fallback)
+                # Google sets auth cookies (SID, HSID, etc.) after successful login
+                # even before the URL redirect completes
+                try:
+                    cookies = await context.cookies()
+                    google_auth_cookies = [
+                        c for c in cookies
+                        if c.get('name') in GOOGLE_AUTH_COOKIE_NAMES
+                        and '.google.com' in c.get('domain', '')
+                    ]
+                    if len(google_auth_cookies) >= 3:
+                        _LOGGER.info(
+                            f"Authentication detected via cookies "
+                            f"({len(google_auth_cookies)} auth cookies found: "
+                            f"{[c['name'] for c in google_auth_cookies]})"
+                        )
+
+                        # Navigate to families.google.com to finalize cookies
+                        _LOGGER.info("Navigating to families.google.com to finalize cookie configuration...")
+                        try:
+                            await page.goto('https://families.google.com/families/', wait_until='load', timeout=15000)
+                            _LOGGER.info("Successfully navigated to families.google.com")
+                            await asyncio.sleep(2)
+                        except Exception as e:
+                            _LOGGER.warning(f"Failed to navigate to families.google.com: {e}")
+
+                        authenticated = True
+                        break
+                except Exception as e:
+                    _LOGGER.debug(f"Cookie check failed: {e}")
 
                 await asyncio.sleep(2)  # Check every 2 seconds
 
