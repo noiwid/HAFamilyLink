@@ -82,15 +82,12 @@ docker-compose -f docker-compose.standalone.yml up -d --build
 5. **Authenticate with Google:**
    - Click "Start Authentication"
    - **Important**: The browser opens inside the Docker container, not on your computer
-   - **You must connect via VNC** to see and interact with the browser
+   - **You must connect via noVNC** to see and interact with the browser
 
-6. **Access via VNC (Required):**
-   - VNC Server: `vnc://localhost:5900` (or `vnc://YOUR_SERVER_IP:5900`)
+6. **Access via noVNC (web-based):**
+   - Open your web browser and navigate to: `http://localhost:6080/vnc.html` (or `http://YOUR_SERVER_IP:6080/vnc.html`)
    - Password: `familylink`
-   - Recommended VNC clients:
-     - **macOS**: Built-in Screen Sharing (Finder → Go → Connect to Server) or RealVNC Viewer
-     - **Windows**: TightVNC Viewer, RealVNC Viewer
-     - **Linux**: Remmina, TigerVNC Viewer
+   - No VNC client software is needed - it runs directly in your browser!
    - Once connected, you'll see the Chromium browser with Google login page
 
 ### Option 3: Using Docker Run (Without Docker Compose)
@@ -103,7 +100,7 @@ mkdir -p ./familylink-data
 docker run -d \
   --name familylink-auth \
   -p 8099:8099 \
-  -p 5900:5900 \
+  -p 6080:6080 \
   -v $(pwd)/familylink-data:/share/familylink \
   -e LOG_LEVEL=info \
   -e AUTH_TIMEOUT=300 \
@@ -123,7 +120,7 @@ docker run -d \
 | `LOG_LEVEL` | `info` | Logging level (`trace`, `debug`, `info`, `warning`, `error`) |
 | `AUTH_TIMEOUT` | `300` | Authentication timeout in seconds (60-600) |
 | `SESSION_DURATION` | `86400` | Cookie session duration in seconds (3600-604800) |
-| `VNC_PASSWORD` | `familylink` | Password for VNC access |
+| `VNC_PASSWORD` | `familylink` | Password for noVNC web access |
 
 ### Volume Mounts
 
@@ -133,7 +130,7 @@ docker run -d \
 ### Ports
 
 - **8099/tcp** - Web interface for Google authentication
-- **5900/tcp** - VNC server for browser access
+- **6080/tcp** - noVNC web interface for browser access
 
 ## 📱 Integrating with Home Assistant
 
@@ -241,11 +238,11 @@ docker buildx build \
 
 2. **Network Security**
    - If exposing port 8099 externally, use a reverse proxy with SSL
-   - Consider using a VPN for VNC access
+   - Consider using a VPN for noVNC access
    - Restrict access to trusted IPs
 
-3. **VNC Password**
-   - Change the default VNC password in production:
+3. **noVNC Password**
+   - Change the default noVNC password in production:
      ```yaml
      environment:
        - VNC_PASSWORD=your_secure_password
@@ -279,12 +276,12 @@ This uses `Dockerfile.standalone` which doesn't require Home Assistant Superviso
 docker logs familylink-auth
 
 # Check if ports are already in use
-netstat -tulpn | grep -E '8099|5900'
+netstat -tulpn | grep -E '8099|6080'
 ```
 
 ### Authentication Window Not Opening
 
-1. Connect via VNC: `vnc://localhost:5900`
+1. Connect via noVNC: open `http://localhost:6080/vnc.html` in your browser
 2. You should see the browser automation window
 3. Complete the Google authentication process manually if needed
 
@@ -426,7 +423,7 @@ services:
     container_name: familylink-auth
     ports:
       - "8099:8099"
-      - "5900:5900"
+      - "6080:6080"
     volumes:
       - familylink-data:/share/familylink:rw
     environment:
