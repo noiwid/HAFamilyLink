@@ -74,15 +74,21 @@ session_duration: 86400  # Cookies valid for 24 hours
 
 ### Step 4: Authenticate
 
-1. Click **Open Web UI** or navigate to `http://[YOUR_HA]:8099`
-2. Click "Démarrer l'authentification"
+> **Important: Two ports are required!**
+> - **Port 8099**: Web UI (start authentication, check status)
+> - **Port 6080**: noVNC (interact with the Google login browser)
+>
+> Both ports must be accessible from your browser. If you access Home Assistant via a reverse proxy or external domain, make sure both ports are forwarded, or use your HA's **local IP** (e.g. `http://192.168.1.x:8099` and `http://192.168.1.x:6080`).
+
+1. Click **Open Web UI** or navigate to `http://[YOUR_HA_LOCAL_IP]:8099`
+2. Click "Start Authentication"
 3. The browser launches inside the container - connect via noVNC to interact with it:
-   - Open `http://[YOUR_HA]:6080/vnc.html` in your web browser
+   - Open `http://[YOUR_HA_LOCAL_IP]:6080/vnc.html` in your web browser
    - Password: `familylink`
    - Click **Connect** (no VNC client software needed)
 4. Sign in to Google in the noVNC browser window
-5. Complete 2FA if required
-6. Wait for success message
+5. Complete 2FA if prompted
+6. Wait for the success message
 7. Close the noVNC browser tab
 
 ### Step 5: Configure Integration
