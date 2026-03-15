@@ -1,10 +1,11 @@
 """Browser-based authentication manager using Playwright."""
 import asyncio
 import logging
+import time
 import uuid
 from typing import Dict, Optional
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ class BrowserAuthManager:
 
     async def start_auth_session(self) -> str:
         """Start a new authentication session."""
+        # Prune old completed sessions (prevent memory leak)
+        self._prune_old_sessions()
+
         # Prevent concurrent sessions (memory protection, especially on RPi)
         active = [s for s in self._sessions.values() if s.get('status') == 'authenticating']
         if len(active) >= self.MAX_CONCURRENT_SESSIONS:
@@ -43,6 +47,9 @@ class BrowserAuthManager:
         session_id = str(uuid.uuid4())
         _LOGGER.info(f"Starting authentication session: {session_id}")
 
+        browser = None
+        context = None
+        page = None
         try:
             # Launch browser (non-headless so user can interact)
             # Extensive flags for virtualized/nested VM environments (VirtualBox, VMware, etc.)
@@ -105,7 +112,6 @@ class BrowserAuthManager:
             page = await context.new_page()
 
             # Store session
-            import time
             self._sessions[session_id] = {
                 'browser': browser,
                 'context': context,
@@ -138,6 +144,16 @@ class BrowserAuthManager:
 
         except Exception as e:
             _LOGGER.error(f"Failed to start auth session: {e}")
+            # Cleanup browser resources on failure to prevent leaks
+            try:
+                if page:
+                    await page.close()
+                if context:
+                    await context.close()
+                if browser:
+                    await browser.close()
+            except Exception as cleanup_err:
+                _LOGGER.warning(f"Cleanup after failed session start: {cleanup_err}")
             raise
 
     async def _monitor_authentication(self, session_id: str):
@@ -229,7 +245,7 @@ class BrowserAuthManager:
             await asyncio.sleep(2)
             await self._cleanup_session(session_id)
 
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, PlaywrightTimeoutError):
             session['status'] = 'timeout'
             session['error'] = 'Authentication timeout - user did not complete login in time'
             _LOGGER.error(f"Authentication timeout for session {session_id}")
@@ -249,6 +265,19 @@ class BrowserAuthManager:
         exc = task.exception()
         if exc:
             _LOGGER.error(f"Monitor task for session {session_id} failed: {exc}")
+
+    def _prune_old_sessions(self, max_age: int = 3600):
+        """Remove completed/errored sessions older than max_age seconds."""
+        now = time.time()
+        to_delete = [
+            sid for sid, session in self._sessions.items()
+            if session.get('status') in ('completed', 'timeout', 'error', 'cleaned_up')
+            and now - session.get('created_at', 0) > max_age
+        ]
+        for sid in to_delete:
+            del self._sessions[sid]
+        if to_delete:
+            _LOGGER.debug(f"Pruned {len(to_delete)} old sessions")
 
     async def get_session_status(self, session_id: str) -> Dict:
         """Get status of authentication session."""

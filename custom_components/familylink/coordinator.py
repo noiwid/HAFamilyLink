@@ -130,6 +130,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		except Exception as err:
 			_LOGGER.warning(f"Failed to fetch family members: {err}")
 
+		if not supervised_children:
+			_LOGGER.warning("No supervised children found — entities will not be created. Check your Family Link account configuration.")
+
 		# Fetch data for each supervised child
 		children_data = []
 		for child in supervised_children:

@@ -6,6 +6,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.0] - 2025-03
+
+### Added
+- **noVNC web-based browser access** — No external VNC client needed anymore! The authentication browser is now accessible directly from your web browser at `http://[HOST]:6080/vnc.html` (replaces raw VNC on port 5900)
+- **Auto-detection of language and timezone** — The add-on now automatically reads your Home Assistant language and timezone settings via the Supervisor API. Manual override is still available in add-on configuration
+- **Bilingual web UI (FR/EN)** — The add-on authentication interface now supports French and English, switching automatically based on your HA language setting
+- **DNS configuration for Pi-hole compatibility** — Docker standalone setup now includes Google DNS (8.8.8.8) to avoid DNS resolution issues behind Pi-hole
+
+### Changed
+- VNC server (x11vnc) now restricted to localhost only — external access is exclusively via noVNC (port 6080)
+- Add-on version bumped to 1.6.0
+- Default language/timezone options are now empty (auto-detected from HA)
+
+### Credits
+- noVNC integration inspired by [@jnctech's fork](https://github.com/jnctech/HAFamilyLink)
+
+---
+
+## [1.1.1] - 2025-03
+
+### Added
+- **`refresh_location` service** — Force-refresh GPS location for a child (#78)
+- **Unlimited time mode for apps** — Set `minutes: -1` in `set_app_daily_limit` to grant unlimited access (#79)
+
+### Changed
+- Updated documentation for new services
+
+---
+
+## [1.1.0] - 2025-02
+
+### Fixed
+- **Session locking and resource management** — Improved robustness with concurrent sessions
+- **Entity creation and data display** — Fixed logic bugs in entity setup and validation
+- **Null client crash prevention** — Prevent crashes from invalid data and missing keys
+- **Security hardening** — Redact credentials from logs, fix auth flow and timezone handling
+- **Browser compatibility** — Improved support for RPi4/ARM64 and VMs (#68, #76)
+- **SAPISIDHASH staleness** — Fixed stale auth hash, button unique_id, dead code cleanup
+- **Resource leaks** — Prevent leaks in browser sessions and cookie cache
+- **Silent HTTP failures** — Prevent wrong data from undetected HTTP errors
+
+### Changed
+- Configurable language and timezone for auth browser (#75)
+- Removed unused exception classes and service constants
+
+---
+
 ## [1.0.0] - 2025-01 🎉
 
 ### Added

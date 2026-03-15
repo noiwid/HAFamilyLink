@@ -78,11 +78,12 @@ async def async_setup_entry(
     # Check if data is available (should be after async_config_entry_first_refresh)
     if not coordinator.data or "children_data" not in coordinator.data:
         _LOGGER.error(
-            "CRITICAL: No children data in coordinator after first refresh! "
-            "Sensors will NOT be created. "
-            f"coordinator.data keys: {list(coordinator.data.keys()) if coordinator.data else 'None'}"
+            "No children data in coordinator after first refresh — "
+            "sensors will NOT be created. "
+            "coordinator.data keys: %s",
+            list(coordinator.data.keys()) if coordinator.data else None,
         )
-        # Don't return - this prevents entities from ever being created!
+        return
 
     # Create sensor entities for each child and their devices
     for child_data in coordinator.data.get("children_data", []):

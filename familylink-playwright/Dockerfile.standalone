@@ -26,6 +26,8 @@ RUN apt-get update \
         libasound2 \
         xvfb \
         x11vnc \
+        novnc \
+        python3-websockify \
         fluxbox \
         dbus \
     && apt-get clean \
@@ -66,7 +68,7 @@ RUN mkdir -p /share/familylink && \
     chmod 755 /share/familylink
 
 # Expose ports
-EXPOSE 8099 5900
+EXPOSE 8099 6080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -76,7 +78,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 LABEL \
     org.opencontainers.image.title="Google Family Link Auth (Standalone)" \
     org.opencontainers.image.description="Standalone authentication service for Google Family Link" \
-    org.opencontainers.image.version="1.5.0" \
+    org.opencontainers.image.version="1.6.0" \
     org.opencontainers.image.source="https://github.com/noiwid/HAFamilyLink"
 
 # Start the service

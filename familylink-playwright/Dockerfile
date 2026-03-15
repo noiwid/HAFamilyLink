@@ -27,6 +27,8 @@ RUN apt-get update \
         libasound2 \
         xvfb \
         x11vnc \
+        novnc \
+        python3-websockify \
         fluxbox \
         dbus \
     && apt-get clean \
@@ -63,7 +65,7 @@ RUN mkdir -p /share/familylink && \
     chmod 700 /share/familylink
 
 # Expose ports
-EXPOSE 8099 5900
+EXPOSE 8099 6080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -74,4 +76,4 @@ LABEL \
     io.hass.name="Google Family Link Auth" \
     io.hass.description="Authentication service for Google Family Link" \
     io.hass.type="addon" \
-    io.hass.version="1.5.0"
+    io.hass.version="1.6.0"

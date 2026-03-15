@@ -40,6 +40,13 @@ PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.D
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
 	vol.Optional("whitelist"): vol.All(cv.ensure_list, [cv.string]),
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_UNBLOCK_ALL_APPS = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
 })
 
 SCHEMA_BLOCK_APP = vol.Schema({
@@ -204,16 +211,38 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_block_device_for_school(call: ServiceCall) -> None:
 		"""Handle block_device_for_school service call."""
 		_require_client()
-		_LOGGER.info("Service called: block_device_for_school")
 		whitelist = call.data.get("whitelist")
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
 
 		try:
-			result = await coordinator.client.async_block_device_for_school(whitelist=whitelist)
-			_LOGGER.info(
-				f"School mode activated: {result['blocked_count']} apps blocked, "
-				f"{result['failed_count']} failed"
-			)
-			# Refresh coordinator data
+			if child_id:
+				_LOGGER.info(f"Service called: block_device_for_school (child_id: {child_id})")
+				result = await coordinator.client.async_block_device_for_school(
+					account_id=child_id, whitelist=whitelist
+				)
+				_LOGGER.info(
+					f"School mode activated for child {child_id}: {result['blocked_count']} apps blocked, "
+					f"{result['failed_count']} failed"
+				)
+			else:
+				_LOGGER.info("Service called: block_device_for_school (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					result = await coordinator.client.async_block_device_for_school(
+						account_id=child_account_id, whitelist=whitelist
+					)
+					_LOGGER.info(
+						f"School mode activated for {child_name}: {result['blocked_count']} apps blocked, "
+						f"{result['failed_count']} failed"
+					)
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Failed to block device for school: {err}")
@@ -222,15 +251,33 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_unblock_all_apps(call: ServiceCall) -> None:
 		"""Handle unblock_all_apps service call."""
 		_require_client()
-		_LOGGER.info("Service called: unblock_all_apps")
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
 
 		try:
-			result = await coordinator.client.async_unblock_all_apps()
-			_LOGGER.info(
-				f"All apps unblocked: {result['unblocked_count']} apps unblocked, "
-				f"{result['failed_count']} failed"
-			)
-			# Refresh coordinator data
+			if child_id:
+				_LOGGER.info(f"Service called: unblock_all_apps (child_id: {child_id})")
+				result = await coordinator.client.async_unblock_all_apps(account_id=child_id)
+				_LOGGER.info(
+					f"All apps unblocked for child {child_id}: {result['unblocked_count']} apps unblocked, "
+					f"{result['failed_count']} failed"
+				)
+			else:
+				_LOGGER.info("Service called: unblock_all_apps (all children)")
+				children = await coordinator.client.async_get_all_supervised_children()
+				for child in children:
+					child_account_id = child["id"]
+					child_name = child["name"]
+					result = await coordinator.client.async_unblock_all_apps(account_id=child_account_id)
+					_LOGGER.info(
+						f"All apps unblocked for {child_name}: {result['unblocked_count']} apps unblocked, "
+						f"{result['failed_count']} failed"
+					)
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Failed to unblock all apps: {err}")
@@ -670,6 +717,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		DOMAIN,
 		SERVICE_UNBLOCK_ALL_APPS,
 		handle_unblock_all_apps,
+		schema=SCHEMA_UNBLOCK_ALL_APPS,
 	)
 
 	hass.services.async_register(
@@ -776,7 +824,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 	if unload_ok:
 		# Remove coordinator from hass data
-		coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+		coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
 
 		# Clean up coordinator resources
 		if hasattr(coordinator, 'async_cleanup'):

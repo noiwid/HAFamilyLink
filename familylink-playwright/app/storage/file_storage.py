@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,6 +84,14 @@ class SharedStorage:
 
             _LOGGER.info(f"Loaded {len(cookies)} cookies from shared storage")
             return cookies
+
+        except InvalidToken:
+            _LOGGER.error(
+                "Cookie file is corrupted or encryption key has changed. "
+                "Deleting corrupted file — please re-authenticate."
+            )
+            self.storage_path.unlink(missing_ok=True)
+            raise FileNotFoundError("Cookies were corrupted and have been deleted. Please re-authenticate.")
 
         except Exception as e:
             _LOGGER.error(f"Failed to load cookies: {e}")
