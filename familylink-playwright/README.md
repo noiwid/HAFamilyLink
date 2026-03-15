@@ -63,10 +63,14 @@ This add-on runs a web server with Playwright browser automation to handle Googl
    - Or navigate to port 8099 in your browser
 
 3. **Authenticate**:
-   - Click "Démarrer l'authentification" (Start Authentication)
+   - Click "Start Authentication"
    - **Important**: The browser opens **inside the Docker container**, not on your computer
+   - **Two ports are required** — both must be accessible from your browser:
+     - **Port 8099**: Web UI (authentication controls)
+     - **Port 6080**: noVNC (browser interaction)
+   - If you use a reverse proxy or external domain, use your HA's **local IP** instead (e.g. `192.168.1.x`)
    - **To see and interact with the browser**, connect via noVNC in your web browser:
-     - Open `http://[YOUR_HA_IP]:6080/vnc.html`
+     - Open `http://[YOUR_HA_LOCAL_IP]:6080/vnc.html`
      - **Password**: `familylink`
      - Click **Connect**
      - No VNC client software is needed - it runs directly in your browser!
