@@ -596,7 +596,7 @@ class FamilyLinkClient:
 			self._validate_id(account_id, "account_id")
 			url = f"{self.BASE_URL}/families/mine/location/{account_id}"
 			params = [
-				("locationRefreshMode", 1 if refresh else 0),
+				("locationRefreshMode", "REFRESH" if refresh else "DO_NOT_REFRESH"),
 				("supportedConsents", "SUPERVISED_LOCATION_SHARING"),
 			]
 
