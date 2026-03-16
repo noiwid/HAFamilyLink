@@ -6,10 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.2] - 2025-03-16
+
+### Fixed
+- **Revert `locationRefreshMode` to string values** — v1.2.1 incorrectly changed `locationRefreshMode` from string (`"REFRESH"` / `"DO_NOT_REFRESH"`) to numeric (`1` / `0`), which broke location tracking and battery level for all users. Reverted to the original string values expected by the Google Kids Management API (#89)
+
+---
+
 ## [1.2.1] - 2025-03-15
 
 ### Fixed
-- **`refresh_location` service returning HTTP 400** — The Google Kids Management API expects numeric protobuf enum values for `locationRefreshMode` (`1` = refresh, `0` = do not refresh). The previous string values (`"REFRESH"`, `"DO_NOT_REFRESH"`) caused `INVALID_ARGUMENT` errors (#84)
+- **`refresh_location` service returning HTTP 400** — *(Reverted in v1.2.2)* Changed `locationRefreshMode` to numeric values, which turned out to be incorrect (#84)
 
 ---
 
