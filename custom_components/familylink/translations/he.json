@@ -1,0 +1,96 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "title": "הגדרת Family Link",
+        "description": "התאמת הגדרות השילוב. השינויים ייכנסו לתוקף לאחר השמירה.",
+        "data": {
+          "update_interval": "מרווח עדכון (שניות)",
+          "timeout": "זמן תפוגה של בקשה (שניות)",
+          "enable_location_tracking": "אפשר מעקב מיקום GPS"
+        },
+        "data_description": {
+          "update_interval": "באיזו תדירות לאסוף נתונים מגוגל (30–3600 שניות)",
+          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה להתקן הילד"
+        }
+      }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Google Family Link",
+        "description": "מזהה מקור אימות..."
+      },
+      "manual_url": {
+        "title": "כתובת שרת האימות",
+        "description": "לא זוהה מקור אימות מקומי. אנא הזן את כתובת ה-URL של מכולת האימות של Family Link.\n\nדוגמה: `http://192.168.1.100:8099` או `http://familylink-auth:8099`",
+        "data": {
+          "auth_url": "כתובת שרת האימות"
+        }
+      },
+      "configure": {
+        "title": "הגדרת Family Link",
+        "description": "מקור אימות: {auth_source}",
+        "data": {
+          "name": "שם השילוב",
+          "update_interval": "מרווח עדכון (שניות)",
+          "timeout": "זמן תפוגה של בקשה (שניות)",
+          "enable_location_tracking": "אפשר מעקב מיקום GPS"
+        },
+        "data_description": {
+          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה למכשיר הילד. מושבת כברירת מחדל מטעמי פרטיות."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "לא ניתן להתחבר לשרת האימות. נא לוודא את הכתובת ושהמכולה פועלת.",
+      "invalid_auth": "לא נמצאו עוגיות. נא לבצע אימות תחילה באמצעות תוסף או מכולה Family Link Auth.",
+      "url_required": "נדרשת כתובת אתר",
+      "no_cookies": "השרת זמין אך לא נמצאו עוגיות. נא לבצע אימות תחילה דרך ממשק האינטרנט.",
+      "unknown": "אירעה שגיאה בלתי צפויה"
+    },
+    "abort": {
+      "already_configured": "השילוב כבר מוגדר",
+      "invalid_config": "תצורה לא תקינה"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "daily_screen_time": {
+        "name": "זמן מסך יומי"
+      },
+      "screen_time_formatted": {
+        "name": "זמן מסך (מעוצב)"
+      },
+      "installed_apps": {
+        "name": "יישומים מותקנים"
+      },
+      "blocked_apps": {
+        "name": "יישומים חסומים"
+      },
+      "apps_with_time_limits": {
+        "name": "יישומים עם הגבלות זמן"
+      },
+      "device_count": {
+        "name": "מספר התקנים"
+      },
+      "child_info": {
+        "name": "מידע על הילד"
+      },
+      "top_app": {
+        "name": "היישום המוביל {rank}"
+      }
+    },
+    "switch": {
+      "device_lock": {
+        "name": "נעילת ההתקן"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "מיקום"
+      }
+    }
+  }
+}
