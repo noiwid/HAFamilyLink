@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import json
 import logging
 from typing import Any
 
@@ -885,6 +886,32 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		}
 
 
+MAX_ATTR_SIZE = 15000  # Stay under HA's 16KB state_attributes limit
+
+
+def _truncate_app_list(apps: list[dict], base_attrs: dict) -> tuple[list[dict], bool]:
+	"""Dynamically truncate app list to fit within HA attribute size limit.
+
+	Returns (truncated_list, was_truncated).
+	"""
+	base_size = len(json.dumps(base_attrs, ensure_ascii=False).encode("utf-8"))
+	budget = MAX_ATTR_SIZE - base_size
+
+	if len(json.dumps(apps, ensure_ascii=False).encode("utf-8")) <= budget:
+		return apps, False
+
+	# Binary search for max number of apps that fit
+	lo, hi = 0, len(apps)
+	while lo < hi:
+		mid = (lo + hi + 1) // 2
+		if len(json.dumps(apps[:mid], ensure_ascii=False).encode("utf-8")) <= budget:
+			lo = mid
+		else:
+			hi = mid - 1
+
+	return apps[:lo], True
+
+
 class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	"""Sensor for blocked/hidden apps."""
 
@@ -938,12 +965,16 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 			if app.get("supervisionSetting", {}).get("hidden", False)
 		]
 
-		return {
+		base_attrs = {
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 			"count": len(blocked_apps),
-			"apps": blocked_apps[:20],  # Limit to 20 to avoid attribute size issues
 		}
+		truncated_apps, was_truncated = _truncate_app_list(blocked_apps, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
 
 
 class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
@@ -1002,12 +1033,16 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 					"enabled": usage_limit.get("enabled", False),
 				})
 
-		return {
+		base_attrs = {
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 			"count": len(apps_with_limits),
-			"apps": apps_with_limits[:20],  # Limit to 20
 		}
+		truncated_apps, was_truncated = _truncate_app_list(apps_with_limits, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
 
 
 class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
