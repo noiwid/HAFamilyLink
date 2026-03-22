@@ -100,6 +100,7 @@ async def async_setup_entry(
         entities.append(FamilyLinkBlockedAppsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppsWithLimitsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppsWithoutLimitsSensor(coordinator, child_id, child_name))
+        entities.append(FamilyLinkAlwaysAllowedAppsSensor(coordinator, child_id, child_name))
 
         # Top apps sensors (top 10)
         for i in range(1, 11):
@@ -746,22 +747,30 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 			"app_count": len(screen_time.get("app_breakdown", {})),
 		}
 
-		# Add top 5 apps by usage
+		# Add all apps by usage (dynamically truncated to fit HA's 16KB limit)
 		app_breakdown = screen_time.get("app_breakdown", {})
 		if app_breakdown:
 			sorted_apps = sorted(
 				app_breakdown.items(),
 				key=lambda x: x[1],
 				reverse=True
-			)[:5]
+			)
 
-			for idx, (package, seconds) in enumerate(sorted_apps, 1):
+			app_list = []
+			for package, seconds in sorted_apps:
 				hours = int(seconds // 3600)
 				mins = int((seconds % 3600) // 60)
 				secs = int(seconds % 60)
-				attributes[f"top_app_{idx}"] = package
-				attributes[f"top_app_{idx}_time"] = f"{hours:02d}:{mins:02d}:{secs:02d}"
-				attributes[f"top_app_{idx}_minutes"] = round(seconds / 60, 1)
+				app_list.append({
+					"package": package,
+					"time": f"{hours:02d}:{mins:02d}:{secs:02d}",
+					"minutes": round(seconds / 60, 1),
+				})
+
+			truncated_apps, was_truncated = _truncate_app_list(app_list, attributes)
+			attributes["apps"] = truncated_apps
+			if was_truncated:
+				attributes["truncated"] = True
 
 		return attributes
 
@@ -1063,7 +1072,7 @@ class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, Senso
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_apps_without_limits"
 
 	def _get_apps_without_limits(self) -> list[dict]:
-		"""Return list of apps that are neither blocked nor time-limited."""
+		"""Return list of apps that follow device limits (not blocked, no app limit, not always-allowed)."""
 		child_data = self._get_child_data()
 		if not child_data or "apps" not in child_data:
 			return []
@@ -1074,6 +1083,8 @@ class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, Senso
 			if supervision.get("hidden", False):
 				continue
 			if supervision.get("usageLimit"):
+				continue
+			if supervision.get("alwaysAllowedAppInfo"):
 				continue
 			result.append({
 				"name": app.get("title", "Unknown"),
@@ -1110,6 +1121,73 @@ class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, Senso
 			"count": len(apps_without_limits),
 		}
 		truncated_apps, was_truncated = _truncate_app_list(apps_without_limits, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
+
+
+class FamilyLinkAlwaysAllowedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Sensor for always-allowed apps (bypass all device limits)."""
+
+	_attr_icon = "mdi:shield-star-outline"
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Always Allowed Apps"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_always_allowed_apps"
+
+	def _get_always_allowed_apps(self) -> list[dict]:
+		"""Return list of apps that bypass all device limits."""
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
+			return []
+
+		result = []
+		for app in child_data["apps"]:
+			supervision = app.get("supervisionSetting", {})
+			if supervision.get("alwaysAllowedAppInfo"):
+				result.append({
+					"name": app.get("title", "Unknown"),
+					"package": app.get("packageName", ""),
+				})
+		return result
+
+	@property
+	def native_value(self) -> int:
+		"""Return the number of always-allowed apps."""
+		return len(self._get_always_allowed_apps())
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		child_data = self._get_child_data()
+		return (
+			self.coordinator.last_update_success
+			and child_data is not None
+			and "apps" in child_data
+		)
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		always_allowed_apps = self._get_always_allowed_apps()
+
+		if not always_allowed_apps:
+			return {}
+
+		base_attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"count": len(always_allowed_apps),
+		}
+		truncated_apps, was_truncated = _truncate_app_list(always_allowed_apps, base_attrs)
 		base_attrs["apps"] = truncated_apps
 		if was_truncated:
 			base_attrs["truncated"] = True
