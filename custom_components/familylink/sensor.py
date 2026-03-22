@@ -750,6 +750,13 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 		# Add all apps by usage (dynamically truncated to fit HA's 16KB limit)
 		app_breakdown = screen_time.get("app_breakdown", {})
 		if app_breakdown:
+			# Build package-to-name lookup from apps data
+			app_names: dict[str, str] = {}
+			for app in child_data.get("apps", []):
+				pkg = app.get("packageName", "")
+				if pkg:
+					app_names[pkg] = app.get("title", pkg)
+
 			sorted_apps = sorted(
 				app_breakdown.items(),
 				key=lambda x: x[1],
@@ -762,6 +769,7 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 				mins = int((seconds % 3600) // 60)
 				secs = int(seconds % 60)
 				app_list.append({
+					"name": app_names.get(package, package),
 					"package": package,
 					"time": f"{hours:02d}:{mins:02d}:{secs:02d}",
 					"minutes": round(seconds / 60, 1),
