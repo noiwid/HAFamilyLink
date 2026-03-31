@@ -919,17 +919,34 @@ class FamilyLinkClient:
 
 		blocked = []
 		failed = []
+		unblocked = []
+
+		# Convert whitelist to a set for faster lookups
+		whitelist_set = set(whitelist)
 
 		for app in all_apps:
 			package_name = app.get("packageName", "")
+			is_blocked = app.get("supervisionSetting", {}).get("hidden", False)
 
-			# Skip if in whitelist
-			if package_name in whitelist:
-				_LOGGER.debug(f"Skipping whitelisted app: {package_name}")
+			if package_name in whitelist_set:
+				# Unblock whitelisted apps that are currently blocked
+				if is_blocked:
+					_LOGGER.debug(f"Unblocking whitelisted app: {package_name}")
+					success = await self.async_unblock_app(package_name, account_id)
+					if success:
+						unblocked.append({
+							"name": app.get("title", "Unknown"),
+							"package": package_name
+						})
+					else:
+						failed.append(package_name)
+					await asyncio.sleep(0.1)
+				else:
+					_LOGGER.debug(f"Skipping whitelisted app (already allowed): {package_name}")
 				continue
 
 			# Skip if already blocked
-			if app.get("supervisionSetting", {}).get("hidden", False):
+			if is_blocked:
 				_LOGGER.debug(f"App already blocked: {package_name}")
 				continue
 
@@ -947,13 +964,15 @@ class FamilyLinkClient:
 			await asyncio.sleep(0.1)
 
 		_LOGGER.info(
-			f"School mode activated: {len(blocked)} apps blocked, {len(failed)} failed, "
-			f"{len(whitelist)} apps whitelisted"
+			f"School mode activated: {len(blocked)} apps blocked, {len(unblocked)} unblocked, "
+			f"{len(failed)} failed, {len(whitelist)} apps whitelisted"
 		)
 
 		return {
 			"blocked_count": len(blocked),
 			"blocked_apps": blocked,
+			"unblocked_count": len(unblocked),
+			"unblocked_apps": unblocked,
 			"failed_count": len(failed),
 			"failed_apps": failed,
 			"whitelisted_count": len(whitelist),
