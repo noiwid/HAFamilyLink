@@ -228,7 +228,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				)
 				_LOGGER.info(
 					f"School mode activated for child {child_id}: {result['blocked_count']} apps blocked, "
-					f"{result['failed_count']} failed"
+					f"{result.get('unblocked_count', 0)} unblocked, {result['failed_count']} failed"
 				)
 			else:
 				_LOGGER.info("Service called: block_device_for_school (all children)")
@@ -236,13 +236,16 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				for child in children:
 					child_account_id = child["id"]
 					child_name = child["name"]
-					result = await coordinator.client.async_block_device_for_school(
-						account_id=child_account_id, whitelist=whitelist
-					)
-					_LOGGER.info(
-						f"School mode activated for {child_name}: {result['blocked_count']} apps blocked, "
-						f"{result['failed_count']} failed"
-					)
+					try:
+						result = await coordinator.client.async_block_device_for_school(
+							account_id=child_account_id, whitelist=whitelist
+						)
+						_LOGGER.info(
+							f"School mode activated for {child_name}: {result['blocked_count']} apps blocked, "
+							f"{result.get('unblocked_count', 0)} unblocked, {result['failed_count']} failed"
+						)
+					except Exception as child_err:
+						_LOGGER.error(f"Failed to block device for school for {child_name}: {child_err}")
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Failed to block device for school: {err}")

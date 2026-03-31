@@ -6,11 +6,14 @@ block_device_for_school:
   fields:
     whitelist:
       name: Additional Whitelist
-      description: Additional package names to keep allowed (beyond the default essential apps)
+      description: Additional package names to keep allowed (beyond the default essential apps). Enter one package name per line.
       required: false
-      example: "com.example.educationalapp"
+      example:
+        - "com.example.educationalapp"
+        - "com.microsoft.teams"
       selector:
-        object:
+        text:
+          multiple: true
     entity_id:
       name: Child Entity
       description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
