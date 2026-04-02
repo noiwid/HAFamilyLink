@@ -189,6 +189,66 @@ class FamilyLinkClient:
 			_LOGGER.debug(f"Built Cookie header with {len(cookies_dict)} cookies (length: {len(self._cookie_header)} chars)")
 		return self._cookie_header
 
+	def _update_cookies_from_response(self, response: aiohttp.ClientResponse) -> None:
+		"""Capture Set-Cookie headers from API responses to keep cookies fresh.
+
+		Google may rotate cookie values (especially SIDCC, PSIDCC) via Set-Cookie
+		headers on API responses. This method captures those updates and applies them
+		to the stored cookie list, keeping session cookies fresh indefinitely.
+		"""
+		if not self._cookies:
+			return
+
+		# aiohttp parses Set-Cookie into response.cookies (a SimpleCookie)
+		if not response.cookies:
+			return
+
+		updated_count = 0
+		for cookie_name, cookie_morsel in response.cookies.items():
+			cookie_value = cookie_morsel.value
+			if not cookie_value:
+				continue
+
+			# Find and update matching cookie in our stored list
+			for stored in self._cookies:
+				if stored.get("name") == cookie_name:
+					old_value = stored.get("value", "")
+					if old_value != cookie_value:
+						stored["value"] = cookie_value
+						# Update expiry if provided
+						if cookie_morsel["max-age"]:
+							try:
+								stored["expires"] = time.time() + int(cookie_morsel["max-age"])
+							except (ValueError, TypeError):
+								pass
+						updated_count += 1
+						_LOGGER.debug(
+							"Cookie '%s' refreshed via Set-Cookie (%d chars → %d chars)",
+							cookie_name, len(old_value), len(cookie_value)
+						)
+					break
+
+		if updated_count > 0:
+			# Invalidate cached cookie dict/header so next request uses fresh values
+			for attr in ('_cookie_dict', '_cookie_header'):
+				if hasattr(self, attr):
+					delattr(self, attr)
+			_LOGGER.debug("Refreshed %d cookie(s) from API Set-Cookie headers", updated_count)
+
+	def _create_cookie_trace_config(self) -> aiohttp.TraceConfig:
+		"""Create an aiohttp TraceConfig that captures Set-Cookie on every response."""
+		trace_config = aiohttp.TraceConfig()
+
+		async def on_response_received(
+			session: Any,
+			trace_config_ctx: Any,
+			params: Any,
+		) -> None:
+			self._update_cookies_from_response(params.response)
+
+		trace_config.on_request_end.append(on_response_received)
+		return trace_config
+
 	async def _get_session(self) -> aiohttp.ClientSession:
 		"""Get or create HTTP session with proper headers."""
 		try:
@@ -280,6 +340,7 @@ class FamilyLinkClient:
 				self._session = aiohttp.ClientSession(
 					headers=headers,
 					timeout=aiohttp.ClientTimeout(total=30),
+					trace_configs=[self._create_cookie_trace_config()],
 				)
 				self._session_created_at = time.time()
 				_LOGGER.debug("✓ Session created successfully")
