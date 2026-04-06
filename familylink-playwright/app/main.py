@@ -2,6 +2,8 @@
 import logging
 import os
 import sys
+
+from app.api.steam_routes import router as steam_router
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
@@ -31,7 +33,7 @@ app = FastAPI(
     description="Authentication service for Google Family Link integration",
     version="1.0.0"
 )
-
+app.include_router(steam_router)
 # CORS configuration — restrict to local HA origins
 app.add_middleware(
     CORSMiddleware,
