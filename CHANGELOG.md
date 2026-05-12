@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.6-rc2] - 2026-05-12
+
+### Fixed
+- **Config flow now exposes "Manual URL configuration" explicitly** — Previously the manual URL form was only reachable when local auto-detection failed, which made it impossible for Docker standalone users to point the integration at a remote auth container if `/share/familylink/` happened to contain stale data from a previous add-on install (#109)
+- **Standalone container no longer shows a black noVNC screen** — A welcome banner is now displayed on the Xvfb display via `xterm` so users connecting to noVNC before triggering the auth flow get clear instructions instead of an empty desktop (#108)
+
+### Changed
+- `DOCKER_STANDALONE.md` rewritten to document the actual flow (open port 8099 first, then noVNC on port 6080) and the new menu option
+
+---
+
 ## [1.2.2] - 2025-03-16
 
 ### Fixed

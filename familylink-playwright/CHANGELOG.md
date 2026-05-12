@@ -2,6 +2,14 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.6.1] - 2026-05-12
+
+### Fixed
+- **noVNC welcome banner** — Display a clear welcome message on the Xvfb desktop via `xterm` so users connecting to noVNC before starting the auth flow no longer see a black screen (#108)
+
+### Changed
+- Added `xterm` to the base Dockerfile dependencies (both add-on and standalone images)
+
 ## [1.6.0] - 2025-03
 
 ### Added

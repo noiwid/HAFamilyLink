@@ -20,7 +20,11 @@
 		"step": {
 			"user": {
 				"title": "Google Family Link",
-				"description": "Detecting authentication source..."
+				"description": "Choose how to connect to the Family Link Auth service.",
+				"menu_options": {
+					"auto_detect": "Auto-detect (add-on or local file)",
+					"manual_url": "Manual URL configuration (Docker standalone)"
+				}
 			},
 			"manual_url": {
 				"title": "Authentication Server URL",
