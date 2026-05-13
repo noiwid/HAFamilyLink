@@ -30,6 +30,7 @@ RUN apt-get update \
         novnc \
         python3-websockify \
         fluxbox \
+        xterm \
         dbus \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -54,9 +55,11 @@ RUN pip3 install --no-cache-dir --break-system-packages playwright && \
 # Copy application code
 COPY app/ /app/app/
 COPY rootfs/ /
+COPY welcome-banner.sh /usr/local/bin/welcome-banner.sh
 
 # Set permissions
 RUN chmod a+x /usr/local/bin/run.sh && \
+    chmod a+x /usr/local/bin/welcome-banner.sh && \
     chmod a+x /etc/services.d/familylink/run && \
     chmod a+x /etc/services.d/familylink/finish
 
@@ -76,4 +79,4 @@ LABEL \
     io.hass.name="Google Family Link Auth" \
     io.hass.description="Authentication service for Google Family Link" \
     io.hass.type="addon" \
-    io.hass.version="1.6.0"
+    io.hass.version="1.6.1"

@@ -104,6 +104,12 @@ if ! kill -0 "${NOVNC_PID}" 2>/dev/null; then
     bashio::log.warning "websockify/noVNC failed to start on port 6080"
 fi
 
+# Display a welcome banner on the Xvfb display so noVNC is not black
+# before the user triggers the authentication flow (issue #108).
+if [ -x /usr/local/bin/welcome-banner.sh ]; then
+    /usr/local/bin/welcome-banner.sh || bashio::log.warning "Welcome banner failed to start (non-critical)"
+fi
+
 bashio::log.info "Starting FastAPI application..."
 
 # Start the FastAPI application with uvicorn directly
