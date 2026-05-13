@@ -3,6 +3,7 @@
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]][license]
 [![HACS][hacs-shield]][hacs]
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
 A comprehensive Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage time limits, control bedtime/school schedules, and manage time bonuses directly from Home Assistant.
 
@@ -517,6 +518,8 @@ automation:
 - **v0.1.0** - Initial release
 
 ## 🤝 Contributing
+
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
 Contributions are welcome! Please follow these steps:
 
