@@ -20,7 +20,11 @@
     "step": {
       "user": {
         "title": "Google Family Link",
-        "description": "מזהה מקור אימות..."
+        "description": "בחר כיצד להתחבר לשירות Family Link Auth.",
+        "menu_options": {
+          "auto_detect": "זיהוי אוטומטי (תוסף או קובץ מקומי)",
+          "manual_url": "הגדרת URL ידנית (Docker עצמאי)"
+        }
       },
       "manual_url": {
         "title": "כתובת שרת האימות",

@@ -109,16 +109,28 @@ The `dns` entries (`8.8.8.8`, `8.8.4.4`) ensure the container can resolve Google
 
 ## Authentication
 
-1. Open the noVNC interface at `http://<your-docker-host>:6080`
-2. Enter the VNC password (default: `familylink`)
-3. Complete the Google login in the browser window
-4. Once authenticated, cookies are saved and the API becomes available
+The authentication flow uses **two ports**:
+- Port **8099** — the Web UI where you trigger the auth flow
+- Port **6080** — the noVNC window where you complete the Google login
+
+Order matters:
+
+1. Open the **Web UI** in your browser: `http://<your-docker-host>:8099`
+2. Click **"Start Authentication"** — this launches a Chromium browser inside the container
+3. Open the **noVNC** interface in a separate tab: `http://<your-docker-host>:6080/vnc.html`
+4. Enter the VNC password (default: `familylink`)
+5. Complete the Google login in the Chromium window shown via noVNC
+6. Once authenticated, cookies are saved automatically and the API becomes available
+
+> **Note:** If you open noVNC before clicking "Start Authentication", you will see a
+> welcome banner with the instructions instead of the Google login page — that is
+> normal, the browser has not been launched yet.
 
 ## Connecting to Home Assistant
 
 1. Install the **Family Link** integration in Home Assistant (via HACS or manually)
 2. Go to **Settings > Devices & Services > Add Integration > Family Link**
-3. Select **"Manual URL configuration"**
+3. In the menu, pick **"Manual URL configuration (Docker standalone)"**
 4. Enter the auth server URL: `http://<your-docker-host>:8099`
 5. The integration will connect to the standalone container and retrieve authentication cookies
 

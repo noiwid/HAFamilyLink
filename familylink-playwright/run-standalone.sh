@@ -73,6 +73,12 @@ if kill -0 "${NOVNC_PID}" 2>/dev/null; then
 else
     echo "⚠ noVNC (websockify) failed to start on port 6080"
 fi
+
+# Display a welcome banner on the Xvfb display so noVNC is not black
+# before the user triggers the authentication flow (issue #108).
+if [ -x /usr/local/bin/welcome-banner.sh ]; then
+    /usr/local/bin/welcome-banner.sh || echo "⚠ Welcome banner failed to start (non-critical)"
+fi
 echo ""
 
 echo "=============================================="

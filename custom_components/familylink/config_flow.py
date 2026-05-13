@@ -80,10 +80,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 	async def async_step_user(
 		self, user_input: dict[str, Any] | None = None
 	) -> FlowResult:
-		"""Handle the initial step - detect auth source."""
+		"""Handle the initial step - present a menu to choose how to connect."""
 		from .auth.addon_client import AddonCookieClient
 
-		# Detect available auth source
+		# Detect available auth source (only used as a hint for the "auto" branch)
 		addon_client = AddonCookieClient(self.hass)
 		source_type, detected_url = await addon_client.detect_auth_source()
 
@@ -92,11 +92,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 		_LOGGER.debug(f"Detected auth source: {source_type}, URL: {detected_url}")
 
-		if source_type == "none":
-			# No auto-detection possible, ask for URL
-			return await self.async_step_manual_url()
+		# Always let the user choose between auto-detection and manual URL.
+		# This is critical for Docker standalone setups where localhost-based
+		# detection cannot reach the auth container running on another host.
+		return self.async_show_menu(
+			step_id="user",
+			menu_options=["auto_detect", "manual_url"],
+		)
 
-		# Auto-detected, proceed with standard form
+	async def async_step_auto_detect(
+		self, user_input: dict[str, Any] | None = None
+	) -> FlowResult:
+		"""Use the auto-detected authentication source."""
+		if self._detected_source == "none":
+			# Nothing was detected, fall back to the manual URL form
+			return await self.async_step_manual_url()
 		return await self.async_step_configure(user_input)
 
 	async def async_step_manual_url(
