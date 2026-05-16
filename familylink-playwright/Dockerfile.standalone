@@ -1,5 +1,4 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:7.3.3
-FROM ${BUILD_FROM}
+FROM debian:12-slim
 
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -40,6 +39,12 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 ENV PYTHONUNBUFFERED=1
 
+# Default environment variables (can be overridden)
+ENV LOG_LEVEL=info
+ENV AUTH_TIMEOUT=300
+ENV SESSION_DURATION=86400
+ENV VNC_PASSWORD=familylink
+
 # Set working directory
 WORKDIR /app
 
@@ -54,18 +59,15 @@ RUN pip3 install --no-cache-dir --break-system-packages playwright && \
 
 # Copy application code
 COPY app/ /app/app/
-COPY rootfs/ /
-COPY welcome-banner.sh /usr/local/bin/welcome-banner.sh
 
-# Set permissions
-RUN chmod a+x /usr/local/bin/run.sh && \
-    chmod a+x /usr/local/bin/welcome-banner.sh && \
-    chmod a+x /etc/services.d/familylink/run && \
-    chmod a+x /etc/services.d/familylink/finish
+# Copy standalone startup script and welcome banner helper
+COPY run-standalone.sh /usr/local/bin/run-standalone.sh
+COPY welcome-banner.sh /usr/local/bin/welcome-banner.sh
+RUN chmod +x /usr/local/bin/run-standalone.sh /usr/local/bin/welcome-banner.sh
 
 # Create necessary directories
 RUN mkdir -p /share/familylink && \
-    chmod 700 /share/familylink
+    chmod 755 /share/familylink
 
 # Expose ports
 EXPOSE 8099 6080
@@ -76,7 +78,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Labels
 LABEL \
-    io.hass.name="Google Family Link Auth" \
-    io.hass.description="Authentication service for Google Family Link" \
-    io.hass.type="addon" \
-    io.hass.version="1.6.1"
+    org.opencontainers.image.title="Google Family Link Auth (Standalone)" \
+    org.opencontainers.image.description="Standalone authentication service for Google Family Link" \
+    org.opencontainers.image.version="1.6.1" \
+    org.opencontainers.image.source="https://github.com/noiwid/HAFamilyLink"
+
+# Start the service
+CMD ["/usr/local/bin/run-standalone.sh"]

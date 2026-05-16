@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -34,9 +35,14 @@ async def async_setup_entry(
 
 	entities = []
 
-	# Wait for first data fetch to get children
+	# Check if data is available (should be after async_config_entry_first_refresh)
 	if not coordinator.data or "children_data" not in coordinator.data:
-		_LOGGER.warning("No children data available yet, binary sensors will be added on first update")
+		_LOGGER.error(
+			"No children data in coordinator after first refresh — "
+			"binary sensors will NOT be created. "
+			"coordinator.data keys: %s",
+			list(coordinator.data.keys()) if coordinator.data else None,
+		)
 		return
 
 	# Get device registry
@@ -210,11 +216,15 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 			start_ms = bedtime_window.get("start_ms")
 			end_ms = bedtime_window.get("end_ms")
 			if start_ms:
-				from datetime import datetime
-				attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				try:
+					attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 			if end_ms:
-				from datetime import datetime
-				attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				try:
+					attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 
 		return attributes
 
@@ -272,11 +282,15 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 			start_ms = schooltime_window.get("start_ms")
 			end_ms = schooltime_window.get("end_ms")
 			if start_ms:
-				from datetime import datetime
-				attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				try:
+					attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 			if end_ms:
-				from datetime import datetime
-				attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				try:
+					attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+				except (ValueError, OSError):
+					pass
 
 		return attributes
 
@@ -284,7 +298,7 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 	"""Binary sensor indicating if device has reached its daily time limit."""
 
-	_attr_device_class = BinarySensorDeviceClass.PROBLEM
+	# No device_class = returns on/off (true/false) instead of OK/PROBLEM
 
 	def __init__(
 		self,
@@ -303,16 +317,17 @@ class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if device has reached or exceeded its daily limit."""
+		"""Return True if device has reached or exceeded its daily limit (ignoring bonus)."""
 		time_data = self._get_device_time_data()
 		if not time_data:
 			return False
 
-		remaining_minutes = time_data.get("remaining_minutes")
-		if remaining_minutes is None:
+		# Use daily_limit_remaining which ignores bonus time
+		daily_limit_remaining = time_data.get("daily_limit_remaining")
+		if daily_limit_remaining is None:
 			return False
 
-		return remaining_minutes <= 0
+		return daily_limit_remaining <= 0
 
 	@property
 	def icon(self) -> str:

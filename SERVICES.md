@@ -1,26 +1,26 @@
 # Google Family Link Services
 
-Cette intégration fournit 4 services pour contrôler les applications de l'appareil supervisé.
+This integration provides several services to control supervised devices: app management, time limits, and bedtime schedules.
 
-## 📱 Services disponibles
+## 📱 App Management Services
 
 ### 1. `familylink.block_device_for_school`
-Bloque toutes les applications sauf les essentielles pour simuler un verrouillage de l'appareil pendant les heures de classe.
+Blocks all apps except essential ones to simulate a device lock during school hours.
 
-**Applications essentielles (toujours autorisées par défaut):**
-- Téléphone (`com.android.dialer`)
+**Essential apps (always allowed by default):**
+- Phone (`com.android.dialer`)
 - Contacts (`com.android.contacts`)
 - SMS/Messages (`com.android.mms`, `com.google.android.apps.messaging`)
-- Paramètres (`com.android.settings`)
-- Horloge/Alarme (`com.android.deskclock`)
+- Settings (`com.android.settings`)
+- Clock/Alarm (`com.android.deskclock`)
 - Google Maps (`com.google.android.apps.maps`)
-- Urgence (`com.android.emergency`)
-- Services système essentiels
+- Emergency (`com.android.emergency`)
+- Essential system services
 
-**Paramètres:**
-- `whitelist` (optionnel): Liste d'applications supplémentaires à autoriser
+**Parameters:**
+- `whitelist` (optional): List of additional apps to allow
 
-**Exemple:**
+**Example:**
 ```yaml
 service: familylink.block_device_for_school
 data:
@@ -32,11 +32,11 @@ data:
 ---
 
 ### 2. `familylink.unblock_all_apps`
-Débloque toutes les applications pour terminer le mode école et restaurer l'utilisation normale de l'appareil.
+Unblocks all apps to end school mode and restore normal device usage.
 
-**Paramètres:** Aucun
+**Parameters:** None
 
-**Exemple:**
+**Example:**
 ```yaml
 service: familylink.unblock_all_apps
 ```
@@ -44,43 +44,257 @@ service: familylink.unblock_all_apps
 ---
 
 ### 3. `familylink.block_app`
-Bloque une application spécifique par son nom de package.
+Blocks a specific app by its package name. If no child is specified, blocks the app for **ALL supervised children**.
 
-**Paramètres:**
-- `package_name` (requis): Nom du package Android (ex: `com.youtube.android`)
+**Parameters:**
+- `package_name` (required): Android package name (e.g., `com.youtube.android`)
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
 
-**Exemple:**
+**Examples:**
 ```yaml
+# Block YouTube for ALL children
 service: familylink.block_app
 data:
   package_name: com.youtube.android
+
+# Block YouTube for a specific child
+service: familylink.block_app
+data:
+  package_name: com.youtube.android
+  entity_id: sensor.emma_screen_time
 ```
 
 ---
 
 ### 4. `familylink.unblock_app`
-Débloque une application spécifique par son nom de package.
+Unblocks a specific app by its package name. If no child is specified, unblocks the app for **ALL supervised children**.
 
-**Paramètres:**
-- `package_name` (requis): Nom du package Android
+**Parameters:**
+- `package_name` (required): Android package name
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
 
-**Exemple:**
+**Examples:**
 ```yaml
+# Unblock YouTube for ALL children
 service: familylink.unblock_app
 data:
   package_name: com.youtube.android
+
+# Unblock YouTube for a specific child
+service: familylink.unblock_app
+data:
+  package_name: com.youtube.android
+  child_id: "123456789012345678901"
 ```
 
 ---
 
-## 🤖 Exemples d'automations
+### 5. `familylink.set_app_daily_limit`
+Sets a daily time limit for a specific app. If no child is specified, applies to **ALL supervised children**.
 
-### Automation: Bloquer le téléphone pendant les heures de classe
+Google Family Link has 4 distinct app states:
+1. **Blocked** - App completely unavailable (`block_app` service)
+2. **App limit off** - App follows device daily limits (`minutes: -1`)
+3. **Set limit** - App has its own time restriction (`minutes: 1-1440`)
+4. **Unlimited time** - App ignores device limits entirely (`minutes: -2`)
+
+**Parameters:**
+- `package_name` (required): Android package name (e.g., `com.zhiliaoapp.musically` for TikTok)
+- `minutes` (required): Daily limit in minutes (-2 to 1440)
+  - `-2` = **Unlimited time** (app ignores device daily limits)
+  - `-1` = **App limit off** (app follows device daily limits)
+  - `0` = **Blocked** (0 minutes allowed for today)
+  - `1-1440` = **Set limit** (time limit in minutes)
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, applies to ALL children
+
+**Examples:**
+```yaml
+# Set TikTok to 60 minutes/day for ALL children
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 60
+
+# Set TikTok to 45 minutes for a specific child
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: 45
+  entity_id: sensor.emma_screen_time
+
+# Disable app limit (app follows device limits)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: -1
+
+# Set app to unlimited time (ignores device limits)
+service: familylink.set_app_daily_limit
+data:
+  package_name: com.zhiliaoapp.musically
+  minutes: -2
+```
+
+---
+
+## ⏰ Time Management Services
+
+### 6. `familylink.set_daily_limit`
+Sets the daily screen time limit for a device.
+
+**Parameters:**
+- `daily_minutes` (required): Number of minutes allowed per day (0-1440)
+  - Use `0` to disable the device for the day without fully locking it (unrestricted apps remain accessible)
+- `entity_id` (optional): Select a Family Link device switch (recommended)
+- `device_id` (optional): Device ID (if entity_id not provided)
+- `child_id` (optional): Child's user ID
+
+**Examples:**
+```yaml
+# Set 2 hours of screen time via entity
+service: familylink.set_daily_limit
+data:
+  entity_id: switch.pixel_tablet
+  daily_minutes: 120
+
+# Disable device for the day (unrestricted apps remain accessible)
+service: familylink.set_daily_limit
+data:
+  entity_id: switch.pixel_tablet
+  daily_minutes: 0
+```
+
+---
+
+### 7. `familylink.set_bedtime`
+Sets bedtime start and end times for a specific day.
+
+**Parameters:**
+- `start_time` (required): Bedtime start time (e.g., "20:45")
+- `end_time` (required): Bedtime end time (e.g., "07:30")
+- `day` (optional): Day of the week (1=Monday, 7=Sunday). Defaults to today.
+- `child_id` (optional): Child's user ID (optional if only one child)
+
+**Examples:**
+```yaml
+# Set bedtime for today
+service: familylink.set_bedtime
+data:
+  start_time: "20:45"
+  end_time: "07:30"
+
+# Set bedtime for Saturday (day 6)
+service: familylink.set_bedtime
+data:
+  start_time: "22:00"
+  end_time: "09:00"
+  day: 6
+```
+
+---
+
+### 8. `familylink.enable_bedtime` / `familylink.disable_bedtime`
+Enables or disables bedtime restrictions for a child.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.enable_bedtime
+data:
+  child_id: "123456789012345678901"
+```
+
+---
+
+### 9. `familylink.add_time_bonus`
+Adds bonus time to a device.
+
+**Parameters:**
+- `bonus_minutes` (required): Bonus minutes (1-1440)
+- `entity_id` (optional): Select a Family Link device switch
+- `device_id` (optional): Device ID
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.add_time_bonus
+data:
+  entity_id: switch.pixel_tablet
+  bonus_minutes: 30
+```
+
+---
+
+### 10. `familylink.enable_school_time` / `familylink.disable_school_time`
+Enables or disables school time (evening limit) restrictions for a child.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.enable_school_time
+data:
+  entity_id: sensor.emma_screen_time
+```
+
+---
+
+### 11. `familylink.enable_daily_limit` / `familylink.disable_daily_limit`
+Enables or disables the daily screen time limit for a child.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID
+
+**Example:**
+```yaml
+service: familylink.enable_daily_limit
+data:
+  child_id: "123456789012345678901"
+```
+
+---
+
+## 📍 Location Services
+
+### 12. `familylink.refresh_location`
+Forces a fresh GPS location update from the child's device. This requests the device to send its current position instead of returning cached data from Google servers.
+
+**Parameters:**
+- `entity_id` (optional): Select any Family Link entity for this child
+- `child_id` (optional): Child's user ID - if not specified, refreshes ALL children
+
+**Examples:**
+```yaml
+# Refresh location for ALL children
+service: familylink.refresh_location
+
+# Refresh location for a specific child
+service: familylink.refresh_location
+data:
+  entity_id: device_tracker.emma
+```
+
+> **Note:** This uses more battery on the child's device than the normal cached location polling.
+
+---
+
+## 🤖 Automation Examples
+
+### Automation: Block phone during school hours
 
 ```yaml
 automation:
-  - alias: "Bloquer téléphone pendant les cours"
-    description: "Bloque toutes les apps sauf essentielles de 8h à 15h30 en semaine"
+  - alias: "Block phone during class"
+    description: "Blocks all apps except essentials from 8am to 3:30pm on weekdays"
     trigger:
       - platform: time
         at: "08:00:00"
@@ -96,14 +310,14 @@ automation:
       - service: familylink.block_device_for_school
         data:
           whitelist:
-            - com.microsoft.teams  # Autoriser Teams pour l'école
+            - com.microsoft.teams  # Allow Teams for school
       - service: notify.mobile_app_parent_phone
         data:
-          title: "Mode École Activé"
-          message: "Le téléphone est bloqué jusqu'à 15h30"
+          title: "School Mode Activated"
+          message: "Phone is locked until 3:30pm"
 
-  - alias: "Débloquer après l'école"
-    description: "Débloque le téléphone après l'école"
+  - alias: "Unblock after school"
+    description: "Unblocks phone after school"
     trigger:
       - platform: time
         at: "15:30:00"
@@ -119,15 +333,15 @@ automation:
       - service: familylink.unblock_all_apps
       - service: notify.mobile_app_parent_phone
         data:
-          title: "Mode École Terminé"
-          message: "Le téléphone est débloqué"
+          title: "School Mode Ended"
+          message: "Phone is unlocked"
 ```
 
-### Automation: Bloquer YouTube après 21h
+### Automation: Block YouTube after 9pm
 
 ```yaml
 automation:
-  - alias: "Bloquer YouTube le soir"
+  - alias: "Block YouTube at night"
     trigger:
       - platform: time
         at: "21:00:00"
@@ -139,7 +353,7 @@ automation:
         data:
           package_name: com.google.android.youtube
 
-  - alias: "Débloquer YouTube le matin"
+  - alias: "Unblock YouTube in the morning"
     trigger:
       - platform: time
         at: "07:00:00"
@@ -152,148 +366,134 @@ automation:
           package_name: com.google.android.youtube
 ```
 
-### Automation: Bloquer selon le temps d'écran
+### Automation: Block based on screen time
 
 ```yaml
 automation:
-  - alias: "Bloquer si trop de temps d'écran"
+  - alias: "Block if too much screen time"
     trigger:
       - platform: state
         entity_id: sensor.family_link_daily_screen_time
     condition:
       - condition: numeric_state
         entity_id: sensor.family_link_daily_screen_time
-        above: 120  # 2 heures en minutes
+        above: 120  # 2 hours in minutes
     action:
       - service: familylink.block_device_for_school
       - service: notify.mobile_app_parent_phone
         data:
-          title: "Limite de Temps d'Écran Atteinte"
+          title: "Screen Time Limit Reached"
           message: >
-            Temps d'écran: {{ states('sensor.family_link_screen_time_formatted') }}
-            L'appareil a été bloqué.
+            Screen time: {{ states('sensor.family_link_screen_time_formatted') }}
+            Device has been locked.
 ```
 
-### Automation: Emploi du temps personnalisé
+### Automation: Extend bedtime on weekends
 
 ```yaml
 automation:
-  - alias: "Mode école - Lundi"
+  - alias: "Weekend bedtime - Friday"
     trigger:
       - platform: time
-        at: "08:00:00"
+        at: "18:00:00"
     condition:
       - condition: time
-        weekday: mon
+        weekday: fri
     action:
-      - service: familylink.block_device_for_school
+      - service: familylink.set_bedtime
         data:
-          whitelist:
-            - com.microsoft.teams  # Cours en ligne
-
-  - alias: "Mode école - Mercredi (demi-journée)"
-    trigger:
-      - platform: time
-        at: "08:00:00"
-    condition:
-      - condition: time
-        weekday: wed
-    action:
-      - service: familylink.block_device_for_school
-
-  - alias: "Débloquer mercredi midi"
-    trigger:
-      - platform: time
-        at: "12:00:00"
-    condition:
-      - condition: time
-        weekday: wed
-    action:
-      - service: familylink.unblock_all_apps
+          start_time: "22:00"
+          end_time: "09:00"
+          day: 5  # Friday
+      - service: familylink.set_bedtime
+        data:
+          start_time: "22:00"
+          end_time: "09:00"
+          day: 6  # Saturday
 ```
 
 ---
 
-## 🔍 Comment trouver les noms de packages
+## 🔍 How to Find Package Names
 
-1. **Via le capteur `sensor.family_link_installed_apps`:**
-   - Consultez les attributs du capteur dans Developer Tools → States
-   - Cherchez l'app dans la liste
+1. **Via `sensor.family_link_installed_apps`:**
+   - Check sensor attributes in Developer Tools → States
+   - Search for the app in the list
 
-2. **Via le capteur `sensor.family_link_blocked_apps`:**
-   - Les apps bloquées affichent leur nom et package
+2. **Via `sensor.family_link_blocked_apps`:**
+   - Blocked apps show their name and package
 
-3. **Via le capteur `sensor.family_link_top_app_X`:**
-   - Consultez l'attribut `package_name` de chaque top app
+3. **Via `sensor.family_link_top_app_X`:**
+   - Check the `package_name` attribute of each top app
 
 4. **Via Google Play Store:**
-   - URL de l'app: `https://play.google.com/store/apps/details?id=com.example.app`
-   - Le `id=` est le package name
+   - App URL: `https://play.google.com/store/apps/details?id=com.example.app`
+   - The `id=` is the package name
 
 ---
 
-## ⚠️ Notes importantes
+## ⚠️ Important Notes
 
-1. **Délai entre les blocages:** Les services ajoutent un délai de 0,1s entre chaque app pour éviter le rate limiting de Google
+1. **Delay between blocks:** Services add a 0.1s delay between each app to avoid Google rate limiting
 
-2. **Rafraîchissement automatique:** Après chaque appel de service, les données sont automatiquement rafraîchies
+2. **Automatic refresh:** After each service call, data is automatically refreshed
 
-3. **Apps système:** Certaines apps système ne peuvent pas être bloquées pour ne pas casser l'appareil
+3. **System apps:** Some system apps cannot be blocked to avoid breaking the device
 
-4. **Persistance:** Les blocages persistent jusqu'à ce que vous les débloquiez manuellement ou via automation
+4. **Persistence:** Blocks persist until you manually unblock or via automation
 
-5. **Plusieurs enfants:** Si vous avez plusieurs enfants supervisés, les services affectent le premier enfant trouvé. Pour cibler un enfant spécifique, contactez le développeur pour une future mise à jour.
-
----
-
-## 📊 Capteurs complémentaires
-
-Utilisez ces capteurs pour créer des automations intelligentes:
-
-- `sensor.family_link_daily_screen_time` - Temps d'écran total en minutes
-- `sensor.family_link_screen_time_formatted` - Temps formaté (HH:MM:SS)
-- `sensor.family_link_installed_apps` - Nombre d'apps installées
-- `sensor.family_link_blocked_apps` - Nombre et liste des apps bloquées
-- `sensor.family_link_apps_with_time_limits` - Apps avec limites de temps
-- `sensor.family_link_top_app_1` à `#10` - Top 10 apps les plus utilisées
-- `sensor.family_link_child_info` - Infos sur l'enfant supervisé
+5. **Multiple children:** App control services (`block_app`, `unblock_app`, `set_app_daily_limit`) apply to **ALL children** by default. Specify `entity_id` or `child_id` to target a specific child.
 
 ---
 
-## 🆘 Dépannage
+## 📊 Complementary Sensors
 
-### Le service ne bloque pas les apps
-- Vérifiez que l'authentification est active (add-on lancé et cookies valides)
-- Consultez les logs dans Home Assistant: Configuration → Logs
-- Cherchez `familylink` dans les logs
+Use these sensors to create smart automations:
 
-### Les apps se débloquent toutes seules
-- Vérifiez qu'il n'y a pas d'automations conflictuelles
-- Vérifiez que les parents n'ont pas débloqué depuis l'app Family Link
-
-### L'appareil est complètement bloqué
-- Appelez le service `familylink.unblock_all_apps`
-- Si ça ne fonctionne pas, déverrouillez depuis l'app Family Link mobile
+- `sensor.family_link_daily_screen_time` - Total screen time in minutes
+- `sensor.family_link_screen_time_formatted` - Formatted time (HH:MM:SS)
+- `sensor.family_link_installed_apps` - Number of installed apps
+- `sensor.family_link_blocked_apps` - Number and list of blocked apps
+- `sensor.family_link_apps_with_time_limits` - Apps with time limits
+- `sensor.family_link_top_app_1` to `#10` - Top 10 most used apps
+- `sensor.family_link_child_info` - Info about the supervised child
 
 ---
 
-## 🔄 Workflow recommandé
+## 🆘 Troubleshooting
 
-1. **Testez d'abord manuellement** depuis Developer Tools → Services
-2. **Vérifiez les logs** pour confirmer le succès
-3. **Créez les automations** une fois les tests réussis
-4. **Testez les automations** en changeant temporairement les heures
-5. **Activez en production** avec les vraies heures de classe
+### Service doesn't block apps
+- Verify authentication is active (add-on running and cookies valid)
+- Check logs in Home Assistant: Configuration → Logs
+- Search for `familylink` in logs
+
+### Apps unblock by themselves
+- Check for conflicting automations
+- Verify parents haven't unblocked from the Family Link app
+
+### Device is completely blocked
+- Call the `familylink.unblock_all_apps` service
+- If that doesn't work, unlock from the Family Link mobile app
 
 ---
 
-## 📝 Exemple complet: Gestion complète du temps d'écran
+## 🔄 Recommended Workflow
+
+1. **Test manually first** from Developer Tools → Services
+2. **Check logs** to confirm success
+3. **Create automations** once tests pass
+4. **Test automations** by temporarily changing times
+5. **Enable in production** with actual school hours
+
+---
+
+## 📝 Complete Example: Full Screen Time Management
 
 ```yaml
-# Horaires scolaires
+# School schedule
 automation:
   - id: school_mode_on
-    alias: "Activer mode école"
+    alias: "Enable school mode"
     trigger:
       - platform: time
         at: "08:00:00"
@@ -304,10 +504,10 @@ automation:
       - service: familylink.block_device_for_school
       - service: notify.parent
         data:
-          message: "📚 Mode école activé"
+          message: "📚 School mode activated"
 
   - id: school_mode_off
-    alias: "Désactiver mode école"
+    alias: "Disable school mode"
     trigger:
       - platform: time
         at: "15:30:00"
@@ -318,11 +518,11 @@ automation:
       - service: familylink.unblock_all_apps
       - service: notify.parent
         data:
-          message: "✅ Mode école désactivé"
+          message: "✅ School mode disabled"
 
-# Heure du coucher
+# Bedtime
   - id: bedtime_block_apps
-    alias: "Bloquer apps au coucher"
+    alias: "Block apps at bedtime"
     trigger:
       - platform: time
         at: "21:00:00"
@@ -330,10 +530,10 @@ automation:
       - service: familylink.block_device_for_school
       - service: notify.parent
         data:
-          message: "😴 Heure du coucher - Téléphone bloqué"
+          message: "😴 Bedtime - Phone locked"
 
   - id: morning_unblock
-    alias: "Débloquer le matin"
+    alias: "Unblock in the morning"
     trigger:
       - platform: time
         at: "07:00:00"
@@ -341,31 +541,21 @@ automation:
       - service: familylink.unblock_all_apps
       - service: notify.parent
         data:
-          message: "☀️ Bonjour - Téléphone débloqué"
+          message: "☀️ Good morning - Phone unlocked"
 
-# Limite de temps d'écran
+# Screen time limit
   - id: screen_time_limit
-    alias: "Bloquer si limite atteinte"
+    alias: "Block if limit reached"
     trigger:
       - platform: numeric_state
         entity_id: sensor.family_link_daily_screen_time
-        above: 180  # 3 heures
+        above: 180  # 3 hours
     action:
       - service: familylink.block_device_for_school
       - service: notify.parent
         data:
-          title: "⏱️ Limite de temps atteinte"
+          title: "⏱️ Time limit reached"
           message: >
-            Temps d'écran aujourd'hui: {{ states('sensor.family_link_screen_time_formatted') }}
-            Téléphone bloqué jusqu'à demain.
+            Screen time today: {{ states('sensor.family_link_screen_time_formatted') }}
+            Phone locked until tomorrow.
 ```
-
----
-
-## 🎯 Prochaines fonctionnalités (en développement)
-
-- Support multi-enfants (choisir quel enfant cibler)
-- Gestion des limites de temps par app
-- Web scraping pour verrouiller physiquement l'appareil
-- Historique du temps d'écran sur 7 jours
-- Notifications push vers l'enfant
