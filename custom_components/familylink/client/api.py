@@ -1679,76 +1679,44 @@ class FamilyLinkClient:
 			return False
 
 	async def async_enable_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
-		"""Enable school time (evening limit) restrictions for a child.
+		"""Enable school time for the rest of the current day (issue #111).
 
-		Args:
-			account_id: User ID of the supervised child (optional)
-			rule_id: School time rule UUID (optional, fetched dynamically if not provided)
-
-		Returns:
-			True if successful, False otherwise
+		Creates a daily override (action=2) covering now → 23:59 for today's
+		weekday, scoped to the school time rule. This is the same mechanism the
+		official Family Link web app uses when the "Today" toggle is checked,
+		and is what actually locks the child device immediately. The weekly
+		policy is left untouched.
 		"""
-		if not self.is_authenticated():
-			raise AuthenticationError("Not authenticated")
-
-		if not account_id:
-			account_id = await self.async_get_supervised_child_id()
-
-		# Fetch rule_id dynamically if not provided
-		if not rule_id:
-			time_limit_data = await self.async_get_time_limit(account_id)
-			rule_id = time_limit_data.get("schooltime_rule_id")
-			if not rule_id:
-				_LOGGER.error("Could not find school time rule ID for this account")
-				return False
-
-		try:
-			session = await self._get_session()
-			cookie_header = self._get_cookie_header()
-
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 2]]]], null, [1]]
-			# Status 2 = enabled
-			payload = json.dumps([
-				None,
-				account_id,
-				[[None, None, None, None], None, None, None, [None, [[rule_id, 2]]]],
-				None,
-				[1]
-			])
-
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Enabling school time for account {account_id} with rule_id {rule_id}")
-
-			async with session.put(
-				url,
-				headers={
-					"Content-Type": "application/json+protobuf",
-					"Cookie": cookie_header
-				},
-				data=payload,
-				params={"$httpMethod": "PUT"}
-			) as response:
-				if response.status != 200:
-					response_text = await response.text()
-					_LOGGER.error(f"Failed to enable school time {response.status}: {response_text}")
-					return False
-
-				_LOGGER.info(f"Successfully enabled school time for account {account_id}")
-				return True
-
-		except Exception as err:
-			_LOGGER.error(f"Unexpected error enabling school time: {err}")
-			return False
+		return await self._async_apply_school_time_today(
+			enable=True, account_id=account_id, rule_id=rule_id
+		)
 
 	async def async_disable_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
-		"""Disable school time (evening limit) restrictions for a child.
+		"""Disable school time for the rest of the current day (issue #111).
 
-		Args:
-			account_id: User ID of the supervised child (optional)
-			rule_id: School time rule UUID (optional, fetched dynamically if not provided)
+		Removes any existing schooltime override for today, then creates a
+		daily override (action=1) covering now → 23:59. This matches the
+		behavior of unchecking the "Today" toggle in the official web app and
+		guarantees that an active school time slot is actually suspended on
+		the child device.
+		"""
+		return await self._async_apply_school_time_today(
+			enable=False, account_id=account_id, rule_id=rule_id
+		)
 
-		Returns:
-			True if successful, False otherwise
+	async def _async_apply_school_time_today(
+		self,
+		enable: bool,
+		account_id: str | None = None,
+		rule_id: str | None = None,
+	) -> bool:
+		"""Apply a school time daily override covering now → 23:59.
+
+		Implements the override mechanism reverse-engineered from the official
+		Family Link web app (issue #111). The previous implementation only
+		toggled the weekly policy via `timeLimit:update`, which has no effect
+		on days that lack a weekly slot or when toggling outside a slot — the
+		web app always layers a daily override on top, and so do we now.
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -1756,7 +1724,6 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
-		# Fetch rule_id dynamically if not provided
 		if not rule_id:
 			time_limit_data = await self.async_get_time_limit(account_id)
 			rule_id = time_limit_data.get("schooltime_rule_id")
@@ -1764,42 +1731,177 @@ class FamilyLinkClient:
 				_LOGGER.error("Could not find school time rule ID for this account")
 				return False
 
+		# Google uses ISO weekday numbering (1=Monday … 7=Sunday) in the user's
+		# local time, since Family Link schedules are per-day.
+		now_local = dt_util.now()
+		weekday = now_local.isoweekday()
+		start = [now_local.hour, now_local.minute]
+		# 23:59 is what the web app uses when extending to end of day; this
+		# avoids midnight-rollover ambiguity.
+		end = [23, 59]
+
+		try:
+			# When turning OFF, first remove any existing schooltime override
+			# for today so we don't stack conflicting overrides on the same day.
+			if not enable:
+				overrides = await self._async_list_schooltime_overrides_today(
+					account_id, rule_id, weekday
+				)
+				for override_uuid in overrides:
+					await self._async_delete_time_limit_override(account_id, override_uuid)
+
+			action = 2 if enable else 1
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Payload reverse-engineered from the web app capture. The "9" at
+			# index 2 is the override type code for schooltime; the trailing
+			# [weekday, rule_uuid] distinguishes schooltime overrides from
+			# bedtime ones (which use a CAEQxx code string).
+			payload = json.dumps([
+				None,
+				account_id,
+				[[
+					None, None,
+					9,
+					None, None, None, None, None, None, None, None, None,
+					[action, start, end, None, [weekday, rule_id]],
+				]],
+				[1],
+			])
+
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(
+				"Applying school time override action=%s window=%s-%s weekday=%s rule=%s",
+				action, start, end, weekday, rule_id,
+			)
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+				data=payload,
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(
+						"Failed to create school time override (HTTP %s): %s",
+						response.status, response_text,
+					)
+					return False
+
+				_LOGGER.info(
+					"Successfully %s school time today for account %s (window %02d:%02d-23:59)",
+					"enabled" if enable else "disabled",
+					account_id, start[0], start[1],
+				)
+				return True
+
+		except Exception as err:
+			_LOGGER.error("Unexpected error applying school time override: %s", err)
+			return False
+
+	async def _async_list_schooltime_overrides_today(
+		self, account_id: str, rule_id: str, weekday: int
+	) -> list[str]:
+		"""Return UUIDs of existing schooltime overrides for today.
+
+		Reads the time limit endpoint and extracts override entries whose
+		payload references the schooltime rule and the current weekday. Used
+		before posting a new override to avoid stacking.
+		"""
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 1]]]], null, [1]]
-			# Status 1 = disabled
-			payload = json.dumps([
-				None,
-				account_id,
-				[[None, None, None, None], None, None, None, [None, [[rule_id, 1]]]],
-				None,
-				[1]
-			])
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
+			params = [
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
+				("timeLimitKey.type", "SUPERVISED_DEVICES"),
+			]
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Disabling school time for account {account_id} with rule_id {rule_id}")
+			async with session.get(
+				url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+			) as response:
+				if response.status != 200:
+					_LOGGER.debug(
+						"Could not fetch overrides (HTTP %s) — skipping cleanup",
+						response.status,
+					)
+					return []
+				data = await response.json()
+		except Exception as err:
+			_LOGGER.debug("Failed to list school time overrides: %s", err)
+			return []
 
-			async with session.put(
+		# Unwrapped structure: data[1] holds the payload. Override entries
+		# look like:
+		# [uuid, ts, 9, "", "", null, null, null, account_id, null, null, null,
+		#  [action, [start_h, m], [end_h, m], null, [weekday, rule_uuid]]]
+		matches: list[str] = []
+		if not isinstance(data, list) or len(data) < 2:
+			return matches
+		inner = data[1]
+		if not isinstance(inner, list):
+			return matches
+
+		for element in inner:
+			if not isinstance(element, list):
+				continue
+			for item in element:
+				if not isinstance(item, list) or len(item) < 13:
+					continue
+				if not isinstance(item[0], str):
+					continue
+				payload = item[12]
+				if not isinstance(payload, list) or len(payload) < 5:
+					continue
+				rule_ref = payload[4]
+				if not isinstance(rule_ref, list) or len(rule_ref) < 2:
+					continue
+				if rule_ref[0] != weekday or rule_ref[1] != rule_id:
+					continue
+				matches.append(item[0])
+
+		if matches:
+			_LOGGER.debug(
+				"Found %d existing schooltime override(s) for weekday=%s: %s",
+				len(matches), weekday, matches,
+			)
+		return matches
+
+	async def _async_delete_time_limit_override(self, account_id: str, override_uuid: str) -> bool:
+		"""Delete a single timeLimitOverride by UUID."""
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverride/{override_uuid}"
+			async with session.post(
 				url,
 				headers={
 					"Content-Type": "application/json+protobuf",
-					"Cookie": cookie_header
+					"Cookie": cookie_header,
 				},
-				data=payload,
-				params={"$httpMethod": "PUT"}
+				params={"$httpMethod": "DELETE"},
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to disable school time {response.status}: {response_text}")
+					_LOGGER.warning(
+						"Failed to delete override %s (HTTP %s): %s",
+						override_uuid, response.status, response_text,
+					)
 					return False
-
-				_LOGGER.info(f"Successfully disabled school time for account {account_id}")
+				_LOGGER.debug("Deleted school time override %s", override_uuid)
 				return True
-
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error disabling school time: {err}")
+			_LOGGER.warning("Error deleting override %s: %s", override_uuid, err)
 			return False
 
 	async def async_enable_daily_limit(self, account_id: str | None = None) -> bool:

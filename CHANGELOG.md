@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.7] - 2026-05-16
+
+### Fixed
+- **School time switch now actually locks/unlocks the child device** — Previously, `switch.<child>_school_time` and the `familylink.enable_school_time` / `familylink.disable_school_time` services only flipped the weekly policy via `timeLimit:update`. If the current weekday had no slot in the weekly schedule (e.g. weekends with a Mon-Fri schedule), nothing happened on the device. The integration now mirrors what the official Family Link web app does when toggling the "Today" switch: it posts a daily override via `timeLimitOverrides:batchCreate` (action=2 to enable, action=1 to disable) covering "now → 23:59" for today's weekday. Turning the switch off also cleans up any existing schooltime override for today to avoid stacking conflicting entries (#111)
+
+### Documentation
+- `GOOGLE_FAMILY_LINK_API_ANALYSIS.md` — added a dedicated "School time daily override pattern" section documenting the reverse-engineered `timeLimitOverrides:batchCreate` payload shape (`type=9` + `[weekday, rule_uuid]` reference) and the DELETE → CREATE sequence the web app uses
+
+---
+
 ## [1.2.6-rc2] - 2026-05-12
 
 ### Fixed

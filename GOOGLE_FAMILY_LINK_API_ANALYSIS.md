@@ -56,9 +56,10 @@
 | **Add time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 10, deviceId, null, null, null, null, null, null, null, null, null, [[bonus_seconds, 0]]]], [1]]` | Type 10 = time bonus. Bonus **replaces** normal time (doesn't add). |
 | **Set daily limit duration** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 8, deviceId, null, null, null, null, null, null, null, [2, minutes, day_code]]], [1]]` | Type 8 = set daily limit duration. **CRITICAL**: `day_code` MUST match current day (see Day Codes table below) |
 | **Set bedtime schedule** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [2, [startH, startM], [endH, endM], day_code]]], [1]]` | Type 9 = set bedtime. Format: `[status, [startHour, startMin], [endHour, endMin], day_code]`. Status 2=enabled. |
-| **Cancel time bonus** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverride/{overrideId}?$httpMethod=DELETE` | No body | Google API convention: POST with $httpMethod=DELETE |
+| **Apply school time today** (recommended, issue #111) | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [action, [startH, startM], [endH, endM], null, [weekday, "579e5e01-...rule_uuid"]]]], [1]]` | Type 9 + schooltime rule reference at `[4]` (weekday 1-7, rule UUID). **action: 2=enable, 1=disable**. This is what the web app sends when the "Today" toggle is changed; it is the only call that actually locks/unlocks the device for the current day. Toggling the weekly policy alone (next row) is not enough — see issue #111. |
+| **Cancel time bonus / Remove school time override** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverride/{overrideId}?$httpMethod=DELETE` | No body | Google API convention: POST with $httpMethod=DELETE. The web app calls this before creating an opposite-action school time override (so you don't end up with stacked overrides on the same day). |
 | **Enable/Disable bedtime** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF |
-| **Enable/Disable school time** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF |
+| **Toggle school time weekly policy** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF. ⚠️ **This only flips the weekly switch — it does NOT apply a change to the current day.** If today has no weekly slot, nothing happens on the child device. To actually lock/unlock today, use **Apply school time today** (above). |
 | **Enable/Disable daily limit** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [null, [[state, null, null, null]]], null, [1]]` | state: 2=ON, 1=OFF |
 
 ### Policy UUIDs (hardcoded)
@@ -66,11 +67,31 @@
 - **School time (Evening limit)**: `579e5e01-8dfd-42f3-be6b-d77984842202`
 
 ### timeLimitOverrides:batchCreate action codes
-- **1**: LOCK device
+- **1**: LOCK device / DISABLE school time today (when used with type 9 + schooltime rule)
 - **4**: UNLOCK device
 - **8**: SET daily limit duration (per device)
-- **9**: SET bedtime schedule (per child)
+- **9**: SET bedtime / school time schedule (per child)
 - **10**: ADD time bonus (per device)
+
+### School time daily override pattern (issue #111)
+
+**Problem.** Calling `timeLimit:update` to flip the school time weekly switch (`579e5e01-…` ↔ state 1/2) only changes the weekly policy. If the current weekday has no slot in the weekly schedule, the child device sees no change. The official Family Link web app gets around this by creating a **daily override** on top of the weekly policy whenever the user toggles "Today".
+
+**Enable school time now (until 23:59):**
+1. `POST /people/{childId}/timeLimitOverrides:batchCreate` with body:
+   ```
+   [null, childId,
+     [[null, null, 9, null, null, null, null, null, null, null, null, null,
+       [2, [now_h, now_m], [23, 59], null, [iso_weekday, "579e5e01-…rule_uuid"]]]],
+     [1]]
+   ```
+   `action=2` enables, `iso_weekday` is 1=Monday … 7=Sunday in the child's local time.
+
+**Disable school time now (until 23:59):**
+1. (Optional cleanup) `GET /people/{childId}/timeLimit?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME&timeLimitKey.type=SUPERVISED_DEVICES`, scan the override list (entries with type code `9` at index `[2]` and a `[weekday, rule_uuid]` reference at `payload[4]`), and for any matching today's weekday + schooltime rule, send `POST /people/{childId}/timeLimitOverride/{uuid}?$httpMethod=DELETE`.
+2. Then `POST /people/{childId}/timeLimitOverrides:batchCreate` with the same body as above but `action=1`.
+
+This DELETE → CREATE pattern mirrors what the web app emits when unchecking the "Today" toggle and avoids leaving stacked, conflicting overrides on the same day.
 
 ### Day Codes (CAEQ* - for daily limit)
 The `day_code` in the daily limit payload encodes the day of the week. **You MUST use the code corresponding to the current day** for the change to take effect immediately.
