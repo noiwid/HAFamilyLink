@@ -1,0 +1,100 @@
+{
+	"options": {
+		"step": {
+			"init": {
+				"title": "Configure Family Link",
+				"description": "Adjust integration settings. Changes will take effect after saving.",
+				"data": {
+					"update_interval": "Update Interval (seconds)",
+					"timeout": "Request Timeout (seconds)",
+					"enable_location_tracking": "Enable GPS location tracking"
+				},
+				"data_description": {
+					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device"
+				}
+			}
+		}
+	},
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Choose how to connect to the Family Link Auth service.",
+				"menu_options": {
+					"auto_detect": "Auto-detect (add-on or local file)",
+					"manual_url": "Manual URL configuration (Docker standalone)"
+				}
+			},
+			"manual_url": {
+				"title": "Authentication Server URL",
+				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`",
+				"data": {
+					"auth_url": "Authentication Server URL"
+				}
+			},
+			"configure": {
+				"title": "Configure Family Link",
+				"description": "Authentication source: {auth_source}",
+				"data": {
+					"name": "Integration Name",
+					"update_interval": "Update Interval (seconds)",
+					"timeout": "Request Timeout (seconds)",
+					"enable_location_tracking": "Enable GPS location tracking"
+				},
+				"data_description": {
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Cannot connect to authentication server. Please verify the URL and ensure the container is running.",
+			"invalid_auth": "No cookies found. Please authenticate first using the Family Link Auth add-on or container.",
+			"url_required": "URL is required",
+			"no_cookies": "Server is reachable but no cookies found. Please authenticate first via the web interface.",
+			"unknown": "Unexpected error occurred"
+		},
+		"abort": {
+			"already_configured": "Integration is already configured",
+			"invalid_config": "Invalid configuration"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Daily Screen Time"
+			},
+			"screen_time_formatted": {
+				"name": "Screen Time (formatted)"
+			},
+			"installed_apps": {
+				"name": "Installed Apps"
+			},
+			"blocked_apps": {
+				"name": "Blocked Apps"
+			},
+			"apps_with_time_limits": {
+				"name": "Apps with Time Limits"
+			},
+			"device_count": {
+				"name": "Device Count"
+			},
+			"child_info": {
+				"name": "Child Info"
+			},
+			"top_app": {
+				"name": "Top App {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Device Lock"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Location"
+			}
+		}
+	}
+}

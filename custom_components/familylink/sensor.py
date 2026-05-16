@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import json
 import logging
 from typing import Any
 
@@ -11,26 +12,26 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_NAME, LOGGER_NAME
+from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, INTEGRATION_NAME, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
 # Day of week mapping
 DAYS_OF_WEEK = {
-    0: "Monday",
-    1: "Tuesday",
-    2: "Wednesday",
-    3: "Thursday",
-    4: "Friday",
-    5: "Saturday",
-    6: "Sunday",
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
 }
 
 
@@ -75,9 +76,14 @@ async def async_setup_entry(
 
     entities = []
 
-    # Wait for first data fetch to get children
+    # Check if data is available (should be after async_config_entry_first_refresh)
     if not coordinator.data or "children_data" not in coordinator.data:
-        _LOGGER.warning("No children data available yet, sensors will be added on first update")
+        _LOGGER.error(
+            "No children data in coordinator after first refresh — "
+            "sensors will NOT be created. "
+            "coordinator.data keys: %s",
+            list(coordinator.data.keys()) if coordinator.data else None,
+        )
         return
 
     # Create sensor entities for each child and their devices
@@ -93,6 +99,8 @@ async def async_setup_entry(
         entities.append(FamilyLinkAppCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkBlockedAppsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppsWithLimitsSensor(coordinator, child_id, child_name))
+        entities.append(FamilyLinkAppsWithoutLimitsSensor(coordinator, child_id, child_name))
+        entities.append(FamilyLinkAlwaysAllowedAppsSensor(coordinator, child_id, child_name))
 
         # Top apps sensors (top 10)
         for i in range(1, 11):
@@ -102,18 +110,25 @@ async def async_setup_entry(
         entities.append(FamilyLinkDeviceCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
 
-        # Time management schedule sensors (3 sensors per child)
-        entities.append(BedtimeScheduleSensor(coordinator, child_id, child_name))
-        entities.append(SchoolTimeScheduleSensor(coordinator, child_id, child_name))
-        entities.append(DailyLimitSensor(coordinator, child_id, child_name))
+        # Battery sensor (only if location tracking is enabled, as battery comes from location data)
+        if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
+            entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
-        # Create device sensors for each device (2 sensors per device)
+        # Time management schedule sensors removed - data not available at child level
+        # Schedules are available in binary_sensor attributes per device instead
+        # entities.append(BedtimeScheduleSensor(coordinator, child_id, child_name))
+        # entities.append(SchoolTimeScheduleSensor(coordinator, child_id, child_name))
+        # entities.append(DailyLimitSensor(coordinator, child_id, child_name))
+
+        # Create device sensors for each device (4 sensors per device)
         for device in child_data.get("devices", []):
             device_id = device["id"]
             device_name = device.get("name", "Unknown Device")
 
             entities.append(ScreenTimeRemainingSensor(coordinator, child_id, child_name, device_id, device_name))
             entities.append(NextRestrictionSensor(coordinator, child_id, child_name, device_id, device_name))
+            entities.append(DailyLimitDeviceSensor(coordinator, child_id, child_name, device_id, device_name))
+            entities.append(ActiveBonusSensor(coordinator, child_id, child_name, device_id, device_name))
 
     _LOGGER.debug(f"Created {len(entities)} total sensor entities")
     async_add_entities(entities, update_before_add=True)
@@ -435,9 +450,24 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
                 if child_data["child_id"] == self._child_id:
                     devices_time_data = child_data.get("devices_time_data", {})
 
+                    _LOGGER.debug(
+                        f"ScreenTimeRemaining for device '{self._device_id}': "
+                        f"devices_time_data keys = {list(devices_time_data.keys())}"
+                    )
+
                     if self._device_id in devices_time_data:
                         time_data = devices_time_data[self._device_id]
-                        return time_data.get("remaining_minutes", 0)
+                        remaining = time_data.get("remaining_minutes", 0)
+                        _LOGGER.debug(
+                            f"Found data for {self._device_id}: remaining={remaining}, "
+                            f"total={time_data.get('total_allowed_minutes')}, used={time_data.get('used_minutes')}"
+                        )
+                        return remaining
+                    else:
+                        _LOGGER.debug(
+                            f"Device ID '{self._device_id}' not found in devices_time_data "
+                            f"(available: {list(devices_time_data.keys())})"
+                        )
 
         return None
 
@@ -482,6 +512,8 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
 
 class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
     """Sensor showing the next upcoming time restriction."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
@@ -613,21 +645,33 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                         # Add window details if available
                         bedtime_window = time_data.get("bedtime_window")
                         if bedtime_window:
-                            attributes["bedtime_start"] = datetime.fromtimestamp(
-                                bedtime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["bedtime_end"] = datetime.fromtimestamp(
-                                bedtime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            start_ms = bedtime_window.get("start_ms")
+                            end_ms = bedtime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
                         schooltime_window = time_data.get("schooltime_window")
                         if schooltime_window:
-                            attributes["schooltime_start"] = datetime.fromtimestamp(
-                                schooltime_window.get("start_ms", 0) / 1000
-                            ).isoformat()
-                            attributes["schooltime_end"] = datetime.fromtimestamp(
-                                schooltime_window.get("end_ms", 0) / 1000
-                            ).isoformat()
+                            start_ms = schooltime_window.get("start_ms")
+                            end_ms = schooltime_window.get("end_ms")
+                            if start_ms:
+                                try:
+                                    attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
+                            if end_ms:
+                                try:
+                                    attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                except (ValueError, OSError):
+                                    pass
 
         return attributes
 
@@ -692,6 +736,8 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 			return {}
 
 		attributes = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"formatted_time": screen_time.get("formatted", "00:00:00"),
 			"hours": screen_time.get("hours", 0),
@@ -701,22 +747,38 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 			"app_count": len(screen_time.get("app_breakdown", {})),
 		}
 
-		# Add top 5 apps by usage
+		# Add all apps by usage (dynamically truncated to fit HA's 16KB limit)
 		app_breakdown = screen_time.get("app_breakdown", {})
 		if app_breakdown:
+			# Build package-to-name lookup from apps data
+			app_names: dict[str, str] = {}
+			for app in child_data.get("apps", []):
+				pkg = app.get("packageName", "")
+				if pkg:
+					app_names[pkg] = app.get("title", pkg)
+
 			sorted_apps = sorted(
 				app_breakdown.items(),
 				key=lambda x: x[1],
 				reverse=True
-			)[:5]
+			)
 
-			for idx, (package, seconds) in enumerate(sorted_apps, 1):
+			app_list = []
+			for package, seconds in sorted_apps:
 				hours = int(seconds // 3600)
 				mins = int((seconds % 3600) // 60)
 				secs = int(seconds % 60)
-				attributes[f"top_app_{idx}"] = package
-				attributes[f"top_app_{idx}_time"] = f"{hours:02d}:{mins:02d}:{secs:02d}"
-				attributes[f"top_app_{idx}_minutes"] = round(seconds / 60, 1)
+				app_list.append({
+					"name": app_names.get(package, package),
+					"package": package,
+					"time": f"{hours:02d}:{mins:02d}:{secs:02d}",
+					"minutes": round(seconds / 60, 1),
+				})
+
+			truncated_apps, was_truncated = _truncate_app_list(app_list, attributes)
+			attributes["apps"] = truncated_apps
+			if was_truncated:
+				attributes["truncated"] = True
 
 		return attributes
 
@@ -774,6 +836,8 @@ class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, Sen
 			return {}
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_seconds": screen_time.get("total_seconds", 0),
 			"total_minutes": round(screen_time.get("total_seconds", 0) / 60, 1),
 			"hours": screen_time.get("hours", 0),
@@ -831,11 +895,39 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		always_allowed = sum(1 for app in apps if app.get("supervisionSetting", {}).get("alwaysAllowedAppInfo"))
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"total_apps": len(apps),
 			"blocked_apps": blocked,
 			"apps_with_time_limits": with_limits,
 			"always_allowed_apps": always_allowed,
 		}
+
+
+MAX_ATTR_SIZE = 15000  # Stay under HA's 16KB state_attributes limit
+
+
+def _truncate_app_list(apps: list[dict], base_attrs: dict) -> tuple[list[dict], bool]:
+	"""Dynamically truncate app list to fit within HA attribute size limit.
+
+	Returns (truncated_list, was_truncated).
+	"""
+	base_size = len(json.dumps(base_attrs, ensure_ascii=False).encode("utf-8"))
+	budget = MAX_ATTR_SIZE - base_size
+
+	if len(json.dumps(apps, ensure_ascii=False).encode("utf-8")) <= budget:
+		return apps, False
+
+	# Binary search for max number of apps that fit
+	lo, hi = 0, len(apps)
+	while lo < hi:
+		mid = (lo + hi + 1) // 2
+		if len(json.dumps(apps[:mid], ensure_ascii=False).encode("utf-8")) <= budget:
+			lo = mid
+		else:
+			hi = mid - 1
+
+	return apps[:lo], True
 
 
 class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
@@ -891,10 +983,16 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 			if app.get("supervisionSetting", {}).get("hidden", False)
 		]
 
-		return {
+		base_attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(blocked_apps),
-			"apps": blocked_apps[:20],  # Limit to 20 to avoid attribute size issues
 		}
+		truncated_apps, was_truncated = _truncate_app_list(blocked_apps, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
 
 
 class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
@@ -953,10 +1051,155 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 					"enabled": usage_limit.get("enabled", False),
 				})
 
-		return {
+		base_attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(apps_with_limits),
-			"apps": apps_with_limits[:20],  # Limit to 20
 		}
+		truncated_apps, was_truncated = _truncate_app_list(apps_with_limits, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
+
+
+class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Sensor for apps that are neither blocked nor time-limited."""
+
+	_attr_icon = "mdi:lock-open-outline"
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Apps Without Limits"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_apps_without_limits"
+
+	def _get_apps_without_limits(self) -> list[dict]:
+		"""Return list of apps that follow device limits (not blocked, no app limit, not always-allowed)."""
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
+			return []
+
+		result = []
+		for app in child_data["apps"]:
+			supervision = app.get("supervisionSetting", {})
+			if supervision.get("hidden", False):
+				continue
+			if supervision.get("usageLimit"):
+				continue
+			if supervision.get("alwaysAllowedAppInfo"):
+				continue
+			result.append({
+				"name": app.get("title", "Unknown"),
+				"package": app.get("packageName", ""),
+			})
+		return result
+
+	@property
+	def native_value(self) -> int:
+		"""Return the number of apps without limits."""
+		return len(self._get_apps_without_limits())
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		child_data = self._get_child_data()
+		return (
+			self.coordinator.last_update_success
+			and child_data is not None
+			and "apps" in child_data
+		)
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		apps_without_limits = self._get_apps_without_limits()
+
+		if not apps_without_limits:
+			return {}
+
+		base_attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"count": len(apps_without_limits),
+		}
+		truncated_apps, was_truncated = _truncate_app_list(apps_without_limits, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
+
+
+class FamilyLinkAlwaysAllowedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Sensor for always-allowed apps (bypass all device limits)."""
+
+	_attr_icon = "mdi:shield-star-outline"
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._attr_name = f"{child_name} Always Allowed Apps"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_always_allowed_apps"
+
+	def _get_always_allowed_apps(self) -> list[dict]:
+		"""Return list of apps that bypass all device limits."""
+		child_data = self._get_child_data()
+		if not child_data or "apps" not in child_data:
+			return []
+
+		result = []
+		for app in child_data["apps"]:
+			supervision = app.get("supervisionSetting", {})
+			if supervision.get("alwaysAllowedAppInfo"):
+				result.append({
+					"name": app.get("title", "Unknown"),
+					"package": app.get("packageName", ""),
+				})
+		return result
+
+	@property
+	def native_value(self) -> int:
+		"""Return the number of always-allowed apps."""
+		return len(self._get_always_allowed_apps())
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		child_data = self._get_child_data()
+		return (
+			self.coordinator.last_update_success
+			and child_data is not None
+			and "apps" in child_data
+		)
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		always_allowed_apps = self._get_always_allowed_apps()
+
+		if not always_allowed_apps:
+			return {}
+
+		base_attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"count": len(always_allowed_apps),
+		}
+		truncated_apps, was_truncated = _truncate_app_list(always_allowed_apps, base_attrs)
+		base_attrs["apps"] = truncated_apps
+		if was_truncated:
+			base_attrs["truncated"] = True
+		return base_attrs
 
 
 class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
@@ -1054,6 +1297,8 @@ class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		secs = int(seconds % 60)
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"rank": self._rank,
 			"app_name": app_name,
 			"package_name": package,
@@ -1117,6 +1362,8 @@ class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		]
 
 		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"count": len(devices),
 			"devices": device_list,
 		}
@@ -1177,6 +1424,8 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 		birthday = profile.get("birthday", {})
 
 		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
 			"user_id": child.get("userId"),
 			"role": child.get("role"),
 			"display_name": profile.get("displayName"),
@@ -1185,10 +1434,266 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 			"email": profile.get("email"),
 		}
 
-		if birthday:
-			attrs["birthday"] = f"{birthday.get('year')}-{birthday.get('month'):02d}-{birthday.get('day'):02d}"
+		if birthday and all(birthday.get(k) is not None for k in ("year", "month", "day")):
+			attrs["birthday"] = f"{birthday['year']}-{birthday['month']:02d}-{birthday['day']:02d}"
 
 		if "ageBandLabel" in child:
 			attrs["age_band"] = child["ageBandLabel"]
+
+		return attrs
+
+
+class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
+	"""Sensor showing daily limit quota for a specific device."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		device_id: str,
+		device_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator)
+
+		self._child_id = child_id
+		self._child_name = child_name
+		self._device_id = device_id
+		self._device_name = device_name
+		self._attr_name = f"{device_name} Daily Limit"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_daily_limit"
+		self._attr_icon = "mdi:timer-outline"
+		self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+		self._attr_device_class = SensorDeviceClass.DURATION
+		self._attr_state_class = SensorStateClass.MEASUREMENT
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
+			name=self._device_name,
+			manufacturer="Google",
+			model="Family Link Device",
+			via_device=(DOMAIN, self._child_id),
+		)
+
+	@property
+	def native_value(self) -> int | None:
+		"""Return configured daily limit in minutes."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						return time_data.get("daily_limit_minutes", 0)
+
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		attributes = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"device_id": self._device_id,
+			"device_name": self._device_name,
+		}
+
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						attributes["enabled"] = time_data.get("daily_limit_enabled", False)
+
+		return attributes
+
+
+class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
+	"""Sensor showing active time bonus for a device."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		device_id: str,
+		device_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator)
+
+		self._child_id = child_id
+		self._child_name = child_name
+		self._device_id = device_id
+		self._device_name = device_name
+		self._attr_name = f"{device_name} Active Bonus"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_active_bonus"
+		self._attr_icon = "mdi:clock-plus-outline"
+		self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+		self._attr_device_class = SensorDeviceClass.DURATION
+		self._attr_state_class = SensorStateClass.MEASUREMENT
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
+			name=self._device_name,
+			manufacturer="Google",
+			model="Family Link Device",
+			via_device=(DOMAIN, self._child_id),
+		)
+
+	@property
+	def native_value(self) -> int | None:
+		"""Return active bonus time in minutes."""
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						bonus = time_data.get("bonus_minutes", 0)
+						# Return None instead of 0 when no bonus, so it shows as "unknown"
+						return bonus if bonus > 0 else 0
+
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		attributes = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"device_id": self._device_id,
+			"device_name": self._device_name,
+		}
+
+		if self.coordinator.data and "children_data" in self.coordinator.data:
+			for child_data in self.coordinator.data["children_data"]:
+				if child_data["child_id"] == self._child_id:
+					devices_time_data = child_data.get("devices_time_data", {})
+
+					if self._device_id in devices_time_data:
+						time_data = devices_time_data[self._device_id]
+						bonus_mins = time_data.get("bonus_minutes", 0)
+						attributes["has_bonus"] = bonus_mins > 0
+
+		return attributes
+
+
+class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Sensor for device battery level (from location data)."""
+
+	_attr_device_class = SensorDeviceClass.BATTERY
+	_attr_state_class = SensorStateClass.MEASUREMENT
+	_attr_native_unit_of_measurement = PERCENTAGE
+	_attr_icon = "mdi:battery"
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+
+		self._attr_name = f"{child_name} Battery Level"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_battery_level"
+
+	@property
+	def native_value(self) -> int | None:
+		"""Return the battery level percentage."""
+		child_data = self._get_child_data()
+		if not child_data or "location" not in child_data:
+			return None
+
+		location = child_data["location"]
+		if not location:
+			return None
+
+		return location.get("battery_level")
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		child_data = self._get_child_data()
+		if not (
+			self.coordinator.last_update_success
+			and child_data is not None
+			and "location" in child_data
+			and child_data["location"] is not None
+		):
+			return False
+
+		# Only available if we have battery data
+		return child_data["location"].get("battery_level") is not None
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon based on battery level."""
+		child_data = self._get_child_data()
+		if not child_data or not child_data.get("location"):
+			return "mdi:battery-unknown"
+
+		location = child_data["location"]
+		battery_level = location.get("battery_level")
+
+		if battery_level is None:
+			return "mdi:battery-unknown"
+
+		if battery_level >= 90:
+			return "mdi:battery"
+		elif battery_level >= 70:
+			return "mdi:battery-80"
+		elif battery_level >= 50:
+			return "mdi:battery-60"
+		elif battery_level >= 30:
+			return "mdi:battery-40"
+		elif battery_level >= 10:
+			return "mdi:battery-20"
+		else:
+			return "mdi:battery-alert-variant-outline"
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Return extra state attributes."""
+		child_data = self._get_child_data()
+		if not child_data or "location" not in child_data:
+			return {}
+
+		location = child_data["location"]
+		if not location:
+			return {}
+
+		attrs = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+		}
+
+		if location.get("source_device_name"):
+			attrs["source_device"] = location["source_device_name"]
+
+		if location.get("timestamp_iso"):
+			attrs["last_update"] = location["timestamp_iso"]
 
 		return attrs

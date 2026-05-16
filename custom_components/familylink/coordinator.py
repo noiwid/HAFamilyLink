@@ -12,6 +12,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .client.api import FamilyLinkClient
 from .const import (
+	CONF_ENABLE_LOCATION_TRACKING,
+	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
 	DOMAIN,
 	LOGGER_NAME,
@@ -30,25 +32,43 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
+		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
+
+		# Get settings from options (runtime changes) or fall back to data (initial config)
+		self._location_tracking_enabled = entry.options.get(
+			CONF_ENABLE_LOCATION_TRACKING,
+			entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+		)
+		update_interval = entry.options.get(
+			CONF_UPDATE_INTERVAL,
+			entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+		)
 
 		super().__init__(
 			hass,
 			_LOGGER,
 			name=DOMAIN,
-			update_interval=timedelta(seconds=DEFAULT_UPDATE_INTERVAL),
+			update_interval=timedelta(seconds=update_interval),
 		)
+		_LOGGER.debug(f"Coordinator initialized with update_interval={update_interval}s, location_tracking={self._location_tracking_enabled}")
 
 	async def _async_update_data(self) -> dict[str, Any]:
 		"""Fetch data from Family Link API."""
 		try:
-			return await self._async_fetch_data()
+			result = await self._async_fetch_data()
+			# Reset notification flag on successful fetch (allows new notification if auth fails again later)
+			if self._auth_notification_sent:
+				self._auth_notification_sent = False
+				_LOGGER.debug("Auth notification flag reset after successful data fetch")
+			return result
 
 		except SessionExpiredError as err:
 			# Prevent infinite retry loops
 			if self._is_retrying_auth:
 				_LOGGER.error("Session still expired after refresh - cookies are invalid")
+				await self._create_auth_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
@@ -66,6 +86,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				# If it still fails after refresh, cookies are truly invalid
 				_LOGGER.error("Session still expired after refresh - please re-authenticate via add-on")
+				await self._create_auth_notification()
 				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
 			except Exception as retry_err:
 				_LOGGER.error(f"Retry after auth refresh failed: {retry_err}")
@@ -104,13 +125,21 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					supervised_children.append(member)
 
 			_LOGGER.debug(f"Fetched {len(family_members)} family members, {len(supervised_children)} supervised children")
+		except SessionExpiredError:
+			raise  # Re-raise to trigger auth notification
 		except Exception as err:
 			_LOGGER.warning(f"Failed to fetch family members: {err}")
+
+		if not supervised_children:
+			_LOGGER.warning("No supervised children found — entities will not be created. Check your Family Link account configuration.")
 
 		# Fetch data for each supervised child
 		children_data = []
 		for child in supervised_children:
-			child_id = child["userId"]
+			child_id = child.get("userId")
+			if not child_id:
+				_LOGGER.warning("Skipping child with missing userId: %s", child)
+				continue
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
 			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
@@ -124,6 +153,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
 					f"{len(apps_usage_data.get('appUsageSessions', []))} usage sessions"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
 
@@ -159,6 +190,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
 
@@ -175,6 +208,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"{len(device_lock_states)} device lock states, "
 					f"{len(devices_time_data)} devices with time data"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
 
@@ -211,10 +246,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["remaining_minutes"] = time_data.get("remaining_minutes")
 					device["daily_limit_enabled"] = time_data.get("daily_limit_enabled")
 					device["daily_limit_minutes"] = time_data.get("daily_limit_minutes")
+					device["daily_limit_remaining"] = time_data.get("daily_limit_remaining")
 					device["bedtime_window"] = time_data.get("bedtime_window")
 					device["schooltime_window"] = time_data.get("schooltime_window")
 					device["bedtime_active"] = time_data.get("bedtime_active")
 					device["schooltime_active"] = time_data.get("schooltime_active")
+					device["bonus_minutes"] = time_data.get("bonus_minutes")
+					device["bonus_override_id"] = time_data.get("bonus_override_id")
 
 			# Aggregate daily_limit_enabled from devices
 			# If ANY device has daily_limit enabled, consider it globally enabled
@@ -233,8 +271,35 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"
 				)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+
+			# Fetch location data for this child (if enabled)
+			location = None
+			if self._location_tracking_enabled:
+				try:
+					location = await self.client.async_get_location(account_id=child_id)
+					if location:
+						# Resolve source device name from device ID
+						source_device_id = location.get("source_device_id")
+						source_device_name = None
+						if source_device_id:
+							for device in devices:
+								if device.get("id") == source_device_id:
+									source_device_name = device.get("name")
+									break
+						location["source_device_name"] = source_device_name
+						_LOGGER.debug(
+							f"Fetched location for {child_name}: "
+							f"({location['latitude']}, {location['longitude']}) "
+							f"place={location.get('place_name') or 'unknown'}"
+						)
+				except SessionExpiredError:
+					raise  # Re-raise to trigger auth notification
+				except Exception as err:
+					_LOGGER.warning(f"Failed to fetch location data for {child_name}: {err}")
 
 			# Store data for this child
 			child_data = {
@@ -243,6 +308,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"child_name": child_name,
 				"devices": devices,
 				"screen_time": screen_time,
+				"location": location,
 				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
@@ -298,6 +364,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.error("Failed to refresh authentication: %s", err)
 			# Clear client to force re-authentication on next update
 			self.client = None
+			raise
 
 	async def async_control_device(
 		self, device_id: str, action: str, child_id: str | None = None
@@ -396,6 +463,31 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
 		"""Get device data by ID."""
 		return self._devices.get(device_id)
+
+	async def _create_auth_notification(self) -> None:
+		"""Create a persistent notification when authentication fails (only once)."""
+		if self._auth_notification_sent:
+			_LOGGER.debug("Auth notification already sent, skipping")
+			return
+
+		await self.hass.services.async_call(
+			"persistent_notification",
+			"create",
+			{
+				"title": "Google Family Link - Authentication Required",
+				"message": (
+					"Your Google Family Link session has expired.\n\n"
+					"Please re-authenticate using the **Family Link Auth** add-on:\n"
+					"1. Open the add-on in Supervisor\n"
+					"2. Click 'Open Web UI'\n"
+					"3. Log in with your Google account\n"
+					"4. The integration will automatically resume once authenticated."
+				),
+				"notification_id": "familylink_auth_expired",
+			},
+		)
+		self._auth_notification_sent = True
+		_LOGGER.info("Created authentication notification for user")
 
 	async def async_cleanup(self) -> None:
 		"""Clean up coordinator resources."""

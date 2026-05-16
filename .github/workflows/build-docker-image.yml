@@ -38,8 +38,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
+      - name: Extract metadata for addon image (tags, labels)
+        id: meta-addon
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -51,22 +51,55 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Extract metadata for standalone image (tags, labels)
+        id: meta-standalone
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-standalone
+            type=ref,event=pr,suffix=-standalone
+            type=semver,pattern={{version}},suffix=-standalone
+            type=semver,pattern={{major}}.{{minor}},suffix=-standalone
+            type=raw,value=standalone,enable=true
+
+      - name: Build and push Home Assistant addon image
         uses: docker/build-push-action@v5
         with:
           context: ./familylink-playwright
+          file: ./familylink-playwright/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta-addon.outputs.tags }}
+          labels: ${{ steps.meta-addon.outputs.labels }}
+          cache-from: type=gha,scope=addon
+          cache-to: type=gha,mode=max,scope=addon
 
-      - name: Update Docker Compose files
+      - name: Build and push standalone Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./familylink-playwright
+          file: ./familylink-playwright/Dockerfile.standalone
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-standalone.outputs.tags }}
+          labels: ${{ steps.meta-standalone.outputs.labels }}
+          cache-from: type=gha,scope=standalone
+          cache-to: type=gha,mode=max,scope=standalone
+
+      - name: Summary
         run: |
-          echo "Image built and pushed successfully!"
-          echo "Available tags:"
-          echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'
+          echo "✅ Images built and pushed successfully!"
           echo ""
-          echo "To use this image:"
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo "📦 Home Assistant Addon (with Supervisor support):"
+          echo "${{ steps.meta-addon.outputs.tags }}" | tr ',' '\n' | sed 's/^/  - /'
+          echo ""
+          echo "🐳 Standalone Docker (pure Docker, no HA Supervisor):"
+          echo "${{ steps.meta-standalone.outputs.tags }}" | tr ',' '\n' | sed 's/^/  - /'
+          echo ""
+          echo "Usage:"
+          echo "  # For Home Assistant OS/Supervised:"
+          echo "  docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo ""
+          echo "  # For standalone Docker (HA Container/Core):"
+          echo "  docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone"

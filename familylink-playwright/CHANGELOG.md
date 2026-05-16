@@ -2,6 +2,50 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.6.1] - 2026-05-12
+
+### Fixed
+- **noVNC welcome banner** — Display a clear welcome message on the Xvfb desktop via `xterm` so users connecting to noVNC before starting the auth flow no longer see a black screen (#108)
+
+### Changed
+- Added `xterm` to the base Dockerfile dependencies (both add-on and standalone images)
+
+## [1.6.0] - 2025-03
+
+### Added
+- **noVNC web-based access** — Replace external VNC client requirement with browser-based access via noVNC on port 6080
+- **Auto-detection of language and timezone** — Reads HA settings via Supervisor API when add-on options are left empty
+- **Bilingual web UI (FR/EN)** — New `translations.py` module with French and English support, auto-switching based on language setting
+- **DNS configuration** — Added Google DNS (8.8.8.8, 8.8.4.4) to docker-compose for Pi-hole compatibility
+
+### Changed
+- x11vnc now restricted to localhost only (no external raw VNC access)
+- websockify bridges localhost VNC to noVNC on port 6080
+- Exposed port changed from 5900 (VNC) to 6080 (noVNC)
+- Default language/timezone options changed to empty strings for auto-detection
+- Web UI HTML fully templated with i18n support (no more hardcoded French strings)
+
+### Credits
+- noVNC migration inspired by [@jnctech's fork](https://github.com/jnctech/HAFamilyLink)
+
+---
+
+## [1.3.0] - 2025-01-25
+
+### Added
+- HTTP API endpoint for cookie retrieval (`/api/cookies`)
+- Support for Docker standalone installations without shared volumes
+- Automatic detection of authentication source (API, local URL, or file fallback)
+
+### Changed
+- Integration now tries HTTP API first, then falls back to file storage
+- Improved config flow with manual URL input option
+
+### Fixed
+- Docker standalone users can now configure the auth server URL manually
+
+---
+
 ## [1.0.0] - 2025-01-07
 
 ### Added
@@ -34,7 +78,7 @@ All notable changes to the Google Family Link Auth Add-on will be documented in 
 ### Planned for v1.1.0
 - [ ] Automatic cookie refresh
 - [ ] Multi-account support
-- [ ] English language toggle
+- [x] English language toggle *(done in v1.6.0)*
 - [ ] Persistent notification integration
 - [ ] Advanced logging options
 
@@ -46,4 +90,5 @@ All notable changes to the Google Family Link Auth Add-on will be documented in 
 
 ---
 
+[1.3.0]: https://github.com/noiwid/HAFamilyLink/releases/tag/v1.3.0
 [1.0.0]: https://github.com/noiwid/HAFamilyLink/releases/tag/v1.0.0

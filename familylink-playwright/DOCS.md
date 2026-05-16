@@ -23,15 +23,23 @@ The Google Family Link Auth Add-on provides a browser-based authentication servi
 
 ### Communication Between Add-on and Integration
 
-The add-on and integration communicate through **shared file storage**:
+The add-on provides **two methods** for the integration to retrieve cookies:
 
+#### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
+- **Endpoint**: `GET /api/cookies`
+- **URL**: `http://<addon-ip>:8099/api/cookies`
+- Returns decrypted cookies directly (JSON format)
+- No shared volumes needed
+
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
+
+#### 2. Shared File Storage (Default for HA OS/Supervised)
 - **Add-on writes**: Encrypted cookies to `/share/familylink/cookies.enc`
 - **Integration reads**: Cookies from the same location
 - **Encryption**: Shared key in `/share/familylink/.key`
 
-This approach is:
+Both approaches are:
 - ✅ Simple and reliable
-- ✅ No network dependencies
 - ✅ Survives restarts
 - ✅ Secure (encrypted at rest)
 
@@ -66,13 +74,22 @@ session_duration: 86400  # Cookies valid for 24 hours
 
 ### Step 4: Authenticate
 
-1. Click **Open Web UI** or navigate to `http://[YOUR_HA]:8099`
-2. Click "Démarrer l'authentification"
-3. Browser window opens automatically
-4. Sign in to Google
-5. Complete 2FA if required
-6. Wait for success message
-7. Close add-on UI
+> **Important: Two ports are required!**
+> - **Port 8099**: Web UI (start authentication, check status)
+> - **Port 6080**: noVNC (interact with the Google login browser)
+>
+> Both ports must be accessible from your browser. If you access Home Assistant via a reverse proxy or external domain, make sure both ports are forwarded, or use your HA's **local IP** (e.g. `http://192.168.1.x:8099` and `http://192.168.1.x:6080`).
+
+1. Click **Open Web UI** or navigate to `http://[YOUR_HA_LOCAL_IP]:8099`
+2. Click "Start Authentication"
+3. The browser launches inside the container - connect via noVNC to interact with it:
+   - Open `http://[YOUR_HA_LOCAL_IP]:6080/vnc.html` in your web browser
+   - Password: `familylink`
+   - Click **Connect** (no VNC client software needed)
+4. Sign in to Google in the noVNC browser window
+5. Complete 2FA if prompted
+6. Wait for the success message
+7. Close the noVNC browser tab
 
 ### Step 5: Configure Integration
 
@@ -290,7 +307,7 @@ Restrictive permissions protect sensitive data:
 
 ### Network Isolation
 
-- Add-on only exposes port 8099 (web UI)
+- Add-on exposes port 8099 (web UI) and port 6080 (noVNC browser access)
 - No external API endpoints
 - Browser communicates only with Google
 - No telemetry or analytics
@@ -386,8 +403,8 @@ A: Typically 24 hours to several weeks, depending on Google's security settings 
 **Q: Can I use this with multiple Google accounts?**
 A: Currently no. Only one account at a time. Feature request welcome!
 
-**Q: Does this work on Home Assistant Container?**
-A: No, this add-on requires Home Assistant OS or Supervised. Container users need alternative solutions.
+**Q: Does this work on Home Assistant Container/Core (Docker)?**
+A: Yes! Starting with v0.9.4/v1.3.0, Docker standalone is supported. Run the add-on as a standalone Docker container and configure the integration with the auth server URL. See [Docker Standalone Guide](../DOCKER_STANDALONE.md).
 
 **Q: Can I run this on Raspberry Pi?**
 A: Yes, but performance may be slow during authentication due to browser automation overhead. ARM builds are supported.

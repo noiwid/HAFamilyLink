@@ -11,6 +11,8 @@ INTEGRATION_NAME: Final = "Google Family Link"
 CONF_COOKIE_FILE: Final = "cookie_file"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_TIMEOUT: Final = "timeout"
+CONF_AUTH_URL: Final = "auth_url"  # URL for Docker standalone mode
+CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
@@ -53,14 +55,12 @@ ATTR_BATTERY_LEVEL: Final = "battery_level"
 
 # Service names
 SERVICE_REFRESH_DEVICES: Final = "refresh_devices"
-SERVICE_FORCE_UNLOCK: Final = "force_unlock"
-SERVICE_EMERGENCY_UNLOCK: Final = "emergency_unlock"
-
 # App control services
 SERVICE_BLOCK_DEVICE_FOR_SCHOOL: Final = "block_device_for_school"
 SERVICE_UNBLOCK_ALL_APPS: Final = "unblock_all_apps"
 SERVICE_BLOCK_APP: Final = "block_app"
 SERVICE_UNBLOCK_APP: Final = "unblock_app"
+SERVICE_SET_APP_DAILY_LIMIT: Final = "set_app_daily_limit"
 
 # Time management services
 SERVICE_ADD_TIME_BONUS: Final = "add_time_bonus"
@@ -70,4 +70,8 @@ SERVICE_ENABLE_SCHOOL_TIME: Final = "enable_school_time"
 SERVICE_DISABLE_SCHOOL_TIME: Final = "disable_school_time"
 SERVICE_ENABLE_DAILY_LIMIT: Final = "enable_daily_limit"
 SERVICE_DISABLE_DAILY_LIMIT: Final = "disable_daily_limit"
-SERVICE_SET_DAILY_LIMIT: Final = "set_daily_limit" 
+SERVICE_SET_DAILY_LIMIT: Final = "set_daily_limit"
+SERVICE_SET_BEDTIME: Final = "set_bedtime"
+
+# Location services
+SERVICE_REFRESH_LOCATION: Final = "refresh_location"
