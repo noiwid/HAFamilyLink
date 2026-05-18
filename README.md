@@ -562,9 +562,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This is an unofficial integration and is not affiliated with, endorsed by, or connected to Google LLC. All product names, logos, and brands are property of their respective owners. Use at your own risk.
 
-[releases-shield]: https://img.shields.io/github/release/noiwid/HAFamilyLink.svg
+[releases-shield]: https://img.shields.io/github/release/noiwid/HAFamilyLink.svg?style=for-the-badge
 [releases]: https://github.com/noiwid/HAFamilyLink/releases
-[license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg
+[license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg?style=for-the-badge
 [license]: LICENSE
-[hacs-shield]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-shield]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge
 [hacs]: https://github.com/hacs/integration
