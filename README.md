@@ -519,8 +519,6 @@ automation:
 
 ## 🤝 Contributing
 
-[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
-
 Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
@@ -528,6 +526,11 @@ Contributions are welcome! Please follow these steps:
 3. Make your changes with clear commit messages
 4. Test thoroughly
 5. Submit a pull request
+
+This integration is free and maintained on my spare time. If it helped you or saved you time, you also can buy me a beer:
+
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
+
 
 ### Development Setup
 
