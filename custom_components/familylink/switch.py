@@ -292,20 +292,27 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if bedtime is enabled."""
+		"""Return True if bedtime is enabled for today.
+
+		Reads the effective state from appliedTimeLimits rather than the
+		weekly revision, so that daily overrides (issue #114) are honored.
+		Falls back to the weekly revision if the today-effective field is
+		not populated (e.g. first refresh before appliedTimeLimits returns).
+		"""
 		# Check for pending state first (takes precedence for 5 seconds after change)
 		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "bedtime")
 		if pending_state is not None:
 			return pending_state
 
-		# Otherwise use actual state from API
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					bedtime_state = child_data.get("bedtime_enabled")
-					if bedtime_state is not None:
-						return bedtime_state
-		# Default to False if unknown
+					today = child_data.get("bedtime_enabled_today")
+					if today is not None:
+						return today
+					weekly = child_data.get("bedtime_enabled")
+					if weekly is not None:
+						return weekly
 		return False
 
 	@property
@@ -391,20 +398,27 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	@property
 	def is_on(self) -> bool:
-		"""Return True if school time is enabled."""
+		"""Return True if school time is enabled for today.
+
+		Reads the effective state from appliedTimeLimits rather than the
+		weekly revision, so that daily overrides (issue #114) are honored.
+		Falls back to the weekly revision if the today-effective field is
+		not populated.
+		"""
 		# Check for pending state first (takes precedence for 5 seconds after change)
 		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "school_time")
 		if pending_state is not None:
 			return pending_state
 
-		# Otherwise use actual state from API
 		if self.coordinator.data and "children_data" in self.coordinator.data:
 			for child_data in self.coordinator.data["children_data"]:
 				if child_data["child_id"] == self._child_id:
-					school_time_state = child_data.get("school_time_enabled")
-					if school_time_state is not None:
-						return school_time_state
-		# Default to False if unknown
+					today = child_data.get("school_time_enabled_today")
+					if today is not None:
+						return today
+					weekly = child_data.get("school_time_enabled")
+					if weekly is not None:
+						return weekly
 		return False
 
 	@property

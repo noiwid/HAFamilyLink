@@ -58,7 +58,8 @@
 | **Set bedtime schedule** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [2, [startH, startM], [endH, endM], day_code]]], [1]]` | Type 9 = set bedtime. Format: `[status, [startHour, startMin], [endHour, endMin], day_code]`. Status 2=enabled. |
 | **Apply school time today** (recommended, issue #111) | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [action, [startH, startM], [endH, endM], null, [weekday, "579e5e01-...rule_uuid"]]]], [1]]` | Type 9 + schooltime rule reference at `[4]` (weekday 1-7, rule UUID). **action: 2=enable, 1=disable**. This is what the web app sends when the "Today" toggle is changed; it is the only call that actually locks/unlocks the device for the current day. Toggling the weekly policy alone (next row) is not enough — see issue #111. |
 | **Cancel time bonus / Remove school time override** | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverride/{overrideId}?$httpMethod=DELETE` | No body | Google API convention: POST with $httpMethod=DELETE. The web app calls this before creating an opposite-action school time override (so you don't end up with stacked overrides on the same day). |
-| **Enable/Disable bedtime** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF |
+| **Apply bedtime today** (recommended, issue #113) | POST | `/kidsmanagement/v1/people/{childId}/timeLimitOverrides:batchCreate` | `[null, childId, [[null, null, 9, null, null, null, null, null, null, null, null, null, [action, [startH, startM], [endH, endM], "CAEQxx"]]], [1]]` | Type 9 + bedtime day_code at `[3]` (CAEQAQ=Mon … CAEQBw=Sun). **action: 2=enable, 1=disable**. Mirrors the "Ce soir seulement" / Tonight-only dialog in the web app. The bedtime override uses the day_code string instead of school time's `[weekday, rule_uuid]` tuple. |
+| **Toggle bedtime weekly policy** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF. ⚠️ **Like school time, this only flips the weekly switch.** The bedtime slot already running tonight is not cancelled. The web app pairs this PUT with **Apply bedtime today** (above) when the user confirms "Apply changes to today as well?". |
 | **Toggle school time weekly policy** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF. ⚠️ **This only flips the weekly switch — it does NOT apply a change to the current day.** If today has no weekly slot, nothing happens on the child device. To actually lock/unlock today, use **Apply school time today** (above). |
 | **Enable/Disable daily limit** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [null, [[state, null, null, null]]], null, [1]]` | state: 2=ON, 1=OFF |
 
@@ -72,6 +73,24 @@
 - **8**: SET daily limit duration (per device)
 - **9**: SET bedtime / school time schedule (per child)
 - **10**: ADD time bonus (per device)
+
+### Bedtime daily override pattern (issue #113)
+
+Bedtime suffers from the same desync problem school time had (#111): toggling the weekly switch alone does not always reach the child device, because the weekly slot already in progress can carry forward unchanged. The web app addresses this by always pairing the weekly PUT with a per-day override, just like school time but with a different reference encoding.
+
+**Difference vs. school time.** The override payload references the day with the opaque `CAEQxx` day_code (Monday=`CAEQAQ`, …, Sunday=`CAEQBw`), NOT a `[weekday_int, rule_uuid]` tuple. The type code is still `9`.
+
+**Toggle bedtime ON (web app):**
+1. `PUT /people/{childId}/timeLimit:update?$httpMethod=PUT` with `[null, childId, [[null,null,null,null], null,null,null, [null, [["487088e7-…bedtime_uuid", 2]]]], null, [1]]`
+2. `POST /people/{childId}/timeLimitOverrides:batchCreate` with `[null, childId, [[null,null,9, null,null,null,null,null,null,null,null,null, [2, [start_h,start_m], [end_h,end_m], "CAEQxx"]]], [1]]`
+
+Where `[start_h, …]` and `[end_h, …]` are today's weekly bedtime hours.
+
+**Toggle bedtime OFF (web app):** same as above but weekly state=1 and override action=1.
+
+**Single-day toggle ("Ce soir seulement" / Tonight only dialog):** only step 2 is sent; the weekly PUT is skipped. Picking action 1 or 2 controls whether tonight is suspended or active without changing the weekly policy.
+
+**No DELETE step.** The server treats overrides as keyed by day_code — posting a new override silently supersedes the previous one for the same day. (School time uses a different uniqueness key and the web app does emit DELETE there.)
 
 ### School time daily override pattern (issue #111)
 
