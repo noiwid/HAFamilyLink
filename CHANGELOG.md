@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.7-rc2] - 2026-05-21
+
+### Fixed
+- **Bedtime switch now actually reaches the child device** — Same fix pattern as v1.2.7 for school time, applied to bedtime (#113). `switch.<child>_bedtime` and `familylink.enable_bedtime` / `familylink.disable_bedtime` now do both calls the Family Link web app sends when the user confirms "Apply changes to today as well?": (1) flip the weekly policy via `timeLimit:update`, (2) post a per-day override via `timeLimitOverrides:batchCreate` (action=2 to enable, action=1 to disable) using today's weekly bedtime hours and the matching `CAEQxx` day_code. The previous behavior only did step 1, which left tonight's slot unchanged on the device.
+- **Bedtime and school time switches now reflect the effective today state** — `is_on` for both switches now reads `bedtime_enabled_today` / `school_time_enabled_today` from `appliedTimeLimits`, which combines the weekly policy with daily overrides. Previously the switches only read the weekly revisions, so after a "today only" override the switch would snap back to its weekly value on the next coordinator refresh (~30-60s) and the user would think the toggle did nothing (#114).
+
+### Documentation
+- `GOOGLE_FAMILY_LINK_API_ANALYSIS.md` — added a "Bedtime daily override pattern" section, updated the endpoints table to flag the bedtime weekly-only toggle as misleading (same trap as school time), and added an "Apply bedtime today" entry documenting the reverse-engineered payload (uses `CAEQxx` day_code instead of school time's `[weekday, rule_uuid]` tuple).
+
+---
+
 ## [1.2.7] - 2026-05-16
 
 ### Fixed

@@ -1115,6 +1115,10 @@ class FamilyLinkClient:
 				- schooltime_window: {start_ms, end_ms} or None
 				- bedtime_active: Boolean
 				- schooltime_active: Boolean
+			- bedtime_enabled_today: True if any device has an enabled bedtime
+				rule for the current weekday (combines weekly + daily overrides;
+				used by the bedtime switch for issue #114).
+			- schooltime_enabled_today: same for school time.
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -1153,6 +1157,14 @@ class FamilyLinkClient:
 
 				device_lock_states = {}
 				devices = {}
+				# Today-effective flags computed from the per-device rule entries.
+				# Used by the switches to reflect the actual locked/unlocked state on
+				# the child device for today (issue #114) — combines weekly policy
+				# with any daily override that's been applied. See doc note in
+				# GOOGLE_FAMILY_LINK_API_ANALYSIS.md ("appliedTimeLimits effective
+				# state for today").
+				bedtime_enabled_today = False
+				schooltime_enabled_today = False
 
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
@@ -1355,6 +1367,10 @@ class FamilyLinkClient:
 												if parse_as_bedtime:
 													device_info["bedtime_window"] = window_data
 													device_info["bedtime_active"] = window_active
+													# An enabled bedtime rule exists for today on this
+													# device — switch must show ON regardless of weekly
+													# revision (issue #114).
+													bedtime_enabled_today = True
 
 													_LOGGER.debug(
 														f"Device {device_id}: Bedtime window parsed - "
@@ -1364,6 +1380,7 @@ class FamilyLinkClient:
 												elif parse_as_schooltime:
 													device_info["schooltime_window"] = window_data
 													device_info["schooltime_active"] = window_active
+													schooltime_enabled_today = True
 
 													_LOGGER.debug(
 														f"Device {device_id}: Schooltime window parsed - "
@@ -1383,10 +1400,12 @@ class FamilyLinkClient:
 											if device_info["bedtime_window"] is None:
 												device_info["bedtime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
 												device_info["bedtime_active"] = True
+												bedtime_enabled_today = True
 												_LOGGER.debug(f"Device {device_id}: bedtime window {start_ms}-{end_ms}")
 											elif device_info["schooltime_window"] is None:
 												device_info["schooltime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
 												device_info["schooltime_active"] = True
+												schooltime_enabled_today = True
 												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
 									except (ValueError, TypeError):
 										pass
@@ -1438,7 +1457,13 @@ class FamilyLinkClient:
 
 				return {
 					"device_lock_states": device_lock_states,
-					"devices": devices
+					"devices": devices,
+					# Today-effective flags (issue #114): combine weekly policy
+					# with daily overrides so the HA switches show what Google
+					# actually applies on the child device right now, instead of
+					# only the weekly revision.
+					"bedtime_enabled_today": bedtime_enabled_today,
+					"schooltime_enabled_today": schooltime_enabled_today,
 				}
 
 		except SessionExpiredError:
@@ -1554,77 +1579,65 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
 			return False
 
+	# Day-of-week → CAEQ day_code used by Google's batchCreate payload for
+	# bedtime overrides. ISO weekday: 1=Monday … 7=Sunday.
+	_BEDTIME_DAY_CODES = {
+		1: "CAEQAQ",  # Monday
+		2: "CAEQAg",  # Tuesday
+		3: "CAEQAw",  # Wednesday
+		4: "CAEQBA",  # Thursday
+		5: "CAEQBQ",  # Friday
+		6: "CAEQBg",  # Saturday
+		7: "CAEQBw",  # Sunday
+	}
+
 	async def async_enable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
-		"""Enable bedtime (downtime) restrictions for a child.
+		"""Enable bedtime, mirroring the Family Link web app (issue #113).
 
-		Args:
-			account_id: User ID of the supervised child (optional)
-			rule_id: Bedtime rule UUID (optional, fetched dynamically if not provided)
+		Posts both calls the web app sends when the user toggles bedtime on
+		and confirms "Apply changes to today as well?":
 
-		Returns:
-			True if successful, False otherwise
+		1. `PUT timeLimit:update` flips the weekly revision to state 2.
+		2. `POST timeLimitOverrides:batchCreate` posts a per-day override
+		   (action=2) with today's weekly bedtime hours, so the change takes
+		   effect on the child device for tonight without waiting for the
+		   weekly slot to start fresh.
+
+		Without step 2 the child device may not see the change until the
+		next weekly slot — that's exactly what issue #113 reported.
 		"""
-		if not self.is_authenticated():
-			raise AuthenticationError("Not authenticated")
-
-		if not account_id:
-			account_id = await self.async_get_supervised_child_id()
-
-		# Fetch rule_id dynamically if not provided
-		if not rule_id:
-			time_limit_data = await self.async_get_time_limit(account_id)
-			rule_id = time_limit_data.get("bedtime_rule_id")
-			if not rule_id:
-				_LOGGER.error("Could not find bedtime rule ID for this account")
-				return False
-
-		try:
-			session = await self._get_session()
-			cookie_header = self._get_cookie_header()
-
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 2]]]], null, [1]]
-			# Status 2 = enabled
-			payload = json.dumps([
-				None,
-				account_id,
-				[[None, None, None, None], None, None, None, [None, [[rule_id, 2]]]],
-				None,
-				[1]
-			])
-
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Enabling bedtime for account {account_id} with rule_id {rule_id}")
-
-			async with session.put(
-				url,
-				headers={
-					"Content-Type": "application/json+protobuf",
-					"Cookie": cookie_header
-				},
-				data=payload,
-				params={"$httpMethod": "PUT"}
-			) as response:
-				if response.status != 200:
-					response_text = await response.text()
-					_LOGGER.error(f"Failed to enable bedtime {response.status}: {response_text}")
-					return False
-
-				_LOGGER.info(f"Successfully enabled bedtime for account {account_id}")
-				return True
-
-		except Exception as err:
-			_LOGGER.error(f"Unexpected error enabling bedtime: {err}")
-			return False
+		return await self._async_apply_bedtime_today(
+			enable=True, account_id=account_id, rule_id=rule_id
+		)
 
 	async def async_disable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
-		"""Disable bedtime (downtime) restrictions for a child.
+		"""Disable bedtime, mirroring the Family Link web app (issue #113).
 
-		Args:
-			account_id: User ID of the supervised child (optional)
-			rule_id: Bedtime rule UUID (optional, fetched dynamically if not provided)
+		Posts both calls the web app sends when the user toggles bedtime
+		off and confirms "Apply changes to today as well?":
 
-		Returns:
-			True if successful, False otherwise
+		1. `PUT timeLimit:update` flips the weekly revision to state 1.
+		2. `POST timeLimitOverrides:batchCreate` posts a per-day override
+		   (action=1) so the bedtime slot already running tonight is
+		   actually suspended on the child device.
+		"""
+		return await self._async_apply_bedtime_today(
+			enable=False, account_id=account_id, rule_id=rule_id
+		)
+
+	async def _async_apply_bedtime_today(
+		self,
+		enable: bool,
+		account_id: str | None = None,
+		rule_id: str | None = None,
+	) -> bool:
+		"""Flip the weekly bedtime policy AND post a per-day override.
+
+		This combination is what the Family Link web app sends when the user
+		toggles the bedtime weekly switch and confirms "Apply changes to
+		today as well?". Doing only the weekly PUT (the previous behavior)
+		left the child device unaffected on days where the weekly schedule
+		and tonight's actual hours diverged — issue #113.
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -1632,50 +1645,115 @@ class FamilyLinkClient:
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
-		# Fetch rule_id dynamically if not provided
+		# Need the rule_id (always) AND today's bedtime hours (for the
+		# override payload). Fetch both via one call to async_get_time_limit.
+		time_limit_data = await self.async_get_time_limit(account_id)
 		if not rule_id:
-			time_limit_data = await self.async_get_time_limit(account_id)
 			rule_id = time_limit_data.get("bedtime_rule_id")
 			if not rule_id:
 				_LOGGER.error("Could not find bedtime rule ID for this account")
 				return False
 
+		# Pick the weekly bedtime slot matching today; fall back to a sane
+		# default (21:30 → 07:00) if the user has no slot configured for
+		# today — that way the override at least covers a reasonable window.
+		now_local = dt_util.now()
+		weekday = now_local.isoweekday()
+		day_code = self._BEDTIME_DAY_CODES.get(weekday)
+		if not day_code:
+			_LOGGER.error("Unexpected weekday %s — cannot build bedtime override", weekday)
+			return False
+
+		start, end = [21, 30], [7, 0]
+		for slot in time_limit_data.get("bedtime_schedule") or []:
+			if slot.get("day") == weekday:
+				slot_start = slot.get("start")
+				slot_end = slot.get("end")
+				if isinstance(slot_start, list) and len(slot_start) == 2:
+					start = slot_start
+				if isinstance(slot_end, list) and len(slot_end) == 2:
+					end = slot_end
+				break
+
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Payload format: [null, account_id, [[null, null, null, null], null, null, null, [null, [[rule_id, 1]]]], null, [1]]
-			# Status 1 = disabled
-			payload = json.dumps([
+			# Step 1: flip the weekly policy. The web app sends this even
+			# when the user only wants "tonight" because the dialog choice
+			# also persists the weekly state.
+			weekly_state = 2 if enable else 1
+			weekly_payload = json.dumps([
 				None,
 				account_id,
-				[[None, None, None, None], None, None, None, [None, [[rule_id, 1]]]],
+				[[None, None, None, None], None, None, None, [None, [[rule_id, weekly_state]]]],
 				None,
-				[1]
+				[1],
 			])
-
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
-			_LOGGER.debug(f"Disabling bedtime for account {account_id} with rule_id {rule_id}")
-
+			weekly_url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
 			async with session.put(
-				url,
+				weekly_url,
 				headers={
 					"Content-Type": "application/json+protobuf",
-					"Cookie": cookie_header
+					"Cookie": cookie_header,
 				},
-				data=payload,
-				params={"$httpMethod": "PUT"}
+				data=weekly_payload,
+				params={"$httpMethod": "PUT"},
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to disable bedtime {response.status}: {response_text}")
+					_LOGGER.error(
+						"Failed to update weekly bedtime policy (HTTP %s): %s",
+						response.status, response_text,
+					)
 					return False
 
-				_LOGGER.info(f"Successfully disabled bedtime for account {account_id}")
-				return True
+			# Step 2: post the per-day override. Bedtime overrides reference
+			# the day via the opaque CAEQxx day_code (NOT a [weekday, uuid]
+			# tuple like schooltime — see GOOGLE_FAMILY_LINK_API_ANALYSIS.md).
+			action = 2 if enable else 1
+			override_payload = json.dumps([
+				None,
+				account_id,
+				[[
+					None, None,
+					9,
+					None, None, None, None, None, None, None, None, None,
+					[action, start, end, day_code],
+				]],
+				[1],
+			])
+			override_url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			_LOGGER.debug(
+				"Applying bedtime override action=%s window=%s-%s day_code=%s rule=%s",
+				action, start, end, day_code, rule_id,
+			)
+			async with session.post(
+				override_url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+				data=override_payload,
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(
+						"Bedtime weekly policy was updated but the daily override failed "
+						"(HTTP %s): %s — tonight may not reflect the change",
+						response.status, response_text,
+					)
+					return False
+
+			_LOGGER.info(
+				"Successfully %s bedtime for account %s (weekly + tonight %02d:%02d-%02d:%02d)",
+				"enabled" if enable else "disabled",
+				account_id, start[0], start[1], end[0], end[1],
+			)
+			return True
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error disabling bedtime: {err}")
+			_LOGGER.error("Unexpected error applying bedtime override: %s", err)
 			return False
 
 	async def async_enable_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:

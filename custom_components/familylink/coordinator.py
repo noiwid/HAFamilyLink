@@ -198,15 +198,24 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
 			devices_time_data = {}
+			# Today-effective flags from appliedTimeLimits — combine the weekly
+			# policy with any daily override that's been posted. The switches
+			# read these instead of the weekly revisions so they reflect what
+			# Google actually applies on the child device right now (issue #114).
+			bedtime_enabled_today = None
+			schooltime_enabled_today = None
 
 			try:
 				applied_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
 				device_lock_states = applied_limits_data.get("device_lock_states", {})
 				devices_time_data = applied_limits_data.get("devices", {})
+				bedtime_enabled_today = applied_limits_data.get("bedtime_enabled_today")
+				schooltime_enabled_today = applied_limits_data.get("schooltime_enabled_today")
 				_LOGGER.debug(
 					f"Fetched applied time limits for {child_name}: "
 					f"{len(device_lock_states)} device lock states, "
-					f"{len(devices_time_data)} devices with time data"
+					f"{len(devices_time_data)} devices with time data, "
+					f"bedtime_today={bedtime_enabled_today}, schooltime_today={schooltime_enabled_today}"
 				)
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
@@ -313,6 +322,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
 				"school_time_enabled": school_time_enabled,
+				# Effective state for today (issue #114) — read from
+				# appliedTimeLimits, which already merges weekly policy with
+				# daily overrides. The switches use these instead of the
+				# weekly-only revisions above.
+				"bedtime_enabled_today": bedtime_enabled_today,
+				"school_time_enabled_today": schooltime_enabled_today,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
 				"daily_limit_enabled": daily_limit_enabled,
