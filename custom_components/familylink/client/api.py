@@ -1664,8 +1664,14 @@ class FamilyLinkClient:
 			_LOGGER.error("Unexpected weekday %s — cannot build bedtime override", weekday)
 			return False
 
+		bedtime_schedule = time_limit_data.get("bedtime_schedule") or []
+		_LOGGER.debug(
+			"Bedtime schedule has %d entries (looking for weekday %d): %s",
+			len(bedtime_schedule), weekday, bedtime_schedule,
+		)
+
 		start, end = [21, 30], [7, 0]
-		for slot in time_limit_data.get("bedtime_schedule") or []:
+		for slot in bedtime_schedule:
 			if slot.get("day") == weekday:
 				slot_start = slot.get("start")
 				slot_end = slot.get("end")
@@ -1673,7 +1679,13 @@ class FamilyLinkClient:
 					start = slot_start
 				if isinstance(slot_end, list) and len(slot_end) == 2:
 					end = slot_end
+				_LOGGER.debug("Using schedule slot for weekday %d: %s-%s", weekday, start, end)
 				break
+		else:
+			_LOGGER.warning(
+				"No bedtime schedule found for weekday %d, using default %s-%s",
+				weekday, start, end,
+			)
 
 		try:
 			session = await self._get_session()
@@ -2352,10 +2364,12 @@ class FamilyLinkClient:
 									for item in schedule_list:
 										if isinstance(item, list) and len(item) >= 4:
 											if isinstance(item[0], str) and item[0].startswith("CAEQ"):
+												# CAEQ format: [code, day, stateFlag, [startH,startM], [endH,endM], ...]
+												# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
 												day = item[1] if len(item) > 1 else None
-												start = item[2] if len(item) > 2 else None
-												end = item[3] if len(item) > 3 else None
-												if day and start and end:
+												start = item[3] if len(item) > 3 else None
+												end = item[4] if len(item) > 4 else None
+												if day and isinstance(start, list) and isinstance(end, list):
 													bedtime_schedule.append({
 														"day": day,
 														"start": start,  # [hh, mm]
@@ -2374,10 +2388,12 @@ class FamilyLinkClient:
 							for item in config_data[2]:
 								if isinstance(item, list) and len(item) >= 4:
 									if isinstance(item[0], str) and item[0].startswith("CAMQ"):
+										# CAMQ format: [code, day, stateFlag, [startH,startM], [endH,endM], ...]
+										# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
 										day = item[1] if len(item) > 1 else None
-										start = item[2] if len(item) > 2 else None
-										end = item[3] if len(item) > 3 else None
-										if day and start and end:
+										start = item[3] if len(item) > 3 else None
+										end = item[4] if len(item) > 4 else None
+										if day and isinstance(start, list) and isinstance(end, list):
 											school_time_schedule.append({
 												"day": day,
 												"start": start,
