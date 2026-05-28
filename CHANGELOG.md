@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.7-rc3] - 2026-05-26
+
+### Fixed
+- **Bedtime override now uses today's actual schedule instead of hardcoded 21:30–07:00** — The CAEQ (bedtime) and CAMQ (school time) schedule parsers read start/end from the wrong array indices, skipping the `stateFlag` at index 2. Start was read as the stateFlag integer (always failing the `isinstance(list)` check) and end was read as the actual start time. Both fell through to the hardcoded defaults `[21, 30]→[7, 0]`. Fixed to read `item[3]` (start) and `item[4]` (end), matching the documented protobuf layout (#113)
+
+---
+
 ## [1.2.7-rc2] - 2026-05-21
 
 ### Fixed
