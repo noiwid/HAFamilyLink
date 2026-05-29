@@ -35,6 +35,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
+		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
 
 		# Get settings from options (runtime changes) or fall back to data (initial config)
 		self._location_tracking_enabled = entry.options.get(
@@ -62,6 +63,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self._auth_notification_sent:
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
+			self._last_known_data = result  # Store successful result
 			return result
 
 		except SessionExpiredError as err:
@@ -81,6 +83,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.info("Retrying data fetch after authentication refresh...")
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
+				self._last_known_data = result  # Store successful result
 				return result
 
 			except SessionExpiredError:
@@ -96,10 +99,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
+			if self._last_known_data is not None:
+				_LOGGER.warning("Returning last known data due to FamilyLinkException: %s", err)
+				return self._last_known_data
 			raise UpdateFailed(f"Error communicating with Family Link: {err}") from err
 
 		except Exception as err:
 			_LOGGER.exception("Unexpected error fetching Family Link data")
+			if self._last_known_data is not None:
+				_LOGGER.warning("Returning last known data due to unexpected error: %s", err)
+				return self._last_known_data
 			raise UpdateFailed(f"Unexpected error: {err}") from err
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
@@ -157,6 +166,17 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
+				# Try to recover apps_usage_data from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							apps_usage_data = {
+								"apps": cached_child.get("apps", []),
+								"deviceInfo": [],
+								"appUsageSessions": cached_child.get("app_usage_sessions", []),
+							}
+							_LOGGER.info(f"Using cached apps/usage data for {child_name}")
+							break
 
 			# Extract devices from apps_usage_data
 			devices = []
@@ -194,33 +214,41 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							bedtime_enabled = cached_child.get("bedtime_enabled")
+							school_time_enabled = cached_child.get("school_time_enabled")
+							bedtime_schedule = cached_child.get("bedtime_schedule")
+							school_time_schedule = cached_child.get("school_time_schedule")
+							_LOGGER.info(f"Using cached time limit config for {child_name}")
+							break
 
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
 			devices_time_data = {}
-			# Today-effective flags from appliedTimeLimits — combine the weekly
-			# policy with any daily override that's been posted. The switches
-			# read these instead of the weekly revisions so they reflect what
-			# Google actually applies on the child device right now (issue #114).
-			bedtime_enabled_today = None
-			schooltime_enabled_today = None
 
 			try:
 				applied_limits_data = await self.client.async_get_applied_time_limits(account_id=child_id)
 				device_lock_states = applied_limits_data.get("device_lock_states", {})
 				devices_time_data = applied_limits_data.get("devices", {})
-				bedtime_enabled_today = applied_limits_data.get("bedtime_enabled_today")
-				schooltime_enabled_today = applied_limits_data.get("schooltime_enabled_today")
 				_LOGGER.debug(
 					f"Fetched applied time limits for {child_name}: "
 					f"{len(device_lock_states)} device lock states, "
-					f"{len(devices_time_data)} devices with time data, "
-					f"bedtime_today={bedtime_enabled_today}, schooltime_today={schooltime_enabled_today}"
+					f"{len(devices_time_data)} devices with time data"
 				)
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							devices_time_data = cached_child.get("devices_time_data", {})
+							_LOGGER.info(f"Using cached applied time limits for {child_name}")
+							break
 
 			# Update device cache with real lock states from API
 			import time
@@ -284,6 +312,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							screen_time = cached_child.get("screen_time")
+							if screen_time:
+								_LOGGER.info(f"Using cached screen time for {child_name}")
+							break
 
 			# Fetch location data for this child (if enabled)
 			location = None
@@ -322,12 +358,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
 				"school_time_enabled": school_time_enabled,
-				# Effective state for today (issue #114) — read from
-				# appliedTimeLimits, which already merges weekly policy with
-				# daily overrides. The switches use these instead of the
-				# weekly-only revisions above.
-				"bedtime_enabled_today": bedtime_enabled_today,
-				"school_time_enabled_today": schooltime_enabled_today,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
 				"daily_limit_enabled": daily_limit_enabled,
