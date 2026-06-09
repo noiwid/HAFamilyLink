@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.7-rc4] - 2026-06-09
+
+### Fixed
+- **Bedtime/school time schedules are now actually parsed (0 schedules → real windows)** — The rc3 index fix (`item[3]`/`item[4]`) was correct but lived inside a loop that never ran: the parser expected `data[0][0]` to be a *list* of schedule rows, but the real Family Link `timeLimit` response has `data[0] = [stateFlag, [<flat list of schedule items>], ts, ts, 1]` — `data[0][0]` is the integer stateFlag, so the `isinstance(data[0][0], list)` guard was always False and both schedule lists came back empty. Confirmed against the live (un-anonymized) API response: every fetch logged `0 schedules` and the bedtime override always fell back to the hardcoded `21:30→07:00` default. Now reads the flat schedule list at `data[0][1]` and splits it by code prefix (`CAEQ*` = bedtime, `CAMQ*` = school time). Today's real bedtime window is now used for the override (#113).
+- **School time schedule windows recovered** — The old school-time branch read `data[1][0][2]`, which holds daily-limit *minutes* (`[code, day, stateFlag, minutes, …]`), not `CAMQ` time windows — so it never matched. School time windows live in the same flat list as bedtime (`data[0][1]`) and are now parsed from there.
+
+---
+
 ## [1.2.7-rc3] - 2026-05-26
 
 ### Fixed

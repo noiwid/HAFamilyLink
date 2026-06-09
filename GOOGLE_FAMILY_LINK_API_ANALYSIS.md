@@ -134,11 +134,13 @@ The `day_code` in the daily limit payload encodes the day of the week. **You MUS
 ### 1) `timeLimit` — **Scheduling** (theoretical)
 - Contains **time slots** for each day + **revisions** indicating the **global ON/OFF** state of Bedtime & Schooltime.
 - **Response structure**: Wrapped format `[[metadata], [real_data]]`
-  - Real data is at index `[1]` of the response
-  - Index `[0]` of real_data: Bedtime configuration
-  - Index `[1]` of real_data: Daily limit + School time configuration
-  - Last elements: Revisions (exactly 4 elements: `[policyId, type_flag, state_flag, timestamp]`)
-- Two families of tuples (in a large array):
+  - Real data is at index `[1]` of the response (call it `data`)
+  - `data[0]` = **scheduling block**: `[stateFlag, [<flat list of schedule tuples>], createdMs, updatedMs, 1]`
+    - ⚠️ `data[0][0]` is the **integer** global stateFlag (`2`=ON / `1`=OFF), **not** a nested list — do **not** guard on `isinstance(data[0][0], list)`.
+    - `data[0][1]` is **one flat list** holding **both** Bedtime (`CAEQ*`) **and** School time (`CAMQ*`) window tuples, intermixed. Split them by the code prefix, not by position.
+  - `data[1]` = **daily-limit (minutes) config**: `[[stateFlag, [6,0], [<CAEQ* minutes tuples>], createdMs, updatedMs]]`. These inner tuples carry **minutes** (`[code, day, stateFlag, minutes, …]`), **not** `CAMQ*` time windows — school time windows are **not** here (a previous implementation read `data[1][0][2]` for school time and always found nothing).
+  - Last element (`data[-1]`): Revisions (exactly 4 elements: `[policyId, type_flag, state_flag, [sec, nanos]]`)
+- Two families of window tuples, both inside `data[0][1]`:
   - **Bedtime**: **`CAEQ*`** entries (per day)
   - **Schooltime**: **`CAMQ*`** entries (per day)
 

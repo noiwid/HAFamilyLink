@@ -2351,54 +2351,50 @@ class FamilyLinkClient:
 				# Index 1: daily limit + school time schedules
 				# Index -1 (5): current states (revisions for bedtime/schooltime)
 
-				# Extract bedtime schedules from index 0
+				# Extract bedtime AND school time schedules.
+				#
+				# Both live in the SAME flat list at data[0][1], distinguished by
+				# the opaque code prefix on each item (CAEQ* = bedtime window,
+				# CAMQ* = school time window). The real (live, un-anonymized)
+				# response confirms data[0] is:
+				#   [stateFlag, [ <flat list of schedule items> ], ts, ts, 1]
+				# so data[0][0] is the INTEGER stateFlag (2=ON/1=OFF), NOT a
+				# nested list. The previous code expected data[0][0] to be a list
+				# and required `isinstance(data[0][0], list)`, which was always
+				# False here — so neither schedule was ever parsed (issue #113).
+				#
+				# data[1] is the daily-limit-MINUTES config ([[2,[6,0],[...],..]]
+				# where the inner items are [code, day, stateFlag, minutes, ...])
+				# — it does NOT contain CAMQ school-time windows, so the old
+				# school-time branch reading data[1][0][2] also found 0 schedules.
+				#
+				# Each schedule item: [code, day, stateFlag, [startH,startM],
+				#                      [endH,endM], ts, ts, ruleId]
+				# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
 				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
 					bedtime_config = data[0]
-					# Format: [[2, [schedules], timestamp, timestamp, 1]]
-					if len(bedtime_config) > 0 and isinstance(bedtime_config[0], list):
-						schedule_data = bedtime_config[0]
-						# schedules are in index 1
-						if len(schedule_data) > 1 and isinstance(schedule_data[1], list):
-							for schedule_list in schedule_data[1]:
-								if isinstance(schedule_list, list):
-									for item in schedule_list:
-										if isinstance(item, list) and len(item) >= 4:
-											if isinstance(item[0], str) and item[0].startswith("CAEQ"):
-												# CAEQ format: [code, day, stateFlag, [startH,startM], [endH,endM], ...]
-												# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
-												day = item[1] if len(item) > 1 else None
-												start = item[3] if len(item) > 3 else None
-												end = item[4] if len(item) > 4 else None
-												if day and isinstance(start, list) and isinstance(end, list):
-													bedtime_schedule.append({
-														"day": day,
-														"start": start,  # [hh, mm]
-														"end": end  # [hh, mm]
-													})
-
-				# Extract school time schedules from index 1
-				if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
-					daily_limit_config = data[1]
-					# Format: [[2, [6, 0], [schedules], timestamp, timestamp]]
-					if len(daily_limit_config) > 0 and isinstance(daily_limit_config[0], list):
-						config_data = daily_limit_config[0]
-
-						# School time schedules are in index 2
-						if len(config_data) > 2 and isinstance(config_data[2], list):
-							for item in config_data[2]:
-								if isinstance(item, list) and len(item) >= 4:
-									if isinstance(item[0], str) and item[0].startswith("CAMQ"):
-										# CAMQ format: [code, day, stateFlag, [startH,startM], [endH,endM], ...]
-										# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
-										day = item[1] if len(item) > 1 else None
-										start = item[3] if len(item) > 3 else None
-										end = item[4] if len(item) > 4 else None
-										if day and isinstance(start, list) and isinstance(end, list):
-											school_time_schedule.append({
-												"day": day,
-												"start": start,
-												"end": end
-											})
+					# schedules are the flat list at index 1
+					if len(bedtime_config) > 1 and isinstance(bedtime_config[1], list):
+						for item in bedtime_config[1]:
+							if not (isinstance(item, list) and len(item) >= 5):
+								continue
+							code = item[0]
+							if not isinstance(code, str):
+								continue
+							day = item[1] if len(item) > 1 else None
+							start = item[3] if len(item) > 3 else None
+							end = item[4] if len(item) > 4 else None
+							if not (day and isinstance(start, list) and isinstance(end, list)):
+								continue
+							slot = {
+								"day": day,
+								"start": start,  # [hh, mm]
+								"end": end,  # [hh, mm]
+							}
+							if code.startswith("CAEQ"):
+								bedtime_schedule.append(slot)
+							elif code.startswith("CAMQ"):
+								school_time_schedule.append(slot)
 
 				# Parse revisions to get ON/OFF state and rule IDs
 				# Revisions are in the last element of data, containing items with format:
