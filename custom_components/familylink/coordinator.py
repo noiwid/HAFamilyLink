@@ -35,6 +35,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._auth_notification_sent = False  # Only send auth notification once
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
+		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
 
 		# Get settings from options (runtime changes) or fall back to data (initial config)
 		self._location_tracking_enabled = entry.options.get(
@@ -62,6 +63,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self._auth_notification_sent:
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
+			self._last_known_data = result  # Store successful result
 			return result
 
 		except SessionExpiredError as err:
@@ -81,6 +83,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.info("Retrying data fetch after authentication refresh...")
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
+				self._last_known_data = result  # Store successful result
 				return result
 
 			except SessionExpiredError:
@@ -96,10 +99,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
+			if self._last_known_data is not None:
+				_LOGGER.info("Returning last known data due to FamilyLinkException: %s", err)
+				return self._last_known_data
 			raise UpdateFailed(f"Error communicating with Family Link: {err}") from err
 
 		except Exception as err:
 			_LOGGER.exception("Unexpected error fetching Family Link data")
+			if self._last_known_data is not None:
+				_LOGGER.info("Returning last known data due to unexpected error: %s", err)
+				return self._last_known_data
 			raise UpdateFailed(f"Unexpected error: {err}") from err
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
@@ -146,6 +155,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			# Fetch complete apps and usage data for this child
 			apps_usage_data = None
+			cached_devices = None  # Populated from cache only if the fetch fails
 			try:
 				apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
 				_LOGGER.debug(
@@ -157,6 +167,23 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
+				# Try to recover apps_usage_data from last known data cache.
+				# Note: deviceInfo is intentionally left out here — the cached
+				# child stores already-parsed `devices`, not raw deviceInfo, so
+				# we restore the device list directly below (cached_devices)
+				# rather than re-deriving it from an empty deviceInfo (which
+				# would otherwise wipe every device on a transient 503).
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							apps_usage_data = {
+								"apps": cached_child.get("apps", []),
+								"deviceInfo": [],
+								"appUsageSessions": cached_child.get("app_usage_sessions", []),
+							}
+							cached_devices = cached_child.get("devices")
+							_LOGGER.debug(f"Using cached apps/usage data for {child_name}")
+							break
 
 			# Extract devices from apps_usage_data
 			devices = []
@@ -173,6 +200,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						"child_name": child_name,
 					}
 					devices.append(device)
+
+			# If the apps/usage fetch failed, deviceInfo is empty, so the loop
+			# above produced no devices. Fall back to the cached device list so
+			# a transient error doesn't make every device disappear.
+			if not devices and cached_devices:
+				devices = [dict(device) for device in cached_devices]
+				_LOGGER.debug(f"Restored {len(devices)} cached device(s) for {child_name}")
 
 			# Fetch time limit configuration (bedtime/school time schedules and enabled states)
 			bedtime_enabled = None
@@ -194,6 +228,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							bedtime_enabled = cached_child.get("bedtime_enabled")
+							school_time_enabled = cached_child.get("school_time_enabled")
+							bedtime_schedule = cached_child.get("bedtime_schedule")
+							school_time_schedule = cached_child.get("school_time_schedule")
+							_LOGGER.debug(f"Using cached time limit config for {child_name}")
+							break
 
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
@@ -221,6 +265,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							devices_time_data = cached_child.get("devices_time_data", {})
+							bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
+							schooltime_enabled_today = cached_child.get("school_time_enabled_today")
+							_LOGGER.debug(f"Using cached applied time limits for {child_name}")
+							break
 
 			# Update device cache with real lock states from API
 			import time
@@ -284,6 +337,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+				# Try to recover from last known data cache
+				if self._last_known_data:
+					for cached_child in self._last_known_data.get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							screen_time = cached_child.get("screen_time")
+							if screen_time:
+								_LOGGER.debug(f"Using cached screen time for {child_name}")
+							break
 
 			# Fetch location data for this child (if enabled)
 			location = None
