@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.7-rc5] - 2026-06-09
+
+### Added
+- **Cache last known data on transient API errors (503/500/timeouts)** — Google's Family Link API (especially `appsandusage`) regularly returns transient 5xx errors, which previously dropped every sensor to `unavailable` even though the underlying data was unchanged. The coordinator now keeps the last successful fetch in memory and returns it on transient errors, with per-child fallbacks for each endpoint (apps/usage, time limit config, applied limits, screen time). `SessionExpiredError` still propagates so re-authentication is unaffected; the cache is cleared on restart. Thanks to @Naumsede for the contribution (#117).
+
+---
+
 ## [1.2.7-rc4] - 2026-06-09
 
 ### Fixed
