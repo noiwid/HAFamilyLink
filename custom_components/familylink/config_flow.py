@@ -135,6 +135,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 						self._detected_url = auth_url
 						# Proceed to configure step with URL
 						return await self.async_step_configure(None, auth_url=auth_url)
+					elif addon_client.last_fetch_status == 403:
+						errors["base"] = "invalid_api_key"
 					else:
 						errors["base"] = "no_cookies"
 				else:

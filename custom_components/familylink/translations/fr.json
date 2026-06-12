@@ -28,7 +28,7 @@
 			},
 			"manual_url": {
 				"title": "URL du serveur d'authentification",
-				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`",
+				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`\n\nSi le serveur d'authentification exige une clé API (conteneur v1.7.0+), ajoutez-la à l'URL : `http://192.168.1.100:8099?api_key=<clé>` (clé dans le fichier `data/api_key` du conteneur).",
 				"data": {
 					"auth_url": "URL du serveur d'authentification"
 				}
@@ -52,6 +52,7 @@
 			"invalid_auth": "Aucun cookie trouvé. Veuillez d'abord vous authentifier via le module complémentaire ou le conteneur Family Link Auth.",
 			"url_required": "L'URL est requise",
 			"no_cookies": "Le serveur est accessible mais aucun cookie n'a été trouvé. Veuillez d'abord vous authentifier via l'interface web.",
+			"invalid_api_key": "Le serveur exige une clé API. Ajoutez ?api_key=<clé> à l'URL — la clé se trouve dans le fichier « api_key » du répertoire de données du conteneur d'authentification (ex. ./data/api_key).",
 			"unknown": "Une erreur inattendue s'est produite"
 		},
 		"abort": {

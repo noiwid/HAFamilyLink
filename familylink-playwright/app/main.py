@@ -47,7 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API key for protecting sensitive endpoints
+# API key for protecting the auth-flow endpoints (optional, env-provided)
 _API_KEY = os.getenv("API_KEY", "")
 
 # Global instances
@@ -55,14 +55,52 @@ storage = SharedStorage(config.share_dir)
 browser_manager = None
 
 
-def _verify_api_key(request: Request):
-    """Verify API key for sensitive endpoints."""
-    if not _API_KEY:
-        return  # No key configured — local-only deployment
+def _load_or_create_cookie_api_key() -> str:
+    """Return the key protecting the cookie endpoints (always enforced).
+
+    /api/cookies hands out full Google session cookies — left open, anyone
+    on the LAN (e.g. the supervised child) could grab a parent session and
+    bypass Family Link entirely. The API_KEY environment variable takes
+    precedence; otherwise a key is generated once and persisted in the
+    shared directory, where the Home Assistant integration (add-on setup)
+    picks it up automatically via /share/familylink/api_key.
+    """
+    if _API_KEY:
+        return _API_KEY
+    key_path = Path(config.share_dir) / "api_key"
+    try:
+        existing = key_path.read_text().strip()
+        if existing:
+            return existing
+    except OSError:
+        pass
+    key = secrets.token_urlsafe(32)
+    key_path.write_text(key)
+    os.chmod(key_path, 0o600)
+    _LOGGER.info(f"Generated cookie API key at {key_path}")
+    return key
+
+
+_COOKIE_API_KEY = _load_or_create_cookie_api_key()
+
+
+def _check_key(request: Request, expected: str):
+    """Validate the request key against the expected one (constant-time)."""
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key") or ""
-    # Constant-time comparison to avoid leaking the key via timing
-    if not secrets.compare_digest(key, _API_KEY):
+    if not secrets.compare_digest(key, expected):
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
+
+
+def _verify_api_key(request: Request):
+    """Optional protection for the auth-flow endpoints (only when API_KEY is set)."""
+    if not _API_KEY:
+        return  # Auth flow stays usable from the local web UI without a key
+    _check_key(request, _API_KEY)
+
+
+def _verify_cookie_api_key(request: Request):
+    """Always-on protection for endpoints that expose Google cookies."""
+    _check_key(request, _COOKIE_API_KEY)
 
 
 @app.on_event("startup")
@@ -488,7 +526,7 @@ async def check_cookies():
 
 
 @app.get("/api/cookies")
-async def get_cookies(_: None = Depends(_verify_api_key)):
+async def get_cookies(_: None = Depends(_verify_cookie_api_key)):
     """Retrieve stored cookies (for integration)."""
     try:
         cookies = await storage.load_cookies()
@@ -505,7 +543,7 @@ async def get_cookies(_: None = Depends(_verify_api_key)):
 
 
 @app.delete("/api/cookies")
-async def delete_cookies(_: None = Depends(_verify_api_key)):
+async def delete_cookies(_: None = Depends(_verify_cookie_api_key)):
     """Delete stored cookies."""
     try:
         await storage.clear_cookies()

@@ -23,6 +23,7 @@ class AddonCookieClient:
     SHARE_DIR = Path("/share/familylink")
     COOKIE_FILE = "cookies.enc"
     KEY_FILE = ".key"
+    API_KEY_FILE = "api_key"  # Written by the auth add-on, protects /api/cookies
 
     def __init__(self, hass: HomeAssistant, auth_url: str | None = None):
         """Initialize addon cookie client.
@@ -43,11 +44,26 @@ class AddonCookieClient:
         self.auth_url = auth_url
         self.storage_path = self.SHARE_DIR / self.COOKIE_FILE
         self.key_file = self.SHARE_DIR / self.KEY_FILE
+        self.api_key_file = self.SHARE_DIR / self.API_KEY_FILE
         self._detected_url: str | None = None
+        self.last_fetch_status: int | None = None  # HTTP status of last cookie fetch
 
-    def _request_headers(self) -> dict[str, str]:
-        """Headers for auth server requests (API key when configured)."""
-        return {"X-API-Key": self._api_key} if self._api_key else {}
+    async def _get_api_key(self) -> str | None:
+        """Resolve the API key protecting the auth server's cookie endpoint.
+
+        Priority: key from the configured URL (?api_key=...), then the key
+        file the add-on writes to the shared directory (add-on setups).
+        """
+        if self._api_key:
+            return self._api_key
+
+        def _read_key_file() -> str | None:
+            try:
+                return self.api_key_file.read_text().strip() or None
+            except OSError:
+                return None
+
+        return await self.hass.async_add_executor_job(_read_key_file)
 
     async def _fetch_cookies_from_url(self, url: str) -> list[dict[str, Any]] | None:
         """Fetch cookies from auth server API.
@@ -59,13 +75,17 @@ class AddonCookieClient:
             List of cookies or None if failed
         """
         api_url = f"{url.rstrip('/')}/api/cookies"
+        self.last_fetch_status = None
+        api_key = await self._get_api_key()
+        headers = {"X-API-Key": api_key} if api_key else {}
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     api_url,
-                    headers=self._request_headers(),
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
+                    self.last_fetch_status = response.status
                     if response.status == 200:
                         data = await response.json()
                         cookies = data.get("cookies", [])
@@ -73,6 +93,16 @@ class AddonCookieClient:
                         return cookies
                     elif response.status == 404:
                         _LOGGER.debug(f"No cookies found at {api_url}")
+                        return None
+                    elif response.status == 403:
+                        _LOGGER.warning(
+                            "Auth server at %s rejected the request (403): the cookie "
+                            "endpoint requires an API key. For remote/standalone setups, "
+                            "append ?api_key=<key> to the configured auth URL — the key is "
+                            "in the 'api_key' file of the auth container's data directory "
+                            "(e.g. ./data/api_key).",
+                            url,
+                        )
                         return None
                     else:
                         _LOGGER.debug(f"API returned status {response.status} from {api_url}")
