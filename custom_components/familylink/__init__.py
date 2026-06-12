@@ -827,14 +827,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 	if unload_ok:
 		# Remove coordinator from hass data
-		coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+		coordinator = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
 
 		# Clean up coordinator resources
-		if hasattr(coordinator, 'async_cleanup'):
+		if coordinator is not None:
 			await coordinator.async_cleanup()
 
 		# Unregister services if this was the last entry
-		if not hass.data[DOMAIN]:
+		if not hass.data.get(DOMAIN):
 			hass.services.async_remove(DOMAIN, SERVICE_BLOCK_DEVICE_FOR_SCHOOL)
 			hass.services.async_remove(DOMAIN, SERVICE_UNBLOCK_ALL_APPS)
 			hass.services.async_remove(DOMAIN, SERVICE_BLOCK_APP)

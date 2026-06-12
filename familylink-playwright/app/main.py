@@ -1,6 +1,7 @@
 """Main FastAPI application for Family Link Auth."""
 import logging
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -58,8 +59,9 @@ def _verify_api_key(request: Request):
     """Verify API key for sensitive endpoints."""
     if not _API_KEY:
         return  # No key configured — local-only deployment
-    key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
-    if key != _API_KEY:
+    key = request.headers.get("X-API-Key") or request.query_params.get("api_key") or ""
+    # Constant-time comparison to avoid leaking the key via timing
+    if not secrets.compare_digest(key, _API_KEY):
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
@@ -96,6 +98,14 @@ async def shutdown_event():
 async def index():
     """Serve the main authentication interface."""
     t = get_translations(config.language)
+    # Only embed the VNC password in the page when it is still the documented
+    # default — never leak a custom password on this unauthenticated page.
+    if config.vnc_password == "familylink":
+        novnc_password_param = "&password=familylink"
+        novnc_password_hint = t['novnc_password_hint']
+    else:
+        novnc_password_param = ""
+        novnc_password_hint = t['novnc_password_custom_hint']
     html_content = f"""
 <!DOCTYPE html>
 <html lang="{t['html_lang']}">
@@ -298,7 +308,7 @@ async def index():
         <div class="info-box">
             💡 <strong>Note:</strong> {t['info_note']}<br>
             <a id="novnc-link" class="novnc-link" href="#" target="_blank">🖥️ {t['novnc_link_text']}</a>
-            <div class="novnc-hint">{t['novnc_password_hint']}</div>
+            <div class="novnc-hint">{novnc_password_hint}</div>
         </div>
     </div>
 
@@ -322,8 +332,13 @@ async def index():
         }};
 
         // Build noVNC URL dynamically based on current host
-        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6080/vnc.html?autoconnect=true&password=familylink';
+        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6080/vnc.html?autoconnect=true{novnc_password_param}';
         document.getElementById('novnc-link').href = novncUrl;
+
+        // Forward the API key (if the page was opened with ?api_key=...) to the
+        // protected endpoints, so the UI keeps working when API_KEY is set
+        const apiKey = new URLSearchParams(window.location.search).get('api_key');
+        const apiHeaders = apiKey ? {{'X-API-Key': apiKey}} : {{}};
 
         let sessionId = null;
         let statusCheckInterval = null;
@@ -339,7 +354,8 @@ async def index():
                 showStatus("🔄 " + T.auth_starting, "info");
 
                 const response = await fetch('/api/auth/start', {{
-                    method: 'POST'
+                    method: 'POST',
+                    headers: apiHeaders
                 }});
 
                 if (!response.ok) {{
@@ -366,7 +382,7 @@ async def index():
             if (!sessionId) return;
 
             try {{
-                const response = await fetch(`/api/auth/status/${{sessionId}}`);
+                const response = await fetch(`/api/auth/status/${{sessionId}}`, {{headers: apiHeaders}});
                 const data = await response.json();
 
                 if (data.status === 'completed') {{

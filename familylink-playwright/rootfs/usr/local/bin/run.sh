@@ -89,6 +89,8 @@ fluxbox &
 # Start VNC server (localhost only) and noVNC web interface
 bashio::log.info "Starting VNC server (localhost only)..."
 VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
+# Expose to the FastAPI app so the web UI can adapt the noVNC link/hint
+export VNC_PASSWORD="${VNC_PASSWORD}"
 x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" &
 VNC_PID=$!
 sleep 1
