@@ -27,16 +27,16 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 
 #### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
 - **Endpoint**: `GET /api/cookies`
-- **URL**: `http://<addon-ip>:8099/api/cookies`
+- **URL**: `http://<addon-ip>:8098/api/cookies`
 - Returns decrypted cookies directly (JSON format)
 - No shared volumes needed
 
-> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
+> ⚠️ **Security Warning**: **NEVER expose port 8098 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
 
 #### 2. Shared File Storage (Default for HA OS/Supervised)
-- **Add-on writes**: Encrypted cookies to `/share/familylink/cookies.enc`
+- **Add-on writes**: Encrypted cookies to `/share/familylink2/cookies.enc`
 - **Integration reads**: Cookies from the same location
-- **Encryption**: Shared key in `/share/familylink/.key`
+- **Encryption**: Shared key in `/share/familylink2/.key`
 
 Both approaches are:
 - ✅ Simple and reliable
@@ -49,7 +49,7 @@ Both approaches are:
 
 1. Add repository URL to Home Assistant:
    - Supervisor → Add-on Store → ⋮ → Repositories
-   - Add: `https://github.com/noiwid/HAFamilyLink`
+   - Add: `https://github.com/felniq/HAFamilyLink2`
 
 2. Find "Google Family Link Auth" in store
 3. Click Install
@@ -75,15 +75,15 @@ session_duration: 86400  # Cookies valid for 24 hours
 ### Step 4: Authenticate
 
 > **Important: Two ports are required!**
-> - **Port 8099**: Web UI (start authentication, check status)
-> - **Port 6080**: noVNC (interact with the Google login browser)
+> - **Port 8098**: Web UI (start authentication, check status)
+> - **Port 6079**: noVNC (interact with the Google login browser)
 >
-> Both ports must be accessible from your browser. If you access Home Assistant via a reverse proxy or external domain, make sure both ports are forwarded, or use your HA's **local IP** (e.g. `http://192.168.1.x:8099` and `http://192.168.1.x:6080`).
+> Both ports must be accessible from your browser. If you access Home Assistant via a reverse proxy or external domain, make sure both ports are forwarded, or use your HA's **local IP** (e.g. `http://192.168.1.x:8098` and `http://192.168.1.x:6079`).
 
-1. Click **Open Web UI** or navigate to `http://[YOUR_HA_LOCAL_IP]:8099`
+1. Click **Open Web UI** or navigate to `http://[YOUR_HA_LOCAL_IP]:8098`
 2. Click "Start Authentication"
 3. The browser launches inside the container - connect via noVNC to interact with it:
-   - Open `http://[YOUR_HA_LOCAL_IP]:6080/vnc.html` in your web browser
+   - Open `http://[YOUR_HA_LOCAL_IP]:6079/vnc.html` in your web browser
    - Password: `familylink`
    - Click **Connect** (no VNC client software needed)
 4. Sign in to Google in the noVNC browser window
@@ -123,7 +123,7 @@ Configured through Home Assistant UI:
 
 ## API Reference
 
-The add-on exposes a REST API on port 8099:
+The add-on exposes a REST API on port 8098:
 
 ### Endpoints
 
@@ -211,7 +211,7 @@ Delete stored cookies
 **Solutions**:
 1. Check logs for specific error
 2. Verify system has enough RAM (minimum 512MB free)
-3. Ensure port 8099 isn't used by another service
+3. Ensure port 8098 isn't used by another service
 4. Try rebuilding: Stop → Uninstall → Reinstall
 
 #### Browser Window Doesn't Appear
@@ -241,8 +241,8 @@ Delete stored cookies
 **Solutions**:
 1. Verify add-on is running (green status)
 2. Complete authentication in add-on first
-3. Check `/share/familylink/cookies.enc` exists:
-   - Terminal & SSH add-on: `ls -la /share/familylink/`
+3. Check `/share/familylink2/cookies.enc` exists:
+   - Terminal & SSH add-on: `ls -la /share/familylink2/`
 4. Review add-on logs for errors during authentication
 5. Try re-authenticating
 
@@ -300,14 +300,14 @@ decrypted = fernet.decrypt(encrypted)
 Restrictive permissions protect sensitive data:
 
 ```bash
-/share/familylink/          # 700 (owner only)
-/share/familylink/.key      # 600 (owner read/write only)
-/share/familylink/cookies.enc # 600 (owner read/write only)
+/share/familylink2/          # 700 (owner only)
+/share/familylink2/.key      # 600 (owner read/write only)
+/share/familylink2/cookies.enc # 600 (owner read/write only)
 ```
 
 ### Network Isolation
 
-- Add-on exposes port 8099 (web UI) and port 6080 (noVNC browser access)
+- Add-on exposes port 8098 (web UI) and port 6079 (noVNC browser access)
 - No external API endpoints
 - Browser communicates only with Google
 - No telemetry or analytics
@@ -316,7 +316,7 @@ Restrictive permissions protect sensitive data:
 
 1. ✅ Use strong Google account password
 2. ✅ Enable 2FA on Google account
-3. ✅ Don't expose port 8099 to internet
+3. ✅ Don't expose port 8098 to internet
 4. ✅ Use HTTPS if accessing remotely (via HA proxy)
 5. ✅ Regularly update add-on
 6. ✅ Monitor add-on logs for unusual activity
@@ -329,13 +329,13 @@ Delete cookies manually:
 
 ```bash
 # Via Terminal & SSH add-on
-rm /share/familylink/cookies.enc
+rm /share/familylink2/cookies.enc
 ```
 
 Or via API:
 
 ```bash
-curl -X DELETE http://localhost:8099/api/cookies
+curl -X DELETE http://localhost:8098/api/cookies
 ```
 
 ### Automation
@@ -354,7 +354,7 @@ automation:
         data:
           message: "Family Link needs re-authentication"
           data:
-            url: "http://homeassistant.local:8099"
+            url: "http://homeassistant.local:8098"
 ```
 
 ### Multiple Accounts

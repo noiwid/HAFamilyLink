@@ -10,10 +10,10 @@ services:
     #   dockerfile: Dockerfile.standalone
     container_name: familylink-auth
     ports:
-      - "8099:8099"  # Web interface
-      - "6080:6080"  # noVNC web interface
+      - "8098:8098"  # Web interface
+      - "6079:6079"  # noVNC web interface
     volumes:
-      - ./data:/share/familylink:rw
+      - ./data:/share/familylink2:rw
     # Increase shared memory size for Chromium (default 64MB is too small)
     shm_size: '2gb'
     environment:
@@ -28,7 +28,7 @@ services:
       - 8.8.4.4
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8098/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

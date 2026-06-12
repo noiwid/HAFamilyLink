@@ -56,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Standalone container no longer shows a black noVNC screen** — A welcome banner is now displayed on the Xvfb display via `xterm` so users connecting to noVNC before triggering the auth flow get clear instructions instead of an empty desktop (#108)
 
 ### Changed
-- `DOCKER_STANDALONE.md` rewritten to document the actual flow (open port 8099 first, then noVNC on port 6080) and the new menu option
+- `DOCKER_STANDALONE.md` rewritten to document the actual flow (open port 8098 first, then noVNC on port 6079) and the new menu option
 
 ---
 
@@ -77,13 +77,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.2.0] - 2025-03
 
 ### Added
-- **noVNC web-based browser access** — No external VNC client needed anymore! The authentication browser is now accessible directly from your web browser at `http://[HOST]:6080/vnc.html` (replaces raw VNC on port 5900)
+- **noVNC web-based browser access** — No external VNC client needed anymore! The authentication browser is now accessible directly from your web browser at `http://[HOST]:6079/vnc.html` (replaces raw VNC on port 5900)
 - **Auto-detection of language and timezone** — The add-on now automatically reads your Home Assistant language and timezone settings via the Supervisor API. Manual override is still available in add-on configuration
 - **Bilingual web UI (FR/EN)** — The add-on authentication interface now supports French and English, switching automatically based on your HA language setting
 - **DNS configuration for Pi-hole compatibility** — Docker standalone setup now includes Google DNS (8.8.8.8) to avoid DNS resolution issues behind Pi-hole
 
 ### Changed
-- VNC server (x11vnc) now restricted to localhost only — external access is exclusively via noVNC (port 6080)
+- VNC server (x11vnc) now restricted to localhost only — external access is exclusively via noVNC (port 6079)
 - Add-on version bumped to 1.6.0
 - Default language/timezone options are now empty (auto-detected from HA)
 
@@ -219,7 +219,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Standalone Docker bashio errors (#28)
 
 ### Security
-- Added warning: never expose port 8099 to internet (cookies returned in plain JSON)
+- Added warning: never expose port 8098 to internet (cookies returned in plain JSON)
 - GPS tracking opt-in by default (each poll may notify child's device)
 
 ---

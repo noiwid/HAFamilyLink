@@ -273,8 +273,8 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 
 **Solutions**:
 1. Verify Family Link Auth add-on is running
-2. Check API is accessible: `curl http://localhost:8099/api/cookies` (or your addon IP)
-3. For file fallback: Check `/share/familylink/cookies.enc` and `.key` exist
+2. Check API is accessible: `curl http://localhost:8098/api/cookies` (or your addon IP)
+3. For file fallback: Check `/share/familylink2/cookies.enc` and `.key` exist
 4. Restart add-on to refresh authentication
 5. Reload integration in Home Assistant
 
@@ -315,7 +315,7 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 **Symptoms**: "Session expired" errors in logs
 
 **Solution**:
-1. Open add-on Web UI (port 8099)
+1. Open add-on Web UI (port 8098)
 2. Click "Démarrer l'authentification"
 3. Complete Google login
 4. Integration automatically picks up new cookies

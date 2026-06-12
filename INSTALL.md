@@ -68,9 +68,9 @@ The add-on handles Google authentication using Playwright browser automation.
 2. Click on the **Configuration** tab  
 3. Review the default settings:  
    ```yaml
-   port: 8099
+   port: 8098
    log_level: info
-   # Cookies are stored as /share/familylink/cookies.enc (encrypted)
+   # Cookies are stored as /share/familylink2/cookies.enc (encrypted)
    ```
 4. Change settings if needed (usually defaults are fine)  
 5. Click **Save** 💾
@@ -86,7 +86,7 @@ The add-on handles Google authentication using Playwright browser automation.
 ### 1.5 Authenticate with Google 🔐
 
 **Step 1: Open the add-on web interface**
-- Click "Open Web UI" (or navigate to `http://[YOUR_HA_IP]:8099`)
+- Click "Open Web UI" (or navigate to `http://[YOUR_HA_IP]:8098`)
 - You should see the Family Link Auth interface
 
 **Step 2: Start Authentication**
@@ -94,7 +94,7 @@ The add-on handles Google authentication using Playwright browser automation.
 - The Chromium browser launches inside the add-on container
 
 **Step 3: Connect via noVNC (web-based)**
-- Open your web browser and navigate to `http://[YOUR_HA_IP]:6080/vnc.html`
+- Open your web browser and navigate to `http://[YOUR_HA_IP]:6079/vnc.html`
 - **Password**: `familylink`
 - Click **Connect**
 - No VNC client software is needed - it runs directly in your browser! 🌐
@@ -107,8 +107,8 @@ The add-on handles Google authentication using Playwright browser automation.
 - **Keep the browser tab open** until you see the Family Link dashboard 🧭
 
 **Step 5: Verify Success**
-- The web interface (port 8099) will show "Authentication successful" ✅
-- The add-on extracts cookies and saves them to `/share/familylink/cookies.enc` (encrypted) 🍪
+- The web interface (port 8098) will show "Authentication successful" ✅
+- The add-on extracts cookies and saves them to `/share/familylink2/cookies.enc` (encrypted) 🍪
 - You can now close the noVNC browser tab
 
 **Important Notes:** ⚠️
@@ -122,7 +122,7 @@ Check the add-on logs (**Log** tab):
 ```
 INFO: Navigating to https://families.google.com/families
 INFO: Successfully extracted 26 cookies
-INFO: Cookies saved to /share/familylink/cookies.enc (encrypted)
+INFO: Cookies saved to /share/familylink2/cookies.enc (encrypted)
 ```
 If you see "Successfully extracted X cookies", authentication is complete! 🎉
 
@@ -204,7 +204,7 @@ You can install the integration via HACS (recommended) or manually.
    - Click **Submit**
 
 3. **Cookie Loading** 🍪
-   - The integration will automatically load cookies from `/share/familylink/cookies.enc`
+   - The integration will automatically load cookies from `/share/familylink2/cookies.enc`
    - This happens in the background - no visible progress
    - **If successful**: The setup completes and you can click **Finish**
    - **If it fails**: You'll see an error message like "No cookies found" or "Failed to authenticate"
@@ -310,18 +310,18 @@ To verify cookies were loaded successfully, check the Home Assistant logs:
 
 **Solution:**
 1. Verify add-on is running and has been used to authenticate at least once
-2. Check `/share/familylink/cookies.enc` and `.key` exist:
+2. Check `/share/familylink2/cookies.enc` and `.key` exist:
    ```bash
-   ls -la /share/familylink/
+   ls -la /share/familylink2/
    # You should see: cookies.enc and .key (both files required)
    ```
 3. Verify file permissions allow Home Assistant to read them:
    ```bash
-   chmod 644 /share/familylink/cookies.enc
-   chmod 644 /share/familylink/.key
+   chmod 644 /share/familylink2/cookies.enc
+   chmod 644 /share/familylink2/.key
    ```
 4. Restart add-on
-5. Re-authenticate via add-on Web UI (port 8099)
+5. Re-authenticate via add-on Web UI (port 8098)
 6. Try adding the integration again
 
 ### 401 Authentication Errors 🔐
@@ -330,7 +330,7 @@ To verify cookies were loaded successfully, check the Home Assistant logs:
 
 **Solution:**  
 1. Cookies may have expired ⏳  
-2. Open add-on Web UI (`http://[YOUR_HA_IP]:8099`)  
+2. Open add-on Web UI (`http://[YOUR_HA_IP]:8098`)  
 3. Click "Démarrer l'authentification"  
 4. Complete Google login again  
 5. Wait for success message  
@@ -375,7 +375,7 @@ To verify cookies were loaded successfully, check the Home Assistant logs:
 
 Cookies expire periodically. To re-authenticate:
 
-1. Open add-on Web UI: `http://[YOUR_HA_IP]:8099`  
+1. Open add-on Web UI: `http://[YOUR_HA_IP]:8098`  
 2. Click **"Démarrer l'authentification"**  
 3. Complete Google login flow  
 4. Wait for success message  
@@ -401,10 +401,10 @@ Cookies expire periodically. To re-authenticate:
 
 ```bash
 # Remove integration files
-rm -rf /config/custom_components/familylink
+rm -rf /config/custom_components/familylink2
 
 # Remove cookies
-rm -rf /share/familylink
+rm -rf /share/familylink2
 ```
 
 ---

@@ -28,7 +28,7 @@
       },
       "manual_url": {
         "title": "כתובת שרת האימות",
-        "description": "לא זוהה מקור אימות מקומי. אנא הזן את כתובת ה-URL של מכולת האימות של Family Link.\n\nדוגמה: `http://192.168.1.100:8099` או `http://familylink-auth:8099`",
+        "description": "לא זוהה מקור אימות מקומי. אנא הזן את כתובת ה-URL של מכולת האימות של Family Link.\n\nדוגמה: `http://192.168.1.100:8098` או `http://familylink-auth:8098`",
         "data": {
           "auth_url": "כתובת שרת האימות"
         }

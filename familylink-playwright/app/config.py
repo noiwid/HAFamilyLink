@@ -11,10 +11,10 @@ class Config(BaseModel):
     auth_timeout: int = 300
     session_duration: int = 86400
     host: str = "0.0.0.0"
-    port: int = 8099
+    port: int = 8098
 
     # Paths
-    share_dir: str = "/share/familylink"
+    share_dir: str = "/share/familylink2"
     cookie_file: str = "cookies.enc"
     key_file: str = ".key"
 

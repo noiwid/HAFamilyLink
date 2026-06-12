@@ -28,7 +28,7 @@
 			},
 			"manual_url": {
 				"title": "Authentication Server URL",
-				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`",
+				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8098` or `http://familylink-auth:8098`",
 				"data": {
 					"auth_url": "Authentication Server URL"
 				}

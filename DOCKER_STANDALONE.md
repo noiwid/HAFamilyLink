@@ -28,10 +28,10 @@ services:
     image: ghcr.io/noiwid/familylink-auth:standalone
     container_name: familylink-auth
     ports:
-      - "8099:8099"  # API
-      - "6080:6080"  # noVNC web interface
+      - "8098:8098"  # API
+      - "6079:6079"  # noVNC web interface
     volumes:
-      - ./data:/share/familylink:rw
+      - ./data:/share/familylink2:rw
     shm_size: '2gb'
     environment:
       - LOG_LEVEL=info
@@ -45,7 +45,7 @@ services:
       - 8.8.4.4
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8098/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -64,9 +64,9 @@ docker compose up -d
 docker run -d \
   --name familylink-auth \
   --shm-size=2gb \
-  -p 8099:8099 \
-  -p 6080:6080 \
-  -v $(pwd)/data:/share/familylink:rw \
+  -p 8098:8098 \
+  -p 6079:6079 \
+  -v $(pwd)/data:/share/familylink2:rw \
   -e LOG_LEVEL=info \
   -e AUTH_TIMEOUT=300 \
   -e SESSION_DURATION=86400 \
@@ -100,8 +100,8 @@ Both `linux/amd64` and `linux/arm64` are supported. Docker will automatically pu
 
 | Port | Description |
 |---|---|
-| `8099` | API endpoint (used by the HA integration) |
-| `6080` | noVNC web interface (used for Google login) |
+| `8098` | API endpoint (used by the HA integration) |
+| `6079` | noVNC web interface (used for Google login) |
 
 ### DNS Configuration
 
@@ -110,14 +110,14 @@ The `dns` entries (`8.8.8.8`, `8.8.4.4`) ensure the container can resolve Google
 ## Authentication
 
 The authentication flow uses **two ports**:
-- Port **8099** — the Web UI where you trigger the auth flow
-- Port **6080** — the noVNC window where you complete the Google login
+- Port **8098** — the Web UI where you trigger the auth flow
+- Port **6079** — the noVNC window where you complete the Google login
 
 Order matters:
 
-1. Open the **Web UI** in your browser: `http://<your-docker-host>:8099`
+1. Open the **Web UI** in your browser: `http://<your-docker-host>:8098`
 2. Click **"Start Authentication"** — this launches a Chromium browser inside the container
-3. Open the **noVNC** interface in a separate tab: `http://<your-docker-host>:6080/vnc.html`
+3. Open the **noVNC** interface in a separate tab: `http://<your-docker-host>:6079/vnc.html`
 4. Enter the VNC password (default: `familylink`)
 5. Complete the Google login in the Chromium window shown via noVNC
 6. Once authenticated, cookies are saved automatically and the API becomes available
@@ -131,7 +131,7 @@ Order matters:
 1. Install the **Family Link** integration in Home Assistant (via HACS or manually)
 2. Go to **Settings > Devices & Services > Add Integration > Family Link**
 3. In the menu, pick **"Manual URL configuration (Docker standalone)"**
-4. Enter the auth server URL: `http://<your-docker-host>:8099`
+4. Enter the auth server URL: `http://<your-docker-host>:8098`
 5. The integration will connect to the standalone container and retrieve authentication cookies
 
 ## Updating
@@ -159,13 +159,13 @@ docker rm familylink-auth
 - Check logs: `docker logs familylink-auth`
 
 ### Cannot access noVNC
-- Verify port `6080` is not blocked by a firewall
-- Try accessing `http://<your-docker-host>:6080` in your browser
+- Verify port `6079` is not blocked by a firewall
+- Try accessing `http://<your-docker-host>:6079` in your browser
 
 ### Integration cannot connect
 - Ensure the container is running: `docker ps | grep familylink`
-- Check the health endpoint: `curl http://<your-docker-host>:8099/api/health`
-- Verify Home Assistant can reach the Docker host on port `8099`
+- Check the health endpoint: `curl http://<your-docker-host>:8098/api/health`
+- Verify Home Assistant can reach the Docker host on port `8098`
 
 ### DNS issues (Pi-hole, AdGuard, etc.)
 - The `dns` configuration in the compose file bypasses local DNS for the container

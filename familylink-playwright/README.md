@@ -11,9 +11,9 @@ This add-on runs a web server with Playwright browser automation to handle Googl
 ## Features
 
 - 🔐 **Secure Browser Authentication**: Uses Playwright with Chromium for Google login
-- 🖥️ **noVNC Web Access**: Browser runs in container, accessible via noVNC in your web browser (port 6080)
+- 🖥️ **noVNC Web Access**: Browser runs in container, accessible via noVNC in your web browser (port 6079)
 - 🔒 **Encrypted Cookie Storage**: All cookies are encrypted before storage
-- 🌐 **User-Friendly Web Interface**: Simple web UI for authentication (port 8099)
+- 🌐 **User-Friendly Web Interface**: Simple web UI for authentication (port 8098)
 - 🔄 **Automatic Cookie Management**: Stores cookies in shared storage for the integration
 - 📊 **Status Monitoring**: Real-time authentication status updates
 
@@ -29,7 +29,7 @@ This add-on runs a web server with Playwright browser automation to handle Googl
 1. **Add Repository**:
    - Go to **Supervisor** → **Add-on Store**
    - Click the ⋮ menu → **Repositories**
-   - Add: `https://github.com/noiwid/HAFamilyLink`
+   - Add: `https://github.com/felniq/HAFamilyLink2`
 
 2. **Install Add-on**:
    - Find "Google Family Link Auth" in the add-on store
@@ -49,7 +49,7 @@ This add-on runs a web server with Playwright browser automation to handle Googl
    - Enable **Start on boot** and **Watchdog** (recommended)
 
 5. **Open Web Interface**:
-   - Click **Open Web UI** or navigate to `http://[YOUR_HA_IP]:8099`
+   - Click **Open Web UI** or navigate to `http://[YOUR_HA_IP]:8098`
 
 ## Usage
 
@@ -60,17 +60,17 @@ This add-on runs a web server with Playwright browser automation to handle Googl
 
 2. **Open the Web Interface**:
    - Click "Open Web UI" in the add-on info page
-   - Or navigate to port 8099 in your browser
+   - Or navigate to port 8098 in your browser
 
 3. **Authenticate**:
    - Click "Start Authentication"
    - **Important**: The browser opens **inside the Docker container**, not on your computer
    - **Two ports are required** — both must be accessible from your browser:
-     - **Port 8099**: Web UI (authentication controls)
-     - **Port 6080**: noVNC (browser interaction)
+     - **Port 8098**: Web UI (authentication controls)
+     - **Port 6079**: noVNC (browser interaction)
    - If you use a reverse proxy or external domain, use your HA's **local IP** instead (e.g. `192.168.1.x`)
    - **To see and interact with the browser**, connect via noVNC in your web browser:
-     - Open `http://[YOUR_HA_LOCAL_IP]:6080/vnc.html`
+     - Open `http://[YOUR_HA_LOCAL_IP]:6079/vnc.html`
      - **Password**: `familylink`
      - Click **Connect**
      - No VNC client software is needed - it runs directly in your browser!
@@ -117,7 +117,7 @@ session_duration: 86400
 │         Home Assistant Add-on                │
 │                                              │
 │  ┌────────────────────────────────────────┐ │
-│  │  FastAPI Web Server (Port 8099)       │ │
+│  │  FastAPI Web Server (Port 8098)       │ │
 │  │  - Authentication UI                   │ │
 │  │  - Status endpoints                    │ │
 │  └────────────────┬───────────────────────┘ │
@@ -132,7 +132,7 @@ session_duration: 86400
 └───────────────────┼──────────────────────────┘
                     │
                     ▼
-         /share/familylink/cookies.enc
+         /share/familylink2/cookies.enc
                     │
                     │ (Encrypted cookies)
                     ▼
@@ -150,11 +150,11 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 
 #### 1. HTTP API (v1.3.0+, Recommended for Docker standalone)
 - **Endpoint**: `GET /api/cookies`
-- **URL**: `http://<addon-ip>:8099/api/cookies`
+- **URL**: `http://<addon-ip>:8098/api/cookies`
 - No shared volumes needed
 
 #### 2. Shared Storage (Default for HA OS/Supervised)
-- **Location**: `/share/familylink/`
+- **Location**: `/share/familylink2/`
 - **Cookie File**: `cookies.enc` (encrypted with Fernet)
 - **Key File**: `.key` (encryption key)
 
@@ -166,7 +166,7 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 - ✅ Browser isolation in container
 - ✅ No external network dependencies
 
-> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The `/api/cookies` endpoint returns authentication cookies in plain JSON. This port should only be accessible on your local network. If you need remote access, use a VPN or SSH tunnel.
+> ⚠️ **Security Warning**: **NEVER expose port 8098 to the internet!** The `/api/cookies` endpoint returns authentication cookies in plain JSON. This port should only be accessible on your local network. If you need remote access, use a VPN or SSH tunnel.
 
 ### Browser Automation
 
@@ -174,11 +174,11 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 
 1. **Xvfb** creates a virtual display (`:99`) inside the container
 2. **Chromium** launches on this virtual display via Playwright
-3. **noVNC** provides web-based access to the virtual display (port 6080)
+3. **noVNC** provides web-based access to the virtual display (port 6079)
 4. User connects via web browser to interact with the browser
 5. After successful login:
    - Playwright extracts Google authentication cookies
-   - Cookies are encrypted and stored in `/share/familylink/cookies.enc`
+   - Cookies are encrypted and stored in `/share/familylink2/cookies.enc`
    - Browser resources are cleaned up
 
 **Why noVNC is needed**: The browser runs headless inside the Docker container. noVNC allows you to see and interact with it remotely through your web browser.
@@ -188,7 +188,7 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 ### Add-on Won't Start
 
 - Check logs: **Supervisor** → **Google Family Link Auth** → **Log**
-- Verify port 8099 is not in use by another add-on
+- Verify port 8098 is not in use by another add-on
 - Ensure sufficient system resources (RAM, CPU)
 
 ### Browser Window Doesn't Open (on your computer)
@@ -197,20 +197,20 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 
 **Solution**: Connect via noVNC in your web browser to see and interact with the browser:
 
-1. **Open**: `http://[YOUR_HA_IP]:6080/vnc.html` (or `http://localhost:6080/vnc.html` if running locally)
+1. **Open**: `http://[YOUR_HA_IP]:6079/vnc.html` (or `http://localhost:6079/vnc.html` if running locally)
 2. **Password**: `familylink`
 3. Click **Connect** - no VNC client software is needed!
 
 **If noVNC connection fails**:
 - Check add-on logs: `Supervisor` → `Google Family Link Auth` → `Log`
-- Verify port 6080 is exposed and accessible
+- Verify port 6079 is exposed and accessible
 - Try restarting the add-on
 
 ### Integration Can't Find Cookies
 
 - Verify add-on is running
 - Check that authentication completed successfully in add-on UI
-- Look for cookies in `/share/familylink/cookies.enc`
+- Look for cookies in `/share/familylink2/cookies.enc`
 - Try re-authenticating through the add-on
 
 ### Authentication Timeout

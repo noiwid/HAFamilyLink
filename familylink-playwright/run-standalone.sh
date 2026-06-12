@@ -28,9 +28,9 @@ echo "  - Timezone: ${TIMEZONE}"
 echo ""
 
 # Ensure shared directory exists
-mkdir -p /share/familylink
-chmod 700 /share/familylink
-echo "✓ Shared storage ready at /share/familylink"
+mkdir -p /share/familylink2
+chmod 700 /share/familylink2
+echo "✓ Shared storage ready at /share/familylink2"
 
 # Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
 if [ ! -S /run/dbus/system_bus_socket ]; then
@@ -64,14 +64,14 @@ else
     echo "⚠ VNC server failed to start — noVNC will not be available"
 fi
 
-echo "Starting noVNC on port 6080..."
-websockify --web=/usr/share/novnc 6080 localhost:5900 >/dev/null 2>&1 &
+echo "Starting noVNC on port 6079..."
+websockify --web=/usr/share/novnc 6079 localhost:5900 >/dev/null 2>&1 &
 NOVNC_PID=$!
 sleep 1
 if kill -0 "${NOVNC_PID}" 2>/dev/null; then
     echo "✓ noVNC started"
 else
-    echo "⚠ noVNC (websockify) failed to start on port 6080"
+    echo "⚠ noVNC (websockify) failed to start on port 6079"
 fi
 
 # Display a welcome banner on the Xvfb display so noVNC is not black
@@ -83,8 +83,8 @@ echo ""
 
 echo "=============================================="
 echo "Service Ready!"
-echo "  - Web UI: http://localhost:8099"
-echo "  - noVNC:  http://localhost:6080/vnc.html"
+echo "  - Web UI: http://localhost:8098"
+echo "  - noVNC:  http://localhost:6079/vnc.html"
 echo "=============================================="
 echo ""
 
@@ -92,7 +92,7 @@ echo ""
 cd /app || exit 1
 exec uvicorn app.main:app \
     --host 0.0.0.0 \
-    --port 8099 \
+    --port 8098 \
     --log-level "${LOG_LEVEL}" \
     --no-access-log \
     --workers 1

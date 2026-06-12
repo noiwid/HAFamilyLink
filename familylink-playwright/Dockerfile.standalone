@@ -66,22 +66,22 @@ COPY welcome-banner.sh /usr/local/bin/welcome-banner.sh
 RUN chmod +x /usr/local/bin/run-standalone.sh /usr/local/bin/welcome-banner.sh
 
 # Create necessary directories
-RUN mkdir -p /share/familylink && \
-    chmod 755 /share/familylink
+RUN mkdir -p /share/familylink2 && \
+    chmod 755 /share/familylink2
 
 # Expose ports
-EXPOSE 8099 6080
+EXPOSE 8098 6079
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8099/api/health || exit 1
+    CMD curl -f http://localhost:8098/api/health || exit 1
 
 # Labels
 LABEL \
-    org.opencontainers.image.title="Google Family Link Auth (Standalone)" \
-    org.opencontainers.image.description="Standalone authentication service for Google Family Link" \
+    org.opencontainers.image.title="Google Family Link Auth (Standalone) 2" \
+    org.opencontainers.image.description="Standalone authentication service 2 for Google Family Link" \
     org.opencontainers.image.version="1.6.1" \
-    org.opencontainers.image.source="https://github.com/noiwid/HAFamilyLink"
+    org.opencontainers.image.source="https://github.com/felniq/HAFamilyLink2"
 
 # Start the service
 CMD ["/usr/local/bin/run-standalone.sh"]

@@ -322,7 +322,7 @@ async def index():
         }};
 
         // Build noVNC URL dynamically based on current host
-        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6080/vnc.html?autoconnect=true&password=familylink';
+        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6079/vnc.html?autoconnect=true&password=familylink';
         document.getElementById('novnc-link').href = novncUrl;
 
         let sessionId = null;

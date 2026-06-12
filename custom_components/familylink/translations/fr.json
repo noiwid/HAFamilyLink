@@ -28,7 +28,7 @@
 			},
 			"manual_url": {
 				"title": "URL du serveur d'authentification",
-				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`",
+				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8098` ou `http://familylink-auth:8098`",
 				"data": {
 					"auth_url": "URL du serveur d'authentification"
 				}

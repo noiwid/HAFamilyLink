@@ -1,20 +1,20 @@
 {
-  "name": "Google Family Link Auth",
+  "name": "Google Family Link Auth 2",
   "version": "1.6.1",
   "slug": "familylink-playwright",
-  "description": "Authentication service for Google Family Link integration using browser automation",
-  "url": "https://github.com/noiwid/HAFamilyLink",
+  "description": "Authentication service 2 for Google Family Link integration using browser automation",
+  "url": "https://github.com/felniq/HAFamilyLink2",
   "arch": ["amd64", "aarch64"],
   "startup": "application",
   "boot": "auto",
   "init": false,
   "ports": {
-    "8099/tcp": 8099,
-    "6080/tcp": 6080
+    "8098/tcp": 8098,
+    "6079/tcp": 6079
   },
   "ports_description": {
-    "8099/tcp": "Web interface for Google authentication",
-    "6080/tcp": "noVNC web interface for browser access"
+    "8098/tcp": "Web interface for Google authentication",
+    "6079/tcp": "noVNC web interface for browser access"
   },
   "map": ["share:rw"],
   "options": {
@@ -33,7 +33,7 @@
     "timezone": "str?",
     "vnc_password": "password?"
   },
-  "webui": "http://[HOST]:[PORT:8099]",
+  "webui": "http://[HOST]:[PORT:8098]",
   "host_network": false,
   "hassio_api": true,
   "hassio_role": "default"

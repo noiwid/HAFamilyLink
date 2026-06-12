@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 class SharedStorage:
     """Manages cookie storage in Home Assistant shared directory."""
 
-    def __init__(self, share_dir: str = "/share/familylink"):
+    def __init__(self, share_dir: str = "/share/familylink2"):
         """Initialize storage manager."""
         self.share_dir = Path(share_dir)
         self.storage_path = self.share_dir / "cookies.enc"

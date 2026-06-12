@@ -64,19 +64,19 @@ RUN chmod a+x /usr/local/bin/run.sh && \
     chmod a+x /etc/services.d/familylink/finish
 
 # Create necessary directories
-RUN mkdir -p /share/familylink && \
-    chmod 700 /share/familylink
+RUN mkdir -p /share/familylink2 && \
+    chmod 700 /share/familylink2
 
 # Expose ports
-EXPOSE 8099 6080
+EXPOSE 8098 6079
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8099/api/health || exit 1
+    CMD curl -f http://localhost:8098/api/health || exit 1
 
 # Labels
 LABEL \
-    io.hass.name="Google Family Link Auth" \
-    io.hass.description="Authentication service for Google Family Link" \
+    io.hass.name="Google Family Link Auth 2" \
+    io.hass.description="Authentication service 2 for Google Family Link" \
     io.hass.type="addon" \
     io.hass.version="1.6.1"

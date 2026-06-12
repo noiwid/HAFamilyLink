@@ -143,11 +143,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		return self.async_show_form(
 			step_id="manual_url",
 			data_schema=vol.Schema({
-				vol.Required(CONF_AUTH_URL, default="http://192.168.1.x:8099"): str,
+				vol.Required(CONF_AUTH_URL, default="http://192.168.1.x:8098"): str,
 			}),
 			errors=errors,
 			description_placeholders={
-				"default_url": "http://localhost:8099",
+				"default_url": "http://localhost:8098",
 			},
 		)
 
@@ -199,7 +199,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		if self._detected_source == "api":
 			description_placeholders["auth_source"] = f"API ({self._detected_url})"
 		elif self._detected_source == "file":
-			description_placeholders["auth_source"] = "Local file (/share/familylink/)"
+			description_placeholders["auth_source"] = "Local file (/share/familylink2/)"
 		else:
 			description_placeholders["auth_source"] = auth_url or "Manual URL"
 

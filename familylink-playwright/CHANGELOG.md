@@ -13,15 +13,15 @@ All notable changes to the Google Family Link Auth Add-on will be documented in 
 ## [1.6.0] - 2025-03
 
 ### Added
-- **noVNC web-based access** — Replace external VNC client requirement with browser-based access via noVNC on port 6080
+- **noVNC web-based access** — Replace external VNC client requirement with browser-based access via noVNC on port 6079
 - **Auto-detection of language and timezone** — Reads HA settings via Supervisor API when add-on options are left empty
 - **Bilingual web UI (FR/EN)** — New `translations.py` module with French and English support, auto-switching based on language setting
 - **DNS configuration** — Added Google DNS (8.8.8.8, 8.8.4.4) to docker-compose for Pi-hole compatibility
 
 ### Changed
 - x11vnc now restricted to localhost only (no external raw VNC access)
-- websockify bridges localhost VNC to noVNC on port 6080
-- Exposed port changed from 5900 (VNC) to 6080 (noVNC)
+- websockify bridges localhost VNC to noVNC on port 6079
+- Exposed port changed from 5900 (VNC) to 6079 (noVNC)
 - Default language/timezone options changed to empty strings for auto-detection
 - Web UI HTML fully templated with i18n support (no more hardcoded French strings)
 

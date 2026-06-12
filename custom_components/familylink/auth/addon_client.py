@@ -14,13 +14,13 @@ from homeassistant.core import HomeAssistant
 _LOGGER = logging.getLogger(__name__)
 
 # Default URL for local add-on (Home Assistant OS/Supervised)
-DEFAULT_AUTH_URL = "http://localhost:8099"
+DEFAULT_AUTH_URL = "http://localhost:8098"
 
 
 class AddonCookieClient:
     """Client to read cookies from add-on via API or shared storage."""
 
-    SHARE_DIR = Path("/share/familylink")
+    SHARE_DIR = Path("/share/familylink2")
     COOKIE_FILE = "cookies.enc"
     KEY_FILE = ".key"
 
@@ -41,7 +41,7 @@ class AddonCookieClient:
         """Fetch cookies from auth server API.
 
         Args:
-            url: Base URL of the auth server (e.g., http://localhost:8099)
+            url: Base URL of the auth server (e.g., http://localhost:8098)
 
         Returns:
             List of cookies or None if failed
@@ -148,8 +148,8 @@ class AddonCookieClient:
 
         Priority:
         1. Custom URL (if configured)
-        2. Default local API (localhost:8099)
-        3. File fallback (/share/familylink/)
+        2. Default local API (localhost:8098)
+        3. File fallback (/share/familylink2/)
         """
         # 1. If custom URL is configured, use it
         if self.auth_url:
