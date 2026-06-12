@@ -1,7 +1,7 @@
 """File-based storage for cookies with encryption."""
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -19,11 +19,13 @@ class SharedStorage:
         self.share_dir = Path(share_dir)
         self.storage_path = self.share_dir / "cookies.enc"
         self.key_file = self.share_dir / ".key"
-        self._encryption_key = self._get_encryption_key()
 
-        # Ensure directory exists — HA add-ons share /share via mapped volume
+        # Ensure directory exists BEFORE generating the key file in it
+        # — HA add-ons share /share via mapped volume
         self.share_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(self.share_dir, 0o700)
+
+        self._encryption_key = self._get_encryption_key()
 
     def _get_encryption_key(self) -> bytes:
         """Get or create encryption key."""
@@ -45,7 +47,7 @@ class SharedStorage:
             # Prepare data
             data = {
                 "cookies": cookies,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0"
             }
 

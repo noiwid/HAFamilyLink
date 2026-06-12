@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from datetime import datetime
 from typing import Any
@@ -26,7 +27,6 @@ from ..exceptions import (
 	NetworkError,
 	SessionExpiredError,
 )
-from .models import Device
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -59,25 +59,27 @@ class FamilyLinkClient:
 	@staticmethod
 	def _validate_id(value: str, name: str = "ID") -> str:
 		"""Validate that an ID is safe for URL interpolation."""
-		import re
 		if not value or not re.match(r'^[a-zA-Z0-9_\-]+$', value):
 			raise ValueError(f"Invalid {name}: contains disallowed characters")
 		return value
 
+	def _people_url(self, account_id: str, suffix: str) -> str:
+		"""Build a /people/{account_id}/... URL with a validated account ID."""
+		self._validate_id(account_id, "account_id")
+		return f"{self.BASE_URL}/people/{account_id}/{suffix}"
+
 	async def async_authenticate(self) -> None:
 		"""Authenticate with Family Link."""
-		# Load cookies from add-on
+		# Load cookies from add-on (single round-trip; load_cookies already
+		# tries API then file fallback)
 		_LOGGER.debug("Loading cookies from Family Link Auth add-on")
-
-		if not await self.addon_client.cookies_available():
-			raise AuthenticationError(
-				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
-			)
 
 		self._cookies = await self.addon_client.load_cookies()
 
 		if not self._cookies:
-			raise AuthenticationError("Failed to load cookies from add-on")
+			raise AuthenticationError(
+				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
+			)
 
 		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
 
@@ -410,7 +412,7 @@ class FamilyLinkClient:
 				("capabilities", "CAPABILITY_SUPERVISION_CAPABILITIES"),
 			]
 
-			url = f"{self.BASE_URL}/people/{account_id}/appsandusage"
+			url = self._people_url(account_id, "appsandusage")
 			_LOGGER.debug(f"Requesting: GET {url}")
 
 			async with session.get(
@@ -446,44 +448,19 @@ class FamilyLinkClient:
 			_LOGGER.error("Unexpected error fetching apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
 
-	async def async_get_devices(self) -> list[dict[str, Any]]:
-		"""Get list of Family Link devices.
-
-		Returns:
-			List of devices with information about model, name, and last activity.
-		"""
-		try:
-			data = await self.async_get_apps_and_usage()
-			devices = []
-
-			for device_info in data.get("deviceInfo", []):
-				display_info = device_info.get("displayInfo", {})
-				device = {
-					"id": device_info.get("deviceId"),
-					"name": display_info.get("friendlyName", "Unknown Device"),
-					"model": display_info.get("model", "Unknown"),
-					"last_activity": display_info.get("lastActivityTimeMillis"),
-					"capabilities": device_info.get("capabilityInfo", {}).get("capabilities", []),
-				}
-				devices.append(device)
-
-			_LOGGER.debug(f"Returning {len(devices)} devices")
-			return devices
-
-		except Exception as err:
-			_LOGGER.error("Failed to fetch devices: %s", err)
-			raise NetworkError(f"Failed to fetch devices: {err}") from err
-
 	async def async_get_daily_screen_time(
 		self,
 		account_id: str | None = None,
-		target_date: datetime | None = None
+		target_date: datetime | None = None,
+		data: dict[str, Any] | None = None,
 	) -> dict[str, Any]:
 		"""Get total screen time for a specific date.
 
 		Args:
 			account_id: User ID of the supervised child (optional)
 			target_date: Date to get screen time for (defaults to today)
+			data: Already-fetched apps and usage data (optional). When provided,
+				avoids an extra call to the appsandusage endpoint.
 
 		Returns:
 			Dictionary with:
@@ -498,7 +475,8 @@ class FamilyLinkClient:
 			target_date = dt_util.now()
 
 		try:
-			data = await self.async_get_apps_and_usage(account_id)
+			if data is None:
+				data = await self.async_get_apps_and_usage(account_id)
 			total_seconds = 0
 			app_breakdown = {}
 
@@ -743,7 +721,7 @@ class FamilyLinkClient:
 			payload = json.dumps([account_id, [[[package_name], [1]]]])
 
 			async with session.post(
-				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				self._people_url(account_id, "apps:updateRestrictions"),
 				headers={
 					"Content-Type": "application/json+protobuf",
 					"Cookie": cookie_header
@@ -788,7 +766,7 @@ class FamilyLinkClient:
 			payload = json.dumps([account_id, [[[package_name], []]]])
 
 			async with session.post(
-				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				self._people_url(account_id, "apps:updateRestrictions"),
 				headers={
 					"Content-Type": "application/json+protobuf",
 					"Cookie": cookie_header
@@ -851,7 +829,7 @@ class FamilyLinkClient:
 				_LOGGER.debug(f"Removing app daily limit: {package_name}")
 
 			async with session.post(
-				f"{self.BASE_URL}/people/{account_id}/apps:updateRestrictions",
+				self._people_url(account_id, "apps:updateRestrictions"),
 				headers={
 					"Content-Type": "application/json+protobuf",
 					"Cookie": cookie_header
@@ -1068,7 +1046,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(f"Requesting device {action}: POST {url}")
 			_LOGGER.debug(f"Payload: {payload}")
 
@@ -1130,7 +1108,7 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			url = f"{self.BASE_URL}/people/{account_id}/appliedTimeLimits"
+			url = self._people_url(account_id, "appliedTimeLimits")
 			params = [("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME")]
 
 			_LOGGER.debug(f"Fetching applied time limits from {url}")
@@ -1509,7 +1487,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(f"Adding {bonus_minutes} minutes time bonus to device {device_id}")
 
 			async with session.post(
@@ -1557,7 +1535,8 @@ class FamilyLinkClient:
 			cookie_header = self._get_cookie_header()
 
 			# Use POST with $httpMethod=DELETE query parameter (Google API convention)
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverride/{override_id}?$httpMethod=DELETE"
+			self._validate_id(override_id, "override_id")
+			url = self._people_url(account_id, f"timeLimitOverride/{override_id}") + "?$httpMethod=DELETE"
 			_LOGGER.debug(f"Cancelling time bonus override {override_id} for account {account_id}")
 
 			async with session.post(
@@ -1579,9 +1558,9 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
 			return False
 
-	# Day-of-week → CAEQ day_code used by Google's batchCreate payload for
-	# bedtime overrides. ISO weekday: 1=Monday … 7=Sunday.
-	_BEDTIME_DAY_CODES = {
+	# Day-of-week → CAEQ day_code used by Google's batchCreate payloads
+	# (bedtime overrides, daily limit overrides). ISO weekday: 1=Monday … 7=Sunday.
+	_DAY_CODES = {
 		1: "CAEQAQ",  # Monday
 		2: "CAEQAg",  # Tuesday
 		3: "CAEQAw",  # Wednesday
@@ -1659,7 +1638,7 @@ class FamilyLinkClient:
 		# today — that way the override at least covers a reasonable window.
 		now_local = dt_util.now()
 		weekday = now_local.isoweekday()
-		day_code = self._BEDTIME_DAY_CODES.get(weekday)
+		day_code = self._DAY_CODES.get(weekday)
 		if not day_code:
 			_LOGGER.error("Unexpected weekday %s — cannot build bedtime override", weekday)
 			return False
@@ -1702,7 +1681,7 @@ class FamilyLinkClient:
 				None,
 				[1],
 			])
-			weekly_url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			weekly_url = self._people_url(account_id, "timeLimit:update")
 			async with session.put(
 				weekly_url,
 				headers={
@@ -1735,7 +1714,7 @@ class FamilyLinkClient:
 				]],
 				[1],
 			])
-			override_url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			override_url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(
 				"Applying bedtime override action=%s window=%s-%s day_code=%s rule=%s",
 				action, start, end, day_code, rule_id,
@@ -1860,7 +1839,7 @@ class FamilyLinkClient:
 				[1],
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(
 				"Applying school time override action=%s window=%s-%s weekday=%s rule=%s",
 				action, start, end, weekday, rule_id,
@@ -1906,7 +1885,7 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
+			url = self._people_url(account_id, "timeLimit")
 			params = [
 				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
 				("timeLimitKey.type", "SUPERVISED_DEVICES"),
@@ -1972,7 +1951,8 @@ class FamilyLinkClient:
 		try:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverride/{override_uuid}"
+			self._validate_id(override_uuid, "override_uuid")
+			url = self._people_url(account_id, f"timeLimitOverride/{override_uuid}")
 			async with session.post(
 				url,
 				headers={
@@ -2023,7 +2003,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			url = self._people_url(account_id, "timeLimit:update")
 			_LOGGER.debug(f"Enabling daily limit for account {account_id}")
 
 			async with session.put(
@@ -2076,7 +2056,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit:update"
+			url = self._people_url(account_id, "timeLimit:update")
 			_LOGGER.debug(f"Disabling daily limit for account {account_id}")
 
 			async with session.put(
@@ -2127,19 +2107,8 @@ class FamilyLinkClient:
 			cookie_header = self._get_cookie_header()
 
 			# Get current day of week (1=Monday, 7=Sunday) and map to CAEQ code
-			# The CAEQ suffix encodes the day: CAEQAQ=1, CAEQAg=2, CAEQAw=3, CAEQBA=4, CAEQBQ=5, CAEQBg=6, CAEQBw=7
-			from datetime import datetime
-			day_codes = {
-				1: "CAEQAQ",  # Monday
-				2: "CAEQAg",  # Tuesday
-				3: "CAEQAw",  # Wednesday
-				4: "CAEQBA",  # Thursday
-				5: "CAEQBQ",  # Friday
-				6: "CAEQBg",  # Saturday
-				7: "CAEQBw",  # Sunday
-			}
 			current_day = dt_util.now().isoweekday()
-			day_code = day_codes[current_day]
+			day_code = self._DAY_CODES[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
 			payload = json.dumps([
@@ -2149,7 +2118,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id} (day={current_day}, code={day_code})")
 
 			async with session.post(
@@ -2206,25 +2175,14 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Day codes mapping
-			day_codes = {
-				1: "CAEQAQ",  # Monday
-				2: "CAEQAg",  # Tuesday
-				3: "CAEQAw",  # Wednesday
-				4: "CAEQBA",  # Thursday
-				5: "CAEQBQ",  # Friday
-				6: "CAEQBg",  # Saturday
-				7: "CAEQBw",  # Sunday
-			}
-
 			# Use provided day or default to today
 			if day is None:
 				day = dt_util.now().isoweekday()
 
-			if day not in day_codes:
+			if day not in self._DAY_CODES:
 				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
 
-			day_code = day_codes[day]
+			day_code = self._DAY_CODES[day]
 
 			# Payload format: [null, account_id, [[null,null,9,null,null,null,null,null,null,null,null,null,[2,[startH,startM],[endH,endM],dayCode]]], [1]]
 			# Type 9 = bedtime override, Status 2 = enabled
@@ -2235,7 +2193,7 @@ class FamilyLinkClient:
 				[1]
 			])
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimitOverrides:batchCreate"
+			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(f"Setting bedtime {start_time}-{end_time} for day={day} (code={day_code})")
 
 			async with session.post(
@@ -2284,7 +2242,7 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			url = f"{self.BASE_URL}/people/{account_id}/timeLimit"
+			url = self._people_url(account_id, "timeLimit")
 			params = [
 				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
 				("timeLimitKey.type", "SUPERVISED_DEVICES")

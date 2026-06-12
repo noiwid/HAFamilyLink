@@ -217,6 +217,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		"""Unlock device (bypass restrictions without disabling bedtime/daily_limit)."""
 		_LOGGER.info("Unlocking device %s for child %s (bypass restrictions)", self._device_id, self._child_name)
 
+		# Note: coordinator.async_control_device already schedules a refresh on success
 		success = await self.coordinator.async_control_device(
 			self._device_id, DEVICE_UNLOCK_ACTION, self._child_id
 		)
@@ -225,7 +226,6 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.error("Failed to unlock device %s", self._device_id)
 		else:
 			_LOGGER.info("Successfully unlocked device %s", self._device_id)
-			await self.coordinator.async_request_refresh()
 
 	async def async_turn_off(self) -> None:
 		"""Lock device (cancel bonus if active, then lock)."""
@@ -251,6 +251,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 					_LOGGER.warning("Failed to cancel bonus for device %s, attempting lock anyway", self._device_id)
 
 		# Then lock the device
+		# Note: coordinator.async_control_device already schedules a refresh on success
 		success = await self.coordinator.async_control_device(
 			self._device_id, DEVICE_LOCK_ACTION, self._child_id
 		)
@@ -259,7 +260,6 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.error("Failed to lock device %s", self._device_id)
 		else:
 			_LOGGER.info("Successfully locked device %s", self._device_id)
-			await self.coordinator.async_request_refresh()
 
 
 class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):

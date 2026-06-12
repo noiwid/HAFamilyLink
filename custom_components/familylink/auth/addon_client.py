@@ -29,13 +29,25 @@ class AddonCookieClient:
 
         Args:
             hass: Home Assistant instance
-            auth_url: Optional URL for the auth server (for Docker standalone mode)
+            auth_url: Optional URL for the auth server (for Docker standalone mode).
+                May include an API key as a query parameter when the auth
+                container is protected, e.g. "http://host:8099?api_key=secret".
         """
         self.hass = hass
+        self._api_key: str | None = None
+        if auth_url and "?" in auth_url:
+            from urllib.parse import parse_qs
+
+            auth_url, _, query = auth_url.partition("?")
+            self._api_key = (parse_qs(query).get("api_key") or [None])[0]
         self.auth_url = auth_url
         self.storage_path = self.SHARE_DIR / self.COOKIE_FILE
         self.key_file = self.SHARE_DIR / self.KEY_FILE
         self._detected_url: str | None = None
+
+    def _request_headers(self) -> dict[str, str]:
+        """Headers for auth server requests (API key when configured)."""
+        return {"X-API-Key": self._api_key} if self._api_key else {}
 
     async def _fetch_cookies_from_url(self, url: str) -> list[dict[str, Any]] | None:
         """Fetch cookies from auth server API.
@@ -49,7 +61,11 @@ class AddonCookieClient:
         api_url = f"{url.rstrip('/')}/api/cookies"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.get(
+                    api_url,
+                    headers=self._request_headers(),
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
                     if response.status == 200:
                         data = await response.json()
                         cookies = data.get("cookies", [])

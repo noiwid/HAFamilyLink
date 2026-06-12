@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -15,6 +16,7 @@ from .const import (
 	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
+	DEVICE_LOCK_ACTION,
 	DOMAIN,
 	LOGGER_NAME,
 )
@@ -119,7 +121,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		# Initialize empty device cache (will be populated per-child below)
 		self._devices = {}
 
-		# Fetch family members info
 		# Fetch family members info first to get all supervised children
 		family_members = None
 		supervised_children = []
@@ -276,7 +277,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							break
 
 			# Update device cache with real lock states from API
-			import time
 			current_time = time.time()
 			for device in devices:
 				device_id = device["id"]
@@ -325,10 +325,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					break
 			_LOGGER.debug(f"Aggregated daily_limit_enabled for {child_name}: {daily_limit_enabled}")
 
-			# Fetch daily screen time data for this child
+			# Compute daily screen time for this child from the already-fetched
+			# apps/usage data (avoids a duplicate appsandusage API call per child)
 			screen_time = None
 			try:
-				screen_time = await self.client.async_get_daily_screen_time(account_id=child_id)
+				screen_time = await self.client.async_get_daily_screen_time(
+					account_id=child_id, data=apps_usage_data
+				)
 				_LOGGER.debug(
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"
@@ -413,9 +416,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 
 		try:
-			# Import here to avoid circular imports
-			from .client.api import FamilyLinkClient
-
 			self.client = FamilyLinkClient(
 				hass=self.hass,
 				config=self.entry.data,
@@ -476,8 +476,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# Store the expected lock state temporarily (for 5 seconds)
 				# This ensures the UI reflects the change immediately, even if the API
 				# takes time to propagate the state
-				import time
-				from .const import DEVICE_LOCK_ACTION
 				expected_locked = (action == DEVICE_LOCK_ACTION)
 				self._pending_lock_states[device_id] = (expected_locked, time.time())
 				_LOGGER.debug(f"Set pending lock state for {device_id}: {expected_locked}")
@@ -492,15 +490,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			return False
 
-	def set_pending_time_limit_state(self, child_id: str, limit_type: str, enabled: bool) -> None:
+	def set_pending_time_limit_state(self, child_id: str, limit_type: str, enabled: bool | None) -> None:
 		"""Set a pending time limit state to reflect UI changes immediately.
 
 		Args:
 			child_id: The child's user ID
 			limit_type: One of "bedtime", "school_time", or "daily_limit"
-			enabled: Whether the limit is being enabled (True) or disabled (False)
+			enabled: Whether the limit is being enabled (True) or disabled (False).
+				None clears any pending state (e.g. after a failed API call).
 		"""
-		import time
+		if enabled is None:
+			self._pending_time_limit_states.get(child_id, {}).pop(limit_type, None)
+			_LOGGER.debug(f"Cleared pending {limit_type} state for child {child_id}")
+			return
 
 		if child_id not in self._pending_time_limit_states:
 			self._pending_time_limit_states[child_id] = {}
@@ -518,8 +520,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		Returns:
 			The pending enabled state if valid, None otherwise
 		"""
-		import time
-
 		if child_id not in self._pending_time_limit_states:
 			return None
 
