@@ -1,6 +1,7 @@
 """Main FastAPI application for Family Link Auth."""
 import logging
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -46,7 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API key for protecting sensitive endpoints
+# API key for protecting the auth-flow endpoints (optional, env-provided)
 _API_KEY = os.getenv("API_KEY", "")
 
 # Global instances
@@ -54,13 +55,52 @@ storage = SharedStorage(config.share_dir)
 browser_manager = None
 
 
-def _verify_api_key(request: Request):
-    """Verify API key for sensitive endpoints."""
-    if not _API_KEY:
-        return  # No key configured — local-only deployment
-    key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
-    if key != _API_KEY:
+def _load_or_create_cookie_api_key() -> str:
+    """Return the key protecting the cookie endpoints (always enforced).
+
+    /api/cookies hands out full Google session cookies — left open, anyone
+    on the LAN (e.g. the supervised child) could grab a parent session and
+    bypass Family Link entirely. The API_KEY environment variable takes
+    precedence; otherwise a key is generated once and persisted in the
+    shared directory, where the Home Assistant integration (add-on setup)
+    picks it up automatically via /share/familylink/api_key.
+    """
+    if _API_KEY:
+        return _API_KEY
+    key_path = Path(config.share_dir) / "api_key"
+    try:
+        existing = key_path.read_text().strip()
+        if existing:
+            return existing
+    except OSError:
+        pass
+    key = secrets.token_urlsafe(32)
+    key_path.write_text(key)
+    os.chmod(key_path, 0o600)
+    _LOGGER.info(f"Generated cookie API key at {key_path}")
+    return key
+
+
+_COOKIE_API_KEY = _load_or_create_cookie_api_key()
+
+
+def _check_key(request: Request, expected: str):
+    """Validate the request key against the expected one (constant-time)."""
+    key = request.headers.get("X-API-Key") or request.query_params.get("api_key") or ""
+    if not secrets.compare_digest(key, expected):
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
+
+
+def _verify_api_key(request: Request):
+    """Optional protection for the auth-flow endpoints (only when API_KEY is set)."""
+    if not _API_KEY:
+        return  # Auth flow stays usable from the local web UI without a key
+    _check_key(request, _API_KEY)
+
+
+def _verify_cookie_api_key(request: Request):
+    """Always-on protection for endpoints that expose Google cookies."""
+    _check_key(request, _COOKIE_API_KEY)
 
 
 @app.on_event("startup")
@@ -96,6 +136,14 @@ async def shutdown_event():
 async def index():
     """Serve the main authentication interface."""
     t = get_translations(config.language)
+    # Only embed the VNC password in the page when it is still the documented
+    # default — never leak a custom password on this unauthenticated page.
+    if config.vnc_password == "familylink":
+        novnc_password_param = "&password=familylink"
+        novnc_password_hint = t['novnc_password_hint']
+    else:
+        novnc_password_param = ""
+        novnc_password_hint = t['novnc_password_custom_hint']
     html_content = f"""
 <!DOCTYPE html>
 <html lang="{t['html_lang']}">
@@ -298,7 +346,7 @@ async def index():
         <div class="info-box">
             💡 <strong>Note:</strong> {t['info_note']}<br>
             <a id="novnc-link" class="novnc-link" href="#" target="_blank">🖥️ {t['novnc_link_text']}</a>
-            <div class="novnc-hint">{t['novnc_password_hint']}</div>
+            <div class="novnc-hint">{novnc_password_hint}</div>
         </div>
     </div>
 
@@ -322,8 +370,13 @@ async def index():
         }};
 
         // Build noVNC URL dynamically based on current host
-        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6080/vnc.html?autoconnect=true&password=familylink';
+        const novncUrl = window.location.protocol + '//' + window.location.hostname + ':6080/vnc.html?autoconnect=true{novnc_password_param}';
         document.getElementById('novnc-link').href = novncUrl;
+
+        // Forward the API key (if the page was opened with ?api_key=...) to the
+        // protected endpoints, so the UI keeps working when API_KEY is set
+        const apiKey = new URLSearchParams(window.location.search).get('api_key');
+        const apiHeaders = apiKey ? {{'X-API-Key': apiKey}} : {{}};
 
         let sessionId = null;
         let statusCheckInterval = null;
@@ -339,7 +392,8 @@ async def index():
                 showStatus("🔄 " + T.auth_starting, "info");
 
                 const response = await fetch('/api/auth/start', {{
-                    method: 'POST'
+                    method: 'POST',
+                    headers: apiHeaders
                 }});
 
                 if (!response.ok) {{
@@ -366,7 +420,7 @@ async def index():
             if (!sessionId) return;
 
             try {{
-                const response = await fetch(`/api/auth/status/${{sessionId}}`);
+                const response = await fetch(`/api/auth/status/${{sessionId}}`, {{headers: apiHeaders}});
                 const data = await response.json();
 
                 if (data.status === 'completed') {{
@@ -472,7 +526,7 @@ async def check_cookies():
 
 
 @app.get("/api/cookies")
-async def get_cookies(_: None = Depends(_verify_api_key)):
+async def get_cookies(_: None = Depends(_verify_cookie_api_key)):
     """Retrieve stored cookies (for integration)."""
     try:
         cookies = await storage.load_cookies()
@@ -489,7 +543,7 @@ async def get_cookies(_: None = Depends(_verify_api_key)):
 
 
 @app.delete("/api/cookies")
-async def delete_cookies(_: None = Depends(_verify_api_key)):
+async def delete_cookies(_: None = Depends(_verify_cookie_api_key)):
     """Delete stored cookies."""
     try:
         await storage.clear_cookies()

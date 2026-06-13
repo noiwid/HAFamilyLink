@@ -30,8 +30,9 @@ The add-on provides **two methods** for the integration to retrieve cookies:
 - **URL**: `http://<addon-ip>:8099/api/cookies`
 - Returns decrypted cookies directly (JSON format)
 - No shared volumes needed
+- **Requires an API key** (v1.7.0+): sent via the `X-API-Key` header or `?api_key=` query parameter. The key is auto-generated on first start and stored in `/share/familylink/api_key`. On HA OS/Supervised the integration reads it automatically from the shared directory; for Docker standalone, append `?api_key=<key>` to the auth URL in the integration setup. You can also force a specific key with the `API_KEY` environment variable.
 
-> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network.
+> ⚠️ **Security Warning**: **NEVER expose port 8099 to the internet!** The API returns authentication cookies in plain JSON. Keep this port accessible only on your local network. Since v1.7.0 the cookie endpoint additionally requires the API key, so devices on your LAN (e.g. the supervised child's) cannot fetch the parent session cookies.
 
 #### 2. Shared File Storage (Default for HA OS/Supervised)
 - **Add-on writes**: Encrypted cookies to `/share/familylink/cookies.enc`
@@ -178,6 +179,8 @@ Check if cookies exist
 ```
 
 #### `GET /api/cookies`
+**Requires the API key** (`X-API-Key` header or `?api_key=` query parameter, see above).
+
 Retrieve stored cookies (used by integration)
 
 **Response:**

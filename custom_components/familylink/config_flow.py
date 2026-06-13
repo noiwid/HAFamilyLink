@@ -126,14 +126,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 				addon_client = AddonCookieClient(self.hass, auth_url=auth_url)
 
-				# Check if URL is reachable
-				if await addon_client._check_url_available(auth_url):
+				# Check if URL is reachable (use the parsed base URL — the user
+				# may have appended ?api_key=... which the client strips)
+				if await addon_client._check_url_available(addon_client.auth_url):
 					# Check if cookies are available
-					cookies = await addon_client._fetch_cookies_from_url(auth_url)
+					cookies = await addon_client._fetch_cookies_from_url(addon_client.auth_url)
 					if cookies:
 						self._detected_url = auth_url
 						# Proceed to configure step with URL
 						return await self.async_step_configure(None, auth_url=auth_url)
+					elif addon_client.last_fetch_status == 403:
+						errors["base"] = "invalid_api_key"
 					else:
 						errors["base"] = "no_cookies"
 				else:

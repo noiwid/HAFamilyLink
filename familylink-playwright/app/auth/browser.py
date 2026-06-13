@@ -324,11 +324,14 @@ class BrowserAuthManager:
         if not session:
             return {'status': 'not_found'}
 
+        # Cleaned-up sessions only retain minimal metadata (no 'cookies' key),
+        # so read defensively to avoid a KeyError → HTTP 500 in the status poll
+        cookie_count = session.get('cookie_count', len(session.get('cookies') or []))
         return {
-            'status': session['status'],
-            'has_cookies': session['cookies'] is not None,
+            'status': session.get('status', 'unknown'),
+            'has_cookies': cookie_count > 0,
             'error': session.get('error'),
-            'cookie_count': len(session['cookies']) if session['cookies'] else 0
+            'cookie_count': cookie_count
         }
 
     async def _cleanup_session(self, session_id: str):
@@ -350,6 +353,8 @@ class BrowserAuthManager:
                 self._sessions[session_id] = {
                     'status': session.get('status', 'cleaned_up'),
                     'created_at': session.get('created_at'),
+                    'error': session.get('error'),
+                    'cookie_count': len(session.get('cookies') or []),
                 }
 
     async def cleanup(self):

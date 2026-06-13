@@ -23,6 +23,7 @@ class Config(BaseModel):
     browser_navigation_timeout: int = 30000  # 30 seconds
     language: str = "en-US"  # Browser locale (e.g., fr-FR, en-GB, de-DE)
     timezone: str = "Europe/Paris"  # Browser timezone (e.g., America/New_York)
+    vnc_password: str = "familylink"  # VNC password (mirrors add-on option)
 
 
 def _safe_int(value: str, default: int) -> int:
@@ -41,4 +42,5 @@ def get_config() -> Config:
         session_duration=_safe_int(os.getenv("SESSION_DURATION", "86400"), 86400),
         language=os.getenv("LANGUAGE", "en-US"),
         timezone=os.getenv("TIMEZONE", "Europe/Paris"),
+        vnc_password=os.getenv("VNC_PASSWORD", "familylink"),
     )

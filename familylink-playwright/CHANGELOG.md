@@ -2,6 +2,22 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.7.0] - 2026-06-12
+
+### Security
+- **`/api/cookies` now always requires an API key** — previously the endpoint served the parent's full Google session cookies to anyone on the LAN (including the supervised child's devices), allowing a complete Family Link bypass. A key is auto-generated on first start and persisted in `/share/familylink/api_key` (`./data/api_key` in standalone mode); the `API_KEY` environment variable can override it. The auth-flow endpoints (`/api/auth/*`) remain usable from the web UI without a key unless `API_KEY` is explicitly set.
+- API key comparison now uses a constant-time check
+- The noVNC link no longer embeds a custom `vnc_password` in the unauthenticated web page (only the documented default is auto-filled)
+
+### Changed
+- **HA OS / Supervised**: no action needed — the integration reads the key automatically from the shared directory
+- **Docker standalone**: the HA integration URL must now include the key: `http://<host>:8099?api_key=<key>` (update the integration to its matching version first)
+
+### Fixed
+- Status polling no longer returns HTTP 500 after a completed session is cleaned up (web UI could previously stay stuck on "waiting")
+- Encryption key generation no longer crashes on first start when `/share/familylink` does not exist yet
+- Web UI now forwards `?api_key=` to protected endpoints, so setting `API_KEY` no longer breaks the authentication flow
+
 ## [1.6.1] - 2026-05-12
 
 ### Fixed

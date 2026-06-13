@@ -1,7 +1,7 @@
 """Sensor platform for Google Family Link integration."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import logging
 from typing import Any
@@ -18,21 +18,10 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, INTEGRATION_NAME, LOGGER_NAME
+from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
-
-# Day of week mapping
-DAYS_OF_WEEK = {
-    1: "Monday",
-    2: "Tuesday",
-    3: "Wednesday",
-    4: "Thursday",
-    5: "Friday",
-    6: "Saturday",
-    7: "Sunday",
-}
 
 
 class ChildDataMixin:
@@ -114,12 +103,6 @@ async def async_setup_entry(
         if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
             entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
-        # Time management schedule sensors removed - data not available at child level
-        # Schedules are available in binary_sensor attributes per device instead
-        # entities.append(BedtimeScheduleSensor(coordinator, child_id, child_name))
-        # entities.append(SchoolTimeScheduleSensor(coordinator, child_id, child_name))
-        # entities.append(DailyLimitSensor(coordinator, child_id, child_name))
-
         # Create device sensors for each device (4 sensors per device)
         for device in child_data.get("devices", []):
             device_id = device["id"]
@@ -132,278 +115,6 @@ async def async_setup_entry(
 
     _LOGGER.debug(f"Created {len(entities)} total sensor entities")
     async_add_entities(entities, update_before_add=True)
-
-
-class BedtimeScheduleSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing bedtime schedule for a child."""
-
-    def __init__(
-        self,
-        coordinator: FamilyLinkDataUpdateCoordinator,
-        child_id: str,
-        child_name: str,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-
-        self._child_id = child_id
-        self._child_name = child_name
-        self._attr_name = f"{child_name} Bedtime Schedule"
-        self._attr_unique_id = f"{DOMAIN}_{child_id}_bedtime_schedule"
-        self._attr_icon = "mdi:bed-clock"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._child_id)},
-            name=f"{self._child_name} (Family Link)",
-            manufacturer="Google",
-            model="Family Link Account",
-        )
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    bedtime_schedule = child_data.get("bedtime_schedule", [])
-
-                    if not bedtime_schedule:
-                        return "Not configured"
-
-                    # Get first schedule entry to display as main state
-                    first_entry = bedtime_schedule[0]
-                    start = first_entry.get("start", [0, 0])
-                    end = first_entry.get("end", [0, 0])
-
-                    start_str = f"{start[0]:02d}:{start[1]:02d}"
-                    end_str = f"{end[0]:02d}:{end[1]:02d}"
-
-                    return f"{start_str}-{end_str}"
-
-        return None
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
-        attributes = {
-            "child_id": self._child_id,
-            "child_name": self._child_name,
-        }
-
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    bedtime_schedule = child_data.get("bedtime_schedule", [])
-                    bedtime_enabled = child_data.get("bedtime_enabled", False)
-
-                    attributes["enabled"] = bedtime_enabled
-                    attributes["schedule_count"] = len(bedtime_schedule)
-
-                    # Add schedule for each day
-                    for entry in bedtime_schedule:
-                        day = entry.get("day")
-                        start = entry.get("start", [0, 0])
-                        end = entry.get("end", [0, 0])
-
-                        if day is not None:
-                            day_name = DAYS_OF_WEEK.get(day, f"Day{day}")
-                            start_str = f"{start[0]:02d}:{start[1]:02d}"
-                            end_str = f"{end[0]:02d}:{end[1]:02d}"
-                            attributes[day_name.lower()] = f"{start_str}-{end_str}"
-
-        return attributes
-
-
-class SchoolTimeScheduleSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing school time schedule for a child."""
-
-    def __init__(
-        self,
-        coordinator: FamilyLinkDataUpdateCoordinator,
-        child_id: str,
-        child_name: str,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-
-        self._child_id = child_id
-        self._child_name = child_name
-        self._attr_name = f"{child_name} School Time Schedule"
-        self._attr_unique_id = f"{DOMAIN}_{child_id}_school_time_schedule"
-        self._attr_icon = "mdi:school-outline"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._child_id)},
-            name=f"{self._child_name} (Family Link)",
-            manufacturer="Google",
-            model="Family Link Account",
-        )
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    school_time_schedule = child_data.get("school_time_schedule", [])
-
-                    if not school_time_schedule:
-                        return "Not configured"
-
-                    # Get first schedule entry to display as main state
-                    first_entry = school_time_schedule[0]
-                    start = first_entry.get("start", [0, 0])
-                    end = first_entry.get("end", [0, 0])
-
-                    start_str = f"{start[0]:02d}:{start[1]:02d}"
-                    end_str = f"{end[0]:02d}:{end[1]:02d}"
-
-                    return f"{start_str}-{end_str}"
-
-        return None
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
-        attributes = {
-            "child_id": self._child_id,
-            "child_name": self._child_name,
-        }
-
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    school_time_schedule = child_data.get("school_time_schedule", [])
-                    school_time_enabled = child_data.get("school_time_enabled", False)
-
-                    attributes["enabled"] = school_time_enabled
-                    attributes["schedule_count"] = len(school_time_schedule)
-
-                    # Add schedule for each day
-                    for entry in school_time_schedule:
-                        day = entry.get("day")
-                        start = entry.get("start", [0, 0])
-                        end = entry.get("end", [0, 0])
-
-                        if day is not None:
-                            day_name = DAYS_OF_WEEK.get(day, f"Day{day}")
-                            start_str = f"{start[0]:02d}:{start[1]:02d}"
-                            end_str = f"{end[0]:02d}:{end[1]:02d}"
-                            attributes[day_name.lower()] = f"{start_str}-{end_str}"
-
-        return attributes
-
-
-class DailyLimitSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing daily limit configuration for a child."""
-
-    def __init__(
-        self,
-        coordinator: FamilyLinkDataUpdateCoordinator,
-        child_id: str,
-        child_name: str,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-
-        self._child_id = child_id
-        self._child_name = child_name
-        self._attr_name = f"{child_name} Daily Limit"
-        self._attr_unique_id = f"{DOMAIN}_{child_id}_daily_limit_config"
-        self._attr_icon = "mdi:timer-outline"
-        self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
-        self._attr_device_class = SensorDeviceClass.DURATION
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._child_id)},
-            name=f"{self._child_name} (Family Link)",
-            manufacturer="Google",
-            model="Family Link Account",
-        )
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the configured daily limit in minutes."""
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    # Get daily limit from devices_time_data
-                    devices_time_data = child_data.get("devices_time_data", {})
-
-                    # Return the daily limit from the first device that has it configured
-                    for device_id, time_data in devices_time_data.items():
-                        if time_data.get("daily_limit_enabled"):
-                            return time_data.get("daily_limit_minutes", 0)
-
-                    # If no device has daily limit enabled, try to return the configured value anyway
-                    for device_id, time_data in devices_time_data.items():
-                        daily_limit = time_data.get("daily_limit_minutes", 0)
-                        if daily_limit > 0:
-                            return daily_limit
-
-        return None
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
-        attributes = {
-            "child_id": self._child_id,
-            "child_name": self._child_name,
-        }
-
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    daily_limit_enabled = child_data.get("daily_limit_enabled", False)
-                    attributes["enabled"] = daily_limit_enabled
-
-                    # Add per-device daily limits
-                    devices_time_data = child_data.get("devices_time_data", {})
-                    device_limits = {}
-
-                    for device_id, time_data in devices_time_data.items():
-                        if time_data.get("daily_limit_minutes", 0) > 0:
-                            # Find device name
-                            device_name = device_id
-                            for device in child_data.get("devices", []):
-                                if device["id"] == device_id:
-                                    device_name = device.get("name", device_id)
-                                    break
-
-                            device_limits[device_name] = {
-                                "enabled": time_data.get("daily_limit_enabled", False),
-                                "minutes": time_data.get("daily_limit_minutes", 0),
-                            }
-
-                    if device_limits:
-                        attributes["device_limits"] = device_limits
-
-        return attributes
 
 
 class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
@@ -1566,9 +1277,8 @@ class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 
 					if self._device_id in devices_time_data:
 						time_data = devices_time_data[self._device_id]
-						bonus = time_data.get("bonus_minutes", 0)
-						# Return None instead of 0 when no bonus, so it shows as "unknown"
-						return bonus if bonus > 0 else 0
+						# 0 when no bonus is active
+						return time_data.get("bonus_minutes", 0)
 
 		return None
 

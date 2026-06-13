@@ -32,6 +32,15 @@ mkdir -p /share/familylink
 chmod 700 /share/familylink
 echo "✓ Shared storage ready at /share/familylink"
 
+# The cookie endpoint (/api/cookies) always requires an API key. It is
+# auto-generated on first start unless the API_KEY env variable is set.
+if [ -n "${API_KEY:-}" ]; then
+    echo "✓ Cookie API key: provided via API_KEY environment variable"
+else
+    echo "ℹ Cookie API key: auto-generated in /share/familylink/api_key (./data/api_key on the host)"
+fi
+echo "  Configure the HA integration with: http://<this-host>:8099?api_key=<key>"
+
 # Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
 if [ ! -S /run/dbus/system_bus_socket ]; then
     echo "Starting D-Bus system bus..."
