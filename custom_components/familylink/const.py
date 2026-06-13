@@ -35,6 +35,10 @@ COOKIE_EXPIRY_BUFFER: Final = 3600  # 1 hour buffer before expiry
 DEVICE_LOCK_ACTION: Final = "lock"
 DEVICE_UNLOCK_ACTION: Final = "unlock"
 
+# Remote action codes (executeRemoteAction endpoint), discovered from the
+# Family Link web UI. Code 2 = ring/find the device (make it sound).
+DEVICE_RING_ACTION_CODE: Final = 2
+
 # Error codes
 ERROR_AUTH_FAILED: Final = "auth_failed"
 ERROR_TIMEOUT: Final = "timeout"
@@ -75,3 +79,6 @@ SERVICE_SET_BEDTIME: Final = "set_bedtime"
 
 # Location services
 SERVICE_REFRESH_LOCATION: Final = "refresh_location"
+
+# Device remote actions
+SERVICE_RING_DEVICE: Final = "ring_device"

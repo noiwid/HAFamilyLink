@@ -27,6 +27,7 @@ from .const import (
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
 	SERVICE_REFRESH_LOCATION,
+	SERVICE_RING_DEVICE,
 	SERVICE_UNBLOCK_ALL_APPS,
 	SERVICE_UNBLOCK_APP,
 )
@@ -123,6 +124,12 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 
 SCHEMA_REFRESH_LOCATION = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_RING_DEVICE = vol.Schema({
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("device_id"): cv.string,
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -744,6 +751,37 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_SET_APP_DAILY_LIMIT,
 	)
 
+	async def handle_ring_device(call: ServiceCall) -> None:
+		"""Handle ring_device service call - make the device sound."""
+		_require_client()
+		entity_id = call.data.get("entity_id")
+		device_id = call.data.get("device_id")
+		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract IDs from entity attributes
+		if entity_id:
+			extracted_device_id, extracted_child_id = extract_ids_from_entity(hass, entity_id, require_device_id=True)
+			device_id = device_id or extracted_device_id
+			child_id = child_id or extracted_child_id
+
+		if not device_id:
+			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+
+		_LOGGER.info(f"Service called: ring_device for device {device_id}")
+
+		try:
+			success = await coordinator.client.async_ring_device(
+				device_id=device_id,
+				child_id=child_id,
+			)
+			if success:
+				_LOGGER.info(f"Successfully rang device {device_id}")
+			else:
+				_LOGGER.error(f"Failed to ring device {device_id}")
+		except Exception as err:
+			_LOGGER.error(f"Error ringing device: {err}")
+			raise
+
 	# Register time management services
 	hass.services.async_register(
 		DOMAIN,
@@ -813,6 +851,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		SERVICE_REFRESH_LOCATION,
 		handle_refresh_location,
 		schema=SCHEMA_REFRESH_LOCATION,
+	)
+
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_RING_DEVICE,
+		handle_ring_device,
+		schema=SCHEMA_RING_DEVICE,
 	)
 
 	_LOGGER.debug("Family Link services registered")
