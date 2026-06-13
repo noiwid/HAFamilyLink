@@ -536,10 +536,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			del self._pending_time_limit_states[child_id][limit_type]
 			return None
 
-	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
-		"""Get device data by ID."""
-		return self._devices.get(device_id)
-
 	async def _create_auth_notification(self) -> None:
 		"""Create a persistent notification when authentication fails (only once)."""
 		if self._auth_notification_sent:

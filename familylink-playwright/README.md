@@ -1,8 +1,10 @@
 # Google Family Link Auth Add-on
 
-![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)
 
 A Home Assistant add-on that provides browser-based authentication for the Google Family Link integration.
+
+> **Running Home Assistant Core or Container (no Supervisor)?** This service can also run as a plain Docker container — see [Standalone Docker (no Supervisor)](#standalone-docker-no-supervisor) below, or the full [Docker Standalone Guide](../DOCKER_STANDALONE.md).
 
 ## About
 
@@ -183,6 +185,35 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 
 **Why noVNC is needed**: The browser runs headless inside the Docker container. noVNC allows you to see and interact with it remotely through your web browser.
 
+## Standalone Docker (no Supervisor)
+
+If you run **Home Assistant Core** or **Home Assistant Container** (i.e. without the Supervisor / add-on store), you can run this auth service as a plain Docker container instead of as an add-on. The integration then talks to it over the HTTP API (`/api/cookies`) — no shared volume with HA is required.
+
+### Quick start with Docker Compose
+
+A ready-to-use [`docker-compose.standalone.yml`](docker-compose.standalone.yml) is included:
+
+```bash
+docker compose -f docker-compose.standalone.yml up -d
+```
+
+This starts the service with the API on port `8099` and noVNC on port `6080`, persisting encrypted cookies in `./data` (mounted at `/share/familylink`). Authenticate exactly as with the add-on by opening `http://<docker-host-ip>:6080/vnc.html`.
+
+When adding the integration in Home Assistant, point it at the container's URL: `http://<docker-host-ip>:8099`.
+
+### API key protection (1.7.0+)
+
+Since **1.7.0**, the `/api/cookies` endpoint is **always** protected by an API key, so a supervised child on the LAN can no longer fetch the parent's Google session cookies.
+
+- **HA OS / Supervised:** zero-config — a key is auto-generated on first start and persisted (mode `0600`) at `/share/familylink/api_key`; the integration reads it automatically from the shared directory.
+- **Standalone Docker:** the integration cannot read that shared file, so you must pass the key in the integration URL:
+  `http://<docker-host-ip>:8099?api_key=<key>`
+  Find the key in the container logs on first start, or read it from the mounted `./data/api_key` file. You can also set a fixed key yourself with the `API_KEY` environment variable (overrides the auto-generated one).
+
+> The config flow shows a dedicated **"invalid API key"** error if the key is missing or wrong on a protected endpoint.
+
+See the full [Docker Standalone Guide](../DOCKER_STANDALONE.md) for reverse-proxy notes, environment variables, and troubleshooting.
+
 ## Troubleshooting
 
 ### Add-on Won't Start
@@ -225,6 +256,14 @@ The add-on uses Playwright with Chromium running on a virtual display (Xvfb):
 - **Discussions**: [GitHub Discussions](https://github.com/noiwid/HAFamilyLink/discussions)
 
 ## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history. Highlights:
+
+### v1.7.0
+
+- `/api/cookies` is now **always** protected by an API key (auto-generated and persisted with `0600` perms, or overridable via the `API_KEY` env var), closing a LAN cookie-leak hole
+- Standalone Docker: pass the key via `http://<host>:8099?api_key=<key>`; clearer config-flow error and startup hint
+- Bug fixes and hardening across the add-on and integration
 
 ### v1.0.0 (2025-01-07)
 
