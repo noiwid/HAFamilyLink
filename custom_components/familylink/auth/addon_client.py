@@ -255,8 +255,9 @@ class AddonCookieClient:
 
         Priority:
         1. Custom URL (if configured)
-        2. Default local API (localhost:8099)
-        3. File fallback (/share/familylink/)
+        2. Supervisor-resolved addon URL (HAOS installations)
+        3. Default local API (localhost:8099)
+        4. File fallback (/share/familylink/)
         """
         # 1. If custom URL is configured, use it
         if self.auth_url:
