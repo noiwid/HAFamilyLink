@@ -399,3 +399,31 @@ refresh_location:
       example: "123456789012345678901"
       selector:
         text:
+
+ring_device:
+  name: Ring Device
+  description: Make a Family Link device ring (sound) to help locate it. Select a device entity OR provide device_id/child_id manually.
+  fields:
+    entity_id:
+      name: Device Entity
+      description: Select a Family Link device entity (recommended - automatically extracts device_id and child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+          domain: button
+    device_id:
+      name: Device ID (manual)
+      description: Device ID (device token) - only needed if not using entity selector
+      required: false
+      example: "ABCD1234567890"
+      selector:
+        text:
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+

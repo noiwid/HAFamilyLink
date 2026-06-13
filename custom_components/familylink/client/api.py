@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
 	DEVICE_LOCK_ACTION,
+	DEVICE_RING_ACTION_CODE,
 	DEVICE_UNLOCK_ACTION,
 	LOGGER_NAME,
 )
@@ -1073,6 +1074,71 @@ class FamilyLinkClient:
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
+
+	async def async_ring_device(self, device_id: str, child_id: str | None = None) -> bool:
+		"""Ring a Family Link device (make it sound to help locate it).
+
+		Uses the devices/{device_id}:executeRemoteAction endpoint with action
+		code 2 (ring), discovered from the Family Link web UI.
+
+		Args:
+			device_id: Device ID to ring
+			child_id: Child's user ID (optional, defaults to first supervised child)
+
+		Returns:
+			True if the ring command was accepted, False otherwise
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		self._validate_id(device_id, "device_id")
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+
+			# Get supervised child account ID
+			if child_id is None:
+				account_id = await self.async_get_supervised_child_id()
+			else:
+				account_id = child_id
+
+			# Payload format from the web UI:
+			# [null, account_id, device_id, [<action_code>, null, device_id, 0]]
+			payload = json.dumps([
+				None,
+				account_id,
+				device_id,
+				[DEVICE_RING_ACTION_CODE, None, device_id, 0],
+			])
+
+			url = self._people_url(account_id, f"devices/{device_id}:executeRemoteAction")
+			_LOGGER.debug(f"Requesting device ring: POST {url}")
+			_LOGGER.debug(f"Payload: {payload}")
+
+			async with session.post(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header
+				},
+				data=payload
+			) as response:
+				_LOGGER.debug(f"Response status: {response.status}")
+
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(f"Device ring failed {response.status}: {response_text}")
+					return False
+
+				response_data = await response.json()
+				_LOGGER.debug(f"Device ring response: {response_data}")
+				_LOGGER.info(f"Successfully rang device {device_id}")
+				return True
+
+		except Exception as err:
+			_LOGGER.error("Failed to ring device %s: %s", device_id, err)
+			raise DeviceControlError(f"Failed to ring device: {err}") from err
 
 	async def async_get_applied_time_limits(self, account_id: str | None = None) -> dict[str, Any]:
 		"""Get applied time limits for all devices (time remaining, windows, etc.).
