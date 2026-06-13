@@ -63,6 +63,8 @@ async def async_setup_entry(
 			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 30))
 			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 60))
 			entities.append(CancelTimeBonusButton(coordinator, device, child_id, child_name))
+			# Ring button (make the device sound to help locate it)
+			entities.append(RingDeviceButton(coordinator, device, child_id, child_name))
 
 	_LOGGER.debug(f"Created {len(entities)} time bonus button entities")
 	async_add_entities(entities, update_before_add=True)
@@ -237,3 +239,65 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			)
 			# Refresh to update sensors
 			await self.coordinator.async_request_refresh()
+
+
+class RingDeviceButton(CoordinatorEntity, ButtonEntity):
+	"""Button to ring a Family Link device (make it sound to help locate it)."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		device: dict[str, Any],
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the button."""
+		super().__init__(coordinator)
+
+		self._device_id = device["id"]
+		self._device_name = device["name"]
+		self._child_id = child_id
+		self._child_name = child_name
+
+		self._attr_name = f"{device['name']} Ring"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device['id']}_ring"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
+			name=self._device_name,
+			manufacturer="Google",
+			model="Family Link Device",
+		)
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the button."""
+		return "mdi:bell-ring"
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success
+
+	async def async_press(self) -> None:
+		"""Handle the button press - ring the device."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot ring device: client not connected")
+			return
+
+		_LOGGER.info(
+			f"Ringing device {self._device_name} for {self._child_name}"
+		)
+
+		success = await self.coordinator.client.async_ring_device(
+			device_id=self._device_id,
+			child_id=self._child_id,
+		)
+
+		if not success:
+			_LOGGER.error(f"Failed to ring device {self._device_name}")
+		else:
+			_LOGGER.info(f"Successfully rang device {self._device_name}")
