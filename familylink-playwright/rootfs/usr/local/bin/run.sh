@@ -53,6 +53,9 @@ export AUTH_TIMEOUT="${AUTH_TIMEOUT}"
 export SESSION_DURATION="${SESSION_DURATION}"
 export LANGUAGE="${LANGUAGE}"
 export TIMEZONE="${TIMEZONE}"
+# Mark this as a Supervisor-managed add-on run so the app enforces the
+# cookie API key (the HA integration reads it from the shared /share dir).
+export ADDON_MODE=1
 
 bashio::log.info "Configuration loaded:"
 bashio::log.info "  - Log Level: ${LOG_LEVEL}"

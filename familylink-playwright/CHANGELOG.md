@@ -2,6 +2,11 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.7.1] - 2026-06-15
+
+### Fixed
+- **Standalone: `/api/cookies` no longer requires a key by default (#125).** The 1.7.0 always-on key broke existing Docker standalone setups: the auth container and the HA integration don't share a volume, so the auto-generated key could never reach the integration and every cookie fetch returned 403 ("cookies not available"). The endpoint is now key-protected only when it can be consumed without manual steps — i.e. when `API_KEY` is set explicitly, or when running as a Supervisor add-on (HA OS/Supervised), where the key is shared via `/share/familylink/api_key`. In standalone without `API_KEY` the endpoint stays open (pre-1.7.0 behavior) and logs a warning recommending `API_KEY`.
+
 ## [1.7.0] - 2026-06-12
 
 ### Security
