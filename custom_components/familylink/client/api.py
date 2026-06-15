@@ -78,6 +78,13 @@ class FamilyLinkClient:
 		self._cookies = await self.addon_client.load_cookies()
 
 		if not self._cookies:
+			if getattr(self.addon_client, "last_fetch_status", None) == 403:
+				raise AuthenticationError(
+					"Auth server rejected the request (403): the cookie endpoint "
+					"requires an API key. Append ?api_key=<key> to the configured "
+					"auth URL. The key is in the auth container's data directory "
+					"(./data/api_key), or set it via the API_KEY environment variable."
+				)
 			raise AuthenticationError(
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
 			)
