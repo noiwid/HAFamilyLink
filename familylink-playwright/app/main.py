@@ -49,14 +49,19 @@ app.add_middleware(
 
 # API key for protecting the auth-flow endpoints (optional, env-provided)
 _API_KEY = os.getenv("API_KEY", "")
+# Supervisor add-on (HA OS/Supervised) injects SUPERVISOR_TOKEN; run.sh also
+# sets ADDON_MODE=1. In that mode the integration shares /share/familylink so
+# the cookie key is enforced with zero config. In Docker standalone there is no
+# shared volume, so an auto-generated key would break the integration.
+_ADDON_MODE = bool(os.getenv("SUPERVISOR_TOKEN") or os.getenv("ADDON_MODE"))
 
 # Global instances
 storage = SharedStorage(config.share_dir)
 browser_manager = None
 
 
-def _load_or_create_cookie_api_key() -> str:
-    """Return the key protecting the cookie endpoints (always enforced).
+def _load_or_create_cookie_api_key() -> "str | None":
+    """Return the cookie-endpoint key, or None when intentionally left open.
 
     /api/cookies hands out full Google session cookies — left open, anyone
     on the LAN (e.g. the supervised child) could grab a parent session and
@@ -67,6 +72,14 @@ def _load_or_create_cookie_api_key() -> str:
     """
     if _API_KEY:
         return _API_KEY
+    if not _ADDON_MODE:
+        _LOGGER.warning(
+            "Cookie endpoint /api/cookies is UNPROTECTED: standalone mode "
+            "without API_KEY. Anyone able to reach port 8099 can read the "
+            "stored Google cookies. Set API_KEY and point the integration at "
+            "http://<host>:8099?api_key=<key> to protect it."
+        )
+        return None
     key_path = Path(config.share_dir) / "api_key"
     try:
         existing = key_path.read_text().strip()
@@ -99,7 +112,9 @@ def _verify_api_key(request: Request):
 
 
 def _verify_cookie_api_key(request: Request):
-    """Always-on protection for endpoints that expose Google cookies."""
+    """Protect cookie endpoints when a key exists; open in standalone w/o API_KEY."""
+    if _COOKIE_API_KEY is None:
+        return
     _check_key(request, _COOKIE_API_KEY)
 
 
