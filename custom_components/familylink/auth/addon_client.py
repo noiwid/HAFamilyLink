@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,10 @@ from cryptography.fernet import Fernet
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
+
+# Addon slug suffix (the hash prefix is derived from the repository URL)
+_ADDON_SLUG_SUFFIX = "familylink-playwright"
+_ADDON_PORT = 8099
 
 # Default URL for local add-on (Home Assistant OS/Supervised)
 DEFAULT_AUTH_URL = "http://localhost:8099"
@@ -46,6 +51,7 @@ class AddonCookieClient:
         self.key_file = self.SHARE_DIR / self.KEY_FILE
         self.api_key_file = self.SHARE_DIR / self.API_KEY_FILE
         self._detected_url: str | None = None
+        self._supervisor_url_resolved = False
         self.last_fetch_status: int | None = None  # HTTP status of last cookie fetch
 
     async def _get_api_key(self) -> str | None:
@@ -64,6 +70,57 @@ class AddonCookieClient:
                 return None
 
         return await self.hass.async_add_executor_job(_read_key_file)
+
+    async def _resolve_addon_url(self) -> str | None:
+        """Resolve addon URL via Supervisor API.
+
+        On HAOS, addon containers are not reachable via localhost.
+        Each addon gets a Docker DNS hostname derived from its slug
+        (underscores replaced with hyphens).
+        """
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return None
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "http://supervisor/addons",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        return None
+                    data = await resp.json()
+                    addons = data.get("data", {}).get("addons", [])
+                    for addon in addons:
+                        slug = addon.get("slug", "")
+                        if (
+                            slug.endswith(f"_{_ADDON_SLUG_SUFFIX}")
+                            and addon.get("state") == "started"
+                        ):
+                            hostname = slug.replace("_", "-")
+                            url = f"http://{hostname}:{_ADDON_PORT}"
+                            _LOGGER.debug(
+                                "Resolved addon URL via Supervisor: %s", url
+                            )
+                            return url
+        except Exception as err:
+            _LOGGER.debug("Could not resolve addon URL via Supervisor: %s", err)
+        return None
+
+    async def _get_addon_url(self) -> str | None:
+        """Get the Supervisor-resolved addon URL, caching the lookup.
+
+        Returns the resolved Docker hostname URL, or None when the addon
+        cannot be discovered via the Supervisor (non-HAOS setups).
+        """
+        if not self._supervisor_url_resolved:
+            self._supervisor_url_resolved = True
+            resolved = await self._resolve_addon_url()
+            if resolved:
+                self._detected_url = resolved
+                _LOGGER.info("Addon URL resolved via Supervisor: %s", resolved)
+        return self._detected_url
 
     async def _fetch_cookies_from_url(self, url: str) -> list[dict[str, Any]] | None:
         """Fetch cookies from auth server API.
@@ -177,16 +234,23 @@ class AddonCookieClient:
                 self._detected_url = self.auth_url
                 return ("api", self.auth_url)
 
-        # 2. Try default local URL (add-on)
+        # 2. Resolve addon URL via Supervisor API (Docker hostname, HAOS)
+        supervisor_url = await self._get_addon_url()
+        if supervisor_url and await self._check_url_available(supervisor_url):
+            self._detected_url = supervisor_url
+            _LOGGER.info("Addon detected via Supervisor at %s", supervisor_url)
+            return ("api", supervisor_url)
+
+        # 3. Try default local URL (standalone / Docker Compose)
         if await self._check_url_available(DEFAULT_AUTH_URL):
             self._detected_url = DEFAULT_AUTH_URL
             return ("api", DEFAULT_AUTH_URL)
 
-        # 3. Fallback to file
+        # 4. Fallback to file
         if await self._file_available():
             return ("file", None)
 
-        # 4. Nothing available
+        # 5. Nothing available
         return ("none", None)
 
     async def load_cookies(self) -> list[dict[str, Any]] | None:
@@ -194,8 +258,9 @@ class AddonCookieClient:
 
         Priority:
         1. Custom URL (if configured)
-        2. Default local API (localhost:8099)
-        3. File fallback (/share/familylink/)
+        2. Supervisor-resolved addon URL (HAOS installations)
+        3. Default local API (localhost:8099)
+        4. File fallback (/share/familylink/)
         """
         # 1. If custom URL is configured, use it
         if self.auth_url:
@@ -204,12 +269,19 @@ class AddonCookieClient:
                 return cookies
             _LOGGER.warning(f"Failed to load cookies from configured URL: {self.auth_url}")
 
-        # 2. Try default local API
+        # 2. Try the Supervisor-resolved addon URL (HAOS installations)
+        resolved_url = await self._get_addon_url()
+        if resolved_url and resolved_url != self.auth_url:
+            cookies = await self._fetch_cookies_from_url(resolved_url)
+            if cookies is not None:
+                return cookies
+
+        # 3. Try default local API (standalone / Docker Compose)
         cookies = await self._fetch_cookies_from_url(DEFAULT_AUTH_URL)
         if cookies is not None:
             return cookies
 
-        # 3. Fallback to file
+        # 4. Fallback to file
         _LOGGER.debug("API not available, trying file fallback")
         return await self._load_cookies_from_file()
 
