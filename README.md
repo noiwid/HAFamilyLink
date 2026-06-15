@@ -1,7 +1,7 @@
 # <img src="https://brands.home-assistant.io/familylink/icon.png" alt="Google Family Link" width="30" > Google Family Link Home Assistant Integration
 
 [![GitHub Release][releases-shield]][releases]
-[![HACS][hacs-shield]][hacs]
+[![HACS][hacsbadge]][hacs]
 [![License][license-shield]][license]
 [![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
@@ -569,5 +569,5 @@ This is an unofficial integration and is not affiliated with, endorsed by, or co
 [releases]: https://github.com/noiwid/HAFamilyLink/releases
 [license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg?style=for-the-badge
 [license]: LICENSE
-[hacs-shield]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [hacs]: https://github.com/hacs/integration
