@@ -90,7 +90,17 @@ Where `[start_h, …]` and `[end_h, …]` are today's weekly bedtime hours.
 
 **Single-day toggle ("Ce soir seulement" / Tonight only dialog):** only step 2 is sent; the weekly PUT is skipped. Picking action 1 or 2 controls whether tonight is suspended or active without changing the weekly policy.
 
-**No DELETE step.** The server treats overrides as keyed by day_code — posting a new override silently supersedes the previous one for the same day. (School time uses a different uniqueness key and the web app does emit DELETE there.)
+**No DELETE step (write side).** When *writing*, the client posts a new override for the day without deleting the previous one. The web app behaves the same.
+
+**⚠️ Overrides ACCUMULATE — they are not replaced (verified live 2026-06-19).** Contrary to the earlier assumption that the server keeps only the latest override per day_code, the `GET .../timeLimit` response returns **all** historical type-9 overrides, **including several with the same day_code and conflicting actions, in non-chronological list order**. Live example for one day (`CAEQBQ`): action 2, 1, 1, 2 at increasing `item[1]` timestamps. The effective one is the **most recent by `item[1]` (epoch-ms string)** — selecting by list position reads a stale override and makes the switch ignore a fresh "Only today" toggle (the actual #113 regression found on-device).
+
+**Reading the override back (today-effective state).** The same per-day override is echoed in the `GET .../timeLimit` response, so the bedtime switch's "is it on today?" must be read from there — **not** from the weekly revisions, which only describe the weekly policy. In the response (unwrapped `response_data[1]`), the override list lives near the end as items shaped:
+```
+[override_uuid, ts, 9, '', '', None,None,None, profile_id, None,None,None, [action, [startH,startM], [endH,endM], "CAEQxx"]]
+```
+- `item[2] == 9` marks a bedtime override; the trailing 4-element list is the payload.
+- `payload = [action, [h,m], [h,m], day_code]` — `action` 2=ON / 1=OFF, `day_code` the `CAEQxx` string.
+- Resolution rule: start from the weekly revision state, then **among all overrides for today's day_code, the one with the largest `item[1]` timestamp wins** (overrides accumulate — see warning above). An "Only today" OFF override therefore correctly shows the switch OFF even though no enabled window is present, which the `appliedTimeLimits` window-scan heuristic could not detect (issue #113). `async_get_time_limit` parses this and returns `bedtime_enabled_today`; the coordinator prefers it over the `appliedTimeLimits`-derived value.
 
 ### School time daily override pattern (issue #111)
 
