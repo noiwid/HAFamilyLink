@@ -2348,6 +2348,7 @@ class FamilyLinkClient:
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
+						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
 						"bedtime_rule_id": None,
@@ -2363,6 +2364,7 @@ class FamilyLinkClient:
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
+						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
 						"bedtime_rule_id": None,
@@ -2494,14 +2496,87 @@ class FamilyLinkClient:
 				if not revisions_found:
 					_LOGGER.debug("No revision data found in response")
 
+				# Today-effective bedtime state (issue #113).
+				#
+				# The weekly revision above is NOT what's applied on the child
+				# device when a "Only today" override has been posted. The web app
+				# pairs every weekly toggle with a per-day type-9 override, and that
+				# override is what actually arbitrates today. It lives in this same
+				# timeLimit response as an item whose [2] == 9 and whose payload is
+				# [action, [startH,startM], [endH,endM], "CAEQxx"] (action 2=ON,
+				# 1=OFF; the trailing CAEQ* string is the day_code). This is exactly
+				# the structure we POST in async_set_bedtime / the bedtime override
+				# helpers — here we read it back so the switch reflects Google's
+				# applied state instead of the weekly-only revision.
+				#
+				# Default to the weekly value; override only when an override for
+				# TODAY's day_code is present.
+				#
+				# IMPORTANT: Google does NOT replace overrides keyed by day_code —
+				# it APPENDS. The response can therefore carry several type-9
+				# overrides for the same day with conflicting actions, in no
+				# particular order (verified live: same CAEQBQ day with action 2,
+				# 1, 1, 2 at increasing timestamps). The effective one is the
+				# MOST RECENT, identified by the override's own timestamp at
+				# item[1] (epoch ms string) — NOT the last in iteration order.
+				# Picking by list position silently read a stale override and
+				# made the switch ignore a fresh "Only today" toggle.
+				bedtime_enabled_today = bedtime_enabled
+				today_day_code = self._DAY_CODES.get(dt_util.now().isoweekday())
+				if today_day_code and isinstance(data, list):
+					latest_ts = -1
+					latest_action = None
+					for element in data:
+						if not isinstance(element, list):
+							continue
+						for item in element:
+							# Bedtime override: [uuid, ts, 9, ..., [action,[h,m],[h,m],code]]
+							if not (isinstance(item, list) and len(item) > 2 and item[2] == 9):
+								continue
+							override_payload = next(
+								(
+									p for p in item
+									if isinstance(p, list) and len(p) == 4
+									and isinstance(p[3], str) and p[3].startswith("CAEQ")
+								),
+								None,
+							)
+							if override_payload is None:
+								continue
+							action = override_payload[0]
+							code = override_payload[3]
+							if code != today_day_code or action not in (1, 2):
+								continue
+							# Override timestamp at item[1] (epoch ms as string).
+							try:
+								ts = int(item[1]) if len(item) > 1 else -1
+							except (TypeError, ValueError):
+								ts = -1
+							if ts >= latest_ts:
+								latest_ts = ts
+								latest_action = action
+					if latest_action is not None:
+						bedtime_enabled_today = (latest_action == 2)
+						_LOGGER.debug(
+							f"Most recent bedtime override for today (day_code="
+							f"{today_day_code}, ts={latest_ts}): action={latest_action} "
+							f"-> bedtime_enabled_today={bedtime_enabled_today} "
+							f"(weekly was {bedtime_enabled})"
+						)
+
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
+					f"bedtime_enabled_today={bedtime_enabled_today}, "
 					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules)"
 				)
 
 				return {
 					"bedtime_enabled": bedtime_enabled,
 					"school_time_enabled": school_time_enabled,
+					# Effective state for today, after applying the per-day type-9
+					# override if one exists for today (issue #113). Falls back to
+					# the weekly value when no override is posted for today.
+					"bedtime_enabled_today": bedtime_enabled_today,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
 					"bedtime_rule_id": bedtime_rule_id,

@@ -214,16 +214,24 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			school_time_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
+			# Today-effective bedtime state derived from the per-day type-9
+			# override in the timeLimit response (issue #113). This is the
+			# authoritative source for the bedtime switch — it reflects the
+			# "Only today" override Google actually applies — and takes
+			# precedence over the appliedTimeLimits heuristic below.
+			bedtime_enabled_today_from_rules = None
 
 			try:
 				time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
 				bedtime_enabled = time_limit_config.get("bedtime_enabled")
 				school_time_enabled = time_limit_config.get("school_time_enabled")
+				bedtime_enabled_today_from_rules = time_limit_config.get("bedtime_enabled_today")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
-					f"bedtime={bedtime_enabled}, school_time={school_time_enabled}"
+					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
+					f"school_time={school_time_enabled}"
 				)
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
@@ -235,6 +243,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						if cached_child.get("child_id") == child_id:
 							bedtime_enabled = cached_child.get("bedtime_enabled")
 							school_time_enabled = cached_child.get("school_time_enabled")
+							bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
 							bedtime_schedule = cached_child.get("bedtime_schedule")
 							school_time_schedule = cached_child.get("school_time_schedule")
 							_LOGGER.debug(f"Using cached time limit config for {child_name}")
@@ -275,6 +284,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							schooltime_enabled_today = cached_child.get("school_time_enabled_today")
 							_LOGGER.debug(f"Using cached applied time limits for {child_name}")
 							break
+
+			# The timeLimit response carries the authoritative per-day bedtime
+			# override (issue #113): action 2/1 for today's day_code directly
+			# states what Google applies. Prefer it over the appliedTimeLimits
+			# window heuristic, which can miss the effective state (e.g. an
+			# "Only today" OFF override leaves no enabled window to detect).
+			if bedtime_enabled_today_from_rules is not None:
+				bedtime_enabled_today = bedtime_enabled_today_from_rules
 
 			# Update device cache with real lock states from API
 			current_time = time.time()
