@@ -89,6 +89,12 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `switch.<child>_school_time` - Enable/disable school time restrictions
 - `switch.<child>_daily_limit` - Enable/disable daily screen time limit
 
+#### Schedule Sensors
+- `sensor.<child>_bedtime_schedule` - Weekly bedtime schedule
+- `sensor.<child>_school_time_schedule` - Weekly school time schedule
+- `sensor.<child>_daily_limit_schedule` - Weekly daily limit schedule
+  - Attributes: `enabled`, `enabled_days`, `schedule`, `monday` through `sunday`
+
 ### Per-Device Entities
 
 #### Sensors

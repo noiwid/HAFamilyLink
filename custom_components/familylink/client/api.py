@@ -28,6 +28,7 @@ from ..exceptions import (
 	NetworkError,
 	SessionExpiredError,
 )
+from ..schedules import parse_daily_limit_schedule, parse_window_schedule_items
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -2304,6 +2305,7 @@ class FamilyLinkClient:
 			- school_time_enabled: Boolean
 			- bedtime_schedule: List of {day, start, end} dicts
 			- school_time_schedule: List of {day, start, end} dicts
+			- daily_limit_schedule: List of {day, minutes} dicts
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -2351,6 +2353,7 @@ class FamilyLinkClient:
 						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
+						"daily_limit_schedule": [],
 						"bedtime_rule_id": None,
 						"schooltime_rule_id": None
 					}
@@ -2367,6 +2370,7 @@ class FamilyLinkClient:
 						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
+						"daily_limit_schedule": [],
 						"bedtime_rule_id": None,
 						"schooltime_rule_id": None
 					}
@@ -2377,6 +2381,7 @@ class FamilyLinkClient:
 				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
 				school_time_schedule = []
+				daily_limit_schedule = []
 
 				# The response structure after unwrapping is:
 				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
@@ -2408,26 +2413,11 @@ class FamilyLinkClient:
 					bedtime_config = data[0]
 					# schedules are the flat list at index 1
 					if len(bedtime_config) > 1 and isinstance(bedtime_config[1], list):
-						for item in bedtime_config[1]:
-							if not (isinstance(item, list) and len(item) >= 5):
-								continue
-							code = item[0]
-							if not isinstance(code, str):
-								continue
-							day = item[1] if len(item) > 1 else None
-							start = item[3] if len(item) > 3 else None
-							end = item[4] if len(item) > 4 else None
-							if not (day and isinstance(start, list) and isinstance(end, list)):
-								continue
-							slot = {
-								"day": day,
-								"start": start,  # [hh, mm]
-								"end": end,  # [hh, mm]
-							}
-							if code.startswith("CAEQ"):
-								bedtime_schedule.append(slot)
-							elif code.startswith("CAMQ"):
-								school_time_schedule.append(slot)
+						bedtime_schedule = parse_window_schedule_items(bedtime_config[1], "CAEQ")
+						school_time_schedule = parse_window_schedule_items(bedtime_config[1], "CAMQ")
+
+				if isinstance(data, list) and len(data) > 1:
+					daily_limit_schedule = parse_daily_limit_schedule(data[1])
 
 				# Parse revisions to get ON/OFF state and rule IDs
 				# Revisions are in the last element of data, containing items with format:
@@ -2567,7 +2557,8 @@ class FamilyLinkClient:
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
 					f"bedtime_enabled_today={bedtime_enabled_today}, "
-					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules)"
+					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules), "
+					f"daily_limit_schedule={len(daily_limit_schedule)} entries"
 				)
 
 				return {
@@ -2579,6 +2570,7 @@ class FamilyLinkClient:
 					"bedtime_enabled_today": bedtime_enabled_today,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
+					"daily_limit_schedule": daily_limit_schedule,
 					"bedtime_rule_id": bedtime_rule_id,
 					"schooltime_rule_id": schooltime_rule_id
 				}

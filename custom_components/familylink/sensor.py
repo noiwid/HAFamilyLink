@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .schedules import DAY_NAMES, format_time_pair
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -98,6 +99,36 @@ async def async_setup_entry(
         # Device sensors
         entities.append(FamilyLinkDeviceCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkChildInfoSensor(coordinator, child_id, child_name))
+        entities.append(FamilyLinkScheduleSensor(
+            coordinator,
+            child_id,
+            child_name,
+            "Bedtime Schedule",
+            "bedtime_schedule",
+            "bedtime_enabled",
+            "mdi:weather-night",
+            "window",
+        ))
+        entities.append(FamilyLinkScheduleSensor(
+            coordinator,
+            child_id,
+            child_name,
+            "School Time Schedule",
+            "school_time_schedule",
+            "school_time_enabled",
+            "mdi:school-outline",
+            "window",
+        ))
+        entities.append(FamilyLinkScheduleSensor(
+            coordinator,
+            child_id,
+            child_name,
+            "Daily Limit Schedule",
+            "daily_limit_schedule",
+            None,
+            "mdi:calendar-clock",
+            "minutes",
+        ))
 
         # Battery sensor (only if location tracking is enabled, as battery comes from location data)
         if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
@@ -383,6 +414,112 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                                     attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
                                 except (ValueError, OSError):
                                     pass
+
+        return attributes
+
+
+class FamilyLinkScheduleSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+    """Read-only weekly schedule sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: FamilyLinkDataUpdateCoordinator,
+        child_id: str,
+        child_name: str,
+        name_suffix: str,
+        schedule_key: str,
+        enabled_key: str | None,
+        icon: str,
+        schedule_type: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+        self._schedule_key = schedule_key
+        self._enabled_key = enabled_key
+        self._schedule_type = schedule_type
+        self._attr_name = f"{child_name} {name_suffix}"
+        self._attr_unique_id = f"{DOMAIN}_{child_id}_{schedule_key}"
+        self._attr_icon = icon
+
+    def _get_schedule(self) -> list[dict[str, Any]]:
+        """Return schedule data for this child."""
+        child_data = self._get_child_data()
+        if not child_data:
+            return []
+        schedule = child_data.get(self._schedule_key)
+        return schedule if isinstance(schedule, list) else []
+
+    def _is_enabled(self, schedule: list[dict[str, Any]]) -> bool | None:
+        """Return the schedule enabled state."""
+        child_data = self._get_child_data()
+        if not child_data:
+            return None
+
+        if self._enabled_key:
+            enabled = child_data.get(self._enabled_key)
+            if isinstance(enabled, bool):
+                return enabled
+
+        if not schedule:
+            return None
+
+        return any(slot.get("enabled") for slot in schedule)
+
+    def _format_slot(self, slot: dict[str, Any]) -> str:
+        """Return a compact day value."""
+        if self._schedule_type == "minutes":
+            minutes = slot.get("minutes")
+            if not slot.get("enabled") or not isinstance(minutes, int) or minutes <= 0:
+                return "off"
+            return f"{minutes} min"
+
+        start = slot.get("start")
+        end = slot.get("end")
+        if not slot.get("enabled") or not isinstance(start, list) or not isinstance(end, list):
+            return "off"
+        return f"{format_time_pair(start)}-{format_time_pair(end)}"
+
+    @property
+    def native_value(self) -> str:
+        """Return enabled, disabled, or unknown."""
+        schedule = self._get_schedule()
+        enabled = self._is_enabled(schedule)
+        if enabled is None:
+            return "unknown"
+        return "enabled" if enabled else "disabled"
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and self._get_child_data() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        schedule = self._get_schedule()
+        enabled = self._is_enabled(schedule)
+        slots_by_day = {
+            slot.get("day"): slot
+            for slot in schedule
+            if isinstance(slot, dict) and isinstance(slot.get("day"), int)
+        }
+        attributes: dict[str, Any] = {
+            "child_id": self._child_id,
+            "child_name": self._child_name,
+			"enabled": enabled,
+			"enabled_days": [
+				slot.get("day_name")
+				for slot in schedule
+				if isinstance(slot, dict) and slot.get("enabled") and slot.get("day_name")
+			],
+			"schedule": schedule,
+		}
+
+        for day, day_name in DAY_NAMES.items():
+            slot = slots_by_day.get(day)
+            attributes[day_name.lower()] = self._format_slot(slot) if slot else "off"
 
         return attributes
 

@@ -214,6 +214,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			school_time_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
+			daily_limit_schedule = None
 			# Today-effective bedtime state derived from the per-day type-9
 			# override in the timeLimit response (issue #113). This is the
 			# authoritative source for the bedtime switch — it reflects the
@@ -228,6 +229,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				bedtime_enabled_today_from_rules = time_limit_config.get("bedtime_enabled_today")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
+				daily_limit_schedule = time_limit_config.get("daily_limit_schedule")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
@@ -246,6 +248,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
 							bedtime_schedule = cached_child.get("bedtime_schedule")
 							school_time_schedule = cached_child.get("school_time_schedule")
+							daily_limit_schedule = cached_child.get("daily_limit_schedule")
 							_LOGGER.debug(f"Using cached time limit config for {child_name}")
 							break
 
@@ -411,6 +414,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"school_time_enabled_today": schooltime_enabled_today,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
+				"daily_limit_schedule": daily_limit_schedule,
 				"daily_limit_enabled": daily_limit_enabled,
 				"devices_time_data": devices_time_data,
 			}

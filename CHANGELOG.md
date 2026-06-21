@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- Read-only child-level schedule sensors for bedtime, school time, and daily limits. These use the existing coordinator data from Google's `timeLimit` response and do not add extra polling per sensor.
+
+---
+
 ## [1.2.7-rc5] - 2026-06-09
 
 ### Added
