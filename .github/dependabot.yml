@@ -1,0 +1,45 @@
+version: 2
+
+updates:
+  - package-ecosystem: "pip"
+    directories:
+      - "/"
+      - "/familylink-playwright"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "01:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/familylink-playwright"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "01:15"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "01:30"
+      timezone: "UTC"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
