@@ -198,6 +198,14 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			attributes["bonus_active"] = time_data.get("bonus_minutes", 0) > 0
 			attributes["bonus_minutes"] = time_data.get("bonus_minutes", 0)
 			attributes["remaining_minutes"] = time_data.get("remaining_minutes", 0)
+			attributes["bedtime_window_start"] = time_data.get("bedtime_window_start")
+			attributes["bedtime_window_end"] = time_data.get("bedtime_window_end")
+			attributes["bedtime_window_label"] = time_data.get("bedtime_window_label")
+			attributes["bedtime_window_source"] = time_data.get("bedtime_window_source")
+			attributes["bedtime_weekly_window_label"] = time_data.get("bedtime_weekly_window_label")
+			attributes["bedtime_window_differs_from_weekly"] = time_data.get("bedtime_window_differs_from_weekly", False)
+			attributes["bedtime_today_source"] = time_data.get("bedtime_today_source")
+			attributes["bedtime_today_override_action"] = time_data.get("bedtime_today_override_action")
 
 			# Add restriction reason
 			if device and device.get("locked", False):

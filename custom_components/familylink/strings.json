@@ -5,14 +5,16 @@
 				"title": "Configure Family Link",
 				"description": "Adjust integration settings. Changes will take effect after saving.",
 				"data": {
-					"update_interval": "Update Interval (seconds)",
-					"timeout": "Request Timeout (seconds)",
-					"enable_location_tracking": "Enable GPS location tracking"
-				},
-				"data_description": {
-					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
-					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device"
-				}
+						"update_interval": "Update Interval (seconds)",
+						"timeout": "Request Timeout (seconds)",
+						"enable_location_tracking": "Enable GPS location tracking",
+						"schedule_timezone": "Schedule timezone"
+					},
+					"data_description": {
+						"update_interval": "How often to fetch data from Google (30-3600 seconds)",
+						"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
+						"schedule_timezone": "Optional IANA timezone for schedule day calculations, such as Asia/Jerusalem. Leave blank to use the child's device timezone from Google when available, then fall back to Home Assistant's timezone."
+					}
 			}
 		}
 	},
@@ -28,7 +30,7 @@
 			},
 			"manual_url": {
 				"title": "Authentication Server URL",
-				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`\n\nIf the auth server requires an API key (auth container v1.7.0+), append it to the URL: `http://192.168.1.100:8099?api_key=<key>` (key in the container's `data/api_key` file).",
+				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`\n\nIf the auth server requires an API key (auth container v1.7.0+), append it to the URL: `http://192.168.1.100:8099?api_key=YOUR_API_KEY` (key in the container's `data/api_key` file).",
 				"data": {
 					"auth_url": "Authentication Server URL"
 				}
@@ -37,14 +39,16 @@
 				"title": "Configure Family Link",
 				"description": "Authentication source: {auth_source}",
 				"data": {
-					"name": "Integration Name",
-					"update_interval": "Update Interval (seconds)",
-					"timeout": "Request Timeout (seconds)",
-					"enable_location_tracking": "Enable GPS location tracking"
-				},
-				"data_description": {
-					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
-				}
+						"name": "Integration Name",
+						"update_interval": "Update Interval (seconds)",
+						"timeout": "Request Timeout (seconds)",
+						"enable_location_tracking": "Enable GPS location tracking",
+						"schedule_timezone": "Schedule timezone"
+					},
+					"data_description": {
+						"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
+						"schedule_timezone": "Optional IANA timezone for schedule day calculations, such as Asia/Jerusalem. Leave blank to use the child's device timezone from Google when available, then fall back to Home Assistant's timezone."
+					}
 			}
 		},
 		"error": {
@@ -52,8 +56,9 @@
 			"invalid_auth": "No cookies found. Please authenticate first using the Family Link Auth add-on or container.",
 			"url_required": "URL is required",
 			"no_cookies": "Server is reachable but no cookies found. Please authenticate first via the web interface.",
-			"invalid_api_key": "The server requires an API key. Append ?api_key=<key> to the URL — the key is in the 'api_key' file of the auth container's data directory (e.g. ./data/api_key).",
-			"unknown": "Unexpected error occurred"
+				"invalid_api_key": "The server requires an API key. Append ?api_key=YOUR_API_KEY to the URL — the key is in the 'api_key' file of the auth container's data directory (e.g. ./data/api_key).",
+				"invalid_timezone": "Use a valid IANA timezone such as Asia/Jerusalem, or leave the field blank to use the Google device timezone when available.",
+				"unknown": "Unexpected error occurred"
 		},
 		"abort": {
 			"already_configured": "Integration is already configured",

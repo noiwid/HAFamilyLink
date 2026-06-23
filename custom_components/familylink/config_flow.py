@@ -15,6 +15,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .const import (
 	CONF_AUTH_URL,
 	CONF_ENABLE_LOCATION_TRACKING,
+	CONF_SCHEDULE_TIMEZONE,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_TIMEOUT,
@@ -24,8 +25,19 @@ from .const import (
 	LOGGER_NAME,
 )
 from .exceptions import AuthenticationError
+from .schedules import get_time_zone
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
+
+
+def _normalize_schedule_timezone(value: Any) -> str:
+	"""Normalize and validate the optional schedule timezone."""
+	if value is None:
+		return ""
+	timezone = str(value).strip()
+	if timezone and get_time_zone(timezone) is None:
+		raise vol.Invalid("invalid_timezone")
+	return timezone
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -165,6 +177,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			auth_url = self._detected_url
 
 		if user_input is not None:
+			try:
+				user_input[CONF_SCHEDULE_TIMEZONE] = _normalize_schedule_timezone(
+					user_input.get(CONF_SCHEDULE_TIMEZONE)
+				)
+			except vol.Invalid:
+				errors[CONF_SCHEDULE_TIMEZONE] = "invalid_timezone"
+			if errors:
+				return self.async_show_form(
+					step_id="configure",
+					data_schema=self._configure_schema(user_input),
+					errors=errors,
+					description_placeholders=self._description_placeholders(auth_url),
+				)
+
 			# Add auth_url to data if we have one
 			if auth_url:
 				user_input[CONF_AUTH_URL] = auth_url
@@ -185,8 +211,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				_LOGGER.exception("Unexpected exception")
 				errors["base"] = "unknown"
 
-		# Build schema
-		schema = vol.Schema({
+		return self.async_show_form(
+			step_id="configure",
+			data_schema=self._configure_schema(),
+			errors=errors,
+			description_placeholders=self._description_placeholders(auth_url),
+		)
+
+	def _configure_schema(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+		"""Return the configure-step schema."""
+		defaults = defaults or {}
+		return vol.Schema({
 			vol.Required(CONF_NAME, default=INTEGRATION_NAME): str,
 			vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): vol.All(
 				vol.Coerce(int), vol.Range(min=30, max=3600)
@@ -195,23 +230,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				vol.Coerce(int), vol.Range(min=10, max=120)
 			),
 			vol.Optional(CONF_ENABLE_LOCATION_TRACKING, default=False): bool,
+			vol.Optional(
+				CONF_SCHEDULE_TIMEZONE,
+				default=defaults.get(CONF_SCHEDULE_TIMEZONE, ""),
+			): str,
 		})
 
-		# Add description about detected source
-		description_placeholders = {}
+	def _description_placeholders(self, auth_url: str | None) -> dict[str, str]:
+		"""Return configure-step description placeholders."""
 		if self._detected_source == "api":
-			description_placeholders["auth_source"] = f"API ({self._detected_url})"
+			auth_source = f"API ({self._detected_url})"
 		elif self._detected_source == "file":
-			description_placeholders["auth_source"] = "Local file (/share/familylink/)"
+			auth_source = "Local file (/share/familylink/)"
 		else:
-			description_placeholders["auth_source"] = auth_url or "Manual URL"
-
-		return self.async_show_form(
-			step_id="configure",
-			data_schema=schema,
-			errors=errors,
-			description_placeholders=description_placeholders,
-		)
+			auth_source = auth_url or "Manual URL"
+		return {"auth_source": auth_source}
 
 	async def async_step_import(self, import_info: dict[str, Any]) -> FlowResult:
 		"""Handle import from configuration.yaml."""
@@ -241,36 +274,56 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 	) -> FlowResult:
 		"""Manage the options."""
 		if user_input is not None:
+			try:
+				user_input[CONF_SCHEDULE_TIMEZONE] = _normalize_schedule_timezone(
+					user_input.get(CONF_SCHEDULE_TIMEZONE)
+				)
+			except vol.Invalid:
+				return self.async_show_form(
+					step_id="init",
+					data_schema=self._options_schema(user_input),
+					errors={CONF_SCHEDULE_TIMEZONE: "invalid_timezone"},
+				)
 			# Update the config entry with new options
 			return self.async_create_entry(title="", data=user_input)
 
-		# Get current values from config entry data (options first, then data)
-		current_options = self.config_entry.options
-		current_data = self.config_entry.data
-
 		return self.async_show_form(
 			step_id="init",
-			data_schema=vol.Schema({
-				vol.Optional(
-					CONF_UPDATE_INTERVAL,
-					default=current_options.get(
-						CONF_UPDATE_INTERVAL,
-						current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
-					),
-				): vol.All(vol.Coerce(int), vol.Range(min=30, max=3600)),
-				vol.Optional(
-					CONF_TIMEOUT,
-					default=current_options.get(
-						CONF_TIMEOUT,
-						current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
-					),
-				): vol.All(vol.Coerce(int), vol.Range(min=10, max=120)),
-				vol.Optional(
-					CONF_ENABLE_LOCATION_TRACKING,
-					default=current_options.get(
-						CONF_ENABLE_LOCATION_TRACKING,
-						current_data.get(CONF_ENABLE_LOCATION_TRACKING, False)
-					),
-				): bool,
-			}),
+			data_schema=self._options_schema(),
 		)
+
+	def _options_schema(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+		"""Return the options-flow schema."""
+		defaults = defaults or {}
+		current_options = self.config_entry.options
+		current_data = self.config_entry.data
+		return vol.Schema({
+			vol.Optional(
+				CONF_UPDATE_INTERVAL,
+				default=defaults.get(CONF_UPDATE_INTERVAL, current_options.get(
+					CONF_UPDATE_INTERVAL,
+					current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+				)),
+			): vol.All(vol.Coerce(int), vol.Range(min=30, max=3600)),
+			vol.Optional(
+				CONF_TIMEOUT,
+				default=defaults.get(CONF_TIMEOUT, current_options.get(
+					CONF_TIMEOUT,
+					current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+				)),
+			): vol.All(vol.Coerce(int), vol.Range(min=10, max=120)),
+			vol.Optional(
+				CONF_ENABLE_LOCATION_TRACKING,
+				default=defaults.get(CONF_ENABLE_LOCATION_TRACKING, current_options.get(
+					CONF_ENABLE_LOCATION_TRACKING,
+					current_data.get(CONF_ENABLE_LOCATION_TRACKING, False)
+				)),
+			): bool,
+			vol.Optional(
+				CONF_SCHEDULE_TIMEZONE,
+				default=defaults.get(CONF_SCHEDULE_TIMEZONE, current_options.get(
+					CONF_SCHEDULE_TIMEZONE,
+					current_data.get(CONF_SCHEDULE_TIMEZONE, "")
+				)),
+			): str,
+		})

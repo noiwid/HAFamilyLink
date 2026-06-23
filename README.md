@@ -21,13 +21,14 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 
 ### ⏰ Time Management
 - **Bedtime Control** - Enable/disable bedtime (downtime) restrictions
-- **Set Bedtime Schedule** - Modify bedtime start/end times for any day (or today by default)
+- **Set Bedtime Schedule** - Modify recurring bedtime start/end times for any weekday
 - **School Time Control** - Enable/disable school time restrictions
 - **Daily Limit Control** - Enable/disable daily screen time limits (0-1440 minutes)
-- **Set Daily Limit** - Change daily screen time limit duration per device
+- **Set Daily Limit** - Change today's daily screen time limit duration per device
+- **Set Daily Limit Schedule** - Modify recurring daily limit minutes for any weekday
 - **Time Bonuses** - Add extra time (15min, 30min, 60min) or cancel active bonuses
 - **Smart Detection** - Automatically detects when device is in bedtime/school time window
-- **Schedule Visibility** - View bedtime and school time schedules in sensor attributes
+- **Schedule Visibility** - View bedtime, school time, and daily limit schedules in sensor attributes
 
 ### 📊 Screen Time Monitoring
 - **Daily Screen Time** - Track total daily usage per child
@@ -89,6 +90,19 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `switch.<child>_school_time` - Enable/disable school time restrictions
 - `switch.<child>_daily_limit` - Enable/disable daily screen time limit
 
+#### Schedule Sensors
+- `sensor.<child>_bedtime_schedule` - Weekly bedtime schedule
+- `sensor.<child>_school_time_schedule` - Weekly school time schedule
+- `sensor.<child>_daily_limit_schedule` - Weekly daily limit schedule
+  - Attributes: `enabled`, `enabled_days`, `schedule`, `today`, `schedule_today_key`, `monday` through `sunday`
+
+#### Schedule Services
+- `familylink.set_bedtime_schedule` - Update a recurring bedtime weekday window and enabled state
+- `familylink.set_daily_limit_schedule` - Update recurring daily limit minutes and enabled state for one weekday
+- `familylink.set_bedtime` and `familylink.set_daily_limit` remain one-day override services
+- School time schedules are exposed read-only through `sensor.<child>_school_time_schedule`. This fork's recurring schedule write work focuses on bedtime and daily limits; it does not implement weekly school time schedule editing.
+- Schedule day calculations use the optional `schedule_timezone` setting when provided. Leave it blank to use the child's device timezone from Google when available, then fall back to Home Assistant's timezone.
+
 ### Per-Device Entities
 
 #### Sensors
@@ -108,6 +122,9 @@ This integration uses unofficial, reverse-engineered Google Family Link API endp
 - `switch.<device>` - Lock/unlock device
   - **ON** = Device unlocked (child can use device) 📱
   - **OFF** = Device locked (device is locked) 🔒
+  - Attributes include effective bedtime window details: `bedtime_window_start`, `bedtime_window_end`, `bedtime_window_label`, `bedtime_window_source`, `bedtime_weekly_window_label`, `bedtime_window_differs_from_weekly`, `bedtime_today_source`, and `bedtime_today_override_action`
+  - `bedtime_window_source` is `weekly` when the active effective window comes from the recurring schedule, `today_override` when it comes from a one-day override (even if the hours match weekly), or `none` when no effective bedtime window is active
+  - `bedtime_today_source` is `weekly` or `today_override` even when today's override disables downtime and no effective bedtime window exists; `bedtime_today_override_action` mirrors Google's raw action (`1` = disabled today, `2` = enabled today)
 
 #### Buttons
 - `button.<device>_15min` - Add 15 minutes bonus
@@ -259,11 +276,12 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 | `/people/{userId}/apps` | Installed apps list |
 | `/people/{userId}/apps:updateRestrictions` | Block/unblock apps, set per-app time limits |
 | `/people/{userId}/appsandusage` | App usage data |
+| `/people/{userId}/devices` | Device metadata, including device timezone when exposed |
 | `/people/{userId}/timeLimitOverrides:batchCreate` | Lock/unlock devices, add time bonuses |
 | `/people/{userId}/timeLimitOverride/{id}?$httpMethod=DELETE` | Cancel time bonuses |
 | `/people/{userId}/appliedTimeLimits` | Current time limits and lock states |
 | `/people/{userId}/timeLimit` | Time limit rules and schedules |
-| `/people/{userId}/timeLimit:update` | Enable/disable bedtime, school time, daily limit |
+| `/people/{userId}/timeLimit:update` | Enable/disable bedtime, school time, daily limit; update recurring bedtime and daily limit schedules |
 
 ## 🐛 Troubleshooting
 
@@ -296,7 +314,7 @@ This integration uses reverse-engineered Google Family Link API endpoints:
 1. Verify schedules are configured in Family Link app
 2. Check sensor attributes for `bedtime_start` and `bedtime_end` timestamps
 3. Ensure schedules are enabled for current day of week
-4. Check Home Assistant timezone matches your actual timezone
+4. Check the integration's `schedule_timezone` option. If it is blank, confirm Google exposes the child device timezone or ensure Home Assistant timezone matches the child's schedule timezone
 
 ### Sensors Show "Not Configured" or "Unavailable"
 

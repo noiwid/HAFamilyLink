@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
+	CONF_SCHEDULE_TIMEZONE,
 	DEVICE_LOCK_ACTION,
 	DEVICE_RING_ACTION_CODE,
 	DEVICE_UNLOCK_ACTION,
@@ -26,7 +27,19 @@ from ..exceptions import (
 	AuthenticationError,
 	DeviceControlError,
 	NetworkError,
+	ScheduleUpdatePartialError,
 	SessionExpiredError,
+)
+from ..schedules import (
+	DAY_CODES,
+	build_bedtime_day_enabled_update_payload,
+	build_bedtime_schedule_update_payload,
+	build_daily_limit_day_enabled_update_payload,
+	build_daily_limit_schedule_update_payload,
+	find_device_time_zone_name,
+	get_time_zone,
+	parse_daily_limit_schedule,
+	parse_window_schedule_items,
 )
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -56,6 +69,52 @@ class FamilyLinkClient:
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
+		self._configured_schedule_timezone = (
+			config.get(CONF_SCHEDULE_TIMEZONE, "") or ""
+		).strip()
+		self._google_schedule_timezones: dict[str, str] = {}
+		self._google_schedule_timezone_checked: set[str] = set()
+
+	def update_google_schedule_timezone(self, account_id: str, devices_payload: Any) -> None:
+		"""Cache the schedule timezone from the known Google devices payload."""
+		if self._configured_schedule_timezone:
+			return
+		timezone = find_device_time_zone_name(devices_payload)
+		if timezone:
+			self._google_schedule_timezones[account_id] = timezone
+			_LOGGER.debug("Using Google device timezone for %s: %s", account_id, timezone)
+
+	def _schedule_time_zone_context(self, account_id: str | None = None) -> tuple[Any | None, str | None, str]:
+		"""Return the effective timezone, name, and source for schedule dates."""
+		configured = get_time_zone(self._configured_schedule_timezone)
+		if configured:
+			return configured, self._configured_schedule_timezone, "config"
+
+		if self._configured_schedule_timezone:
+			_LOGGER.warning(
+				"Ignoring invalid configured schedule timezone: %s",
+				self._configured_schedule_timezone,
+			)
+
+		google_timezone = (
+			self._google_schedule_timezones.get(account_id)
+			if account_id
+			else None
+		)
+		if google_timezone is None and len(self._google_schedule_timezones) == 1:
+			google_timezone = next(iter(self._google_schedule_timezones.values()))
+
+		google = get_time_zone(google_timezone)
+		if google:
+			return google, google_timezone, "google"
+
+		home_assistant_timezone = getattr(self.hass.config, "time_zone", None)
+		return get_time_zone(home_assistant_timezone), home_assistant_timezone, "home_assistant"
+
+	def schedule_today(self, account_id: str | None = None) -> int:
+		"""Return today's ISO weekday in the effective schedule timezone."""
+		time_zone, _, _ = self._schedule_time_zone_context(account_id)
+		return dt_util.now(time_zone).isoweekday() if time_zone else dt_util.now().isoweekday()
 
 	@staticmethod
 	def _validate_id(value: str, name: str = "ID") -> str:
@@ -455,6 +514,71 @@ class FamilyLinkClient:
 		except Exception as err:
 			_LOGGER.error("Unexpected error fetching apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
+
+	async def async_get_devices_payload(self, account_id: str | None = None) -> Any:
+		"""Get the raw devices payload used for device timezone discovery."""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			url = self._people_url(account_id, "devices")
+
+			_LOGGER.debug("Fetching devices payload from %s", url)
+
+			async with session.get(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+				params={"includeUnmanagedDevices": "true"},
+			) as response:
+				if response.status == 401:
+					_LOGGER.error("✗ 401 Unauthorized - Session expired fetching devices")
+					raise SessionExpiredError("Session expired, please re-authenticate")
+				if response.status != 200:
+					response_text = await response.text()
+					raise NetworkError(
+						f"Failed to fetch devices: HTTP {response.status}: {response_text}"
+					)
+
+				return await response.json()
+
+		except SessionExpiredError:
+			raise
+		except NetworkError:
+			raise
+		except Exception as err:
+			_LOGGER.error("Unexpected error fetching devices: %s", err)
+			raise NetworkError(f"Failed to fetch devices: {err}") from err
+
+	async def async_update_google_schedule_timezone_from_devices(self, account_id: str) -> None:
+		"""Best-effort cache of the Google device timezone for one child."""
+		if (
+			self._configured_schedule_timezone
+			or account_id in self._google_schedule_timezones
+			or account_id in self._google_schedule_timezone_checked
+		):
+			return
+
+		try:
+			devices_payload = await self.async_get_devices_payload(account_id)
+		except Exception as err:
+			self._google_schedule_timezone_checked.add(account_id)
+			_LOGGER.debug(
+				"Could not fetch Google device timezone for %s; using fallback timezone: %s",
+				account_id,
+				err,
+			)
+			return
+
+		self._google_schedule_timezone_checked.add(account_id)
+		self.update_google_schedule_timezone(account_id, devices_payload)
 
 	async def async_get_daily_screen_time(
 		self,
@@ -1249,6 +1373,8 @@ class FamilyLinkClient:
 							"daily_limit_enabled": False,
 							"daily_limit_minutes": 0,
 							"bedtime_window": None,
+							"bedtime_window_start": None,
+							"bedtime_window_end": None,
 							"schooltime_window": None,
 							"bedtime_active": False,
 							"schooltime_active": False,
@@ -1314,7 +1440,7 @@ class FamilyLinkClient:
 						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
 
 						# Get current day of week (1=Monday, 7=Sunday)
-						current_day = dt_util.now().isoweekday()
+						current_day = self.schedule_today(account_id)
 						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
 
 						for idx, item in enumerate(device_data):
@@ -1414,9 +1540,13 @@ class FamilyLinkClient:
 													"start_ms": int(start_dt.timestamp() * 1000),
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
+												window_start = f"{start_hour:02d}:{start_min:02d}"
+												window_end = f"{end_hour:02d}:{end_min:02d}"
 
 												if parse_as_bedtime:
 													device_info["bedtime_window"] = window_data
+													device_info["bedtime_window_start"] = window_start
+													device_info["bedtime_window_end"] = window_end
 													device_info["bedtime_active"] = window_active
 													# An enabled bedtime rule exists for today on this
 													# device — switch must show ON regardless of weekly
@@ -1425,7 +1555,7 @@ class FamilyLinkClient:
 
 													_LOGGER.debug(
 														f"Device {device_id}: Bedtime window parsed - "
-														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
+														f"start={window_start}, end={window_end}, "
 														f"current_time={now.strftime('%H:%M')}, active={window_active}"
 													)
 												elif parse_as_schooltime:
@@ -1633,15 +1763,7 @@ class FamilyLinkClient:
 
 	# Day-of-week → CAEQ day_code used by Google's batchCreate payloads
 	# (bedtime overrides, daily limit overrides). ISO weekday: 1=Monday … 7=Sunday.
-	_DAY_CODES = {
-		1: "CAEQAQ",  # Monday
-		2: "CAEQAg",  # Tuesday
-		3: "CAEQAw",  # Wednesday
-		4: "CAEQBA",  # Thursday
-		5: "CAEQBQ",  # Friday
-		6: "CAEQBg",  # Saturday
-		7: "CAEQBw",  # Sunday
-	}
+	_DAY_CODES = DAY_CODES
 
 	async def async_enable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Enable bedtime, mirroring the Family Link web app (issue #113).
@@ -1709,8 +1831,7 @@ class FamilyLinkClient:
 		# Pick the weekly bedtime slot matching today; fall back to a sane
 		# default (21:30 → 07:00) if the user has no slot configured for
 		# today — that way the override at least covers a reasonable window.
-		now_local = dt_util.now()
-		weekday = now_local.isoweekday()
+		weekday = self.schedule_today(account_id)
 		day_code = self._DAY_CODES.get(weekday)
 		if not day_code:
 			_LOGGER.error("Unexpected weekday %s — cannot build bedtime override", weekday)
@@ -1875,7 +1996,8 @@ class FamilyLinkClient:
 
 		# Google uses ISO weekday numbering (1=Monday … 7=Sunday) in the user's
 		# local time, since Family Link schedules are per-day.
-		now_local = dt_util.now()
+		schedule_time_zone, _, _ = self._schedule_time_zone_context(account_id)
+		now_local = dt_util.now(schedule_time_zone) if schedule_time_zone else dt_util.now()
 		weekday = now_local.isoweekday()
 		start = [now_local.hour, now_local.minute]
 		# 23:59 is what the web app uses when extending to end of day; this
@@ -2180,7 +2302,7 @@ class FamilyLinkClient:
 			cookie_header = self._get_cookie_header()
 
 			# Get current day of week (1=Monday, 7=Sunday) and map to CAEQ code
-			current_day = dt_util.now().isoweekday()
+			current_day = self.schedule_today(account_id)
 			day_code = self._DAY_CODES[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -2250,7 +2372,7 @@ class FamilyLinkClient:
 
 			# Use provided day or default to today
 			if day is None:
-				day = dt_util.now().isoweekday()
+				day = self.schedule_today(account_id)
 
 			if day not in self._DAY_CODES:
 				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
@@ -2292,6 +2414,153 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error setting bedtime: {err}")
 			return False
 
+	async def _async_update_time_limit(
+		self,
+		account_id: str,
+		payload: list[Any],
+		description: str,
+	) -> bool:
+		"""Send a recurring timeLimit:update payload via PUT."""
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			url = self._people_url(account_id, "timeLimit:update")
+
+			async with session.put(
+				url,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+				data=json.dumps(payload),
+				params={"$httpMethod": "PUT"},
+			) as response:
+				if response.status != 200:
+					response_text = await response.text()
+					_LOGGER.error(
+						"Failed to update %s (HTTP %s): %s",
+						description, response.status, response_text,
+					)
+					return False
+
+			_LOGGER.info("Successfully updated %s", description)
+			return True
+
+		except Exception as err:
+			_LOGGER.error("Unexpected error updating %s: %s", description, err)
+			return False
+
+	def _raise_partial_schedule_update(
+		self,
+		successful_updates: list[str],
+		failed_update: str,
+	) -> None:
+		"""Raise or log a failed schedule sub-write."""
+		if successful_updates:
+			raise ScheduleUpdatePartialError(successful_updates, failed_update)
+		_LOGGER.error("Failed to update %s", failed_update)
+
+	async def async_set_bedtime_schedule(
+		self,
+		day: int,
+		start_time: str | None = None,
+		end_time: str | None = None,
+		enabled: bool | None = None,
+		account_id: str | None = None,
+	) -> bool:
+		"""Update a recurring bedtime schedule day."""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		has_window = start_time is not None or end_time is not None
+		if has_window and (start_time is None or end_time is None):
+			_LOGGER.error("Both start_time and end_time are required to update a bedtime window")
+			return False
+		if not has_window and enabled is None:
+			_LOGGER.error("Provide start_time/end_time, enabled, or both")
+			return False
+
+		try:
+			successful_updates: list[str] = []
+			if has_window:
+				description = f"bedtime schedule for day {day}"
+				payload = build_bedtime_schedule_update_payload(
+					account_id, day, start_time, end_time
+				)
+				if not await self._async_update_time_limit(
+					account_id, payload, description
+				):
+					self._raise_partial_schedule_update(successful_updates, description)
+					return False
+				successful_updates.append(description)
+
+			if enabled is not None:
+				description = f"bedtime schedule enabled state for day {day}"
+				payload = build_bedtime_day_enabled_update_payload(account_id, day, enabled)
+				if not await self._async_update_time_limit(
+					account_id, payload, description
+				):
+					self._raise_partial_schedule_update(successful_updates, description)
+					return False
+				successful_updates.append(description)
+
+			return True
+
+		except ValueError as err:
+			_LOGGER.error("Invalid bedtime schedule value: %s", err)
+			return False
+
+	async def async_set_daily_limit_schedule(
+		self,
+		day: int,
+		daily_minutes: int | None = None,
+		enabled: bool | None = None,
+		account_id: str | None = None,
+	) -> bool:
+		"""Update a recurring daily limit schedule day."""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		if daily_minutes is None and enabled is None:
+			_LOGGER.error("Provide daily_minutes, enabled, or both")
+			return False
+
+		try:
+			successful_updates: list[str] = []
+			if daily_minutes is not None:
+				description = f"daily limit schedule for day {day}"
+				payload = build_daily_limit_schedule_update_payload(
+					account_id, day, daily_minutes
+				)
+				if not await self._async_update_time_limit(
+					account_id, payload, description
+				):
+					self._raise_partial_schedule_update(successful_updates, description)
+					return False
+				successful_updates.append(description)
+
+			if enabled is not None:
+				description = f"daily limit schedule enabled state for day {day}"
+				payload = build_daily_limit_day_enabled_update_payload(account_id, day, enabled)
+				if not await self._async_update_time_limit(
+					account_id, payload, description
+				):
+					self._raise_partial_schedule_update(successful_updates, description)
+					return False
+				successful_updates.append(description)
+
+			return True
+
+		except ValueError as err:
+			_LOGGER.error("Invalid daily limit schedule value: %s", err)
+			return False
+
 	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
 		"""Get time limit rules and schedules (bedtime/schooltime).
 
@@ -2304,6 +2573,7 @@ class FamilyLinkClient:
 			- school_time_enabled: Boolean
 			- bedtime_schedule: List of {day, start, end} dicts
 			- school_time_schedule: List of {day, start, end} dicts
+			- daily_limit_schedule: List of {day, minutes} dicts
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -2351,12 +2621,21 @@ class FamilyLinkClient:
 						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
+						"daily_limit_schedule": [],
 						"bedtime_rule_id": None,
 						"schooltime_rule_id": None
 					}
 
 				response_data = await response.json()
 				_LOGGER.debug(f"Time limit rules response: {response_data}")
+				schedule_time_zone, schedule_timezone, schedule_timezone_source = (
+					self._schedule_time_zone_context(account_id)
+				)
+				schedule_today = (
+					dt_util.now(schedule_time_zone).isoweekday()
+					if schedule_time_zone
+					else dt_util.now().isoweekday()
+				)
 
 				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
 				if not isinstance(response_data, list) or len(response_data) < 2:
@@ -2367,6 +2646,7 @@ class FamilyLinkClient:
 						"bedtime_enabled_today": None,
 						"bedtime_schedule": [],
 						"school_time_schedule": [],
+						"daily_limit_schedule": [],
 						"bedtime_rule_id": None,
 						"schooltime_rule_id": None
 					}
@@ -2377,6 +2657,7 @@ class FamilyLinkClient:
 				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
 				school_time_schedule = []
+				daily_limit_schedule = []
 
 				# The response structure after unwrapping is:
 				# data = [bedtime_config, daily_limit_config, history, None, [1], [current_states]]
@@ -2408,26 +2689,11 @@ class FamilyLinkClient:
 					bedtime_config = data[0]
 					# schedules are the flat list at index 1
 					if len(bedtime_config) > 1 and isinstance(bedtime_config[1], list):
-						for item in bedtime_config[1]:
-							if not (isinstance(item, list) and len(item) >= 5):
-								continue
-							code = item[0]
-							if not isinstance(code, str):
-								continue
-							day = item[1] if len(item) > 1 else None
-							start = item[3] if len(item) > 3 else None
-							end = item[4] if len(item) > 4 else None
-							if not (day and isinstance(start, list) and isinstance(end, list)):
-								continue
-							slot = {
-								"day": day,
-								"start": start,  # [hh, mm]
-								"end": end,  # [hh, mm]
-							}
-							if code.startswith("CAEQ"):
-								bedtime_schedule.append(slot)
-							elif code.startswith("CAMQ"):
-								school_time_schedule.append(slot)
+						bedtime_schedule = parse_window_schedule_items(bedtime_config[1], "CAEQ")
+						school_time_schedule = parse_window_schedule_items(bedtime_config[1], "CAMQ")
+
+				if isinstance(data, list) and len(data) > 1:
+					daily_limit_schedule = parse_daily_limit_schedule(data[1])
 
 				# Parse revisions to get ON/OFF state and rule IDs
 				# Revisions are in the last element of data, containing items with format:
@@ -2522,7 +2788,9 @@ class FamilyLinkClient:
 				# Picking by list position silently read a stale override and
 				# made the switch ignore a fresh "Only today" toggle.
 				bedtime_enabled_today = bedtime_enabled
-				today_day_code = self._DAY_CODES.get(dt_util.now().isoweekday())
+				bedtime_today_source = "weekly"
+				bedtime_today_override_action = None
+				today_day_code = self._DAY_CODES.get(schedule_today)
 				if today_day_code and isinstance(data, list):
 					latest_ts = -1
 					latest_action = None
@@ -2557,6 +2825,8 @@ class FamilyLinkClient:
 								latest_action = action
 					if latest_action is not None:
 						bedtime_enabled_today = (latest_action == 2)
+						bedtime_today_source = "today_override"
+						bedtime_today_override_action = latest_action
 						_LOGGER.debug(
 							f"Most recent bedtime override for today (day_code="
 							f"{today_day_code}, ts={latest_ts}): action={latest_action} "
@@ -2567,7 +2837,8 @@ class FamilyLinkClient:
 				_LOGGER.info(
 					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
 					f"bedtime_enabled_today={bedtime_enabled_today}, "
-					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules)"
+					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules), "
+					f"daily_limit_schedule={len(daily_limit_schedule)} entries"
 				)
 
 				return {
@@ -2577,8 +2848,15 @@ class FamilyLinkClient:
 					# override if one exists for today (issue #113). Falls back to
 					# the weekly value when no override is posted for today.
 					"bedtime_enabled_today": bedtime_enabled_today,
+					"bedtime_today_source": bedtime_today_source,
+					"bedtime_today_override_action": bedtime_today_override_action,
+						"schedule_today": schedule_today,
+						"schedule_timezone": schedule_timezone,
+						"schedule_timezone_source": schedule_timezone_source,
+						"google_schedule_timezone": self._google_schedule_timezones.get(account_id),
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
+					"daily_limit_schedule": daily_limit_schedule,
 					"bedtime_rule_id": bedtime_rule_id,
 					"schooltime_rule_id": schooltime_rule_id
 				}

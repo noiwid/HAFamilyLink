@@ -219,7 +219,7 @@ disable_bedtime:
 
 set_bedtime:
   name: Set Bedtime
-  description: Set bedtime start and end times for a specific day. If no day is specified, applies to today.
+  description: Apply a bedtime override for one day. If no day is specified, applies to today. To update the recurring weekly schedule, use Set Bedtime Schedule.
   fields:
     start_time:
       name: Start Time
@@ -259,6 +259,66 @@ set_bedtime:
     child_id:
       name: Child ID
       description: Child's user ID (optional if only one child)
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+set_bedtime_schedule:
+  name: Set Bedtime Schedule
+  description: Update the recurring bedtime schedule for one weekday. Provide start/end time, enabled state, or both.
+  fields:
+    day:
+      name: Day
+      description: Day of the week to update.
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Monday"
+              value: "1"
+            - label: "Tuesday"
+              value: "2"
+            - label: "Wednesday"
+              value: "3"
+            - label: "Thursday"
+              value: "4"
+            - label: "Friday"
+              value: "5"
+            - label: "Saturday"
+              value: "6"
+            - label: "Sunday"
+              value: "7"
+    start_time:
+      name: Start Time
+      description: Bedtime start time (e.g., 21:00)
+      required: false
+      example: "21:00"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: Bedtime end time, typically next morning (e.g., 06:30)
+      required: false
+      example: "06:30"
+      selector:
+        time:
+    enabled:
+      name: Enabled
+      description: Whether bedtime is enabled for this weekday.
+      required: false
+      selector:
+        boolean:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:
@@ -342,7 +402,7 @@ disable_daily_limit:
 
 set_daily_limit:
   name: Set Daily Limit
-  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours). You can either select a device entity OR provide device_id/child_id manually.
+  description: Apply today's daily time limit override for a device (e.g., 120 minutes for 2 hours). To update the recurring weekly limit, use Set Daily Limit Schedule.
   fields:
     entity_id:
       name: Device Entity
@@ -371,6 +431,64 @@ set_daily_limit:
       example: "ABCD1234567890"
       selector:
         text:
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+set_daily_limit_schedule:
+  name: Set Daily Limit Schedule
+  description: Update the recurring daily limit schedule for one weekday. Provide daily minutes, enabled state, or both.
+  fields:
+    day:
+      name: Day
+      description: Day of the week to update.
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Monday"
+              value: "1"
+            - label: "Tuesday"
+              value: "2"
+            - label: "Wednesday"
+              value: "3"
+            - label: "Thursday"
+              value: "4"
+            - label: "Friday"
+              value: "5"
+            - label: "Saturday"
+              value: "6"
+            - label: "Sunday"
+              value: "7"
+    daily_minutes:
+      name: Daily Minutes
+      description: Number of minutes allowed for this weekday (0-1440).
+      required: false
+      example: 120
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 1440
+          mode: box
+          unit_of_measurement: "minutes"
+    enabled:
+      name: Enabled
+      description: Whether the daily limit is enabled for this weekday.
+      required: false
+      selector:
+        boolean:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
       name: Child ID (manual)
       description: Child's user ID - only needed if not using entity selector
@@ -426,4 +544,3 @@ ring_device:
       example: "123456789012345678901"
       selector:
         text:
-

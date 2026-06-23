@@ -5,14 +5,16 @@
 				"title": "Configurer Family Link",
 				"description": "Modifier les paramètres de l'intégration. Les changements prendront effet après la sauvegarde.",
 				"data": {
-					"update_interval": "Intervalle de mise à jour (secondes)",
-					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
-				},
-				"data_description": {
-					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant"
-				}
+						"update_interval": "Intervalle de mise à jour (secondes)",
+						"timeout": "Délai d'expiration des requêtes (secondes)",
+						"enable_location_tracking": "Activer le suivi GPS",
+						"schedule_timezone": "Fuseau horaire des horaires"
+					},
+					"data_description": {
+						"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
+						"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
+						"schedule_timezone": "Fuseau horaire IANA facultatif pour les calculs de jour, par exemple Asia/Jerusalem. Laissez vide pour utiliser le fuseau horaire de l'appareil depuis Google si disponible, puis utiliser le fuseau horaire Home Assistant."
+					}
 			}
 		}
 	},
@@ -28,7 +30,7 @@
 			},
 			"manual_url": {
 				"title": "URL du serveur d'authentification",
-				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`\n\nSi le serveur d'authentification exige une clé API (conteneur v1.7.0+), ajoutez-la à l'URL : `http://192.168.1.100:8099?api_key=<clé>` (clé dans le fichier `data/api_key` du conteneur).",
+				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`\n\nSi le serveur d'authentification exige une clé API (conteneur v1.7.0+), ajoutez-la à l'URL : `http://192.168.1.100:8099?api_key=VOTRE_CLE_API` (clé dans le fichier `data/api_key` du conteneur).",
 				"data": {
 					"auth_url": "URL du serveur d'authentification"
 				}
@@ -37,14 +39,16 @@
 				"title": "Configurer Family Link",
 				"description": "Source d'authentification : {auth_source}",
 				"data": {
-					"name": "Nom de l'intégration",
-					"update_interval": "Intervalle de mise à jour (secondes)",
-					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
-				},
-				"data_description": {
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité."
-				}
+						"name": "Nom de l'intégration",
+						"update_interval": "Intervalle de mise à jour (secondes)",
+						"timeout": "Délai d'expiration des requêtes (secondes)",
+						"enable_location_tracking": "Activer le suivi GPS",
+						"schedule_timezone": "Fuseau horaire des horaires"
+					},
+					"data_description": {
+						"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
+						"schedule_timezone": "Fuseau horaire IANA facultatif pour les calculs de jour, par exemple Asia/Jerusalem. Laissez vide pour utiliser le fuseau horaire de l'appareil depuis Google si disponible, puis utiliser le fuseau horaire Home Assistant."
+					}
 			}
 		},
 		"error": {
@@ -52,8 +56,9 @@
 			"invalid_auth": "Aucun cookie trouvé. Veuillez d'abord vous authentifier via le module complémentaire ou le conteneur Family Link Auth.",
 			"url_required": "L'URL est requise",
 			"no_cookies": "Le serveur est accessible mais aucun cookie n'a été trouvé. Veuillez d'abord vous authentifier via l'interface web.",
-			"invalid_api_key": "Le serveur exige une clé API. Ajoutez ?api_key=<clé> à l'URL — la clé se trouve dans le fichier « api_key » du répertoire de données du conteneur d'authentification (ex. ./data/api_key).",
-			"unknown": "Une erreur inattendue s'est produite"
+				"invalid_api_key": "Le serveur exige une clé API. Ajoutez ?api_key=VOTRE_CLE_API à l'URL — la clé se trouve dans le fichier « api_key » du répertoire de données du conteneur d'authentification (ex. ./data/api_key).",
+				"invalid_timezone": "Utilisez un fuseau horaire IANA valide comme Asia/Jerusalem, ou laissez le champ vide pour utiliser le fuseau horaire de l'appareil Google si disponible.",
+				"unknown": "Une erreur inattendue s'est produite"
 		},
 		"abort": {
 			"already_configured": "L'intégration est déjà configurée",

@@ -26,3 +26,15 @@ class FamilyLinkTimeoutError(FamilyLinkException):
 	"""Exception raised when operations timeout."""
 
 
+class ScheduleUpdatePartialError(FamilyLinkException):
+	"""Exception raised when a multi-step schedule update partially succeeds."""
+
+	def __init__(self, successful_updates: list[str], failed_update: str) -> None:
+		"""Initialize the partial update error."""
+		self.successful_updates = successful_updates
+		self.failed_update = failed_update
+		super().__init__(
+			"Partial schedule update: completed "
+			f"{', '.join(successful_updates)}; failed {failed_update}"
+		)
+

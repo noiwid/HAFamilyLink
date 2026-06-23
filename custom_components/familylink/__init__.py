@@ -25,18 +25,36 @@ from .const import (
 	SERVICE_ENABLE_SCHOOL_TIME,
 	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
+	SERVICE_SET_BEDTIME_SCHEDULE,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_SET_DAILY_LIMIT_SCHEDULE,
 	SERVICE_REFRESH_LOCATION,
 	SERVICE_RING_DEVICE,
 	SERVICE_UNBLOCK_ALL_APPS,
 	SERVICE_UNBLOCK_APP,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .exceptions import FamilyLinkException
+from .exceptions import FamilyLinkException, ScheduleUpdatePartialError
+from .schedules import parse_time_string
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.SWITCH]
+
+
+def _valid_schedule_time(value: str) -> str:
+	"""Validate an HH:MM time string accepted by Family Link schedule writes."""
+	parts = value.split(":") if isinstance(value, str) else []
+	if (
+		len(parts) != 2
+		or not 1 <= len(parts[0]) <= 2
+		or len(parts[1]) != 2
+		or not parts[0].isdigit()
+		or not parts[1].isdigit()
+	):
+		raise ValueError("Expected time in HH:MM format")
+	parse_time_string(value)
+	return value
 
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
@@ -116,9 +134,26 @@ SCHEMA_SET_DAILY_LIMIT = vol.Schema({
 })
 
 SCHEMA_SET_BEDTIME = vol.Schema({
-	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
-	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
+	vol.Required("start_time"): _valid_schedule_time,
+	vol.Required("end_time"): _valid_schedule_time,
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_BEDTIME_SCHEDULE = vol.Schema({
+	vol.Required("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("start_time"): _valid_schedule_time,
+	vol.Optional("end_time"): _valid_schedule_time,
+	vol.Optional("enabled"): cv.boolean,
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_DAILY_LIMIT_SCHEDULE = vol.Schema({
+	vol.Required("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
+	vol.Optional("enabled"): cv.boolean,
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -678,6 +713,93 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_LOGGER.error(f"Error setting bedtime: {err}")
 			raise
 
+	async def handle_set_bedtime_schedule(call: ServiceCall) -> None:
+		"""Handle set_bedtime_schedule service call."""
+		_require_client()
+		day = int(call.data["day"])
+		start_time = call.data.get("start_time")
+		end_time = call.data.get("end_time")
+		enabled = call.data["enabled"] if "enabled" in call.data else None
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
+		has_window = start_time is not None or end_time is not None
+		if has_window and (start_time is None or end_time is None):
+			raise ValueError("start_time and end_time must be provided together")
+		if not has_window and enabled is None:
+			raise ValueError("Provide start_time/end_time, enabled, or both")
+
+		_LOGGER.info(
+			"Service called: set_bedtime_schedule day=%s window=%s-%s enabled=%s",
+			day, start_time, end_time, enabled,
+		)
+
+		try:
+			success = await coordinator.client.async_set_bedtime_schedule(
+				day=day,
+				start_time=start_time,
+				end_time=end_time,
+				enabled=enabled,
+				account_id=child_id,
+			)
+			if success:
+				_LOGGER.info("Successfully updated bedtime schedule")
+				await coordinator.async_request_refresh()
+			else:
+				_LOGGER.error("Failed to update bedtime schedule")
+		except ScheduleUpdatePartialError as err:
+			_LOGGER.error("Partial bedtime schedule update: %s", err)
+			await coordinator.async_request_refresh()
+			raise
+		except Exception as err:
+			_LOGGER.error("Error updating bedtime schedule: %s", err)
+			raise
+
+	async def handle_set_daily_limit_schedule(call: ServiceCall) -> None:
+		"""Handle set_daily_limit_schedule service call."""
+		_require_client()
+		day = int(call.data["day"])
+		daily_minutes = call.data.get("daily_minutes")
+		enabled = call.data["enabled"] if "enabled" in call.data else None
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
+		if daily_minutes is None and enabled is None:
+			raise ValueError("Provide daily_minutes, enabled, or both")
+
+		_LOGGER.info(
+			"Service called: set_daily_limit_schedule day=%s daily_minutes=%s enabled=%s",
+			day, daily_minutes, enabled,
+		)
+
+		try:
+			success = await coordinator.client.async_set_daily_limit_schedule(
+				day=day,
+				daily_minutes=daily_minutes,
+				enabled=enabled,
+				account_id=child_id,
+			)
+			if success:
+				_LOGGER.info("Successfully updated daily limit schedule")
+				await coordinator.async_request_refresh()
+			else:
+				_LOGGER.error("Failed to update daily limit schedule")
+		except ScheduleUpdatePartialError as err:
+			_LOGGER.error("Partial daily limit schedule update: %s", err)
+			await coordinator.async_request_refresh()
+			raise
+		except Exception as err:
+			_LOGGER.error("Error updating daily limit schedule: %s", err)
+			raise
+
 	async def handle_refresh_location(call: ServiceCall) -> None:
 		"""Handle refresh_location service call - request fresh location from device."""
 		_require_client()
@@ -848,6 +970,20 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	hass.services.async_register(
 		DOMAIN,
+		SERVICE_SET_BEDTIME_SCHEDULE,
+		handle_set_bedtime_schedule,
+		schema=SCHEMA_SET_BEDTIME_SCHEDULE,
+	)
+
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_SET_DAILY_LIMIT_SCHEDULE,
+		handle_set_daily_limit_schedule,
+		schema=SCHEMA_SET_DAILY_LIMIT_SCHEDULE,
+	)
+
+	hass.services.async_register(
+		DOMAIN,
 		SERVICE_REFRESH_LOCATION,
 		handle_refresh_location,
 		schema=SCHEMA_REFRESH_LOCATION,
@@ -894,6 +1030,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_DISABLE_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME_SCHEDULE)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT_SCHEDULE)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
 			_LOGGER.debug("Family Link services unregistered")
 
@@ -903,4 +1041,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 	"""Reload config entry."""
 	await async_unload_entry(hass, entry)
-	await async_setup_entry(hass, entry) 
+	await async_setup_entry(hass, entry)

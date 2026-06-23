@@ -5,14 +5,16 @@
         "title": "הגדרת Family Link",
         "description": "התאמת הגדרות השילוב. השינויים ייכנסו לתוקף לאחר השמירה.",
         "data": {
-          "update_interval": "מרווח עדכון (שניות)",
-          "timeout": "זמן תפוגה של בקשה (שניות)",
-          "enable_location_tracking": "אפשר מעקב מיקום GPS"
-        },
-        "data_description": {
-          "update_interval": "באיזו תדירות לאסוף נתונים מגוגל (30–3600 שניות)",
-          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה להתקן הילד"
-        }
+	          "update_interval": "מרווח עדכון (שניות)",
+	          "timeout": "זמן תפוגה של בקשה (שניות)",
+	          "enable_location_tracking": "אפשר מעקב מיקום GPS",
+	          "schedule_timezone": "אזור הזמן של לוח הזמנים"
+	        },
+	        "data_description": {
+	          "update_interval": "באיזו תדירות לאסוף נתונים מגוגל (30–3600 שניות)",
+	          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה להתקן הילד",
+	          "schedule_timezone": "אזור זמן IANA אופציונלי לחישוב ימי לוח הזמנים, למשל Asia/Jerusalem. השאירו ריק כדי להשתמש באזור הזמן של המכשיר מגוגל אם זמין, ואז לחזור לאזור הזמן של Home Assistant."
+	        }
       }
     }
   },
@@ -28,7 +30,7 @@
       },
       "manual_url": {
         "title": "כתובת שרת האימות",
-        "description": "לא זוהה מקור אימות מקומי. אנא הזן את כתובת ה-URL של מכולת האימות של Family Link.\n\nדוגמה: `http://192.168.1.100:8099` או `http://familylink-auth:8099`\n\nאם שרת האימות דורש מפתח API (גרסה 1.7.0 ומעלה), הוסיפו אותו לכתובת: `http://192.168.1.100:8099?api_key=<key>` (המפתח בקובץ `data/api_key` של המיכל).",
+        "description": "לא זוהה מקור אימות מקומי. אנא הזן את כתובת ה-URL של מכולת האימות של Family Link.\n\nדוגמה: `http://192.168.1.100:8099` או `http://familylink-auth:8099`\n\nאם שרת האימות דורש מפתח API (גרסה 1.7.0 ומעלה), הוסיפו אותו לכתובת: `http://192.168.1.100:8099?api_key=YOUR_API_KEY` (המפתח בקובץ `data/api_key` של המיכל).",
         "data": {
           "auth_url": "כתובת שרת האימות"
         }
@@ -37,14 +39,16 @@
         "title": "הגדרת Family Link",
         "description": "מקור אימות: {auth_source}",
         "data": {
-          "name": "שם השילוב",
-          "update_interval": "מרווח עדכון (שניות)",
-          "timeout": "זמן תפוגה של בקשה (שניות)",
-          "enable_location_tracking": "אפשר מעקב מיקום GPS"
-        },
-        "data_description": {
-          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה למכשיר הילד. מושבת כברירת מחדל מטעמי פרטיות."
-        }
+	          "name": "שם השילוב",
+	          "update_interval": "מרווח עדכון (שניות)",
+	          "timeout": "זמן תפוגה של בקשה (שניות)",
+	          "enable_location_tracking": "אפשר מעקב מיקום GPS",
+	          "schedule_timezone": "אזור הזמן של לוח הזמנים"
+	        },
+	        "data_description": {
+	          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה למכשיר הילד. מושבת כברירת מחדל מטעמי פרטיות.",
+	          "schedule_timezone": "אזור זמן IANA אופציונלי לחישוב ימי לוח הזמנים, למשל Asia/Jerusalem. השאירו ריק כדי להשתמש באזור הזמן של המכשיר מגוגל אם זמין, ואז לחזור לאזור הזמן של Home Assistant."
+	        }
       }
     },
     "error": {
@@ -52,8 +56,9 @@
       "invalid_auth": "לא נמצאו עוגיות. נא לבצע אימות תחילה באמצעות תוסף או מכולה Family Link Auth.",
       "url_required": "נדרשת כתובת אתר",
       "no_cookies": "השרת זמין אך לא נמצאו עוגיות. נא לבצע אימות תחילה דרך ממשק האינטרנט.",
-      "invalid_api_key": "השרת דורש מפתח API. הוסיפו ‎?api_key=<key>‎ לכתובת — המפתח נמצא בקובץ 'api_key' בתיקיית הנתונים של מיכל האימות (למשל ‎./data/api_key‎).",
-      "unknown": "אירעה שגיאה בלתי צפויה"
+	      "invalid_api_key": "השרת דורש מפתח API. הוסיפו ‎?api_key=YOUR_API_KEY‎ לכתובת — המפתח נמצא בקובץ 'api_key' בתיקיית הנתונים של מיכל האימות (למשל ‎./data/api_key‎).",
+	      "invalid_timezone": "יש להשתמש באזור זמן IANA תקין כמו Asia/Jerusalem, או להשאיר ריק כדי להשתמש באזור הזמן של המכשיר מגוגל אם זמין.",
+	      "unknown": "אירעה שגיאה בלתי צפויה"
     },
     "abort": {
       "already_configured": "השילוב כבר מוגדר",

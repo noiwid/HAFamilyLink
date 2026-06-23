@@ -1,0 +1,8 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["custom_components", "familylink-playwright/app", "tests"]
+
+[tool.ruff.lint]
+# Start with correctness checks only. Style cleanup can be widened later.
+select = ["E9", "F63", "F7", "F82"]

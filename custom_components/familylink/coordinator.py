@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .client.api import FamilyLinkClient
 from .const import (
@@ -21,6 +22,7 @@ from .const import (
 	LOGGER_NAME,
 )
 from .exceptions import FamilyLinkException, SessionExpiredError
+from .schedules import describe_effective_window, effective_bedtime_window_source
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -159,6 +161,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			cached_devices = None  # Populated from cache only if the fetch fails
 			try:
 				apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
+				await self.client.async_update_google_schedule_timezone_from_devices(child_id)
 				_LOGGER.debug(
 					f"Fetched for {child_name}: {len(apps_usage_data.get('apps', []))} apps, "
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
@@ -210,24 +213,31 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.debug(f"Restored {len(devices)} cached device(s) for {child_name}")
 
 			# Fetch time limit configuration (bedtime/school time schedules and enabled states)
+			time_limit_config: dict[str, Any] = {}
 			bedtime_enabled = None
 			school_time_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
+			daily_limit_schedule = None
 			# Today-effective bedtime state derived from the per-day type-9
 			# override in the timeLimit response (issue #113). This is the
 			# authoritative source for the bedtime switch — it reflects the
 			# "Only today" override Google actually applies — and takes
 			# precedence over the appliedTimeLimits heuristic below.
 			bedtime_enabled_today_from_rules = None
+			bedtime_today_source = None
+			bedtime_today_override_action = None
 
 			try:
 				time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
 				bedtime_enabled = time_limit_config.get("bedtime_enabled")
 				school_time_enabled = time_limit_config.get("school_time_enabled")
 				bedtime_enabled_today_from_rules = time_limit_config.get("bedtime_enabled_today")
+				bedtime_today_source = time_limit_config.get("bedtime_today_source")
+				bedtime_today_override_action = time_limit_config.get("bedtime_today_override_action")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
+				daily_limit_schedule = time_limit_config.get("daily_limit_schedule")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
@@ -244,8 +254,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							bedtime_enabled = cached_child.get("bedtime_enabled")
 							school_time_enabled = cached_child.get("school_time_enabled")
 							bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
+							bedtime_today_source = cached_child.get("bedtime_today_source")
+							bedtime_today_override_action = cached_child.get("bedtime_today_override_action")
 							bedtime_schedule = cached_child.get("bedtime_schedule")
 							school_time_schedule = cached_child.get("school_time_schedule")
+							daily_limit_schedule = cached_child.get("daily_limit_schedule")
 							_LOGGER.debug(f"Using cached time limit config for {child_name}")
 							break
 
@@ -320,6 +333,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# Enrich device with time data from devices_time_data
 				if device_id in devices_time_data:
 					time_data = devices_time_data[device_id]
+					bedtime_window = describe_effective_window(
+						time_data.get("bedtime_window_start"),
+						time_data.get("bedtime_window_end"),
+						bedtime_schedule,
+						time_limit_config.get("schedule_today") or self.client.schedule_today(child_id),
+					)
+					time_data["bedtime_window_source"] = effective_bedtime_window_source(
+						bedtime_window, bedtime_today_source
+					)
+					time_data["bedtime_window_label"] = bedtime_window["label"]
+					time_data["bedtime_weekly_window_label"] = bedtime_window["weekly_label"]
+					time_data["bedtime_window_differs_from_weekly"] = bedtime_window["differs_from_weekly"]
+					time_data["bedtime_today_source"] = bedtime_today_source
+					time_data["bedtime_today_override_action"] = bedtime_today_override_action
 					device["total_allowed_minutes"] = time_data.get("total_allowed_minutes")
 					device["used_minutes"] = time_data.get("used_minutes")
 					device["remaining_minutes"] = time_data.get("remaining_minutes")
@@ -327,6 +354,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["daily_limit_minutes"] = time_data.get("daily_limit_minutes")
 					device["daily_limit_remaining"] = time_data.get("daily_limit_remaining")
 					device["bedtime_window"] = time_data.get("bedtime_window")
+					device["bedtime_window_start"] = time_data.get("bedtime_window_start")
+					device["bedtime_window_end"] = time_data.get("bedtime_window_end")
+					device["bedtime_window_source"] = time_data.get("bedtime_window_source")
+					device["bedtime_window_label"] = time_data.get("bedtime_window_label")
+					device["bedtime_weekly_window_label"] = time_data.get("bedtime_weekly_window_label")
+					device["bedtime_window_differs_from_weekly"] = time_data.get("bedtime_window_differs_from_weekly")
+					device["bedtime_today_source"] = time_data.get("bedtime_today_source")
+					device["bedtime_today_override_action"] = time_data.get("bedtime_today_override_action")
 					device["schooltime_window"] = time_data.get("schooltime_window")
 					device["bedtime_active"] = time_data.get("bedtime_active")
 					device["schooltime_active"] = time_data.get("schooltime_active")
@@ -403,14 +438,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
 				"school_time_enabled": school_time_enabled,
-				# Effective state for today (issue #114) — read from
-				# appliedTimeLimits, which already merges weekly policy with
-				# daily overrides. The switches use these instead of the
-				# weekly-only revisions above.
-				"bedtime_enabled_today": bedtime_enabled_today,
-				"school_time_enabled_today": schooltime_enabled_today,
+					# Effective state for today (issue #114) — read from
+					# appliedTimeLimits, which already merges weekly policy with
+					# daily overrides. The switches use these instead of the
+					# weekly-only revisions above.
+					"bedtime_enabled_today": bedtime_enabled_today,
+					"bedtime_today_source": bedtime_today_source,
+					"bedtime_today_override_action": bedtime_today_override_action,
+					"schedule_today": time_limit_config.get("schedule_today"),
+					"schedule_timezone": time_limit_config.get("schedule_timezone"),
+					"schedule_timezone_source": time_limit_config.get("schedule_timezone_source"),
+					"school_time_enabled_today": schooltime_enabled_today,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
+				"daily_limit_schedule": daily_limit_schedule,
 				"daily_limit_enabled": daily_limit_enabled,
 				"devices_time_data": devices_time_data,
 			}
@@ -434,9 +475,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		try:
 			self.client = FamilyLinkClient(
-				hass=self.hass,
-				config=self.entry.data,
-			)
+					hass=self.hass,
+					config={**self.entry.data, **self.entry.options},
+				)
 
 			await self.client.async_authenticate()
 			_LOGGER.debug("Successfully set up Family Link client")
