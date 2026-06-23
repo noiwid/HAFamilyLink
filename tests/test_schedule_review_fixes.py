@@ -179,7 +179,9 @@ def _install_dependency_stubs() -> None:
 	sys.modules["custom_components.familylink.auth.addon_client"] = addon_client
 
 
-_install_dependency_stubs()
+if importlib.util.find_spec("homeassistant") is None:
+	_install_dependency_stubs()
+import voluptuous as vol
 familylink = importlib.import_module("custom_components.familylink")
 api = importlib.import_module("custom_components.familylink.client.api")
 schedules = importlib.import_module("custom_components.familylink.schedules")
@@ -385,7 +387,12 @@ def test_daily_limit_schedule_first_failure_returns_false_without_partial_error(
 	assert client._async_update_time_limit.await_count == 1
 
 
-def test_time_limit_parser_uses_newest_today_override_by_timestamp():
+def test_time_limit_parser_uses_newest_today_override_by_timestamp(monkeypatch):
+	monkeypatch.setattr(
+		api.dt_util,
+		"now",
+		lambda time_zone=None: datetime(2026, 6, 22, 12, 0, tzinfo=time_zone),
+	)
 	rule_id = "x" * 32
 	response_data = [
 		["metadata"],
@@ -478,15 +485,16 @@ def test_daily_limit_parser_dedupes_duplicate_days_and_disables_zero_minutes():
 
 def test_schedule_service_schema_rejects_invalid_times():
 	schema = familylink.SCHEMA_SET_BEDTIME_SCHEDULE
+	invalid_error = getattr(vol, "Invalid", ValueError)
 
 	assert schema({
 		"day": "1",
 		"start_time": "21:00",
 		"end_time": "06:30",
 	})["day"] == 1
-	with pytest.raises(ValueError):
+	with pytest.raises((ValueError, invalid_error)):
 		schema({"day": "1", "start_time": "24:00", "end_time": "06:30"})
-	with pytest.raises(ValueError):
+	with pytest.raises((ValueError, invalid_error)):
 		schema({"day": "1", "start_time": "21:5", "end_time": "06:30"})
 
 

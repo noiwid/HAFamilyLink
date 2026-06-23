@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME, CONF_URL
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.data_entry_flow import AbortFlow, FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
@@ -207,6 +207,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				errors["base"] = "cannot_connect"
 			except InvalidAuth:
 				errors["base"] = "invalid_auth"
+			except AbortFlow:
+				raise
 			except Exception:
 				_LOGGER.exception("Unexpected exception")
 				errors["base"] = "unknown"

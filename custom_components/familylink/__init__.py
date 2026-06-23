@@ -1033,6 +1033,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME_SCHEDULE)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT_SCHEDULE)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
+			hass.services.async_remove(DOMAIN, SERVICE_RING_DEVICE)
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok
