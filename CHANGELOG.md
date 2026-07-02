@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.10] - 2026-07-02
+
+### Fixed
+- **`set_bedtime` now updates the recurring weekly schedule (not just a one-off override)** — The service previously posted only a per-day type-9 override (`timeLimitOverrides:batchCreate`), i.e. Family Link's "tonight only" exception. It reported success but the recurring **weekly** schedule shown in Family Link ("Weekly schedule") was never touched, so the change silently didn't stick. `set_bedtime` now defaults to editing the weekly recurring schedule for the target day via `timeLimit:update` (only the modified day is sent; Google merges it, leaving other days untouched — verified on-device). A new `scope` option preserves the old behavior: `scope: weekly` (default) edits the weekly schedule, `scope: today` posts the one-off "today only" override without changing the weekly schedule (#129).
+- **Removed deprecated `TrackerEntity` import** — `device_tracker.py` imported `TrackerEntity` from `homeassistant.components.device_tracker.config_entry`, a deprecated alias scheduled for removal in HA Core 2027.6. Now imported from `homeassistant.components.device_tracker` (#130).
+
+---
+
 ## [1.2.7-rc5] - 2026-06-09
 
 ### Added

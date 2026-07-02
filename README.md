@@ -440,6 +440,10 @@ automation:
 
 ## 📈 Version History
 
+- **v1.2.10** (2026-07) - Weekly Bedtime Fix & Deprecation Cleanup
+  - **`set_bedtime` now edits the recurring weekly schedule** (it used to post only a "tonight only" override, so weekly schedule changes silently didn't stick). New `scope` option: `weekly` (default) or `today` (#129)
+  - Removed deprecated `TrackerEntity` import (HA Core 2027.6 removal) (#130)
+
 - **v1.0.0** (2026-01) - Per-App Time Limits & Multi-Child Support 🎉
   - **New service `set_app_daily_limit`** - Set daily time limits per app (e.g., 60 min for TikTok)
   - **Multi-child support** - `block_app`, `unblock_app`, `set_app_daily_limit` apply to ALL children by default

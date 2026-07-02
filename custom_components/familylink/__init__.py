@@ -119,6 +119,7 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -654,20 +655,22 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		start_time = call.data["start_time"]
 		end_time = call.data["end_time"]
 		day = call.data.get("day")  # Optional, defaults to today
+		scope = call.data.get("scope", "weekly")
 		child_id = call.data.get("child_id")
 
 		# Convert day to int if provided as string (from UI selector)
 		if day is not None:
 			day = int(day)
 
-		_LOGGER.info(f"Service called: set_bedtime ({start_time}-{end_time}) for day={day or 'today'}")
+		_LOGGER.info(f"Service called: set_bedtime ({start_time}-{end_time}) for day={day or 'today'} scope={scope}")
 
 		try:
 			success = await coordinator.client.async_set_bedtime(
 				start_time=start_time,
 				end_time=end_time,
 				day=day,
-				account_id=child_id
+				account_id=child_id,
+				scope=scope,
 			)
 			if success:
 				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")

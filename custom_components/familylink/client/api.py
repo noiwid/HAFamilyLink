@@ -2219,24 +2219,46 @@ class FamilyLinkClient:
 		start_time: str,
 		end_time: str,
 		day: int | None = None,
-		account_id: str | None = None
+		account_id: str | None = None,
+		scope: str = "weekly",
 	) -> bool:
-		"""Set bedtime (downtime) schedule for a specific day.
+		"""Set bedtime (downtime) hours for a given day.
 
 		Args:
 			start_time: Bedtime start time in HH:MM format (e.g., "20:45")
 			end_time: Bedtime end time in HH:MM format (e.g., "07:30")
 			day: Day of week (1=Monday, 7=Sunday). Defaults to today if not specified.
 			account_id: User ID of the supervised child (optional)
+			scope: "weekly" (default) edits the RECURRING weekly schedule slot for
+				`day` — this is what the Family Link web app's "Programmation de la
+				semaine" does and what users expect from "set bedtime" (issue #129).
+				"today" posts a one-off per-day override ("Ce soir seulement") that
+				does NOT change the recurring schedule.
 
 		Returns:
 			True if successful, False otherwise
+
+		Notes:
+			The two scopes hit different Google endpoints:
+			  - weekly -> POST people/{id}/timeLimit:update?$httpMethod=PUT
+			    body [None, id, [[None,None,None,[["CAEQxx",[sh,sm],[eh,em]]]],
+			          None,None,None,[]], None, [1]]
+			    Only the modified day is sent; Google MERGES it into the existing
+			    weekly schedule (other days are untouched), confirmed on-device.
+			  - today  -> POST people/{id}/timeLimitOverrides:batchCreate
+			    a type-9 override [.,.,9,...,[2,[sh,sm],[eh,em],"CAEQxx"]].
+			See GOOGLE_FAMILY_LINK_API_ANALYSIS.md.
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
+
+		scope = (scope or "weekly").lower()
+		if scope not in ("weekly", "today"):
+			_LOGGER.error("Invalid bedtime scope %r (expected 'weekly' or 'today')", scope)
+			return False
 
 		try:
 			# Parse start and end times
@@ -2257,17 +2279,58 @@ class FamilyLinkClient:
 
 			day_code = self._DAY_CODES[day]
 
-			# Payload format: [null, account_id, [[null,null,9,null,null,null,null,null,null,null,null,null,[2,[startH,startM],[endH,endM],dayCode]]], [1]]
-			# Type 9 = bedtime override, Status 2 = enabled
+			if scope == "weekly":
+				# Edit the recurring weekly schedule slot for this day. Sending a
+				# single day merges into the existing schedule server-side (other
+				# days keep their hours). This is the payload the web app sends
+				# when a day is edited in "Programmation de la semaine".
+				payload = json.dumps([
+					None,
+					account_id,
+					[
+						[None, None, None, [[day_code, [start_hour, start_min], [end_hour, end_min]]]],
+						None, None, None, [],
+					],
+					None,
+					[1],
+				])
+				url = self._people_url(account_id, "timeLimit:update")
+				_LOGGER.debug(
+					"Setting WEEKLY bedtime %s-%s for day=%s (code=%s)",
+					start_time, end_time, day, day_code,
+				)
+				async with session.post(
+					url,
+					headers={
+						"Content-Type": "application/json+protobuf",
+						"Cookie": cookie_header,
+					},
+					data=payload,
+					params={"$httpMethod": "PUT"},
+				) as response:
+					if response.status != 200:
+						response_text = await response.text()
+						_LOGGER.error(
+							"Failed to set weekly bedtime (HTTP %s): %s",
+							response.status, response_text,
+						)
+						return False
+					_LOGGER.info(
+						"Successfully set weekly bedtime %s-%s for day %s",
+						start_time, end_time, day,
+					)
+					return True
+
+			# scope == "today": one-off per-day override ("Ce soir seulement").
+			# Type 9 = bedtime override, action 2 = enabled.
 			payload = json.dumps([
 				None,
 				account_id,
 				[[None, None, 9, None, None, None, None, None, None, None, None, None, [2, [start_hour, start_min], [end_hour, end_min], day_code]]],
 				[1]
 			])
-
 			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
-			_LOGGER.debug(f"Setting bedtime {start_time}-{end_time} for day={day} (code={day_code})")
+			_LOGGER.debug(f"Setting TODAY-only bedtime {start_time}-{end_time} for day={day} (code={day_code})")
 
 			async with session.post(
 				url,
@@ -2282,7 +2345,7 @@ class FamilyLinkClient:
 					_LOGGER.error(f"Failed to set bedtime {response.status}: {response_text}")
 					return False
 
-				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time} for day {day}")
+				_LOGGER.info(f"Successfully set today-only bedtime {start_time}-{end_time} for day {day}")
 				return True
 
 		except ValueError as err:
