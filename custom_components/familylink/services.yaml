@@ -219,7 +219,11 @@ disable_bedtime:
 
 set_bedtime:
   name: Set Bedtime
-  description: Set bedtime start and end times for a specific day. If no day is specified, applies to today.
+  description: >-
+    Set bedtime start and end times. By default this edits the recurring WEEKLY
+    schedule for the given day (like Family Link's "Weekly schedule"); use
+    scope "today" for a one-off "tonight only" override that leaves the weekly
+    schedule unchanged. If no day is specified, applies to today.
   fields:
     start_time:
       name: Start Time
@@ -256,6 +260,21 @@ set_bedtime:
               value: "6"
             - label: "Sunday"
               value: "7"
+    scope:
+      name: Scope
+      description: >-
+        "weekly" (default) edits the recurring weekly schedule for the day.
+        "today" posts a one-off override for that day only, leaving the weekly
+        schedule untouched.
+      required: false
+      default: weekly
+      selector:
+        select:
+          options:
+            - label: "Weekly schedule"
+              value: "weekly"
+            - label: "Today only"
+              value: "today"
     child_id:
       name: Child ID
       description: Child's user ID (optional if only one child)
