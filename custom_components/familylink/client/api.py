@@ -44,6 +44,13 @@ class FamilyLinkClient:
 	# SAPISIDHASH timestamp must stay fresh for Google API authentication
 	SESSION_MAX_AGE = 1800  # 30 minutes
 
+	# LocationRefreshMode enum values for the kidsmanagement location endpoint.
+	# Google changed this field to reject the string names ("REFRESH" /
+	# "DO_NOT_REFRESH") and now only accepts the numeric enum values, so the
+	# string form returns HTTP 400 "Invalid value at 'location_refresh_mode'".
+	LOCATION_REFRESH_MODE_DO_NOT_REFRESH = "1"
+	LOCATION_REFRESH_MODE_REFRESH = "2"
+
 	def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
 		"""Initialize the Family Link client."""
 		self.hass = hass
@@ -582,7 +589,12 @@ class FamilyLinkClient:
 			self._validate_id(account_id, "account_id")
 			url = f"{self.BASE_URL}/families/mine/location/{account_id}"
 			params = [
-				("locationRefreshMode", "REFRESH" if refresh else "DO_NOT_REFRESH"),
+				(
+					"locationRefreshMode",
+					self.LOCATION_REFRESH_MODE_REFRESH
+					if refresh
+					else self.LOCATION_REFRESH_MODE_DO_NOT_REFRESH,
+				),
 				("supportedConsents", "SUPERVISED_LOCATION_SHARING"),
 			]
 
