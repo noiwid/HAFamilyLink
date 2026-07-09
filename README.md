@@ -7,7 +7,7 @@
 
 A comprehensive Home Assistant integration for monitoring and controlling Google Family Link devices. Track screen time, manage time limits, control bedtime/school schedules, and manage time bonuses directly from Home Assistant.
 
-![Family Link dashboard](examples/dashboard.jpg)
+![Family Link dashboard](examples/dashboard.png)
 
 > An example Lovelace dashboard built entirely from this integration.
 > The YAML and setup instructions are in [`examples/`](examples/).
