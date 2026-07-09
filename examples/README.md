@@ -4,7 +4,7 @@ A ready-to-use Lovelace dashboard focused entirely on the **Google Family Link**
 integration — screen time, per-device limits, bedtime / school time, app blocking,
 time bonuses and the "most used apps" list.
 
-![Family Link demo dashboard](dashboard.jpg)
+![Family Link demo dashboard](dashboard.png)
 
 ## How to use it
 
