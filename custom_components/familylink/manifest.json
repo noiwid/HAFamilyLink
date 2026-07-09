@@ -9,8 +9,7 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "requirements": [
-  ],
+  "requirements": [],
   "iot_class": "cloud_polling",
   "integration_type": "hub"
 }
