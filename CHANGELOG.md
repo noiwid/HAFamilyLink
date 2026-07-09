@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.11] - 2026-07-09
+
+### Fixed
+- **GPS location tracking restored after a Google API change** — Google's `kidsmanagement` location endpoint stopped accepting the string values `"REFRESH"` / `"DO_NOT_REFRESH"` for `locationRefreshMode` and now returns `HTTP 400: Invalid value at 'location_refresh_mode' … "REFRESH"`. Because `async_get_location` returns `None` on any non-200 response, an active location refresh silently froze on the last known position with no error surfaced to the user. The client now sends the numeric enum values (`2` = REFRESH, `1` = DO_NOT_REFRESH). Verified against the live API: the string `"REFRESH"` returns HTTP 400 while `"1"`/`"2"` return HTTP 200 with a fresh fix. Thanks to @miditt (#132).
+- **Removed `aiohttp` and `cryptography` from manifest requirements** — Both are already bundled with Home Assistant. Declaring them caused HA to reinstall `cryptography`/`cffi` over the core versions, producing a `cffi` / `_cffi_backend` version mismatch (`this is the 'cffi' package version 2.1.0 … we get version 2.0.0`) that broke several core components on HA 2026.7.1 (Python 3.14). Per the HA docs, custom integrations must not list requirements already included with HA. Thanks to @omad (#131).
+
+### Added
+- **Example dashboard** — Added an `examples/` folder with a ready-to-copy, Family-Link-only Lovelace dashboard (anonymised entity IDs, `sections` layout), a screenshot, and setup notes (required HACS cards + theme). Referenced from the README.
+
+---
+
 ## [1.2.10] - 2026-07-02
 
 ### Fixed
