@@ -1,896 +1,2494 @@
+title: Family Link Demo
 views:
-- title: Demo
-  path: demo
-  icon: mdi:google
-  theme: ios-dark-mode-blue-red
-  type: sections
-  max_columns: 3
-  sections:
-  - type: grid
+  - title: Parental Control
+    icon: mdi:shield-family
+    path: controle
     cards:
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Kid's Screen Time
-        tap_action:
-          action: none
-        styles:
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 0 0 16px
-          - margin: 0
-          name:
-          - font-size: 15px
-          - font-weight: bold
-          - justify-self: start
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:stack-in-card
-        mode: horizontal
-        card_mod:
-          style: |
-            :host { --stack-card-gap: 0 !important; }
-            ha-card { padding: 0 !important; background: inherit !important; }
+      - type: vertical-stack
         cards:
-        - type: custom:button-card
-          entity: sensor.child_total_screen_time
-          name: Total time
-          icon: mdi:clock-outline
-          show_state: true
-          state_display: |
-            [[[
-              const e = states['sensor.child_total_screen_time'];
-              return e && e.attributes && e.attributes.formatted_hms
-                ? e.attributes.formatted_hms
-                : (entity.state + ' min');
-            ]]]
-          styles:
-            card:
-            - height: 90px
-            - border: none
-            - border-right: 1px solid rgba(152,152,157,0.3)
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            icon:
-            - width: 32px
-            - color: var(--primary-color)
-            - z-index: 1
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - opacity: 0.7
-            - z-index: 1
-            state:
-            - font-size: 16px
-            - font-weight: bold
-            - z-index: 1
-        - type: custom:button-card
-          entity: sensor.firstname_lastname_installed_apps
-          name: Apps
-          icon: mdi:apps
-          show_state: true
-          state_display: |
-            [[[
-              return entity.state + ' apps';
-            ]]]
-          tap_action:
-            action: none
-          styles:
-            card:
-            - height: 90px
-            - border: none
-            - border-right: 1px solid rgba(152,152,157,0.3)
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            icon:
-            - width: 32px
-            - color: var(--primary-color)
-            - z-index: 1
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - opacity: 0.7
-            - z-index: 1
-            state:
-            - font-size: 16px
-            - font-weight: bold
-            - z-index: 1
-        - type: custom:button-card
-          entity: sensor.firstname_lastname_blocked_apps
-          name: Blocked
-          icon: mdi:block-helper
-          show_state: true
-          state_display: |
-            [[[
-              return entity.state + ' apps';
-            ]]]
-          tap_action:
-            action: none
-          card_mod:
-            style: |
-              :host ha-card { border-right: none !important; }
-          styles:
-            card:
-            - height: 90px
-            - border: none
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            icon:
-            - width: 32px
-            - color: '#F44336'
-            - z-index: 1
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - opacity: 0.7
-            - z-index: 1
-            state:
-            - font-size: 16px
-            - font-weight: bold
-            - z-index: 1
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:stack-in-card
-        mode: horizontal
-        card_mod:
-          style: |
-            :host { --stack-card-gap: 0 !important; }
-            ha-card { padding: 0 !important; background:inherit !important;}
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                name: Kid's screen time
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - height: 40px
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0 0 0 16px
+                    - margin: 0
+                  name:
+                    - font-size: 15px
+                    - font-weight: bold
+                    - justify-self: start
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:stack-in-card
+                mode: horizontal
+                card_mod:
+                  style: >
+                    :host { --stack-card-gap: 0 !important; }
+
+                    ha-card { padding: 0 !important; background: inherit
+                    !important; }
+                cards:
+                  - type: custom:button-card
+                    entity: sensor.firstname_temps_d_ecran_total
+                    name: Total time
+                    icon: mdi:clock-outline
+                    show_state: true
+                    state_display: |
+                      [[[
+                        const e = states['sensor.firstname_temps_d_ecran_total'];
+                        return e && e.attributes && e.attributes.formatted_hms
+                          ? e.attributes.formatted_hms
+                          : (entity.state + ' min');
+                      ]]]
+                    styles:
+                      card:
+                        - height: 90px
+                        - border: none
+                        - border-right: 1px solid rgba(152,152,157,0.3)
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      icon:
+                        - width: 32px
+                        - color: var(--primary-color)
+                        - z-index: 1
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - opacity: 0.7
+                        - z-index: 1
+                      state:
+                        - font-size: 16px
+                        - font-weight: bold
+                        - z-index: 1
+                  - type: custom:button-card
+                    entity: sensor.firstname_name_installed_apps
+                    name: Apps
+                    icon: mdi:apps
+                    show_state: true
+                    state_display: |
+                      [[[
+                        return entity.state + ' apps';
+                      ]]]
+                    tap_action:
+                      action: none
+                    styles:
+                      card:
+                        - height: 90px
+                        - border: none
+                        - border-right: 1px solid rgba(152,152,157,0.3)
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      icon:
+                        - width: 32px
+                        - color: var(--primary-color)
+                        - z-index: 1
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - opacity: 0.7
+                        - z-index: 1
+                      state:
+                        - font-size: 16px
+                        - font-weight: bold
+                        - z-index: 1
+                  - type: custom:button-card
+                    entity: sensor.firstname_name_blocked_apps
+                    name: Blocked
+                    icon: mdi:block-helper
+                    show_state: true
+                    state_display: |
+                      [[[
+                        return entity.state + ' apps';
+                      ]]]
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        :host ha-card { border-right: none !important; }
+                    styles:
+                      card:
+                        - height: 90px
+                        - border: none
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      icon:
+                        - width: 32px
+                        - color: '#F44336'
+                        - z-index: 1
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - opacity: 0.7
+                        - z-index: 1
+                      state:
+                        - font-size: 16px
+                        - font-weight: bold
+                        - z-index: 1
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:stack-in-card
+                mode: horizontal
+                card_mod:
+                  style: >
+                    :host { --stack-card-gap: 0 !important; }
+
+                    ha-card { padding: 0 !important; background:inherit
+                    !important;}
+                cards:
+                  - type: custom:button-card
+                    entity: switch.firstname_name_daily_limit
+                    name: Daily Limit
+                    icon: mdi:timer-sand
+                    tap_action:
+                      action: toggle
+                    hold_action:
+                      action: more-info
+                    double_tap_action:
+                      action: toggle
+                    custom_fields:
+                      bg: ''
+                    styles:
+                      card:
+                        - position: relative
+                        - overflow: hidden
+                        - height: 70px
+                        - border: none
+                        - border-right: 1px solid rgba(152,152,157,0.3)
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      custom_fields:
+                        bg:
+                          - position: absolute
+                          - inset: 0
+                          - z-index: 0
+                          - pointer-events: none
+                          - background: |
+                              [[[
+                                return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                              ]]]
+                      icon:
+                        - width: 28px
+                        - z-index: 1
+                        - color: |
+                            [[[
+                              return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                            ]]]
+                        - opacity: |
+                            [[[
+                              return entity.state === 'on' ? '1' : '0.5';
+                            ]]]
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - z-index: 1
+                  - type: custom:button-card
+                    entity: switch.firstname_name_bedtime
+                    name: Bedtime
+                    icon: mdi:weather-night
+                    tap_action:
+                      action: toggle
+                    hold_action:
+                      action: more-info
+                    double_tap_action:
+                      action: toggle
+                    custom_fields:
+                      bg: ''
+                    styles:
+                      card:
+                        - position: relative
+                        - overflow: hidden
+                        - height: 70px
+                        - border: none
+                        - border-right: 1px solid rgba(152,152,157,0.3)
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      custom_fields:
+                        bg:
+                          - position: absolute
+                          - inset: 0
+                          - z-index: 0
+                          - pointer-events: none
+                          - background: |
+                              [[[
+                                return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                              ]]]
+                      icon:
+                        - width: 28px
+                        - z-index: 1
+                        - color: |
+                            [[[
+                              return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                            ]]]
+                        - opacity: |
+                            [[[
+                              return entity.state === 'on' ? '1' : '0.5';
+                            ]]]
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - z-index: 1
+                  - type: custom:button-card
+                    entity: input_boolean.firstname_mode_school
+                    triggers_update: input_boolean.firstname_mode_school
+                    name: School
+                    icon: mdi:school
+                    tap_action:
+                      action: toggle
+                    hold_action:
+                      action: more-info
+                    double_tap_action:
+                      action: toggle
+                    custom_fields:
+                      bg: ''
+                    styles:
+                      card:
+                        - position: relative
+                        - overflow: hidden
+                        - height: 70px
+                        - border: none
+                        - border-radius: 0
+                        - padding: 10px 0
+                        - background: transparent
+                      custom_fields:
+                        bg:
+                          - position: absolute
+                          - inset: 0
+                          - z-index: 0
+                          - pointer-events: none
+                          - transition: background 120ms ease
+                          - background: |
+                              [[[
+                                if (!entity || entity.state === undefined) return 'transparent';
+                                return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                              ]]]
+                      icon:
+                        - width: 28px
+                        - z-index: 1
+                        - color: |
+                            [[[
+                              if (!entity || entity.state === undefined) return 'var(--primary-text-color)';
+                              return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                            ]]]
+                        - opacity: |
+                            [[[
+                              if (!entity || entity.state === undefined) return '0.5';
+                              return entity.state === 'on' ? '1' : '0.5';
+                            ]]]
+                      name:
+                        - font-size: 13px
+                        - font-weight: 500
+                        - z-index: 1
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                name: Kid's Phone
+                entity: switch.sm_s916b
+                triggers_update:
+                  - sensor.sm_s916b_daily_limit
+                  - sensor.sm_s916b_screen_time_remaining
+                  - sensor.sm_s916b_active_bonus
+                  - sensor.firstname_name_daily_screen_time
+                  - switch.sm_s916b
+                  - sensor.firstname_name_battery_level
+                show_state: false
+                show_label: false
+                show_name: true
+                show_entity_picture: false
+                show_icon: true
+                tap_action:
+                  action: toggle
+                state:
+                  - value: 'on'
+                    icon: mdi:cellphone
+                    styles:
+                      icon:
+                        - color: '#4CAF50'
+                  - value: 'off'
+                    icon: mdi:cellphone-lock
+                    styles:
+                      icon:
+                        - color: '#F44336'
+                variables:
+                  screen_data: |
+                    [[[
+                      let used = parseFloat(states['sensor.firstname_name_daily_screen_time']?.state) || 0;
+                      let limit = parseFloat(states['sensor.sm_s916b_daily_limit']?.state) || 0;
+                      let bonus = parseFloat(states['sensor.sm_s916b_active_bonus']?.state) || 0;
+                      let total = limit + bonus;
+                      let overflow = used - total;
+                      if (overflow < 0) overflow = 0;
+                      
+                      let percent = (total > 0) ? Math.round((used / total) * 100) : 0;
+                      if (percent > 100) percent = 100;
+
+                      return {
+                        limit: Math.round(limit),
+                        bonus: Math.round(bonus),
+                        total: Math.round(total),
+                        used: Math.round(used),
+                        overflow: Math.round(overflow),
+                        percent: percent
+                      };
+                    ]]]
+                styles:
+                  grid:
+                    - grid-template-areas: '"i n batt stat" "bar bar bar bar"'
+                    - grid-template-columns: 40px auto auto 1fr
+                    - grid-template-rows: 1fr auto
+                    - grid-gap: 8px
+                  card:
+                    - padding: 12px
+                  icon:
+                    - grid-area: i
+                    - width: 30px
+                    - justify-self: start
+                  name:
+                    - grid-area: 'n'
+                    - justify-self: start
+                    - align-self: center
+                    - font-weight: bold
+                    - font-size: 14px
+                  custom_fields:
+                    stat:
+                      - grid-area: stat
+                      - align-self: center
+                      - justify-self: end
+                      - font-size: 14px
+                      - font-weight: 500
+                      - opacity: 0.8
+                    bar:
+                      - grid-area: bar
+                    batt:
+                      - grid-area: batt
+                      - align-self: center
+                      - justify-self: start
+                      - padding-left: 4px
+                      - display: flex
+                      - align-items: center
+                      - height: 100%
+                custom_fields:
+                  stat: |
+                    [[[
+                      let bonus = variables.screen_data.bonus;
+                      let limit = variables.screen_data.limit;
+                      let total = variables.screen_data.total;
+                      let used = variables.screen_data.used;
+                      let overflow = variables.screen_data.overflow;
+                      
+                      let base = `${used}m / ${total}m`;
+                      let suffix = '';
+                      
+                      if (bonus > 0) {
+                        suffix = ` <span style="color: #4CAF50;">(+${bonus})</span>`;
+                      } else if (overflow > 0) {
+                        suffix = ` <span style="color: #db4437;">(+${overflow})</span>`;
+                      }
+                      
+                      return base + suffix;
+                    ]]]
+                  bar: |
+                    [[[
+                      let pct = variables.screen_data.percent;
+                      let color = "var(--primary-color)";
+                      if (pct >= 90) color = "#db4437";
+                      else if (pct >= 75) color = "#f4b400";
+                      
+                      return `
+                        <div style="background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;">
+                          <div style="background-color: ${color}; width: ${pct}%; height: 100%;"></div>
+                        </div>
+                      `;
+                    ]]]
+                  batt: |
+                    [[[
+                      const lvl = parseInt(states['sensor.firstname_name_battery_level']?.state);
+                      if (isNaN(lvl)) return '';
+                      let color = lvl <= 20 ? '#F44336' : (lvl <= 40 ? '#F4B400' : 'rgba(255,255,255,0.55)');
+                      let icon = 'mdi:battery';
+                      if (lvl <= 10) icon='mdi:battery-10'; else if (lvl<=20) icon='mdi:battery-20';
+                      else if (lvl<=30) icon='mdi:battery-30'; else if (lvl<=40) icon='mdi:battery-40';
+                      else if (lvl<=50) icon='mdi:battery-50'; else if (lvl<=60) icon='mdi:battery-60';
+                      else if (lvl<=70) icon='mdi:battery-70'; else if (lvl<=80) icon='mdi:battery-80';
+                      else if (lvl<=90) icon='mdi:battery-90'; else icon='mdi:battery';
+                      return `<span style="display:inline-flex;align-items:center;gap:3px;color:${color};font-size:12px;font-weight:600;line-height:14px;white-space:nowrap;"><ha-icon icon="${icon}" style="--mdc-icon-size:14px;width:14px;height:14px;color:${color};"></ha-icon>${lvl}%</span>`;
+                    ]]]
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:bubble-card
+                card_type: button
+                entity: button.sm_s916b_reset_bonus
+                button_type: button
+                icon: mdi:restart
+                show_icon: true
+                force_icon: true
+                show_name: true
+                show_last_updated: true
+                scrolling_effect: true
+                card_layout: large
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.sm_s916b_reset_bonus
+                sub_button:
+                  main:
+                    - buttons_layout: inline
+                      group:
+                        - entity: button.sm_s916b_15min
+                          icon: mdi:fast-forward-15
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.sm_s916b_15min
+                        - entity: button.sm_s916b_30min
+                          icon: mdi:fast-forward-30
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.sm_s916b_30min
+                        - entity: button.sm_s916b_60min
+                          icon: mdi:fast-forward-60
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.sm_s916b_60min
+                  bottom: []
+                name: Reset
+                styles: |
+                  .bubble-sub-button {
+                    background-color: rgba(255, 255, 255, 0.1) !important;
+                  }
+                  .bubble-icon-container {
+                    background-color: rgba(255, 255, 255, 0.1) !important;
+                  }
+              - type: custom:bubble-card
+                card_type: sub-buttons
+                sub_button:
+                  main: []
+                  bottom:
+                    - entity: automation.antibonus
+                      show_name: true
+                      name: Antibonus
+                      show_icon: false
+                      show_state: false
+                      tap_action:
+                        action: toggle
+                      content_layout: icon-left
+                      fill_width: true
+                      hold_action:
+                        action: more-info
+                    - entity: automation.firstname_antideverrouillage
+                      name: Unlock
+                      show_name: true
+                      show_icon: false
+                      tap_action:
+                        action: toggle
+                      content_layout: icon-left
+                      fill_width: true
+                      hold_action:
+                        action: more-info
+                    - entity: automation.firstname_bedtime_enabler
+                      name: Bedtime
+                      force_icon: false
+                      show_icon: false
+                      show_name: true
+                      show_state: false
+                      scrolling_effect: true
+                      tap_action:
+                        action: toggle
+                      content_layout: icon-left
+                      fill_width: true
+                      hold_action:
+                        action: more-info
+                    - entity: automation.firstname_daily_limit_enabler
+                      name: Daily limit
+                      show_name: true
+                      force_icon: false
+                      show_icon: false
+                      tap_action:
+                        action: toggle
+                      content_layout: icon-left
+                      fill_width: true
+                      hold_action:
+                        action: more-info
+                rows: 0.938
+                card_layout: normal
+                styles: |
+                  :host {
+                    --bubble-accent-color: rgba(255, 255, 255, 0.15);
+                    --primary-text-color: #FFF;
+                  }
+      - type: vertical-stack
         cards:
-        - type: custom:button-card
-          entity: switch.firstname_lastname_daily_limit
-          name: Daily Limit
-          icon: mdi:timer-sand
-          tap_action:
-            action: toggle
-          hold_action:
-            action: more-info
-          double_tap_action:
-            action: toggle
-          custom_fields:
-            bg: ''
-          styles:
-            card:
-            - position: relative
-            - overflow: hidden
-            - height: 70px
-            - border: none
-            - border-right: 1px solid rgba(152,152,157,0.3)
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            custom_fields:
-              bg:
-              - position: absolute
-              - inset: 0
-              - z-index: 0
-              - pointer-events: none
-              - background: |
-                  [[[
-                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
-                  ]]]
-            icon:
-            - width: 28px
-            - z-index: 1
-            - color: |
-                [[[
-                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
-                ]]]
-            - opacity: |
-                [[[
-                  return entity.state === 'on' ? '1' : '0.5';
-                ]]]
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - z-index: 1
-        - type: custom:button-card
-          entity: switch.firstname_lastname_bedtime
-          name: Bedtime
-          icon: mdi:weather-night
-          tap_action:
-            action: toggle
-          hold_action:
-            action: more-info
-          double_tap_action:
-            action: toggle
-          custom_fields:
-            bg: ''
-          styles:
-            card:
-            - position: relative
-            - overflow: hidden
-            - height: 70px
-            - border: none
-            - border-right: 1px solid rgba(152,152,157,0.3)
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            custom_fields:
-              bg:
-              - position: absolute
-              - inset: 0
-              - z-index: 0
-              - pointer-events: none
-              - background: |
-                  [[[
-                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
-                  ]]]
-            icon:
-            - width: 28px
-            - z-index: 1
-            - color: |
-                [[[
-                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
-                ]]]
-            - opacity: |
-                [[[
-                  return entity.state === 'on' ? '1' : '0.5';
-                ]]]
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - z-index: 1
-        - type: custom:button-card
-          entity: input_boolean.child_school_mode
-          triggers_update: input_boolean.child_school_mode
-          name: School
-          icon: mdi:school
-          tap_action:
-            action: toggle
-          hold_action:
-            action: more-info
-          double_tap_action:
-            action: toggle
-          custom_fields:
-            bg: ''
-          styles:
-            card:
-            - position: relative
-            - overflow: hidden
-            - height: 70px
-            - border: none
-            - border-radius: 0
-            - padding: 10px 0
-            - background: transparent
-            custom_fields:
-              bg:
-              - position: absolute
-              - inset: 0
-              - z-index: 0
-              - pointer-events: none
-              - transition: background 120ms ease
-              - background: |
-                  [[[
-                    if (!entity || entity.state === undefined) return 'transparent';
-                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
-                  ]]]
-            icon:
-            - width: 28px
-            - z-index: 1
-            - color: |
-                [[[
-                  if (!entity || entity.state === undefined) return 'var(--primary-text-color)';
-                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
-                ]]]
-            - opacity: |
-                [[[
-                  if (!entity || entity.state === undefined) return '0.5';
-                  return entity.state === 'on' ? '1' : '0.5';
-                ]]]
-            name:
-            - font-size: 13px
-            - font-weight: 500
-            - z-index: 1
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Samsung phone
-        entity: switch.child_phone
-        triggers_update:
-        - sensor.child_phone_daily_limit
-        - sensor.child_phone_screen_time_remaining
-        - sensor.child_phone_active_bonus
-        - sensor.firstname_lastname_daily_screen_time
-        - switch.child_phone
-        show_state: false
-        show_label: false
-        show_name: true
-        show_entity_picture: false
-        show_icon: true
-        tap_action:
-          action: toggle
-        state:
-        - value: 'on'
-          icon: mdi:cellphone
-          styles:
-            icon:
-            - color: '#4CAF50'
-        - value: 'off'
-          icon: mdi:cellphone-lock
-          styles:
-            icon:
-            - color: '#F44336'
-        variables:
-          screen_data: "[[[\n  let used = parseFloat(states['sensor.firstname_lastname_daily_screen_time']?.state) || 0;\n  let limit = parseFloat(states['sensor.child_phone_daily_limit']?.state) || 0;\n  let bonus = parseFloat(states['sensor.child_phone_active_bonus']?.state) || 0;\n  let total = limit + bonus;\n  let overflow = used - total;\n  if (overflow < 0) overflow = 0;\n  \n  let percent = (total > 0) ? Math.round((used / total) * 100) : 0;\n  if (percent > 100) percent = 100;\n\n  return {\n    limit: Math.round(limit),\n    bonus: Math.round(bonus),\n    total: Math.round(total),\n    used: Math.round(used),\n    overflow: Math.round(overflow),\n    percent: percent\n  };\n]]]\n"
-        styles:
-          grid:
-          - grid-template-areas: '"i n stat" "bar bar bar"'
-          - grid-template-columns: 40px 1fr auto
-          - grid-template-rows: 1fr auto
-          - grid-gap: 8px
-          card:
-          - padding: 12px
-          icon:
-          - grid-area: i
-          - width: 30px
-          - justify-self: start
-          name:
-          - grid-area: n
-          - justify-self: start
-          - align-self: center
-          - font-weight: bold
-          - font-size: 14px
-          custom_fields:
-            stat:
-            - grid-area: stat
-            - align-self: center
-            - justify-self: end
-            - font-size: 14px
-            - font-weight: 500
-            - opacity: 0.8
-            bar:
-            - grid-area: bar
-        custom_fields:
-          stat: "[[[\n  let bonus = variables.screen_data.bonus;\n  let limit = variables.screen_data.limit;\n  let total = variables.screen_data.total;\n  let used = variables.screen_data.used;\n  let overflow = variables.screen_data.overflow;\n  \n  let base = `${used}m / ${total}m`;\n  let suffix = '';\n  \n  if (bonus > 0) {\n    suffix = ` <span style=\"color: #4CAF50;\">(+${bonus})</span>`;\n  } else if (overflow > 0) {\n    suffix = ` <span style=\"color: #db4437;\">(+${overflow})</span>`;\n  }\n  \n  return base + suffix;\n]]]\n"
-          bar: "[[[\n  let pct = variables.screen_data.percent;\n  let color = \"var(--primary-color)\";\n  if (pct >= 90) color = \"#db4437\";\n  else if (pct >= 75) color = \"#f4b400\";\n  \n  return `\n    <div style=\"background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;\">\n      <div style=\"background-color: ${color}; width: ${pct}%; height: 100%;\"></div>\n    </div>\n  `;\n]]]\n"
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:bubble-card
-        card_type: button
-        entity: button.child_phone_reset_bonus
-        button_type: button
-        icon: mdi:restart
-        show_icon: true
-        force_icon: true
-        show_name: true
-        show_last_updated: true
-        scrolling_effect: true
-        card_layout: large
-        tap_action:
-          action: call-service
-          service: button.press
-          target:
-            entity_id: button.child_phone_reset_bonus
-        sub_button:
-          main:
-          - buttons_layout: inline
-            group:
-            - entity: button.child_phone_15min
-              icon: mdi:fast-forward-15
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_phone_15min
-            - entity: button.child_phone_30min
-              icon: mdi:fast-forward-30
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_phone_30min
-            - entity: button.child_phone_60min
-              icon: mdi:fast-forward-60
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_phone_60min
-          bottom: []
-        name: Reset
-        styles: |
-          .bubble-sub-button {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-          }
-          .bubble-icon-container {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-          }
-      - type: custom:bubble-card
-        card_type: sub-buttons
-        sub_button:
-          main: []
-          bottom:
-          - entity: automation.antibonus
-            show_name: true
-            name: Antibonus
-            show_icon: false
-            show_state: false
-            tap_action:
-              action: toggle
-            content_layout: icon-left
-            fill_width: true
-            hold_action:
-              action: more-info
-          - entity: automation.child_anti_unlock
-            name: Unlock
-            show_name: true
-            show_icon: false
-            tap_action:
-              action: toggle
-            content_layout: icon-left
-            fill_width: true
-            hold_action:
-              action: more-info
-          - entity: automation.child_bedtime_enabler
-            name: Bedtime
-            force_icon: false
-            show_icon: false
-            show_name: true
-            show_state: false
-            scrolling_effect: true
-            tap_action:
-              action: toggle
-            content_layout: icon-left
-            fill_width: true
-            hold_action:
-              action: more-info
-          - entity: automation.child_daily_limit_enabler
-            name: Daily limit
-            show_name: true
-            force_icon: false
-            show_icon: false
-            tap_action:
-              action: toggle
-            content_layout: icon-left
-            fill_width: true
-            hold_action:
-              action: more-info
-        rows: 0.938
-        card_layout: normal
-        styles: |
-          :host {
-            --bubble-accent-color: rgba(255, 255, 255, 0.15);
-            --primary-text-color: #FFF;
-          }
-  - type: grid
-    cards:
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Galaxy Tab
-        entity: switch.child_tablet
-        triggers_update:
-        - sensor.child_tablet_daily_limit
-        - sensor.child_tablet_screen_time_remaining
-        - sensor.child_tablet_active_bonus
-        - switch.child_tablet
-        show_state: false
-        show_label: false
-        show_name: true
-        show_entity_picture: false
-        show_icon: true
-        tap_action:
-          action: toggle
-        state:
-        - value: 'on'
-          icon: mdi:tablet
-          styles:
-            icon:
-            - color: |
-                [[[
-                  let bonus = parseFloat(states['sensor.child_tablet_active_bonus']?.state) || 0;
-                  return bonus > 0 ? '#4CAF50' : '#4CAF50';
-                ]]]
-        - value: 'off'
-          icon: mdi:tablet
-          styles:
-            icon:
-            - color: |
-                [[[
-                  let bonus = parseFloat(states['sensor.child_tablet_active_bonus']?.state) || 0;
-                  return bonus > 0 ? '#4CAF50' : '#F44336';
-                ]]]
-        variables:
-          screen_data: "[[[\n  let remaining = parseFloat(states['sensor.child_tablet_screen_time_remaining']?.state) || 0;\n  let limit = parseFloat(states['sensor.child_tablet_daily_limit']?.state) || 0;\n  let bonus = parseFloat(states['sensor.child_tablet_active_bonus']?.state) || 0;\n  let total = limit + bonus;\n  let used = limit - (remaining - bonus);\n  if (used < 0) used = 0;\n  let overflow = used - total;\n  if (overflow < 0) overflow = 0;\n  \n  let percent = (total > 0) ? Math.round((used / total) * 100) : 0;\n  if (percent > 100) percent = 100;\n\n  return {\n    limit: Math.round(limit),\n    bonus: Math.round(bonus),\n    total: Math.round(total),\n    used: Math.round(used),\n    overflow: Math.round(overflow),\n    percent: percent\n  };\n]]]\n"
-        styles:
-          grid:
-          - grid-template-areas: '"i n stat" "bar bar bar"'
-          - grid-template-columns: 40px 1fr auto
-          - grid-template-rows: 1fr auto
-          - grid-gap: 8px
-          card:
-          - padding: 12px
-          icon:
-          - grid-area: i
-          - width: 30px
-          - justify-self: start
-          name:
-          - grid-area: n
-          - justify-self: start
-          - align-self: center
-          - font-weight: bold
-          - font-size: 14px
-          custom_fields:
-            stat:
-            - grid-area: stat
-            - align-self: center
-            - justify-self: end
-            - font-size: 14px
-            - font-weight: 500
-            - opacity: 0.8
-            bar:
-            - grid-area: bar
-        custom_fields:
-          stat: "[[[\n  let bonus = variables.screen_data.bonus;\n  let total = variables.screen_data.total;\n  let used = variables.screen_data.used;\n  let overflow = variables.screen_data.overflow;\n  \n  let base = `${used}m / ${total}m`;\n  let suffix = '';\n  \n  if (bonus > 0) {\n    suffix = ` <span style=\"color: #4CAF50;\">(+${bonus})</span>`;\n  } else if (overflow > 0) {\n    suffix = ` <span style=\"color: #F44336;\">(+${overflow})</span>`;\n  }\n  \n  return base + suffix;\n]]]\n"
-          bar: "[[[\n  let pct = variables.screen_data.percent;\n  let color = \"var(--primary-color)\";\n  if (pct >= 90) color = \"#db4437\";\n  else if (pct >= 75) color = \"#f4b400\";\n  \n  return `\n    <div style=\"background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;\">\n      <div style=\"background-color: ${color}; width: ${pct}%; height: 100%;\"></div>\n    </div>\n  `;\n]]]\n"
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:bubble-card
-        card_type: button
-        entity: button.child_tablet_reset_bonus
-        button_type: button
-        icon: mdi:restart
-        show_icon: true
-        force_icon: true
-        show_name: true
-        show_last_updated: true
-        scrolling_effect: true
-        card_layout: large
-        tap_action:
-          action: call-service
-          service: button.press
-          target:
-            entity_id: button.child_tablet_reset_bonus
-        sub_button:
-          main:
-          - buttons_layout: inline
-            group:
-            - entity: button.child_tablet_15min
-              icon: mdi:fast-forward-15
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_tablet_15min
-            - entity: button.child_tablet_30min
-              icon: mdi:fast-forward-30
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_tablet_30min
-            - entity: button.child_tablet_60min
-              icon: mdi:fast-forward-60
-              show_icon: true
-              show_name: false
-              show_background: true
-              tap_action:
-                action: call-service
-                service: button.press
-                target:
-                  entity_id: button.child_tablet_60min
-        name: Reset
-        styles: |
-          .bubble-sub-button {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-          }
-          .bubble-icon-container {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-          }
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Device Statistics
-        tap_action:
-          action: none
-        styles:
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 0 0 16px
-          - margin: 0
-          name:
-          - font-size: 15px
-          - font-weight: bold
-          - justify-self: start
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - show_name: true
-        show_icon: true
-        show_state: true
-        type: glance
-        columns: 4
-        entities:
-        - entity: sensor.firstname_lastname_installed_apps
-          name: Installed
-          icon: mdi:apps
-        - entity: sensor.firstname_lastname_blocked_apps
-          name: Blocked
-          icon: mdi:block-helper
-        - entity: sensor.firstname_lastname_apps_with_time_limits
-          name: Limited
-          icon: mdi:timer-lock
-        - entity: sensor.firstname_lastname_device_count
-          name: Devices
-          icon: mdi:devices
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                name: Kid's Tablet
+                entity: switch.galaxy_tab_firstname
+                triggers_update:
+                  - sensor.galaxy_tab_firstname_daily_limit
+                  - sensor.galaxy_tab_firstname_screen_time_remaining
+                  - sensor.galaxy_tab_firstname_active_bonus
+                  - switch.galaxy_tab_firstname
+                show_state: false
+                show_label: false
+                show_name: true
+                show_entity_picture: false
+                show_icon: true
+                tap_action:
+                  action: toggle
+                state:
+                  - value: 'on'
+                    icon: mdi:tablet
+                    styles:
+                      icon:
+                        - color: |
+                            [[[
+                              let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                              return bonus > 0 ? '#4CAF50' : '#4CAF50';
+                            ]]]
+                  - value: 'off'
+                    icon: mdi:tablet
+                    styles:
+                      icon:
+                        - color: |
+                            [[[
+                              let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                              return bonus > 0 ? '#4CAF50' : '#F44336';
+                            ]]]
+                variables:
+                  screen_data: |
+                    [[[
+                      let remaining = parseFloat(states['sensor.galaxy_tab_firstname_screen_time_remaining']?.state) || 0;
+                      let limit = parseFloat(states['sensor.galaxy_tab_firstname_daily_limit']?.state) || 0;
+                      let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                      let total = limit + bonus;
+                      let used = limit - (remaining - bonus);
+                      if (used < 0) used = 0;
+                      let overflow = used - total;
+                      if (overflow < 0) overflow = 0;
+                      
+                      let percent = (total > 0) ? Math.round((used / total) * 100) : 0;
+                      if (percent > 100) percent = 100;
+
+                      return {
+                        limit: Math.round(limit),
+                        bonus: Math.round(bonus),
+                        total: Math.round(total),
+                        used: Math.round(used),
+                        overflow: Math.round(overflow),
+                        percent: percent
+                      };
+                    ]]]
+                styles:
+                  grid:
+                    - grid-template-areas: '"i n stat" "bar bar bar"'
+                    - grid-template-columns: 40px 1fr auto
+                    - grid-template-rows: 1fr auto
+                    - grid-gap: 8px
+                  card:
+                    - padding: 12px
+                  icon:
+                    - grid-area: i
+                    - width: 30px
+                    - justify-self: start
+                  name:
+                    - grid-area: 'n'
+                    - justify-self: start
+                    - align-self: center
+                    - font-weight: bold
+                    - font-size: 14px
+                  custom_fields:
+                    stat:
+                      - grid-area: stat
+                      - align-self: center
+                      - justify-self: end
+                      - font-size: 14px
+                      - font-weight: 500
+                      - opacity: 0.8
+                    bar:
+                      - grid-area: bar
+                custom_fields:
+                  stat: |
+                    [[[
+                      let bonus = variables.screen_data.bonus;
+                      let total = variables.screen_data.total;
+                      let used = variables.screen_data.used;
+                      let overflow = variables.screen_data.overflow;
+                      
+                      let base = `${used}m / ${total}m`;
+                      let suffix = '';
+                      
+                      if (bonus > 0) {
+                        suffix = ` <span style="color: #4CAF50;">(+${bonus})</span>`;
+                      } else if (overflow > 0) {
+                        suffix = ` <span style="color: #F44336;">(+${overflow})</span>`;
+                      }
+                      
+                      return base + suffix;
+                    ]]]
+                  bar: |
+                    [[[
+                      let pct = variables.screen_data.percent;
+                      let color = "var(--primary-color)";
+                      if (pct >= 90) color = "#db4437";
+                      else if (pct >= 75) color = "#f4b400";
+                      
+                      return `
+                        <div style="background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;">
+                          <div style="background-color: ${color}; width: ${pct}%; height: 100%;"></div>
+                        </div>
+                      `;
+                    ]]]
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:bubble-card
+                card_type: button
+                entity: button.galaxy_tab_firstname_reset_bonus
+                button_type: button
+                icon: mdi:restart
+                show_icon: true
+                force_icon: true
+                show_name: true
+                show_last_updated: true
+                scrolling_effect: true
+                card_layout: large
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.galaxy_tab_firstname_reset_bonus
+                sub_button:
+                  main:
+                    - buttons_layout: inline
+                      group:
+                        - entity: button.galaxy_tab_firstname_15min
+                          icon: mdi:fast-forward-15
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.galaxy_tab_firstname_15min
+                        - entity: button.galaxy_tab_firstname_30min
+                          icon: mdi:fast-forward-30
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.galaxy_tab_firstname_30min
+                        - entity: button.galaxy_tab_firstname_60min
+                          icon: mdi:fast-forward-60
+                          show_icon: true
+                          show_name: false
+                          show_background: true
+                          tap_action:
+                            action: call-service
+                            service: button.press
+                            target:
+                              entity_id: button.galaxy_tab_firstname_60min
+                name: Reset
+                styles: |
+                  .bubble-sub-button {
+                    background-color: rgba(255, 255, 255, 0.1) !important;
+                  }
+                  .bubble-icon-container {
+                    background-color: rgba(255, 255, 255, 0.1) !important;
+                  }
+      - type: vertical-stack
+        cards:
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                name: Screen time per hour
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - height: 40px
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0 0 0 16px
+                    - margin: 0
+                  name:
+                    - font-size: 15px
+                    - font-weight: bold
+                    - justify-self: start
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:swipe-card
+                parameters:
+                  spaceBetween: 12
+                  pagination:
+                    clickable: true
+                cards:
+                  - type: custom:apexcharts-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: inherit !important;
+                        }
+                    graph_span: 1d
+                    span:
+                      start: day
+                    yaxis:
+                      - decimals: 0
+                        min: 0
+                    apex_config:
+                      chart:
+                        type: bar
+                        height: 170
+                        toolbar:
+                          show: true
+                      yaxis:
+                        title:
+                          text: Minutes
+                      plotOptions:
+                        bar:
+                          columnWidth: 55%
+                          borderRadius: 4
+                    series:
+                      - entity: sensor.firstname_ecran_par_heure
+                        name: Minutes used
+                        type: column
+                        group_by:
+                          duration: 1h
+                          func: max
+                        color_threshold:
+                          - value: 0
+                            color: '#4ade80'
+                          - value: 15
+                            color: '#a3e635'
+                          - value: 30
+                            color: '#facc15'
+                          - value: 45
+                            color: '#fb923c'
+                          - value: 55
+                            color: '#ef4444'
+                  - type: custom:apexcharts-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: inherit !important;
+                        }
+                    header:
+                      title: Yesterday
+                      show: true
+                    graph_span: 1d
+                    span:
+                      start: day
+                      offset: '-1d'
+                    yaxis:
+                      - decimals: 0
+                        min: 0
+                    apex_config:
+                      chart:
+                        type: bar
+                        height: 150
+                        toolbar:
+                          show: true
+                      yaxis:
+                        title:
+                          text: Minutes
+                      plotOptions:
+                        bar:
+                          columnWidth: 55%
+                          borderRadius: 4
+                    series:
+                      - entity: sensor.firstname_ecran_par_heure
+                        name: Minutes used
+                        type: column
+                        group_by:
+                          duration: 1h
+                          func: max
+                        color_threshold:
+                          - value: 0
+                            color: '#4ade80'
+                          - value: 15
+                            color: '#a3e635'
+                          - value: 30
+                            color: '#facc15'
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                name: Apps & usage today
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - height: 40px
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0 0 0 16px
+                    - margin: 0
+                  name:
+                    - font-size: 15px
+                    - font-weight: bold
+                    - justify-self: start
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - show_name: true
+                show_icon: true
+                show_state: true
+                type: glance
+                columns: 4
+                entities:
+                  - entity: sensor.firstname_name_installed_apps
+                    name: Installed
+                    icon: mdi:apps
+                  - entity: sensor.firstname_name_blocked_apps
+                    name: Blocked
+                    icon: mdi:block-helper
+                  - entity: sensor.firstname_name_apps_with_time_limits
+                    name: Limited
+                    icon: mdi:timer-lock
+                  - entity: sensor.firstname_name_device_count
+                    name: Devices
+                    icon: mdi:devices
+                card_mod:
+                  style: |
+                    ha-card {
+                      background-color: inherit !important;
+                    }
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: entities
+                show_header_toggle: false
+                card_mod:
+                  style: |
+                    ha-card {
+                      background-color: inherit !important;
+                    }            
+                entities:
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_1
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_1', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_1') | round(1) }}
+                      min
+                    icon: mdi:numeric-1-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_2
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_2', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_2') | round(1) }}
+                      min
+                    icon: mdi:numeric-2-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_3
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_3', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_3') | round(1) }}
+                      min
+                    icon: mdi:numeric-3-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_4
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_4', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_4') | round(1) }}
+                      min
+                    icon: mdi:numeric-4-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_5
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_5', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_5') | round(1) }}
+                      min
+                    icon: mdi:numeric-5-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_6
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_6', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_6') | round(1) }}
+                      min
+                    icon: mdi:numeric-6-circle
+                  - type: custom:template-entity-row
+                    entity: sensor.firstname_name_top_app_7
+                    name: >-
+                      {{ state_attr('sensor.firstname_name_top_app_7', 'app_name')
+                      | default('Application') }}
+                    state: >-
+                      {{ states('sensor.firstname_name_top_app_7') | round(1) }}
+                      min
+                    icon: mdi:numeric-7-circle
         card_mod:
           style: |
             ha-card {
               background-color: inherit !important;
             }
-  - type: grid
-    cards:
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Screen time by hour
-        tap_action:
-          action: none
-        styles:
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 0 0 16px
-          - margin: 0
-          name:
-          - font-size: 15px
-          - font-weight: bold
-          - justify-self: start
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:swipe-card
-        parameters:
-          spaceBetween: 12
-          pagination:
-            clickable: true
+      - type: vertical-stack
         cards:
-        - type: custom:apexcharts-card
-          card_mod:
-            style: |
-              ha-card {
-                background: inherit !important;
-              }
-          graph_span: 1d
-          span:
-            start: day
-          yaxis:
-          - decimals: 0
-            min: 0
-          apex_config:
-            chart:
-              type: bar
-              height: 170
-              toolbar:
-                show: true
-            yaxis:
-              title:
-                text: Minutes
-            plotOptions:
-              bar:
-                columnWidth: 55%
-                borderRadius: 4
-          series:
-          - entity: sensor.child_screen_time_by_hour
-            name: Used minutes
-            type: column
-            group_by:
-              duration: 1h
-              func: max
-            color_threshold:
-            - value: 0
-              color: '#4ade80'
-            - value: 15
-              color: '#a3e635'
-            - value: 30
-              color: '#facc15'
-            - value: 45
-              color: '#fb923c'
-            - value: 55
-              color: '#ef4444'
-        - type: custom:apexcharts-card
-          card_mod:
-            style: |
-              ha-card {
-                background: inherit !important;
-              }
-          header:
-            title: Yesterday
-            show: true
-          graph_span: 1d
-          span:
-            start: day
-            offset: -1d
-          yaxis:
-          - decimals: 0
-            min: 0
-          apex_config:
-            chart:
-              type: bar
-              height: 150
-              toolbar:
-                show: true
-            yaxis:
-              title:
-                text: Minutes
-            plotOptions:
-              bar:
-                columnWidth: 55%
-                borderRadius: 4
-          series:
-          - entity: sensor.child_screen_time_by_hour
-            name: Used minutes
-            type: column
-            group_by:
-              duration: 1h
-              func: max
-            color_threshold:
-            - value: 0
-              color: '#4ade80'
-            - value: 15
-              color: '#a3e635'
-            - value: 30
-              color: '#facc15'
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        name: Most used apps today
-        tap_action:
-          action: none
-        styles:
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 0 0 16px
-          - margin: 0
-          name:
-          - font-size: 15px
-          - font-weight: bold
-          - justify-self: start
-      - type: custom:mod-card
-        card_mod:
-          style: |
-            ha-card {
-              height: 1px;
-              background: rgba(152, 152, 157, 0.3);
-              box-shadow: none;
-              border: none;
-            }
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_icon: false
+                show_state: false
+                tap_action:
+                  action: none
+                custom_fields:
+                  sync: >-
+                    [[[ return `<ha-icon class="fl-sync" icon="mdi:sync"
+                    onmousedown="this.classList.add('spin');
+                    setTimeout(()=>this.classList.remove('spin'),4000);"
+                    style="width:20px;height:20px;color:#ffffff;transition:color
+                    .2s;cursor:pointer;"></ha-icon>`; ]]]
+                  title: >-
+                    [[[ return `<div style="display: flex; align-items: center;
+                    gap: 8px;"><span style="font-size:15px; font-weight:bold;
+                    color:var(--primary-text-color);">Location</span><span
+                    style="display: inline-flex; align-items: center; gap: 4px;
+                    font-size: 13px; font-weight: bold; color:
+                    rgba(255,255,255,0.6);"><ha-icon icon="mdi:map-marker"
+                    style="--mdc-icon-size: 14px; width: 14px; height: 14px;
+                    color:
+                    rgba(255,255,255,0.6);"></ha-icon>Paris</span></div>`; ]]]
+                extra_styles: >
+                  @keyframes fl-spin { from { transform: rotate(0deg);} to {
+                  transform: rotate(360deg);} }
+
+                  #card { cursor: pointer; }
+
+                  ha-icon.fl-sync.spin { animation: fl-spin 0.9s linear
+                  infinite; color: var(--primary-color) !important; }
+
+                  #card:hover ha-icon.fl-sync { color: var(--primary-color)
+                  !important; }
+                styles:
+                  grid:
+                    - grid-template-areas: '"title sync"'
+                    - grid-template-columns: 1fr auto
+                    - align-items: center
+                  card:
+                    - height: 40px
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0 16px
+                    - margin: 0
+                  custom_fields:
+                    title:
+                      - grid-area: title
+                      - justify-self: start
+                      - align-self: center
+                    sync:
+                      - grid-area: sync
+                      - justify-self: end
+                      - align-self: center
+              - type: custom:mod-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      height: 1px;
+                      background: rgba(152, 152, 157, 0.3);
+                      box-shadow: none;
+                      border: none;
+                    }
+                card:
+                  type: custom:mushroom-title-card
+                  title: ''
+              - type: custom:map-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: none !important;
+                      box-shadow: none !important;
+                      border-radius: 0 !important;
+                      overflow: hidden;
+                    }
+                    ha-card > div, .leaflet-container, #map, .map, ha-map {
+                      border-radius: 0 !important;
+                    }
+                entities:
+                  - entity: device_tracker.firstname_name_family_link_firstname_name
+                    display: icon
+                    size: 35
+                    color: deep-purple
+                theme_mode: auto
+                zoom: 14
+                card_size: 6
+                tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+                tile_layer_attribution: Family Link
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: sensor.firstname_pending_requests
+            state: '0'
         card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: entities
-        show_header_toggle: false
-        card_mod:
-          style: "ha-card {\n  background-color: inherit !important;\n}            \n"
-        entities:
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_1
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_1'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_1'') | round(1) }} min'
-          icon: mdi:numeric-1-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_2
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_2'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_2'') | round(1) }} min'
-          icon: mdi:numeric-2-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_3
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_3'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_3'') | round(1) }} min'
-          icon: mdi:numeric-3-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_4
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_4'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_4'') | round(1) }} min'
-          icon: mdi:numeric-4-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_5
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_5'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_5'') | round(1) }} min'
-          icon: mdi:numeric-5-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_6
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_6'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_6'') | round(1) }} min'
-          icon: mdi:numeric-6-circle
-        - type: custom:template-entity-row
-          entity: sensor.firstname_lastname_top_app_7
-          name: '{{ state_attr(''sensor.firstname_lastname_top_app_7'', ''app_name'') | default(''App'') }}'
-          state: '{{ states(''sensor.firstname_lastname_top_app_7'') | round(1) }} min'
-          icon: mdi:numeric-7-circle
+          type: custom:vertical-stack-in-card
+          cards:
+            - type: custom:button-card
+              name: Incoming requests
+              tap_action:
+                action: none
+              styles:
+                card:
+                  - height: 40px
+                  - box-shadow: none
+                  - border: none
+                  - padding: 0 0 0 16px
+                  - margin: 0
+                name:
+                  - font-size: 15px
+                  - font-weight: bold
+                  - justify-self: start
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    height: 1px;
+                    background: rgba(152, 152, 157, 0.3);
+                    box-shadow: none;
+                    border: none;
+                  }
+              card:
+                type: custom:mushroom-title-card
+                title: ''
+            - type: custom:button-card
+              entity: sensor.firstname_pending_requests
+              show_name: false
+              show_state: false
+              show_icon: false
+              show_label: true
+              label: |
+                [[[
+                  const n = parseInt(states['sensor.firstname_pending_requests']?.state) || 0;
+                  const color = n > 0 ? 'var(--warning-color)' : 'var(--success-color)';
+                  const txt = n > 0 ? n + ' en attente' : 'Aucune demande';
+                  return `<div style="display:flex;align-items:center;gap:10px;padding:2px 4px;"><span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;"></span><span style="font-size:13px;color:rgba(255,255,255,0.85);">${txt}</span></div>`;
+                ]]]
+              tap_action:
+                action: none
+              styles:
+                card:
+                  - background: transparent
+                  - box-shadow: none
+                  - border: none
+                  - padding: 6px 12px
+                  - margin: 0
+                label:
+                  - width: 100%
+                  - justify-self: start
+            - type: custom:stack-in-card
+              mode: horizontal
+              cards:
+                - type: custom:button-card
+                  entity: button.firstname_approve_request
+                  name: Approve
+                  icon: mdi:check-circle
+                  tap_action:
+                    action: toggle
+                  styles:
+                    card:
+                      - background: transparent
+                      - box-shadow: none
+                      - border: none
+                      - padding: 10px 0
+                    icon:
+                      - color: var(--success-color)
+                      - width: 22px
+                    name:
+                      - font-size: 12px
+                      - color: rgba(255,255,255,0.8)
+                - type: custom:button-card
+                  entity: button.firstname_deny_request
+                  name: Deny
+                  icon: mdi:close-circle
+                  tap_action:
+                    action: toggle
+                  styles:
+                    card:
+                      - background: transparent
+                      - box-shadow: none
+                      - border: none
+                      - padding: 10px 0
+                    icon:
+                      - color: var(--error-color)
+                      - width: 22px
+                    name:
+                      - font-size: 12px
+                      - color: rgba(255,255,255,0.8)
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    height: 1px;
+                    background: rgba(152, 152, 157, 0.3);
+                    box-shadow: none;
+                    border: none;
+                  }
+              card:
+                type: custom:mushroom-title-card
+                title: ''
+    type: masonry
+    theme: ios-dark-mode-blue-red
+  - type: sections
+    path: ''
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    name: Kid's screen time
+                    tap_action:
+                      action: none
+                    styles:
+                      card:
+                        - height: 40px
+                        - box-shadow: none
+                        - border: none
+                        - padding: 0 0 0 16px
+                        - margin: 0
+                      name:
+                        - font-size: 15px
+                        - font-weight: bold
+                        - justify-self: start
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:stack-in-card
+                    mode: horizontal
+                    card_mod:
+                      style: >
+                        :host { --stack-card-gap: 0 !important; }
+
+                        ha-card { padding: 0 !important; background: inherit
+                        !important; }
+                    cards:
+                      - type: custom:button-card
+                        entity: sensor.firstname_temps_d_ecran_total
+                        name: Total time
+                        icon: mdi:clock-outline
+                        show_state: true
+                        state_display: |
+                          [[[
+                            const e = states['sensor.firstname_temps_d_ecran_total'];
+                            return e && e.attributes && e.attributes.formatted_hms
+                              ? e.attributes.formatted_hms
+                              : (entity.state + ' min');
+                          ]]]
+                        styles:
+                          card:
+                            - height: 90px
+                            - border: none
+                            - border-right: 1px solid rgba(152,152,157,0.3)
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          icon:
+                            - width: 32px
+                            - color: var(--primary-color)
+                            - z-index: 1
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - opacity: 0.7
+                            - z-index: 1
+                          state:
+                            - font-size: 16px
+                            - font-weight: bold
+                            - z-index: 1
+                      - type: custom:button-card
+                        entity: sensor.firstname_name_installed_apps
+                        name: Apps
+                        icon: mdi:apps
+                        show_state: true
+                        state_display: |
+                          [[[
+                            return entity.state + ' apps';
+                          ]]]
+                        tap_action:
+                          action: none
+                        styles:
+                          card:
+                            - height: 90px
+                            - border: none
+                            - border-right: 1px solid rgba(152,152,157,0.3)
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          icon:
+                            - width: 32px
+                            - color: var(--primary-color)
+                            - z-index: 1
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - opacity: 0.7
+                            - z-index: 1
+                          state:
+                            - font-size: 16px
+                            - font-weight: bold
+                            - z-index: 1
+                      - type: custom:button-card
+                        entity: sensor.firstname_name_blocked_apps
+                        name: Blocked
+                        icon: mdi:block-helper
+                        show_state: true
+                        state_display: |
+                          [[[
+                            return entity.state + ' apps';
+                          ]]]
+                        tap_action:
+                          action: none
+                        card_mod:
+                          style: |
+                            :host ha-card { border-right: none !important; }
+                        styles:
+                          card:
+                            - height: 90px
+                            - border: none
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          icon:
+                            - width: 32px
+                            - color: '#F44336'
+                            - z-index: 1
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - opacity: 0.7
+                            - z-index: 1
+                          state:
+                            - font-size: 16px
+                            - font-weight: bold
+                            - z-index: 1
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:stack-in-card
+                    mode: horizontal
+                    card_mod:
+                      style: >
+                        :host { --stack-card-gap: 0 !important; }
+
+                        ha-card { padding: 0 !important; background:inherit
+                        !important;}
+                    cards:
+                      - type: custom:button-card
+                        entity: switch.firstname_name_daily_limit
+                        name: Daily Limit
+                        icon: mdi:timer-sand
+                        tap_action:
+                          action: toggle
+                        hold_action:
+                          action: more-info
+                        double_tap_action:
+                          action: toggle
+                        custom_fields:
+                          bg: ''
+                        styles:
+                          card:
+                            - position: relative
+                            - overflow: hidden
+                            - height: 70px
+                            - border: none
+                            - border-right: 1px solid rgba(152,152,157,0.3)
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          custom_fields:
+                            bg:
+                              - position: absolute
+                              - inset: 0
+                              - z-index: 0
+                              - pointer-events: none
+                              - background: |
+                                  [[[
+                                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                                  ]]]
+                          icon:
+                            - width: 28px
+                            - z-index: 1
+                            - color: |
+                                [[[
+                                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                                ]]]
+                            - opacity: |
+                                [[[
+                                  return entity.state === 'on' ? '1' : '0.5';
+                                ]]]
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - z-index: 1
+                      - type: custom:button-card
+                        entity: switch.firstname_name_bedtime
+                        name: Bedtime
+                        icon: mdi:weather-night
+                        tap_action:
+                          action: toggle
+                        hold_action:
+                          action: more-info
+                        double_tap_action:
+                          action: toggle
+                        custom_fields:
+                          bg: ''
+                        styles:
+                          card:
+                            - position: relative
+                            - overflow: hidden
+                            - height: 70px
+                            - border: none
+                            - border-right: 1px solid rgba(152,152,157,0.3)
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          custom_fields:
+                            bg:
+                              - position: absolute
+                              - inset: 0
+                              - z-index: 0
+                              - pointer-events: none
+                              - background: |
+                                  [[[
+                                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                                  ]]]
+                          icon:
+                            - width: 28px
+                            - z-index: 1
+                            - color: |
+                                [[[
+                                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                                ]]]
+                            - opacity: |
+                                [[[
+                                  return entity.state === 'on' ? '1' : '0.5';
+                                ]]]
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - z-index: 1
+                      - type: custom:button-card
+                        entity: input_boolean.firstname_mode_school
+                        triggers_update: input_boolean.firstname_mode_school
+                        name: School
+                        icon: mdi:school
+                        tap_action:
+                          action: toggle
+                        hold_action:
+                          action: more-info
+                        double_tap_action:
+                          action: toggle
+                        custom_fields:
+                          bg: ''
+                        styles:
+                          card:
+                            - position: relative
+                            - overflow: hidden
+                            - height: 70px
+                            - border: none
+                            - border-radius: 0
+                            - padding: 10px 0
+                            - background: transparent
+                          custom_fields:
+                            bg:
+                              - position: absolute
+                              - inset: 0
+                              - z-index: 0
+                              - pointer-events: none
+                              - transition: background 120ms ease
+                              - background: |
+                                  [[[
+                                    if (!entity || entity.state === undefined) return 'transparent';
+                                    return entity.state === 'on' ? 'rgb(65,56,62)' : 'transparent';
+                                  ]]]
+                          icon:
+                            - width: 28px
+                            - z-index: 1
+                            - color: |
+                                [[[
+                                  if (!entity || entity.state === undefined) return 'var(--primary-text-color)';
+                                  return entity.state === 'on' ? '#FF9800' : 'var(--primary-text-color)';
+                                ]]]
+                            - opacity: |
+                                [[[
+                                  if (!entity || entity.state === undefined) return '0.5';
+                                  return entity.state === 'on' ? '1' : '0.5';
+                                ]]]
+                          name:
+                            - font-size: 13px
+                            - font-weight: 500
+                            - z-index: 1
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    name: Kid's Phone
+                    entity: switch.sm_s916b
+                    triggers_update:
+                      - sensor.sm_s916b_daily_limit
+                      - sensor.sm_s916b_screen_time_remaining
+                      - sensor.sm_s916b_active_bonus
+                      - sensor.firstname_name_daily_screen_time
+                      - switch.sm_s916b
+                      - sensor.firstname_name_battery_level
+                    show_state: false
+                    show_label: false
+                    show_name: true
+                    show_entity_picture: false
+                    show_icon: true
+                    tap_action:
+                      action: toggle
+                    state:
+                      - value: 'on'
+                        icon: mdi:cellphone
+                        styles:
+                          icon:
+                            - color: '#4CAF50'
+                      - value: 'off'
+                        icon: mdi:cellphone-lock
+                        styles:
+                          icon:
+                            - color: '#F44336'
+                    variables:
+                      screen_data: |
+                        [[[
+                          let used = parseFloat(states['sensor.firstname_name_daily_screen_time']?.state) || 0;
+                          let limit = parseFloat(states['sensor.sm_s916b_daily_limit']?.state) || 0;
+                          let bonus = parseFloat(states['sensor.sm_s916b_active_bonus']?.state) || 0;
+                          let total = limit + bonus;
+                          let overflow = used - total;
+                          if (overflow < 0) overflow = 0;
+                          
+                          let percent = (total > 0) ? Math.round((used / total) * 100) : 0;
+                          if (percent > 100) percent = 100;
+
+                          return {
+                            limit: Math.round(limit),
+                            bonus: Math.round(bonus),
+                            total: Math.round(total),
+                            used: Math.round(used),
+                            overflow: Math.round(overflow),
+                            percent: percent
+                          };
+                        ]]]
+                    styles:
+                      grid:
+                        - grid-template-areas: '"i n batt stat" "bar bar bar bar"'
+                        - grid-template-columns: 40px auto auto 1fr
+                        - grid-template-rows: 1fr auto
+                        - grid-gap: 8px
+                      card:
+                        - padding: 12px
+                      icon:
+                        - grid-area: i
+                        - width: 30px
+                        - justify-self: start
+                      name:
+                        - grid-area: 'n'
+                        - justify-self: start
+                        - align-self: center
+                        - font-weight: bold
+                        - font-size: 14px
+                      custom_fields:
+                        stat:
+                          - grid-area: stat
+                          - align-self: center
+                          - justify-self: end
+                          - font-size: 14px
+                          - font-weight: 500
+                          - opacity: 0.8
+                        bar:
+                          - grid-area: bar
+                        batt:
+                          - grid-area: batt
+                          - align-self: center
+                          - justify-self: start
+                          - padding-left: 4px
+                          - display: flex
+                          - align-items: center
+                          - height: 100%
+                    custom_fields:
+                      stat: |
+                        [[[
+                          let bonus = variables.screen_data.bonus;
+                          let limit = variables.screen_data.limit;
+                          let total = variables.screen_data.total;
+                          let used = variables.screen_data.used;
+                          let overflow = variables.screen_data.overflow;
+                          
+                          let base = `${used}m / ${total}m`;
+                          let suffix = '';
+                          
+                          if (bonus > 0) {
+                            suffix = ` <span style="color: #4CAF50;">(+${bonus})</span>`;
+                          } else if (overflow > 0) {
+                            suffix = ` <span style="color: #db4437;">(+${overflow})</span>`;
+                          }
+                          
+                          return base + suffix;
+                        ]]]
+                      bar: |
+                        [[[
+                          let pct = variables.screen_data.percent;
+                          let color = "var(--primary-color)";
+                          if (pct >= 90) color = "#db4437";
+                          else if (pct >= 75) color = "#f4b400";
+                          
+                          return `
+                            <div style="background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;">
+                              <div style="background-color: ${color}; width: ${pct}%; height: 100%;"></div>
+                            </div>
+                          `;
+                        ]]]
+                      batt: |
+                        [[[
+                          const lvl = parseInt(states['sensor.firstname_name_battery_level']?.state);
+                          if (isNaN(lvl)) return '';
+                          let color = lvl <= 20 ? '#F44336' : (lvl <= 40 ? '#F4B400' : 'rgba(255,255,255,0.55)');
+                          let icon = 'mdi:battery';
+                          if (lvl <= 10) icon='mdi:battery-10'; else if (lvl<=20) icon='mdi:battery-20';
+                          else if (lvl<=30) icon='mdi:battery-30'; else if (lvl<=40) icon='mdi:battery-40';
+                          else if (lvl<=50) icon='mdi:battery-50'; else if (lvl<=60) icon='mdi:battery-60';
+                          else if (lvl<=70) icon='mdi:battery-70'; else if (lvl<=80) icon='mdi:battery-80';
+                          else if (lvl<=90) icon='mdi:battery-90'; else icon='mdi:battery';
+                          return `<span style="display:inline-flex;align-items:center;gap:3px;color:${color};font-size:12px;font-weight:600;line-height:14px;white-space:nowrap;"><ha-icon icon="${icon}" style="--mdc-icon-size:14px;width:14px;height:14px;color:${color};"></ha-icon>${lvl}%</span>`;
+                        ]]]
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:bubble-card
+                    card_type: button
+                    entity: button.sm_s916b_reset_bonus
+                    button_type: button
+                    icon: mdi:restart
+                    show_icon: true
+                    force_icon: true
+                    show_name: true
+                    show_last_updated: true
+                    scrolling_effect: true
+                    card_layout: large
+                    tap_action:
+                      action: call-service
+                      service: button.press
+                      target:
+                        entity_id: button.sm_s916b_reset_bonus
+                    sub_button:
+                      main:
+                        - buttons_layout: inline
+                          group:
+                            - entity: button.sm_s916b_15min
+                              icon: mdi:fast-forward-15
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.sm_s916b_15min
+                            - entity: button.sm_s916b_30min
+                              icon: mdi:fast-forward-30
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.sm_s916b_30min
+                            - entity: button.sm_s916b_60min
+                              icon: mdi:fast-forward-60
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.sm_s916b_60min
+                      bottom: []
+                    name: Reset
+                    styles: |
+                      .bubble-sub-button {
+                        background-color: rgba(255, 255, 255, 0.1) !important;
+                      }
+                      .bubble-icon-container {
+                        background-color: rgba(255, 255, 255, 0.1) !important;
+                      }
+                  - type: custom:bubble-card
+                    card_type: sub-buttons
+                    sub_button:
+                      main: []
+                      bottom:
+                        - entity: automation.antibonus
+                          show_name: true
+                          name: Antibonus
+                          show_icon: false
+                          show_state: false
+                          tap_action:
+                            action: toggle
+                          content_layout: icon-left
+                          fill_width: true
+                          hold_action:
+                            action: more-info
+                        - entity: automation.firstname_antideverrouillage
+                          name: Unlock
+                          show_name: true
+                          show_icon: false
+                          tap_action:
+                            action: toggle
+                          content_layout: icon-left
+                          fill_width: true
+                          hold_action:
+                            action: more-info
+                        - entity: automation.firstname_bedtime_enabler
+                          name: Bedtime
+                          force_icon: false
+                          show_icon: false
+                          show_name: true
+                          show_state: false
+                          scrolling_effect: true
+                          tap_action:
+                            action: toggle
+                          content_layout: icon-left
+                          fill_width: true
+                          hold_action:
+                            action: more-info
+                        - entity: automation.firstname_daily_limit_enabler
+                          name: Daily limit
+                          show_name: true
+                          force_icon: false
+                          show_icon: false
+                          tap_action:
+                            action: toggle
+                          content_layout: icon-left
+                          fill_width: true
+                          hold_action:
+                            action: more-info
+                    rows: 0.938
+                    card_layout: normal
+                    styles: |
+                      :host {
+                        --bubble-accent-color: rgba(255, 255, 255, 0.15);
+                        --primary-text-color: #FFF;
+                      }
+          - type: vertical-stack
+            cards:
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    name: Kid's Tablet
+                    entity: switch.galaxy_tab_firstname
+                    triggers_update:
+                      - sensor.galaxy_tab_firstname_daily_limit
+                      - sensor.galaxy_tab_firstname_screen_time_remaining
+                      - sensor.galaxy_tab_firstname_active_bonus
+                      - switch.galaxy_tab_firstname
+                    show_state: false
+                    show_label: false
+                    show_name: true
+                    show_entity_picture: false
+                    show_icon: true
+                    tap_action:
+                      action: toggle
+                    state:
+                      - value: 'on'
+                        icon: mdi:tablet
+                        styles:
+                          icon:
+                            - color: |
+                                [[[
+                                  let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                                  return bonus > 0 ? '#4CAF50' : '#4CAF50';
+                                ]]]
+                      - value: 'off'
+                        icon: mdi:tablet
+                        styles:
+                          icon:
+                            - color: |
+                                [[[
+                                  let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                                  return bonus > 0 ? '#4CAF50' : '#F44336';
+                                ]]]
+                    variables:
+                      screen_data: |
+                        [[[
+                          let remaining = parseFloat(states['sensor.galaxy_tab_firstname_screen_time_remaining']?.state) || 0;
+                          let limit = parseFloat(states['sensor.galaxy_tab_firstname_daily_limit']?.state) || 0;
+                          let bonus = parseFloat(states['sensor.galaxy_tab_firstname_active_bonus']?.state) || 0;
+                          let total = limit + bonus;
+                          let used = limit - (remaining - bonus);
+                          if (used < 0) used = 0;
+                          let overflow = used - total;
+                          if (overflow < 0) overflow = 0;
+                          
+                          let percent = (total > 0) ? Math.round((used / total) * 100) : 0;
+                          if (percent > 100) percent = 100;
+
+                          return {
+                            limit: Math.round(limit),
+                            bonus: Math.round(bonus),
+                            total: Math.round(total),
+                            used: Math.round(used),
+                            overflow: Math.round(overflow),
+                            percent: percent
+                          };
+                        ]]]
+                    styles:
+                      grid:
+                        - grid-template-areas: '"i n stat" "bar bar bar"'
+                        - grid-template-columns: 40px 1fr auto
+                        - grid-template-rows: 1fr auto
+                        - grid-gap: 8px
+                      card:
+                        - padding: 12px
+                      icon:
+                        - grid-area: i
+                        - width: 30px
+                        - justify-self: start
+                      name:
+                        - grid-area: 'n'
+                        - justify-self: start
+                        - align-self: center
+                        - font-weight: bold
+                        - font-size: 14px
+                      custom_fields:
+                        stat:
+                          - grid-area: stat
+                          - align-self: center
+                          - justify-self: end
+                          - font-size: 14px
+                          - font-weight: 500
+                          - opacity: 0.8
+                        bar:
+                          - grid-area: bar
+                    custom_fields:
+                      stat: |
+                        [[[
+                          let bonus = variables.screen_data.bonus;
+                          let total = variables.screen_data.total;
+                          let used = variables.screen_data.used;
+                          let overflow = variables.screen_data.overflow;
+                          
+                          let base = `${used}m / ${total}m`;
+                          let suffix = '';
+                          
+                          if (bonus > 0) {
+                            suffix = ` <span style="color: #4CAF50;">(+${bonus})</span>`;
+                          } else if (overflow > 0) {
+                            suffix = ` <span style="color: #F44336;">(+${overflow})</span>`;
+                          }
+                          
+                          return base + suffix;
+                        ]]]
+                      bar: |
+                        [[[
+                          let pct = variables.screen_data.percent;
+                          let color = "var(--primary-color)";
+                          if (pct >= 90) color = "#db4437";
+                          else if (pct >= 75) color = "#f4b400";
+                          
+                          return `
+                            <div style="background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;">
+                              <div style="background-color: ${color}; width: ${pct}%; height: 100%;"></div>
+                            </div>
+                          `;
+                        ]]]
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:bubble-card
+                    card_type: button
+                    entity: button.galaxy_tab_firstname_reset_bonus
+                    button_type: button
+                    icon: mdi:restart
+                    show_icon: true
+                    force_icon: true
+                    show_name: true
+                    show_last_updated: true
+                    scrolling_effect: true
+                    card_layout: large
+                    tap_action:
+                      action: call-service
+                      service: button.press
+                      target:
+                        entity_id: button.galaxy_tab_firstname_reset_bonus
+                    sub_button:
+                      main:
+                        - buttons_layout: inline
+                          group:
+                            - entity: button.galaxy_tab_firstname_15min
+                              icon: mdi:fast-forward-15
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.galaxy_tab_firstname_15min
+                            - entity: button.galaxy_tab_firstname_30min
+                              icon: mdi:fast-forward-30
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.galaxy_tab_firstname_30min
+                            - entity: button.galaxy_tab_firstname_60min
+                              icon: mdi:fast-forward-60
+                              show_icon: true
+                              show_name: false
+                              show_background: true
+                              tap_action:
+                                action: call-service
+                                service: button.press
+                                target:
+                                  entity_id: button.galaxy_tab_firstname_60min
+                    name: Reset
+                    styles: |
+                      .bubble-sub-button {
+                        background-color: rgba(255, 255, 255, 0.1) !important;
+                      }
+                      .bubble-icon-container {
+                        background-color: rgba(255, 255, 255, 0.1) !important;
+                      }
+          - type: vertical-stack
+            cards:
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    show_name: false
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: none
+                    custom_fields:
+                      sync: >-
+                        [[[ return `<ha-icon class="fl-sync" icon="mdi:sync"
+                        onmousedown="this.classList.add('spin');
+                        setTimeout(()=>this.classList.remove('spin'),4000);"
+                        style="width:20px;height:20px;color:#ffffff;transition:color
+                        .2s;cursor:pointer;"></ha-icon>`; ]]]
+                      title: >-
+                        [[[ return `<div style="display: flex; align-items:
+                        center; gap: 8px;"><span style="font-size:15px;
+                        font-weight:bold;
+                        color:var(--primary-text-color);">Location</span><span
+                        style="display: inline-flex; align-items: center; gap:
+                        4px; font-size: 13px; font-weight: bold; color:
+                        rgba(255,255,255,0.6);"><ha-icon icon="mdi:map-marker"
+                        style="--mdc-icon-size: 14px; width: 14px; height: 14px;
+                        color:
+                        rgba(255,255,255,0.6);"></ha-icon>Paris</span></div>`;
+                        ]]]
+                    extra_styles: >
+                      @keyframes fl-spin { from { transform: rotate(0deg);} to {
+                      transform: rotate(360deg);} }
+
+                      #card { cursor: pointer; }
+
+                      ha-icon.fl-sync.spin { animation: fl-spin 0.9s linear
+                      infinite; color: var(--primary-color) !important; }
+
+                      #card:hover ha-icon.fl-sync { color: var(--primary-color)
+                      !important; }
+                    styles:
+                      grid:
+                        - grid-template-areas: '"title sync"'
+                        - grid-template-columns: 1fr auto
+                        - align-items: center
+                      card:
+                        - height: 40px
+                        - box-shadow: none
+                        - border: none
+                        - padding: 0 16px
+                        - margin: 0
+                      custom_fields:
+                        title:
+                          - grid-area: title
+                          - justify-self: start
+                          - align-self: center
+                        sync:
+                          - grid-area: sync
+                          - justify-self: end
+                          - align-self: center
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:map-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          border: none !important;
+                          box-shadow: none !important;
+                          border-radius: 0 !important;
+                          overflow: hidden;
+                        }
+                        ha-card > div, .leaflet-container, #map, .map, ha-map {
+                          border-radius: 0 !important;
+                        }
+                    entities:
+                      - entity: device_tracker.firstname_name_family_link_firstname_name
+                        display: icon
+                        size: 35
+                        color: deep-purple
+                    theme_mode: auto
+                    zoom: 14
+                    card_size: 6
+                    tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+                    tile_layer_attribution: Family Link
+      - type: grid
+        cards:
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.firstname_pending_requests
+                state_not: '1'
+            card:
+              type: custom:vertical-stack-in-card
+              cards:
+                - type: custom:button-card
+                  name: Incoming requests
+                  tap_action:
+                    action: none
+                  styles:
+                    card:
+                      - height: 40px
+                      - box-shadow: none
+                      - border: none
+                      - padding: 0 0 0 16px
+                      - margin: 0
+                    name:
+                      - font-size: 15px
+                      - font-weight: bold
+                      - justify-self: start
+                - type: custom:mod-card
+                  card_mod:
+                    style: |
+                      ha-card {
+                        height: 1px;
+                        background: rgba(152, 152, 157, 0.3);
+                        box-shadow: none;
+                        border: none;
+                      }
+                  card:
+                    type: custom:mushroom-title-card
+                    title: ''
+                - type: custom:button-card
+                  entity: sensor.firstname_pending_requests
+                  show_name: false
+                  show_state: false
+                  show_icon: false
+                  show_label: true
+                  label: |
+                    [[[
+                      const n = parseInt(states['sensor.firstname_pending_requests']?.state) || 0;
+                      const color = n > 0 ? 'var(--warning-color)' : 'var(--success-color)';
+                      const txt = n > 0 ? n + ' en attente' : 'Aucune demande';
+                      return `<div style="display:flex;align-items:center;gap:10px;padding:2px 4px;"><span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;"></span><span style="font-size:13px;color:rgba(255,255,255,0.85);">${txt}</span></div>`;
+                    ]]]
+                  tap_action:
+                    action: none
+                  styles:
+                    card:
+                      - background: transparent
+                      - box-shadow: none
+                      - border: none
+                      - padding: 6px 12px
+                      - margin: 0
+                    label:
+                      - width: 100%
+                      - justify-self: start
+                - type: custom:stack-in-card
+                  mode: horizontal
+                  cards:
+                    - type: custom:button-card
+                      entity: button.firstname_approve_request
+                      name: Approve
+                      icon: mdi:check-circle
+                      tap_action:
+                        action: toggle
+                      styles:
+                        card:
+                          - background: transparent
+                          - box-shadow: none
+                          - border: none
+                          - padding: 10px 0
+                        icon:
+                          - color: var(--success-color)
+                          - width: 22px
+                        name:
+                          - font-size: 12px
+                          - color: rgba(255,255,255,0.8)
+                    - type: custom:button-card
+                      entity: button.firstname_deny_request
+                      name: Deny
+                      icon: mdi:close-circle
+                      tap_action:
+                        action: toggle
+                      styles:
+                        card:
+                          - background: transparent
+                          - box-shadow: none
+                          - border: none
+                          - padding: 10px 0
+                        icon:
+                          - color: var(--error-color)
+                          - width: 22px
+                        name:
+                          - font-size: 12px
+                          - color: rgba(255,255,255,0.8)
+                - type: custom:mod-card
+                  card_mod:
+                    style: |
+                      ha-card {
+                        height: 1px;
+                        background: rgba(152, 152, 157, 0.3);
+                        box-shadow: none;
+                        border: none;
+                      }
+                  card:
+                    type: custom:mushroom-title-card
+                    title: ''
+          - type: vertical-stack
+            cards:
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    name: Screen time per hour
+                    tap_action:
+                      action: none
+                    styles:
+                      card:
+                        - height: 40px
+                        - box-shadow: none
+                        - border: none
+                        - padding: 0 0 0 16px
+                        - margin: 0
+                      name:
+                        - font-size: 15px
+                        - font-weight: bold
+                        - justify-self: start
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: custom:swipe-card
+                    parameters:
+                      spaceBetween: 12
+                      pagination:
+                        clickable: true
+                    cards:
+                      - type: custom:apexcharts-card
+                        card_mod:
+                          style: |
+                            ha-card {
+                              background: inherit !important;
+                            }
+                        graph_span: 1d
+                        span:
+                          start: day
+                        yaxis:
+                          - decimals: 0
+                            min: 0
+                        apex_config:
+                          chart:
+                            type: bar
+                            height: 170
+                            toolbar:
+                              show: true
+                          yaxis:
+                            title:
+                              text: Minutes
+                          plotOptions:
+                            bar:
+                              columnWidth: 55%
+                              borderRadius: 4
+                        series:
+                          - entity: sensor.firstname_ecran_par_heure
+                            name: Minutes used
+                            type: column
+                            group_by:
+                              duration: 1h
+                              func: max
+                            color_threshold:
+                              - value: 0
+                                color: '#4ade80'
+                              - value: 15
+                                color: '#a3e635'
+                              - value: 30
+                                color: '#facc15'
+                              - value: 45
+                                color: '#fb923c'
+                              - value: 55
+                                color: '#ef4444'
+                      - type: custom:apexcharts-card
+                        card_mod:
+                          style: |
+                            ha-card {
+                              background: inherit !important;
+                            }
+                        header:
+                          title: Yesterday
+                          show: true
+                        graph_span: 1d
+                        span:
+                          start: day
+                          offset: '-1d'
+                        yaxis:
+                          - decimals: 0
+                            min: 0
+                        apex_config:
+                          chart:
+                            type: bar
+                            height: 150
+                            toolbar:
+                              show: true
+                          yaxis:
+                            title:
+                              text: Minutes
+                          plotOptions:
+                            bar:
+                              columnWidth: 55%
+                              borderRadius: 4
+                        series:
+                          - entity: sensor.firstname_ecran_par_heure
+                            name: Minutes used
+                            type: column
+                            group_by:
+                              duration: 1h
+                              func: max
+                            color_threshold:
+                              - value: 0
+                                color: '#4ade80'
+                              - value: 15
+                                color: '#a3e635'
+                              - value: 30
+                                color: '#facc15'
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:button-card
+                    name: Apps & usage today
+                    tap_action:
+                      action: none
+                    styles:
+                      card:
+                        - height: 40px
+                        - box-shadow: none
+                        - border: none
+                        - padding: 0 0 0 16px
+                        - margin: 0
+                      name:
+                        - font-size: 15px
+                        - font-weight: bold
+                        - justify-self: start
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - show_name: true
+                    show_icon: true
+                    show_state: true
+                    type: glance
+                    columns: 4
+                    entities:
+                      - entity: sensor.firstname_name_installed_apps
+                        name: Installed
+                        icon: mdi:apps
+                      - entity: sensor.firstname_name_blocked_apps
+                        name: Blocked
+                        icon: mdi:block-helper
+                      - entity: sensor.firstname_name_apps_with_time_limits
+                        name: Limited
+                        icon: mdi:timer-lock
+                      - entity: sensor.firstname_name_device_count
+                        name: Devices
+                        icon: mdi:devices
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background-color: inherit !important;
+                        }
+                  - type: custom:mod-card
+                    card_mod:
+                      style: |
+                        ha-card {
+                          height: 1px;
+                          background: rgba(152, 152, 157, 0.3);
+                          box-shadow: none;
+                          border: none;
+                        }
+                    card:
+                      type: custom:mushroom-title-card
+                      title: ''
+                  - type: entities
+                    show_header_toggle: false
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background-color: inherit !important;
+                        }            
+                    entities:
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_1
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_1',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_1') | round(1)
+                          }} min
+                        icon: mdi:numeric-1-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_2
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_2',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_2') | round(1)
+                          }} min
+                        icon: mdi:numeric-2-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_3
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_3',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_3') | round(1)
+                          }} min
+                        icon: mdi:numeric-3-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_4
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_4',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_4') | round(1)
+                          }} min
+                        icon: mdi:numeric-4-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_5
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_5',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_5') | round(1)
+                          }} min
+                        icon: mdi:numeric-5-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_6
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_6',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_6') | round(1)
+                          }} min
+                        icon: mdi:numeric-6-circle
+                      - type: custom:template-entity-row
+                        entity: sensor.firstname_name_top_app_7
+                        name: >-
+                          {{ state_attr('sensor.firstname_name_top_app_7',
+                          'app_name') | default('Application') }}
+                        state: >-
+                          {{ states('sensor.firstname_name_top_app_7') | round(1)
+                          }} min
+                        icon: mdi:numeric-7-circle
+            card_mod:
+              style: |
+                ha-card {
+                  background-color: inherit !important;
+                }
+    theme: ios-dark-mode-blue-red
+    cards: []
