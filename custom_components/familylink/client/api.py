@@ -29,6 +29,11 @@ from ..exceptions import (
 	NetworkError,
 	SessionExpiredError,
 )
+from ..schedules import (
+	BEDTIME_CODE_PREFIX,
+	SCHOOL_TIME_CODE_PREFIX,
+	parse_window_schedule_items,
+)
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -2628,38 +2633,21 @@ class FamilyLinkClient:
 				# and required `isinstance(data[0][0], list)`, which was always
 				# False here — so neither schedule was ever parsed (issue #113).
 				#
-				# data[1] is the daily-limit-MINUTES config ([[2,[6,0],[...],..]]
-				# where the inner items are [code, day, stateFlag, minutes, ...])
-				# — it does NOT contain CAMQ school-time windows, so the old
-				# school-time branch reading data[1][0][2] also found 0 schedules.
+				# data[1] is the daily-limit-MINUTES config — it does NOT contain
+				# CAMQ school-time windows, so the old school-time branch reading
+				# data[1][0][2] also found 0 schedules.
 				#
-				# Each schedule item: [code, day, stateFlag, [startH,startM],
-				#                      [endH,endM], ts, ts, ruleId]
-				# item[2] is stateFlag (2=ON, 1=OFF), NOT the start time.
+				# Row shapes and the prefix contract live in schedules.py.
 				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
 					bedtime_config = data[0]
 					# schedules are the flat list at index 1
-					if len(bedtime_config) > 1 and isinstance(bedtime_config[1], list):
-						for item in bedtime_config[1]:
-							if not (isinstance(item, list) and len(item) >= 5):
-								continue
-							code = item[0]
-							if not isinstance(code, str):
-								continue
-							day = item[1] if len(item) > 1 else None
-							start = item[3] if len(item) > 3 else None
-							end = item[4] if len(item) > 4 else None
-							if not (day and isinstance(start, list) and isinstance(end, list)):
-								continue
-							slot = {
-								"day": day,
-								"start": start,  # [hh, mm]
-								"end": end,  # [hh, mm]
-							}
-							if code.startswith("CAEQ"):
-								bedtime_schedule.append(slot)
-							elif code.startswith("CAMQ"):
-								school_time_schedule.append(slot)
+					if len(bedtime_config) > 1:
+						bedtime_schedule = parse_window_schedule_items(
+							bedtime_config[1], BEDTIME_CODE_PREFIX,
+						)
+						school_time_schedule = parse_window_schedule_items(
+							bedtime_config[1], SCHOOL_TIME_CODE_PREFIX,
+						)
 
 				# Parse revisions to get ON/OFF state and rule IDs
 				# Revisions are in the last element of data, containing items with format:
