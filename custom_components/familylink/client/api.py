@@ -31,7 +31,9 @@ from ..exceptions import (
 )
 from ..schedules import (
 	BEDTIME_CODE_PREFIX,
+	DAY_CODES,
 	SCHOOL_TIME_CODE_PREFIX,
+	parse_time_string,
 	parse_window_schedule_items,
 )
 
@@ -1657,17 +1659,11 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
 			return False
 
-	# Day-of-week → CAEQ day_code used by Google's batchCreate payloads
-	# (bedtime overrides, daily limit overrides). ISO weekday: 1=Monday … 7=Sunday.
-	_DAY_CODES = {
-		1: "CAEQAQ",  # Monday
-		2: "CAEQAg",  # Tuesday
-		3: "CAEQAw",  # Wednesday
-		4: "CAEQBA",  # Thursday
-		5: "CAEQBQ",  # Friday
-		6: "CAEQBg",  # Saturday
-		7: "CAEQBw",  # Sunday
-	}
+	# Day-of-week → day_code used by Google's batchCreate payloads (bedtime
+	# overrides, daily limit overrides). ISO weekday: 1=Monday … 7=Sunday.
+	# Defined in schedules.py; aliased here so the existing self._DAY_CODES
+	# call sites keep working without a second copy of the table.
+	_DAY_CODES = DAY_CODES
 
 	async def async_enable_bedtime(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
 		"""Enable bedtime, mirroring the Family Link web app (issue #113).
@@ -2427,11 +2423,11 @@ class FamilyLinkClient:
 			return False
 
 		try:
-			# Parse start and end times
-			start_parts = start_time.split(":")
-			end_parts = end_time.split(":")
-			start_hour, start_min = int(start_parts[0]), int(start_parts[1])
-			end_hour, end_min = int(end_parts[0]), int(end_parts[1])
+			# Parse start and end times. parse_time_string also range-checks the
+			# hours/minutes, which the old inline int() split did not: "99:99"
+			# used to reach Google and be rejected there.
+			start_hour, start_min = parse_time_string(start_time)
+			end_hour, end_min = parse_time_string(end_time)
 
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
