@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 import logging
@@ -51,6 +52,12 @@ class FamilyLinkClient:
 	LOCATION_REFRESH_MODE_DO_NOT_REFRESH = "1"
 	LOCATION_REFRESH_MODE_REFRESH = "2"
 
+	# How long a fetched weekly schedule stays usable for slot-id lookups.
+	# Writing a full week issues one call per day, so this collapses seven
+	# fetches into one while staying short enough that an out-of-band schedule
+	# change is picked up on the next write.
+	_WEEKLY_SLOT_CACHE_TTL = 60  # seconds
+
 	def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
 		"""Initialize the Family Link client."""
 		self.hass = hass
@@ -63,6 +70,8 @@ class FamilyLinkClient:
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
+		# account_id -> (fetched_at, raw timeLimit response) for weekly slot ids
+		self._weekly_slot_cache: dict[str, tuple[float, Any]] = {}
 
 	@staticmethod
 	def _validate_id(value: str, name: str = "ID") -> str:
@@ -2226,6 +2235,146 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
 			return False
 
+	# Slot-id protobuf field 1 ("rule type"): 1 = bedtime, 3 = school time.
+	_SLOT_TYPE_BEDTIME = 1
+
+	@staticmethod
+	def _slot_id_rule_type(slot_id: str) -> int | None:
+		"""Decode the rule type from a base64 protobuf slot id.
+
+		Ids look like "CAEQAQ" (bedtime) or "CAMQASIk..." (school time, with an
+		embedded UUID). Both decode to {field1: <rule type>, field2: <day>, ...};
+		field 1 is what tells the two apart. Returns None if the id doesn't
+		decode to the expected shape.
+		"""
+		try:
+			raw = base64.urlsafe_b64decode(slot_id + "=" * (-len(slot_id) % 4))
+		except Exception:
+			return None
+		# Expect field 1, varint (tag byte 0x08) as the first field.
+		if len(raw) < 2 or raw[0] != 0x08:
+			return None
+		return raw[1]
+
+	@classmethod
+	def _is_bedtime_slot_row(cls, row: Any, day: int) -> bool:
+		"""Return true for a weekly BEDTIME row of `day`.
+
+		The same response carries three row kinds, and an id-prefix or
+		first-match test cannot separate them:
+
+		  bedtime      ["CAEQAQ", 1, 2, [2,0], [7,0], ...]    type 1, window
+		  school time  ["CAMQASIk…", 1, 2, [8,0], [15,0], …]  type 3, SAME shape
+		  daily limit  ["CAEQAQ", 1, 2, 480, ...]             same id, minutes
+
+		Bedtime and school-time rows live in one list, so only the decoded rule
+		type distinguishes them; the daily-limit row reuses the bedtime id, so
+		the [h, m] window shape is what excludes it.
+		"""
+		if not (isinstance(row, list) and len(row) >= 5):
+			return False
+		if not (isinstance(row[0], str) and row[0].startswith("CA")):
+			return False
+		# `type(...) is int` excludes bool, which would otherwise let True match day 1.
+		if not (type(row[1]) is int and row[1] == day):
+			return False
+		if cls._slot_id_rule_type(row[0]) != cls._SLOT_TYPE_BEDTIME:
+			return False
+
+		def _is_hm(value: Any) -> bool:
+			return (
+				isinstance(value, list)
+				and len(value) == 2
+				and type(value[0]) is int
+				and type(value[1]) is int
+				and 0 <= value[0] <= 23
+				and 0 <= value[1] <= 59
+			)
+
+		return _is_hm(row[3]) and _is_hm(row[4])
+
+	@classmethod
+	def _find_weekly_bedtime_slot_id(cls, data: Any, day: int) -> str | None:
+		"""Find the live weekly bedtime slot id for `day`.
+
+		Ids are account-specific, so the static _DAY_CODES 400 on accounts whose
+		bedtime slots don't happen to match them (issue #135). Resolving the id
+		from the live schedule covers every account.
+
+		Both id families coexist in one account's response (bedtime and school
+		time share a list), so a plain "first CA* id for this day" match is
+		order-dependent and can hand a school-time id to a bedtime write. We walk
+		the tree but accept only rows that decode to the bedtime rule type AND
+		carry a time window — immune to row ordering and to the nesting shifting
+		between API versions. Returns None when nothing matches so the caller
+		falls back to the static codes.
+		"""
+		if isinstance(data, list):
+			if cls._is_bedtime_slot_row(data, day):
+				return data[0]
+			for item in data:
+				found = cls._find_weekly_bedtime_slot_id(item, day)
+				if found:
+					return found
+		elif isinstance(data, dict):
+			for item in data.values():
+				found = cls._find_weekly_bedtime_slot_id(item, day)
+				if found:
+					return found
+		return None
+
+	async def _async_get_weekly_bedtime_slot_id(
+		self,
+		account_id: str,
+		day: int,
+		session: aiohttp.ClientSession,
+		cookie_header: str,
+	) -> str | None:
+		"""Fetch the live weekly schedule and resolve the slot id for `day`.
+
+		The parsed schedule is cached briefly because writing a full week issues
+		one call per day; without the cache that would be seven extra fetches
+		per sync. Best-effort: returns None on any failure so the caller can
+		fall back to the static day codes.
+		"""
+		now = time.time()
+		cached = self._weekly_slot_cache.get(account_id)
+		if cached and now - cached[0] < self._WEEKLY_SLOT_CACHE_TTL:
+			return self._find_weekly_bedtime_slot_id(cached[1], day)
+
+		try:
+			get_url = self._people_url(account_id, "timeLimit")
+			params = [
+				("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME"),
+				("timeLimitKey.type", "SUPERVISED_DEVICES"),
+			]
+			async with session.get(
+				get_url,
+				params=params,
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+			) as response:
+				if response.status != 200:
+					_LOGGER.warning(
+						"Could not fetch weekly bedtime slots (HTTP %s); "
+						"falling back to static day codes",
+						response.status,
+					)
+					return None
+				data = await response.json()
+		except Exception as err:
+			_LOGGER.warning(
+				"Weekly bedtime slot lookup failed (%s); "
+				"falling back to static day codes",
+				err,
+			)
+			return None
+
+		self._weekly_slot_cache[account_id] = (now, data)
+		return self._find_weekly_bedtime_slot_id(data, day)
+
 	async def async_set_bedtime(
 		self,
 		start_time: str,
@@ -2292,6 +2441,14 @@ class FamilyLinkClient:
 			day_code = self._DAY_CODES[day]
 
 			if scope == "weekly":
+				# Slot ids are account-specific (CAEQ* vs CAM* families); prefer
+				# the id resolved from the live schedule and fall back to the
+				# static code only when the lookup fails (issue #135).
+				slot_id = await self._async_get_weekly_bedtime_slot_id(
+					account_id, day, session, cookie_header,
+				)
+				if slot_id:
+					day_code = slot_id
 				# Edit the recurring weekly schedule slot for this day. Sending a
 				# single day merges into the existing schedule server-side (other
 				# days keep their hours). This is the payload the web app sends
