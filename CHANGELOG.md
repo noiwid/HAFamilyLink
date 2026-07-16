@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.12] - 2026-07-16
+
+### Fixed
+- **`set_bedtime` with `scope: weekly` no longer fails with HTTP 400 on some accounts** — The weekly write sent a hardcoded slot id from `_DAY_CODES` (`CAEQAQ`…`CAEQBw`). Those ids are account-specific, so on accounts whose bedtime slots use different ids Google rejected every weekly call with `HTTP 400 [3,"Request contains an invalid argument."]` — 7 failures per full-week sync. The client now resolves the slot id from the live schedule (`people/{id}/timeLimit`) before building the payload, falling back to the static codes only when the lookup fails. Reported, diagnosed and patch-validated by @bedar89 (#135).
+
+  A live capture corrected one detail of the original diagnosis: `CAEQ*` and `CAM*` are not two account-specific families where an account has one or the other — they **coexist in the same account, in the same list**. Decoding the protobuf, field 1 is the rule type: **1 = bedtime** (`CAEQ*`), **3 = school time** (`CAMQ*`, with an embedded UUID). A third block reuses the bedtime ids but carries minutes instead of a window — that one is the daily limit. So resolving "the first `CA*` id matching the day" is order-dependent and can put a school-time id in a bedtime payload, turning a loud 400 into a silent wrong-schedule write. A row is now accepted only when the id decodes to rule type 1 **and** the row carries an `[h, m]`–`[h, m]` window, which is immune to row ordering and to the response nesting shifting between API versions. The fetched schedule is cached per account for 60s, since writing a full week is one call per day.
+
+### Changed
+- **Schedule parsing extracted into `schedules.py`** — The positional-array parsing that breaks when Google shifts an index was the least testable code in `client/api.py` (reaching it required an authenticated client and a live account). Adapted from the split-out module in [@benkap's fork](https://github.com/benkap/HAFamilyLink). The extracted parsers are stricter than the hand-rolled loop they replace: they reject booleans where an integer day is expected (`isinstance(True, int)` is `True` in Python, so a stray bool passed as Monday), validate the window shape and hour/minute ranges, sort rows by day instead of trusting response order, and surface `enabled` / `state_flag` / `day_name` which the old loop silently dropped. Verified to return byte-identical `day`/`start`/`end` slots to the old parser on a live response, so existing entities are unaffected.
+
+---
+
 ## [1.2.11] - 2026-07-09
 
 ### Fixed
