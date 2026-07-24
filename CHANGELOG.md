@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Add-on / auth container [1.8.0] - 2026-07-24
+
+### Fixed
+- **noVNC no longer hangs on "Connecting…" forever (issue #136).** The auth container's display stack (Xvfb + fluxbox + x11vnc + websockify) was started with all output redirected to `/dev/null` and no real liveness check, so any failure was completely silent: the container stayed "healthy" on uvicorn/8099 while noVNC never rendered. Two concrete failure modes are addressed, plus the underlying crash:
+  - **Silent failures are now visible.** In the standalone container each display process logs to `/var/log/familylink/<proc>.log` instead of `/dev/null`, and its status is re-checked after launch with the last log lines dumped on failure. The add-on entrypoint (already logging to journald) gains the same Xvfb/fluxbox/x11vnc liveness checks.
+  - **Stale X99 state is cleaned on start.** A non-graceful stop (e.g. `docker restart`) left `/tmp/.X11-unix/X99` and `/tmp/.X99-lock` behind, which made `Xvfb :99` silently refuse to bind on the next start and took the whole display stack down invisibly — only uvicorn came back, so the container reported healthy while VNC was dead. Both are now removed before the display server starts (and again before the x11vnc fallback).
+  - **VNC password length.** x11vnc's `-passwd` (and TigerVNC's VncAuth) uses DES and silently keeps only the first 8 characters, so the 10-char default (`familylink`) never authenticated cleanly. The password is now truncated explicitly with a warning, and the web UI's auto-connect URL embeds the same 8-char value so client and server agree. The server stays localhost-only behind websockify.
+
+### Changed
+- **TigerVNC is now the default display backend, with automatic fallback to Xvfb + x11vnc (issue #136).** The primary crash (`x11vnc` 0.9.16 tearing down its own X connection the instant a VNC client connects, confirmed by @wookash via `strace`) is most likely an incompatibility between the 2019 x11vnc build and the bookworm X11 libraries. Rather than chase a compatible x11vnc, the container now prefers **TigerVNC's `Xvnc`** — an X server that speaks the RFB/VNC protocol natively, so there is no separate Xvfb and no x11vnc screen-scraper, removing the exact component that crashed. If `Xvnc` is unavailable or fails to start, the container automatically falls back to the legacy Xvfb + x11vnc stack, so no environment loses VNC. The backend can be forced with `FAMILYLINK_VNC_BACKEND=tigervnc|x11vnc`.
+
+---
+
 ## [1.2.12] - 2026-07-16
 
 ### Fixed

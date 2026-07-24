@@ -77,28 +77,128 @@ if [ ! -S /run/dbus/system_bus_socket ]; then
     dbus-daemon --system --fork 2>/dev/null || bashio::log.warning "D-Bus not available (non-critical)"
 fi
 
-# Start Xvfb (virtual display)
-# Using 16-bit color depth for better VM compatibility and lower memory usage
-bashio::log.info "Starting virtual display (Xvfb)..."
-Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp &
+# Remove a stale X99 socket/lock left by a previous non-graceful stop (e.g. an
+# add-on restart). If they survive, `Xvfb :99` silently refuses to bind and the
+# whole display stack dies invisibly, leaving only uvicorn up (issue #136).
+if [ -e /tmp/.X99-lock ] || [ -e /tmp/.X11-unix/X99 ]; then
+    bashio::log.info "Cleaning stale X99 lock/socket from a previous run..."
+    rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
+fi
+
 export DISPLAY=:99
 
-# Wait for Xvfb to start
-sleep 2
-
-# Start window manager
-fluxbox &
-
-# Start VNC server (localhost only) and noVNC web interface
-bashio::log.info "Starting VNC server (localhost only)..."
+# VNC-auth (both x11vnc's -passwd and TigerVNC's VncAuth) uses DES and silently
+# keeps only the first 8 chars; a longer password would then never
+# authenticate. The server is localhost-only and reached through websockify, so
+# truncate explicitly and warn rather than let the mismatch fail silently
+# (issue #136).
 VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
+if [ "${#VNC_PASSWORD}" -gt 8 ]; then
+    bashio::log.warning "VNC password longer than 8 chars; VNC DES auth uses only the first 8"
+    VNC_PASSWORD="${VNC_PASSWORD:0:8}"
+fi
 # Expose to the FastAPI app so the web UI can adapt the noVNC link/hint
 export VNC_PASSWORD="${VNC_PASSWORD}"
-x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" &
-VNC_PID=$!
+
+# The display server is started in one of two ways (issue #136):
+#
+#   1. TigerVNC's Xvnc — an X server that speaks the RFB (VNC) protocol
+#      natively, so there is no Xvfb and no x11vnc screen-scraper. This removes
+#      the exact component that crashed on client-connect (x11vnc 0.9.16
+#      dropping its X connection). Preferred.
+#   2. Legacy Xvfb + x11vnc — kept as an automatic fallback so we degrade
+#      instead of losing VNC entirely where Xvnc is unavailable.
+#
+# Set FAMILYLINK_VNC_BACKEND=x11vnc (or tigervnc) to force a backend.
+VNC_BACKEND="${FAMILYLINK_VNC_BACKEND:-auto}"
+DISPLAY_STARTED=""
+
+start_tigervnc() {
+    command -v Xvnc >/dev/null 2>&1 || { bashio::log.info "Xvnc not installed"; return 1; }
+
+    # vncpasswd -f is filter mode: reads the plaintext password from stdin and
+    # writes the encrypted file to stdout, so no interactive prompts are needed.
+    local sec_args
+    if [ -n "${VNC_PASSWORD}" ] && command -v vncpasswd >/dev/null 2>&1; then
+        mkdir -p /root/.vnc
+        if printf '%s' "${VNC_PASSWORD}" | vncpasswd -f >/root/.vnc/passwd 2>/dev/null \
+            && [ -s /root/.vnc/passwd ]; then
+            chmod 600 /root/.vnc/passwd 2>/dev/null || true
+            sec_args=(-SecurityTypes VncAuth -rfbauth /root/.vnc/passwd)
+        else
+            bashio::log.warning "vncpasswd failed; starting TigerVNC without a password (localhost only)"
+            sec_args=(-SecurityTypes None)
+        fi
+    else
+        sec_args=(-SecurityTypes None)
+    fi
+
+    bashio::log.info "Starting display server (TigerVNC Xvnc on :99)..."
+    Xvnc :99 -geometry 1280x1024 -depth 24 -rfbport 5900 -localhost \
+        -desktop familylink "${sec_args[@]}" &
+    XVNC_PID=$!
+    sleep 2
+    if kill -0 "${XVNC_PID}" 2>/dev/null; then
+        bashio::log.info "TigerVNC display server started"
+        return 0
+    fi
+    bashio::log.warning "TigerVNC failed to start (see log above)"
+    return 1
+}
+
+start_xvfb_x11vnc() {
+    # A failed TigerVNC attempt can leave :99 state behind, which would block
+    # Xvfb from binding; clear it before falling back.
+    rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
+    bashio::log.info "Starting virtual display (Xvfb)..."
+    Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp &
+    XVFB_PID=$!
+    sleep 2
+    if ! kill -0 "${XVFB_PID}" 2>/dev/null; then
+        bashio::log.warning "Xvfb failed to start — VNC will be unavailable (see log above)"
+        return 1
+    fi
+
+    bashio::log.info "Starting VNC server (x11vnc, localhost only)..."
+    local pw_args
+    if [ -n "${VNC_PASSWORD}" ]; then
+        pw_args=(-passwd "${VNC_PASSWORD}")
+    else
+        pw_args=(-nopw)
+    fi
+    x11vnc -display :99 -forever -shared -rfbport 5900 -localhost "${pw_args[@]}" &
+    VNC_PID=$!
+    sleep 1
+    if ! kill -0 "${VNC_PID}" 2>/dev/null; then
+        bashio::log.warning "x11vnc failed to start — noVNC will not be available"
+        return 1
+    fi
+    return 0
+}
+
+if [ "${VNC_BACKEND}" = "x11vnc" ]; then
+    start_xvfb_x11vnc && DISPLAY_STARTED="x11vnc"
+elif [ "${VNC_BACKEND}" = "tigervnc" ]; then
+    start_tigervnc && DISPLAY_STARTED="tigervnc"
+else
+    if start_tigervnc; then
+        DISPLAY_STARTED="tigervnc"
+    else
+        bashio::log.info "Falling back to legacy Xvfb + x11vnc display stack..."
+        start_xvfb_x11vnc && DISPLAY_STARTED="x11vnc"
+    fi
+fi
+
+if [ -z "${DISPLAY_STARTED}" ]; then
+    bashio::log.warning "No display server could be started — noVNC will not be available"
+fi
+
+# Start window manager on whichever display server came up
+fluxbox &
+FLUXBOX_PID=$!
 sleep 1
-if ! kill -0 "${VNC_PID}" 2>/dev/null; then
-    bashio::log.warning "x11vnc failed to start — noVNC will not be available"
+if ! kill -0 "${FLUXBOX_PID}" 2>/dev/null; then
+    bashio::log.warning "fluxbox failed to start (non-critical, see log above)"
 fi
 
 bashio::log.info "Starting noVNC on port 6080..."
@@ -109,9 +209,9 @@ if ! kill -0 "${NOVNC_PID}" 2>/dev/null; then
     bashio::log.warning "websockify/noVNC failed to start on port 6080"
 fi
 
-# Display a welcome banner on the Xvfb display so noVNC is not black
+# Display a welcome banner on the virtual display so noVNC is not black
 # before the user triggers the authentication flow (issue #108).
-if [ -x /usr/local/bin/welcome-banner.sh ]; then
+if [ -n "${DISPLAY_STARTED}" ] && [ -x /usr/local/bin/welcome-banner.sh ]; then
     /usr/local/bin/welcome-banner.sh || bashio::log.warning "Welcome banner failed to start (non-critical)"
 fi
 
