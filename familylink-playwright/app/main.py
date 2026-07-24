@@ -153,8 +153,11 @@ async def index():
     t = get_translations(config.language)
     # Only embed the VNC password in the page when it is still the documented
     # default — never leak a custom password on this unauthenticated page.
+    # VNC-auth (both x11vnc and TigerVNC) uses DES and honours only the first 8
+    # chars, and the startup script truncates the password to match; embed the
+    # same truncation so the auto-connect URL agrees with the server (issue #136).
     if config.vnc_password == "familylink":
-        novnc_password_param = "&password=familylink"
+        novnc_password_param = f"&password={config.vnc_password[:8]}"
         novnc_password_hint = t['novnc_password_hint']
     else:
         novnc_password_param = ""

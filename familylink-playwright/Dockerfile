@@ -27,6 +27,7 @@ RUN apt-get update \
         libasound2 \
         xvfb \
         x11vnc \
+        tigervnc-standalone-server \
         novnc \
         python3-websockify \
         fluxbox \
@@ -79,4 +80,4 @@ LABEL \
     io.hass.name="Google Family Link Auth" \
     io.hass.description="Authentication service for Google Family Link" \
     io.hass.type="addon" \
-    io.hass.version="1.6.1"
+    io.hass.version="1.8.0"
