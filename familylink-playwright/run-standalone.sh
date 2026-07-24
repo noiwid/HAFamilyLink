@@ -48,39 +48,80 @@ if [ ! -S /run/dbus/system_bus_socket ]; then
     dbus-daemon --system --fork 2>/dev/null || echo "⚠ D-Bus not available (non-critical)"
 fi
 
+# The display stack (Xvfb + fluxbox + x11vnc + websockify) is logged to
+# /var/log/familylink so a crash is diagnosable in `docker logs`/that file
+# instead of vanishing into /dev/null (issue #136). Each process is also
+# re-checked after a short delay: kill -0 right after launch only catches an
+# instant failure, and x11vnc's known crash happens later, when a VNC client
+# first connects — so we still tail the log on that path.
+LOG_DIR="/var/log/familylink"
+mkdir -p "${LOG_DIR}"
+
+# Remove a stale X99 socket/lock left by a previous non-graceful stop (e.g.
+# `docker restart`). If they survive, `Xvfb :99` silently refuses to bind and
+# the whole display stack dies invisibly, leaving only uvicorn up (issue #136).
+if [ -e /tmp/.X99-lock ] || [ -e /tmp/.X11-unix/X99 ]; then
+    echo "Cleaning stale X99 lock/socket from a previous run..."
+    rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
+fi
+
 # Start Xvfb (virtual display)
 # Using 16-bit color depth for better VM compatibility and lower memory usage
 echo "Starting virtual display (Xvfb)..."
-Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp >/dev/null 2>&1 &
+Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp >"${LOG_DIR}/xvfb.log" 2>&1 &
+XVFB_PID=$!
 export DISPLAY=:99
 
-# Wait for Xvfb to start
+# Wait for Xvfb to start, then confirm it is actually up
 sleep 2
-echo "✓ Virtual display started on :99"
+if kill -0 "${XVFB_PID}" 2>/dev/null; then
+    echo "✓ Virtual display started on :99"
+else
+    echo "⚠ Xvfb failed to start — VNC will be unavailable. Last log lines:"
+    tail -n 20 "${LOG_DIR}/xvfb.log" 2>/dev/null | sed 's/^/    xvfb| /'
+fi
 
 # Start window manager
-fluxbox >/dev/null 2>&1 &
-echo "✓ Window manager (fluxbox) started"
+fluxbox >"${LOG_DIR}/fluxbox.log" 2>&1 &
+FLUXBOX_PID=$!
+sleep 1
+if kill -0 "${FLUXBOX_PID}" 2>/dev/null; then
+    echo "✓ Window manager (fluxbox) started"
+else
+    echo "⚠ fluxbox failed to start (non-critical). Last log lines:"
+    tail -n 20 "${LOG_DIR}/fluxbox.log" 2>/dev/null | sed 's/^/    fluxbox| /'
+fi
 
-# Start VNC server (localhost only) and noVNC web interface
+# Start VNC server (localhost only) and noVNC web interface.
+# x11vnc's -passwd uses DES and silently keeps only the first 8 chars; a longer
+# password would then never authenticate. Since the server is bound to
+# localhost and only reached through websockify, truncate explicitly and warn
+# rather than letting the mismatch fail silently (issue #136).
+if [ "${#VNC_PASSWORD}" -gt 8 ]; then
+    echo "⚠ VNC password longer than 8 chars; x11vnc DES auth uses only the first 8."
+    VNC_PASSWORD="${VNC_PASSWORD:0:8}"
+fi
 echo "Starting VNC server (localhost only)..."
-x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" >/dev/null 2>&1 &
+x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" \
+    >"${LOG_DIR}/x11vnc.log" 2>&1 &
 VNC_PID=$!
 sleep 1
 if kill -0 "${VNC_PID}" 2>/dev/null; then
-    echo "✓ VNC server started"
+    echo "✓ VNC server started (log: ${LOG_DIR}/x11vnc.log)"
 else
-    echo "⚠ VNC server failed to start — noVNC will not be available"
+    echo "⚠ VNC server failed to start — noVNC will not be available. Last log lines:"
+    tail -n 20 "${LOG_DIR}/x11vnc.log" 2>/dev/null | sed 's/^/    x11vnc| /'
 fi
 
 echo "Starting noVNC on port 6080..."
-websockify --web=/usr/share/novnc 6080 localhost:5900 >/dev/null 2>&1 &
+websockify --web=/usr/share/novnc 6080 localhost:5900 >"${LOG_DIR}/websockify.log" 2>&1 &
 NOVNC_PID=$!
 sleep 1
 if kill -0 "${NOVNC_PID}" 2>/dev/null; then
     echo "✓ noVNC started"
 else
-    echo "⚠ noVNC (websockify) failed to start on port 6080"
+    echo "⚠ noVNC (websockify) failed to start on port 6080. Last log lines:"
+    tail -n 20 "${LOG_DIR}/websockify.log" 2>/dev/null | sed 's/^/    novnc| /'
 fi
 
 # Display a welcome banner on the Xvfb display so noVNC is not black

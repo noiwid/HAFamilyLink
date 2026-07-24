@@ -77,21 +77,46 @@ if [ ! -S /run/dbus/system_bus_socket ]; then
     dbus-daemon --system --fork 2>/dev/null || bashio::log.warning "D-Bus not available (non-critical)"
 fi
 
+# Remove a stale X99 socket/lock left by a previous non-graceful stop (e.g. an
+# add-on restart). If they survive, `Xvfb :99` silently refuses to bind and the
+# whole display stack dies invisibly, leaving only uvicorn up (issue #136).
+if [ -e /tmp/.X99-lock ] || [ -e /tmp/.X11-unix/X99 ]; then
+    bashio::log.info "Cleaning stale X99 lock/socket from a previous run..."
+    rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
+fi
+
 # Start Xvfb (virtual display)
 # Using 16-bit color depth for better VM compatibility and lower memory usage
 bashio::log.info "Starting virtual display (Xvfb)..."
 Xvfb :99 -screen 0 1280x1024x16 -ac -nolisten tcp &
+XVFB_PID=$!
 export DISPLAY=:99
 
-# Wait for Xvfb to start
+# Wait for Xvfb to start, then confirm it is actually up
 sleep 2
+if ! kill -0 "${XVFB_PID}" 2>/dev/null; then
+    bashio::log.warning "Xvfb failed to start — VNC will be unavailable (see log above)"
+fi
 
 # Start window manager
 fluxbox &
+FLUXBOX_PID=$!
+sleep 1
+if ! kill -0 "${FLUXBOX_PID}" 2>/dev/null; then
+    bashio::log.warning "fluxbox failed to start (non-critical, see log above)"
+fi
 
 # Start VNC server (localhost only) and noVNC web interface
 bashio::log.info "Starting VNC server (localhost only)..."
 VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
+# x11vnc's -passwd uses DES and silently keeps only the first 8 chars; a longer
+# password would then never authenticate. The server is localhost-only and
+# reached through websockify, so truncate explicitly and warn rather than let
+# the mismatch fail silently (issue #136).
+if [ "${#VNC_PASSWORD}" -gt 8 ]; then
+    bashio::log.warning "VNC password longer than 8 chars; x11vnc DES auth uses only the first 8"
+    VNC_PASSWORD="${VNC_PASSWORD:0:8}"
+fi
 # Expose to the FastAPI app so the web UI can adapt the noVNC link/hint
 export VNC_PASSWORD="${VNC_PASSWORD}"
 x11vnc -display :99 -forever -shared -rfbport 5900 -localhost -passwd "${VNC_PASSWORD}" &
