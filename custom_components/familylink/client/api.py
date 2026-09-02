@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -1575,6 +1575,15 @@ class FamilyLinkClient:
 												# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
 												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
 													window_active = (now >= start_dt) or (now < end_dt)
+													# Anchor both ends to the actual occurrence (issue #155):
+													# in the morning the window started yesterday, otherwise
+													# it ends tomorrow. Keeping both on today's date made
+													# the next-restriction sensor say "ends Active now" all
+													# evening, because end_ms was already in the past.
+													if now < end_dt:
+														start_dt -= timedelta(days=1)
+													else:
+														end_dt += timedelta(days=1)
 												else:
 													window_active = (start_dt <= now < end_dt)
 

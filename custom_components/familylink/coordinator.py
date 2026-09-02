@@ -25,6 +25,35 @@ from .exceptions import FamilyLinkException, SessionExpiredError
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
 
+def _gate_windows_on_policy_state(
+	devices_time_data: dict[str, dict[str, Any]],
+	bedtime_enabled_today: bool | None,
+	schooltime_enabled_today: bool | None,
+	child_name: str = "",
+) -> None:
+	"""Clear per-device windows whose policy is off for today (issue #155).
+
+	Mutates ``devices_time_data`` in place. A ``None`` policy state means the
+	state is unknown, in which case the parser's own reading is kept.
+	"""
+	for policy, enabled_today in (
+		("bedtime", bedtime_enabled_today),
+		("schooltime", schooltime_enabled_today),
+	):
+		if enabled_today is not False:
+			continue
+		for device_id, time_data in devices_time_data.items():
+			if not isinstance(time_data, dict):
+				continue
+			if time_data.get(f"{policy}_active") or time_data.get(f"{policy}_window"):
+				_LOGGER.debug(
+					f"Device {device_id} ({child_name}): {policy} window dropped, "
+					f"policy is off today (was active={time_data.get(f'{policy}_active')})"
+				)
+			time_data[f"{policy}_active"] = False
+			time_data[f"{policy}_window"] = None
+
+
 class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	"""Class to manage fetching data from the Family Link API."""
 
@@ -321,6 +350,17 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			school_time_scheduled_today = schooltime_enabled_today
 			if school_time_enabled_today_from_rules is not None:
 				schooltime_enabled_today = school_time_enabled_today_from_rules
+
+			# A window cannot be active when the policy that owns it is off for
+			# today (issue #155). appliedTimeLimits keeps listing the window rows
+			# with their own state flag set even after the bedtime or school
+			# time policy has been switched off, so the per-device parser alone
+			# reports "bedtime active" in the evening while the switch (which
+			# reads the policy state above) correctly shows off. Apply the same
+			# today-effective state to the device windows the sensors read.
+			_gate_windows_on_policy_state(
+				devices_time_data, bedtime_enabled_today, schooltime_enabled_today, child_name
+			)
 
 			# Update device cache with real lock states from API
 			current_time = time.time()
