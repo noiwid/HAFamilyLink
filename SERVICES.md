@@ -141,6 +141,8 @@ data:
 
 Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory.
 
+The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
+
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `daily_minutes` | int, 0 to 1440 | yes | - (form prefills 120) | Minutes allowed per day. `0` disables the device for the day without fully locking it |

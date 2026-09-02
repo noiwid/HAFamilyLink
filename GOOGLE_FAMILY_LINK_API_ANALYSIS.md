@@ -589,6 +589,7 @@ Returns a transaction ID/timestamp on success.
 - **Policy UUIDs**: Hardcoded per policy type (bedtime, schooltime), same across all accounts
 - **Device control**: Use action codes (1=LOCK, 4=UNLOCK) not boolean values
 - **Set daily limit day code**: The CAEQ day code in `set_daily_limit` payload **MUST match the current day** (CAEQAQ=Monday...CAEQBw=Sunday). Using a hardcoded code will create an override for the wrong day!
+- **Set daily limit slot id is account-specific** (issue #157): the code above is the id of today's row in the daily-limit block of `GET .../timeLimit` (`data[1][0][2]`, rows `[slot_id, day, stateFlag, minutes, createdMs, updatedMs]`). On most accounts it is the static `CAEQxx`, but one reporter's second child used a different id: with the static code Google answers HTTP 200 and the override is inert (the app and the sensors keep the old value). The client resolves the id from the live row first (`schedules.find_daily_limit_slot_id`), falls back to the static code, and reads the value back from `appliedTimeLimits` after 3 s and 8 s, as for time bonuses (#141).
 
 ---
 
