@@ -16,6 +16,8 @@ CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
+MIN_UPDATE_INTERVAL: Final = 30  # seconds
+MAX_UPDATE_INTERVAL: Final = 3600  # seconds
 DEFAULT_TIMEOUT: Final = 30  # seconds
 DEFAULT_COOKIE_FILE: Final = "familylink_cookies.json"
 
@@ -82,3 +84,6 @@ SERVICE_REFRESH_LOCATION: Final = "refresh_location"
 
 # Device remote actions
 SERVICE_RING_DEVICE: Final = "ring_device"
+
+# Polling
+SERVICE_SET_UPDATE_INTERVAL: Final = "set_update_interval"

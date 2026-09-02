@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **`set_update_interval` action (issue #156)** - An automation can now change the polling interval at runtime, for example every 10 minutes during bedtime and every minute during the day, to reduce the number of requests to Google when nothing is expected to change. The new interval applies immediately and lasts until the next reload or restart, after which the value from the integration options applies again; it is deliberately not written to the options. Requested by @beamer2k23.
+
+### Fixed
+- **`ring_device` is now unregistered when the last config entry is unloaded** - It was the only action left behind after an unload, so it survived with a dead coordinator reference until the next restart.
+
+---
+
+## [1.2.15-rc2] - 2026-09-02
+
+### Added
 - **Allowed calls and texts select entity (PR #150, by @mdo77)** - Each child gets `select.<child>_allowed_calls_texts` to choose who can call and text them: **Anyone**, **Only contacts I add** or **Contacts I add & limited groups**. The level is read from Google's `trustedcontacts` endpoint by the coordinator with the other per-child data (cache fallback and session-expiry handling included) and written back through `trustedcontacts:update`. An account where the setting was never touched reports level 0, shown as Anyone. Endpoint shape confirmed on a live capture.
 
 ### Fixed

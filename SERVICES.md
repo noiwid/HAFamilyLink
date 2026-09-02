@@ -257,6 +257,23 @@ data:
   entity_id: switch.pixel_7
 ```
 
+## Polling
+
+### familylink.set_update_interval
+
+Changes how often the integration polls Google. The new interval applies immediately and lasts until the next reload or restart, after which the value set in the integration options applies again. It is not saved to the options on purpose, so an automation can lengthen the interval at bedtime and shorten it in the morning without changing the configured value.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `seconds` | integer | yes | - | Polling interval in seconds, 30 to 3600 |
+
+```yaml
+# Poll every 10 minutes at night
+action: familylink.set_update_interval
+data:
+  seconds: 600
+```
+
 ## Finding package names
 
 | Source | Where the package name is |
