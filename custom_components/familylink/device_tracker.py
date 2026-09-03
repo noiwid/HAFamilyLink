@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, INTEGRATION_NAME, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .devices import ensure_child_device
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -45,6 +46,7 @@ async def async_setup_entry(
 	for child_data in coordinator.data["children_data"]:
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		entities.append(
 			FamilyLinkDeviceTracker(

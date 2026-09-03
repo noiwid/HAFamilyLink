@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .devices import ensure_child_device, via_child
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -79,6 +80,7 @@ async def async_setup_entry(
     for child_data in coordinator.data.get("children_data", []):
         child_id = child_data["child_id"]
         child_name = child_data["child_name"]
+        ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
         _LOGGER.debug(f"Creating sensors for {child_name}")
 
@@ -150,7 +152,7 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
             name=self._device_name,
             manufacturer="Google",
             model="Family Link Device",
-            via_device=(DOMAIN, self._child_id),
+            **via_child(self.coordinator, self._child_id),
         )
 
     @property
@@ -253,7 +255,7 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
             name=self._device_name,
             manufacturer="Google",
             model="Family Link Device",
-            via_device=(DOMAIN, self._child_id),
+            **via_child(self.coordinator, self._child_id),
         )
 
     def _calculate_time_until(self, target_ms: int) -> str | None:
@@ -1187,7 +1189,7 @@ class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
 			name=self._device_name,
 			manufacturer="Google",
 			model="Family Link Device",
-			via_device=(DOMAIN, self._child_id),
+			**via_child(self.coordinator, self._child_id),
 		)
 
 	@property
@@ -1264,7 +1266,7 @@ class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 			name=self._device_name,
 			manufacturer="Google",
 			model="Family Link Device",
-			via_device=(DOMAIN, self._child_id),
+			**via_child(self.coordinator, self._child_id),
 		)
 
 	@property

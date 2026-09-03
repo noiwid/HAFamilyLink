@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .devices import ensure_child_device
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -42,6 +43,9 @@ async def async_setup_entry(
     if not coordinator.data or "children_data" not in coordinator.data:
         _LOGGER.error("No children data in coordinator after first refresh")
         return
+
+    for child_data in coordinator.data.get("children_data", []):
+        ensure_child_device(hass, coordinator, entry.entry_id, child_data["child_id"], child_data["child_name"])
 
     entities = [
         FamilyLinkContactRestrictionSelect(

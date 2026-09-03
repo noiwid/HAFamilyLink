@@ -11,7 +11,6 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -21,6 +20,7 @@ from .const import (
 	LOGGER_NAME,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .devices import ensure_child_device, via_child
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -45,9 +45,6 @@ async def async_setup_entry(
 		)
 		return
 
-	# Get device registry
-	device_registry = dr.async_get(hass)
-
 	# Create binary sensors for each child's devices
 	for child_data in coordinator.data.get("children_data", []):
 		child_id = child_data["child_id"]
@@ -56,13 +53,7 @@ async def async_setup_entry(
 		_LOGGER.debug(f"Creating binary sensors for child: {child_name}")
 
 		# Ensure parent device (child account) exists in device registry
-		device_registry.async_get_or_create(
-			config_entry_id=entry.entry_id,
-			identifiers={(DOMAIN, child_id)},
-			name=f"{child_name} (Family Link)",
-			manufacturer="Google",
-			model="Family Link Account",
-		)
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		# Create binary sensors for each device
 		for device in child_data.get("devices", []):
@@ -139,7 +130,7 @@ class DeviceTimeBinarySensor(CoordinatorEntity, BinarySensorEntity):
 			manufacturer="Google",
 			model=self._device.get("model", "Family Link Device"),
 			sw_version=self._device.get("version"),
-			via_device=(DOMAIN, self._child_id),
+			**via_child(self.coordinator, self._child_id),
 		)
 
 	def _get_device_time_data(self) -> dict[str, Any] | None:
