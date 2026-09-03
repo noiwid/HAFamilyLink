@@ -14,6 +14,8 @@ import voluptuous as vol
 from homeassistant.util import dt as dt_util
 
 from .const import (
+	CONF_STRICT_MODE,
+	DEFAULT_STRICT_MODE,
 	DOMAIN,
 	LOGGER_NAME,
 	MAX_UPDATE_INTERVAL,
@@ -187,7 +189,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-	"""Handle options update - reload the config entry."""
+	"""Handle options update.
+
+	The Strict mode flag drives the per-child switches live (it is also
+	written back when a switch is toggled); any other change reloads the
+	entry, which recreates the entities.
+	"""
+	coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+	if coordinator is not None:
+		before = dict(coordinator.applied_options)
+		after = dict(entry.options)
+		other_changed = any(
+			before.get(key) != after.get(key)
+			for key in set(before) | set(after)
+			if key != CONF_STRICT_MODE
+		)
+		if not other_changed:
+			wanted = bool(after.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)))
+			coordinator.applied_options = after
+			if wanted != coordinator.strict_mode_default:
+				_LOGGER.info(f"Strict mode option set to {wanted}, applied to every child without reload")
+				coordinator.apply_strict_mode_option(wanted)
+			return
 	_LOGGER.debug("Options updated, reloading integration")
 	await hass.config_entries.async_reload(entry.entry_id)
 

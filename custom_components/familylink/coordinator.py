@@ -88,6 +88,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
 		"""Initialize the coordinator."""
 		self.entry = entry
+		# Options in force since this setup: the options listener reloads the
+		# entry only when something other than the strict mode flag changed.
+		self.applied_options: dict[str, Any] = dict(entry.options)
 		self.client: FamilyLinkClient | None = None
 		self._devices: dict[str, dict[str, Any]] = {}
 		self._is_retrying_auth = False  # Prevent infinite retry loops
@@ -875,6 +878,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		now = time.time()
 		self._ha_bonus_until = {d: t for d, t in self._ha_bonus_until.items() if t > now}
 		return frozenset(self._ha_bonus_until)
+
+	def apply_strict_mode_option(self, enabled: bool) -> None:
+		"""The Strict mode option drives the switch of every child."""
+		self.strict_mode_default = bool(enabled)
+		for child_data in (self.data or {}).get("children_data", []):
+			child_id = child_data.get("child_id")
+			if child_id and self._strict_mode_children.get(child_id) != bool(enabled):
+				self.set_strict_mode(child_id, bool(enabled))
+		self.async_update_listeners()
 
 	def set_strict_mode(self, child_id: str, enabled: bool, enforce_now: bool = True) -> None:
 		"""Switch strict mode on or off for a child.

@@ -14,6 +14,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+	CONF_STRICT_MODE,
+	DEFAULT_STRICT_MODE,
 	ATTR_DEVICE_ID,
 	ATTR_DEVICE_NAME,
 	ATTR_DEVICE_TYPE,
@@ -640,11 +642,24 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 		self._attr_entity_category = EntityCategory.CONFIG
 
 	async def async_added_to_hass(self) -> None:
-		"""Restore the last state, the option default applies only the first time."""
+		"""The Strict mode option of the integration is the state at every (re)load."""
 		await super().async_added_to_hass()
-		last_state = await self.async_get_last_state()
-		if last_state is not None and last_state.state in ("on", "off"):
-			self.coordinator.set_strict_mode(self._child_id, last_state.state == "on", enforce_now=False)
+		self.coordinator.set_strict_mode(self._child_id, self.coordinator.strict_mode_default, enforce_now=False)
+
+	def _write_option(self) -> None:
+		"""Mirror the switches into the option: all on -> on, all off -> off, mixed -> unchanged."""
+		entry = self.coordinator.entry
+		states = [
+			self.coordinator.is_strict_mode_enabled(child_data["child_id"])
+			for child_data in (self.coordinator.data or {}).get("children_data", [])
+			if child_data.get("child_id")
+		]
+		if not states or len(set(states)) != 1:
+			return
+		wanted = states[0]
+		current = entry.options.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE))
+		if bool(current) != wanted:
+			self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_STRICT_MODE: wanted})
 
 	@property
 	def device_info(self) -> DeviceInfo:
@@ -685,8 +700,10 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 		"""Enable strict mode: an enforcement pass runs immediately."""
 		self.coordinator.set_strict_mode(self._child_id, True)
 		self.async_write_ha_state()
+		self._write_option()
 
 	async def async_turn_off(self) -> None:
 		"""Disable strict mode."""
 		self.coordinator.set_strict_mode(self._child_id, False)
 		self.async_write_ha_state()
+		self._write_option()
