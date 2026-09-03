@@ -261,3 +261,72 @@ def parse_daily_limit_schedule(config: Any) -> list[dict[str, Any]]:
 		}
 
 	return [schedules_by_day[day] for day in sorted(schedules_by_day)]
+
+CODE_DAYS = {code: day for day, code in DAY_CODES.items()}
+
+
+def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int]]]:
+	"""Per-weekday daily-limit overrides of the timeLimit response.
+
+	Google stores the quota set for a weekday from the app as a type-8
+	override row, ``[uuid, createdMs, 8, device_token, ..., [2, minutes,
+	"CAEQxx"]]``, kept next to the recurring weekly rows (issue #157 capture).
+	Returns ``{day: {device_id: (minutes, created_ms)}}`` with the most recent
+	row per day and device.
+	"""
+	result: dict[int, dict[str, tuple[int, int]]] = {}
+	for item in _walk_lists(data):
+		if len(item) < 5 or item[2] != 8 or not isinstance(item[3], str) or not item[3]:
+			continue
+		device_id = item[3]
+		# The [2, minutes, "CAEQxx"] payload sits at [11] in the request and
+		# after the extra columns of a stored row: take the last such list.
+		payload = next(
+			(p for p in reversed(item[4:]) if isinstance(p, list) and len(p) >= 3 and _is_int(p[1]) and isinstance(p[2], str) and p[2] in CODE_DAYS),
+			None,
+		)
+		if payload is None:
+			continue
+		minutes, code = payload[1], payload[2]
+		try:
+			created = int(item[1])
+		except (TypeError, ValueError):
+			created = 0
+		day = CODE_DAYS[code]
+		previous = result.setdefault(day, {}).get(device_id)
+		if previous is None or created >= previous[1]:
+			result[day][device_id] = (int(minutes), created)
+	return result
+
+
+def daily_limit_week(
+	weekly: list[dict[str, Any]],
+	overrides: dict[int, dict[str, tuple[int, int]]],
+) -> list[dict[str, Any]]:
+	"""The seven weekday quotas as the Family Link app shows them.
+
+	For each weekday: the weekly value, the override in force (the most recent
+	one across devices, when any) and the effective minutes, i.e. the override
+	when present, the weekly value otherwise.
+	"""
+	by_day = {row["day"]: row for row in weekly if isinstance(row, dict) and _is_int(row.get("day"))}
+	week: list[dict[str, Any]] = []
+	for day in range(1, 8):
+		row = by_day.get(day) or {}
+		weekly_minutes = row.get("minutes")
+		override = None
+		for _device_id, (minutes, created) in (overrides.get(day) or {}).items():
+			if override is None or created >= override[1]:
+				override = (minutes, created)
+		override_minutes = override[0] if override else None
+		effective = override_minutes if override_minutes is not None else weekly_minutes
+		week.append({
+			"day": day,
+			"day_name": DAY_NAMES[day],
+			"weekly_minutes": weekly_minutes,
+			"override_minutes": override_minutes,
+			"effective_minutes": effective,
+			"source": "override" if override_minutes is not None else ("weekly" if weekly_minutes is not None else None),
+			"enabled": row.get("enabled"),
+		})
+	return week

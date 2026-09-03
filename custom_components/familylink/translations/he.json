@@ -114,7 +114,7 @@
         "bedtime": "לא ניתן לשנות את שעת השינה מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
         "daily_limit": "לא ניתן לשנות את המגבלה היומית מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
         "school_time": "לא ניתן לשנות את זמן בית הספר מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
-        "values": "לא ניתן לשנות את שעות השינה ואת המכסה היומית מ-Family Link (הערכים שנבחרו ב-Home Assistant מוחזרים)"
+        "values": "לא ניתן לשנות את שעות השינה ואת מכסת כל יום בשבוע מ-Family Link (הערכים שנבחרו ב-Home Assistant מוחזרים)"
       }
     }
   }

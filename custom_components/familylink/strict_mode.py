@@ -21,11 +21,10 @@ The four rules mirror the automations parents were writing by hand:
   from the Family Link side. The reference is the state observed when strict
   mode was switched on, changed only from Home Assistant; whatever differs on
   Google's side is put back, on or off.
-- ``values``: the weekly bedtime hours (7 days) and the daily limit minutes of
-  each device cannot be changed from the Family Link side either. Same
-  reference logic; hours are rewritten in the weekly schedule, minutes are
-  put back as today's override (there is no weekly write for them, so a
-  tampered weekly value is corrected again each morning).
+- ``values``: the weekly bedtime hours and the weekday quotas (7 days each)
+  cannot be changed from the Family Link side either. Same reference logic;
+  hours are rewritten in the weekly schedule, a quota is put back as the
+  override of that weekday on every device, which is how the app sets it.
 
 Home Assistant stays in charge, not the rules: a change made from Home
 Assistant (a switch, a button, an action) is the parent's decision and becomes
@@ -312,14 +311,14 @@ def observed_bedtime_hours(child_data: dict[str, Any]) -> dict[str, list[list[in
 
 
 def observed_daily_limits(child_data: dict[str, Any]) -> dict[str, int]:
-	"""Today's daily limit minutes per device, for devices where the limit is on."""
+	"""The seven weekday quotas in force, as {"1": minutes, ...} (known ones only)."""
 	limits: dict[str, int] = {}
-	for device_id, time_data in (child_data.get("devices_time_data") or {}).items():
-		if not isinstance(time_data, dict) or not time_data.get("daily_limit_enabled"):
+	for entry in child_data.get("daily_limit_week") or []:
+		if not isinstance(entry, dict):
 			continue
-		minutes = time_data.get("daily_limit_minutes")
-		if type(minutes) is int and minutes > 0:
-			limits[device_id] = minutes
+		day, minutes = entry.get("day"), entry.get("effective_minutes")
+		if type(day) is int and 1 <= day <= 7 and type(minutes) is int and minutes >= 0:
+			limits[str(day)] = minutes
 	return limits
 
 
@@ -338,10 +337,10 @@ def snapshot_values(
 		hours = observed_bedtime_hours(child_data)
 		if hours:
 			added["bedtime"] = hours
-	if "daily_limit" not in known:
+	if "daily_limit_week" not in known:
 		limits = observed_daily_limits(child_data)
 		if limits:
-			added["daily_limit"] = limits
+			added["daily_limit_week"] = limits
 	return added
 
 
@@ -368,23 +367,26 @@ def _plan_values(child_data: dict[str, Any], values: dict[str, Any]) -> list[dic
 				),
 			})
 
-	reference_limits = values.get("daily_limit") or {}
+	reference_limits = values.get("daily_limit_week") or {}
 	if reference_limits:
-		devices_time_data = child_data.get("devices_time_data") or {}
-		for device_id, minutes in reference_limits.items():
-			time_data = devices_time_data.get(device_id)
-			# Device gone or limit off: the daily_limit policy rule owns that case.
-			if not isinstance(time_data, dict) or not time_data.get("daily_limit_enabled"):
-				continue
-			observed_minutes = time_data.get("daily_limit_minutes")
-			if observed_minutes == minutes:
-				continue
-			actions.append({
-				"action": ACTION_SET_DAILY_LIMIT,
-				"child_id": child_id,
-				"device_id": device_id,
-				"minutes": int(minutes),
-				"reason": f"daily limit changed on Google's side ({observed_minutes} min instead of {minutes})",
-			})
+		observed = observed_daily_limits(child_data)
+		device_ids = [d.get("id") for d in child_data.get("devices") or [] if isinstance(d, dict) and d.get("id")]
+		# A quota is posted per device (type-8 override for that weekday);
+		# nothing to do without a device or when the daily limit is off (the
+		# daily_limit policy rule owns that case).
+		if device_ids and child_data.get("daily_limit_enabled") is not False:
+			for day, minutes in sorted(reference_limits.items()):
+				observed_minutes = observed.get(day)
+				if observed_minutes is None or observed_minutes == minutes:
+					continue
+				for device_id in device_ids:
+					actions.append({
+						"action": ACTION_SET_DAILY_LIMIT,
+						"child_id": child_id,
+						"device_id": device_id,
+						"day": int(day),
+						"minutes": int(minutes),
+						"reason": f"daily limit for day {day} changed on Google's side ({observed_minutes} min instead of {minutes})",
+					})
 
 	return actions

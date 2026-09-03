@@ -37,7 +37,7 @@ from .schedules import parse_time_string
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.NUMBER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT, Platform.TIME]
 
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
@@ -110,6 +110,7 @@ SCHEMA_DISABLE_DAILY_LIMIT = vol.Schema({
 })
 
 SCHEMA_SET_DAILY_LIMIT = vol.Schema({
+	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("device_id"): cv.string,
 	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
@@ -673,14 +674,16 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		try:
 			results = {}
+			day = call.data.get("day")
 			for target_device_id in device_ids:
 				results[target_device_id] = await coordinator.client.async_set_daily_limit(
 					daily_minutes=daily_minutes,
 					device_id=target_device_id,
-					account_id=child_id
+					account_id=child_id,
+					day=day,
 				)
 				if results[target_device_id]:
-					coordinator.record_daily_limit_minutes(child_id, target_device_id, daily_minutes)
+					coordinator.record_daily_limit_minutes(child_id, daily_minutes, day)
 			failed = [d for d, ok in results.items() if not ok]
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")

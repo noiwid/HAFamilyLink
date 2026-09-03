@@ -114,7 +114,7 @@
 				"bedtime": "Le coucher ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
 				"daily_limit": "La limite du jour ne peut plus être modifiée depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
 				"school_time": "Le temps scolaire ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
-				"values": "Les horaires du coucher et le quota du jour ne peuvent plus être modifiés depuis Family Link (les valeurs choisies dans Home Assistant sont rétablies)"
+				"values": "Les horaires du coucher et le quota de chaque jour de la semaine ne peuvent plus être modifiés depuis Family Link (les valeurs choisies dans Home Assistant sont rétablies)"
 			}
 		}
 	}

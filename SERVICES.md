@@ -139,7 +139,7 @@ data:
 
 ### familylink.set_daily_limit
 
-Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory.
+Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory. By default the quota is today's; give `day` to set another weekday's quota, as the weekly limits screen of the app does (the `number.<child>_<weekday>_limit` entities do the same thing).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -147,6 +147,7 @@ Sets the daily screen time quota of one device, or of every device of a child wh
 | `entity_id` | entity id | no | - | The device switch (`switch.<device>`) |
 | `device_id` | string | no | - | Device token, if not using the entity |
 | `child_id` | string | no | - | Child user ID. With a device target, defaults to the first supervised child. Given alone, targets every device of that child |
+| `day` | int, 1 to 7 | no | today | Weekday the quota applies to (1 = Monday, 7 = Sunday) |
 
 ```yaml
 action: familylink.set_daily_limit

@@ -363,6 +363,16 @@ set_daily_limit:
   name: Set Daily Limit
   description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours). Select a device entity, provide a device_id, or provide only a child_id to apply the limit to every device of that child.
   fields:
+    day:
+      name: Day of week
+      description: "Weekday the quota applies to (1 = Monday ... 7 = Sunday). Defaults to today. Another day sets that weekday's quota, as the Family Link weekly limits screen does."
+      required: false
+      example: 6
+      selector:
+        number:
+          min: 1
+          max: 7
+          mode: box
     entity_id:
       name: Device Entity
       description: Select a Family Link device switch (recommended - automatically extracts device_id and child_id)

@@ -291,6 +291,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			school_time_enabled = None
 			bedtime_schedule = None
 			school_time_schedule = None
+			daily_limit_week_rows = None
 			# Today-effective bedtime state derived from the per-day type-9
 			# override in the timeLimit response (issue #113). This is the
 			# authoritative source for the bedtime switch — it reflects the
@@ -314,6 +315,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				school_time_enabled_today_from_rules = time_limit_config.get("school_time_enabled_today")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
+				daily_limit_week_rows = time_limit_config.get("daily_limit_week")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
@@ -334,6 +336,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							school_time_enabled_today_from_rules = cached_child.get("school_time_enabled_today")
 							bedtime_schedule = cached_child.get("bedtime_schedule")
 							school_time_schedule = cached_child.get("school_time_schedule")
+							daily_limit_week_rows = cached_child.get("daily_limit_week")
 							_LOGGER.debug(f"Using cached time limit config for {child_name}")
 							break
 
@@ -548,6 +551,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"school_time_scheduled_today": school_time_scheduled_today,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
+				"daily_limit_week": daily_limit_week_rows,
 				"daily_limit_enabled": daily_limit_enabled,
 				"devices_time_data": devices_time_data,
 			}
@@ -813,13 +817,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		values.setdefault("bedtime", {})[str(day)] = [list(start), list(end)]
 		self._save_strict_intents()
 
-	def record_daily_limit_minutes(self, child_id: str | None, device_id: str, minutes: int) -> None:
-		"""A daily limit set from HA becomes the reference for that device (strict mode)."""
+	def record_daily_limit_minutes(self, child_id: str | None, minutes: int, day: int | None = None) -> None:
+		"""A weekday quota set from HA becomes the reference for that weekday (strict mode)."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id or not device_id:
+		if not child_id:
 			return
+		if not (isinstance(day, int) and 1 <= day <= 7):
+			day = dt_util.now().isoweekday()
 		values = self._intents_for(child_id).setdefault("values", {})
-		values.setdefault("daily_limit", {})[device_id] = int(minutes)
+		values.setdefault("daily_limit_week", {})[str(day)] = int(minutes)
 		self._save_strict_intents()
 
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
@@ -937,7 +943,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
 			return
 
-		key = f"{child_id}:{name}:{device_id or action.get('day') or ''}"
+		key = f"{child_id}:{name}:{device_id or ''}:{action.get('day') or ''}"
 		now = time.time()
 		if now - self._strict_cooldown.get(key, 0.0) < STRICT_MODE_COOLDOWN:
 			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} skipped, cooldown active")
@@ -974,7 +980,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				)
 			elif name == ACTION_SET_DAILY_LIMIT:
 				success = await self.client.async_set_daily_limit(
-					daily_minutes=action["minutes"], device_id=device_id, account_id=child_id
+					daily_minutes=action["minutes"], device_id=device_id, account_id=child_id, day=action.get("day")
 				)
 			elif policy:
 				enable = name in (ACTION_ENABLE_BEDTIME, ACTION_ENABLE_DAILY_LIMIT, ACTION_ENABLE_SCHOOL_TIME)

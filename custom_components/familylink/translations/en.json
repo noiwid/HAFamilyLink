@@ -114,7 +114,7 @@
 				"bedtime": "Bedtime cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
 				"daily_limit": "The daily limit cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
 				"school_time": "School time cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
-				"values": "Bedtime hours and the daily limit cannot be changed from Family Link (the values chosen in Home Assistant are put back)"
+				"values": "Bedtime hours and the quota of each weekday cannot be changed from Family Link (the values chosen in Home Assistant are put back)"
 			}
 		}
 	}

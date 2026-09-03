@@ -34,6 +34,9 @@ from ..schedules import (
 	WINDOW_SCHOOL_TIME,
 	classify_window_row,
 	DAY_CODES,
+	daily_limit_week,
+	parse_daily_limit_overrides,
+	parse_daily_limit_schedule,
 	parse_time_string,
 	parse_window_schedule_items,
 )
@@ -2587,7 +2590,8 @@ class FamilyLinkClient:
 		self,
 		daily_minutes: int,
 		device_id: str,
-		account_id: str | None = None
+		account_id: str | None = None,
+		day: int | None = None,
 	) -> bool:
 		"""Set daily time limit duration for a device.
 
@@ -2609,8 +2613,10 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Get current day of week (1=Monday, 7=Sunday) and map to CAEQ code
-			current_day = dt_util.now().isoweekday()
+			# Weekday (1=Monday, 7=Sunday) mapped to its CAEQ code. Today by
+			# default; another day posts the override for that weekday, which is
+			# how the app's "weekly limits" screen sets a day's quota.
+			current_day = day if isinstance(day, int) and 1 <= day <= 7 else dt_util.now().isoweekday()
 			day_code = self._DAY_CODES[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -3150,6 +3156,11 @@ class FamilyLinkClient:
 				#
 				# data[1] is the daily-limit-MINUTES config, it does NOT contain
 				# window rows. Row shapes live in schedules.py.
+				# Weekly daily-limit quotas (data[1]) merged with the per-weekday
+				# overrides of the override block, as the app's weekly screen shows.
+				weekly_limits = parse_daily_limit_schedule(data[1]) if isinstance(data, list) and len(data) > 1 else []
+				daily_limit_week_rows = daily_limit_week(weekly_limits, parse_daily_limit_overrides(data))
+
 				schedule_bedtime_id = bedtime_rule_id or self._BEDTIME_POLICY_ID
 				schedule_schooltime_id = schooltime_rule_id or self._SCHOOLTIME_POLICY_ID
 				if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
@@ -3295,6 +3306,7 @@ class FamilyLinkClient:
 					"school_time_enabled_today": school_time_enabled_today,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
+					"daily_limit_week": daily_limit_week_rows,
 					"bedtime_rule_id": bedtime_rule_id,
 					"schooltime_rule_id": schooltime_rule_id
 				}
