@@ -113,7 +113,8 @@
 				"lock": "Device lock follows Home Assistant (a lock or unlock done on the Google side is reverted; an unlock that bypasses an active bedtime, school time or reached daily limit is locked again until the restriction ends)",
 				"bedtime": "Bedtime cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
 				"daily_limit": "The daily limit cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
-				"school_time": "School time cannot be changed from Family Link (the state chosen in Home Assistant is put back)"
+				"school_time": "School time cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
+				"values": "Bedtime hours and the daily limit cannot be changed from Family Link (the values chosen in Home Assistant are put back)"
 			}
 		}
 	}

@@ -678,6 +678,7 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 		intents = self.coordinator.strict_intents_today(self._child_id)
 		attributes["ha_decisions_today"] = intents["policies"]
 		attributes["ha_device_decisions_today"] = intents["devices"]
+		attributes["ha_reference_values"] = intents.get("values", {})
 		return attributes
 
 	async def async_turn_on(self) -> None:

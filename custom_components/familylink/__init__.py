@@ -33,6 +33,7 @@ from .const import (
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .exceptions import FamilyLinkException
+from .schedules import parse_time_string
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -678,6 +679,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					device_id=target_device_id,
 					account_id=child_id
 				)
+				if results[target_device_id]:
+					coordinator.record_daily_limit_minutes(child_id, target_device_id, daily_minutes)
 			failed = [d for d, ok in results.items() if not ok]
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
@@ -716,6 +719,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			)
 			if success:
 				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+				if scope == "weekly":
+					coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
 				await coordinator.async_request_refresh()
 			else:
 				_LOGGER.error("Failed to set bedtime")

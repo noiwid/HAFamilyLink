@@ -113,7 +113,8 @@
         "lock": "נעילת המכשיר עוקבת אחרי Home Assistant (נעילה או פתיחה שנעשו בצד Google מבוטלות; פתיחה שעוקפת שעת שינה, זמן בית ספר או מגבלה יומית שהושגה ננעלת מחדש עד סיום ההגבלה)",
         "bedtime": "לא ניתן לשנות את שעת השינה מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
         "daily_limit": "לא ניתן לשנות את המגבלה היומית מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
-        "school_time": "לא ניתן לשנות את זמן בית הספר מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)"
+        "school_time": "לא ניתן לשנות את זמן בית הספר מ-Family Link (המצב שנבחר ב-Home Assistant מוחזר)",
+        "values": "לא ניתן לשנות את שעות השינה ואת המכסה היומית מ-Family Link (הערכים שנבחרו ב-Home Assistant מוחזרים)"
       }
     }
   }

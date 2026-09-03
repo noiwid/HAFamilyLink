@@ -113,7 +113,8 @@
 				"lock": "Le verrou de l'appareil suit Home Assistant (un verrouillage ou déverrouillage fait côté Google est annulé ; un déverrouillage qui contourne un coucher, un temps scolaire ou une limite atteinte est reverrouillé jusqu'à la fin de la restriction)",
 				"bedtime": "Le coucher ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
 				"daily_limit": "La limite du jour ne peut plus être modifiée depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
-				"school_time": "Le temps scolaire ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)"
+				"school_time": "Le temps scolaire ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
+				"values": "Les horaires du coucher et le quota du jour ne peuvent plus être modifiés depuis Family Link (les valeurs choisies dans Home Assistant sont rétablies)"
 			}
 		}
 	}

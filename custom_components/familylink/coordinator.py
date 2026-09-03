@@ -40,9 +40,12 @@ from .strict_mode import (
 	ACTION_ENABLE_DAILY_LIMIT,
 	ACTION_ENABLE_SCHOOL_TIME,
 	ACTION_LOCK_DEVICE,
+	ACTION_SET_BEDTIME,
+	ACTION_SET_DAILY_LIMIT,
 	ACTION_UNLOCK_DEVICE,
 	plan_strict_actions,
 	snapshot_policies,
+	snapshot_values,
 )
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -764,12 +767,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		today = dt_util.now().date().isoformat()
 		entry = self._strict_intents.get(child_id)
 		if not entry:
-			entry = {"date": today, "policies": {}, "devices": {}}
+			entry = {"date": today, "policies": {}, "devices": {}, "values": {}}
 			self._strict_intents[child_id] = entry
 		elif entry.get("date") != today:
 			entry["date"] = today
 			entry["devices"] = {}
-			entry.setdefault("policies", {})
+		entry.setdefault("policies", {})
+		entry.setdefault("values", {})
 		return entry
 
 	def _resolve_child_id(self, child_id: str | None) -> str | None:
@@ -798,6 +802,26 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: device {device_id} {action}ed from HA for child {child_id} (kept for today)")
 
+	def record_bedtime_hours(self, child_id: str | None, day: int, start: list[int], end: list[int]) -> None:
+		"""A weekly bedtime slot set from HA becomes the reference for that day (strict mode)."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id:
+			return
+		if day is None:
+			day = dt_util.now().isoweekday()
+		values = self._intents_for(child_id).setdefault("values", {})
+		values.setdefault("bedtime", {})[str(day)] = [list(start), list(end)]
+		self._save_strict_intents()
+
+	def record_daily_limit_minutes(self, child_id: str | None, device_id: str, minutes: int) -> None:
+		"""A daily limit set from HA becomes the reference for that device (strict mode)."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id or not device_id:
+			return
+		values = self._intents_for(child_id).setdefault("values", {})
+		values.setdefault("daily_limit", {})[device_id] = int(minutes)
+		self._save_strict_intents()
+
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
 		"""Forget the decision of the day for a device (strict mode lock lifted)."""
 		child_id = self._resolve_child_id(child_id)
@@ -810,7 +834,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""References and today's device decisions for the switch attributes (no side effect)."""
 		entry = self._strict_intents.get(child_id) or {}
 		devices = entry.get("devices", {}) if entry.get("date") == dt_util.now().date().isoformat() else {}
-		return {"policies": dict(entry.get("policies", {})), "devices": dict(devices)}
+		return {
+			"policies": dict(entry.get("policies", {})),
+			"devices": dict(devices),
+			"values": dict(entry.get("values", {})),
+		}
 
 	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
@@ -844,7 +872,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# force now become the reference again. Device decisions (a lock
 			# or unlock done from HA today) are kept: they are still what the
 			# parent wants.
-			self._intents_for(child_id)["policies"] = {}
+			intents = self._intents_for(child_id)
+			intents["policies"] = {}
+			intents["values"] = {}
 			self._save_strict_intents()
 		if enabled and enforce_now and self.data:
 			self.hass.async_create_task(self._async_enforce_strict_mode(self.data))
@@ -870,6 +900,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					_LOGGER.info(
 						f"Strict mode: reference state for {child_data.get('child_name', child_id)} "
 						f"set from Google: {added}"
+					)
+				added_values = snapshot_values(child_data, self.strict_rules, intents)
+				if added_values:
+					intents.setdefault("values", {}).update(added_values)
+					self._save_strict_intents()
+					_LOGGER.info(
+						f"Strict mode: reference values for {child_data.get('child_name', child_id)} "
+						f"set from Google: {added_values}"
 					)
 				actions = plan_strict_actions(
 					child_data, self.strict_rules, self._ha_bonus_devices(), intents
@@ -899,7 +937,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
 			return
 
-		key = f"{child_id}:{name}:{device_id or ''}"
+		key = f"{child_id}:{name}:{device_id or action.get('day') or ''}"
 		now = time.time()
 		if now - self._strict_cooldown.get(key, 0.0) < STRICT_MODE_COOLDOWN:
 			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} skipped, cooldown active")
@@ -928,6 +966,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						self.clear_device_intent(child_id, device_id)
 					elif action.get("record"):
 						self.record_device_intent(child_id, device_id, action["record"])
+			elif name == ACTION_SET_BEDTIME:
+				start, end = action["start"], action["end"]
+				success = await self.client.async_set_bedtime(
+					f"{start[0]:02d}:{start[1]:02d}", f"{end[0]:02d}:{end[1]:02d}",
+					day=action["day"], account_id=child_id, scope="weekly",
+				)
+			elif name == ACTION_SET_DAILY_LIMIT:
+				success = await self.client.async_set_daily_limit(
+					daily_minutes=action["minutes"], device_id=device_id, account_id=child_id
+				)
 			elif policy:
 				enable = name in (ACTION_ENABLE_BEDTIME, ACTION_ENABLE_DAILY_LIMIT, ACTION_ENABLE_SCHOOL_TIME)
 				client_calls = {

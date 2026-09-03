@@ -19,8 +19,13 @@ The four rules mirror the automations parents were writing by hand:
   once the restriction is over, as Google would have done
 - ``bedtime``, ``daily_limit``, ``school_time``: the policy cannot be changed
   from the Family Link side. The reference is the state observed when strict
-  mode was switched on (or at the first poll of the day), changed only from
-  Home Assistant; whatever differs on Google's side is put back, on or off.
+  mode was switched on, changed only from Home Assistant; whatever differs on
+  Google's side is put back, on or off.
+- ``values``: the weekly bedtime hours (7 days) and the daily limit minutes of
+  each device cannot be changed from the Family Link side either. Same
+  reference logic; hours are rewritten in the weekly schedule, minutes are
+  put back as today's override (there is no weekly write for them, so a
+  tampered weekly value is corrected again each morning).
 
 Home Assistant stays in charge, not the rules: a change made from Home
 Assistant (a switch, a button, an action) is the parent's decision and becomes
@@ -40,6 +45,7 @@ STRICT_RULE_LOCK = "lock"
 STRICT_RULE_BEDTIME = "bedtime"
 STRICT_RULE_DAILY_LIMIT = "daily_limit"
 STRICT_RULE_SCHOOL_TIME = "school_time"
+STRICT_RULE_VALUES = "values"
 
 STRICT_RULES: tuple[str, ...] = (
 	STRICT_RULE_BONUS,
@@ -47,6 +53,7 @@ STRICT_RULES: tuple[str, ...] = (
 	STRICT_RULE_BEDTIME,
 	STRICT_RULE_DAILY_LIMIT,
 	STRICT_RULE_SCHOOL_TIME,
+	STRICT_RULE_VALUES,
 )
 
 ACTION_CANCEL_BONUS = "cancel_bonus"
@@ -64,6 +71,8 @@ ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
 ACTION_DISABLE_BEDTIME = "disable_bedtime"
 ACTION_DISABLE_DAILY_LIMIT = "disable_daily_limit"
 ACTION_DISABLE_SCHOOL_TIME = "disable_school_time"
+ACTION_SET_BEDTIME = "set_bedtime"
+ACTION_SET_DAILY_LIMIT = "set_daily_limit"
 
 POLICY_RULES: tuple[str, ...] = (STRICT_RULE_BEDTIME, STRICT_RULE_DAILY_LIMIT, STRICT_RULE_SCHOOL_TIME)
 _POLICY_ACTIONS = {
@@ -220,6 +229,9 @@ def plan_strict_actions(
 			"reason": f"{label} switched {'off' if reference else 'on'} on Google's side",
 		})
 
+	if STRICT_RULE_VALUES in rules:
+		actions.extend(_plan_values(child_data, intents.get("values") or {}))
+
 	return actions
 
 
@@ -259,3 +271,105 @@ def snapshot_policies(
 		if observed is not None:
 			added[policy] = bool(observed)
 	return added
+
+def _time_pair(value: Any) -> list[int] | None:
+	"""[h, m] as a list of two ints, or None."""
+	if (
+		isinstance(value, (list, tuple)) and len(value) == 2
+		and all(type(v) is int for v in value)
+		and 0 <= value[0] <= 23 and 0 <= value[1] <= 59
+	):
+		return [int(value[0]), int(value[1])]
+	return None
+
+
+def observed_bedtime_hours(child_data: dict[str, Any]) -> dict[str, list[list[int]]]:
+	"""Enabled weekly bedtime slots as {"1": [[h, m], [h, m]], ...} (ISO weekday keys)."""
+	hours: dict[str, list[list[int]]] = {}
+	for slot in child_data.get("bedtime_schedule") or []:
+		if not isinstance(slot, dict) or not slot.get("enabled"):
+			continue
+		start, end = _time_pair(slot.get("start")), _time_pair(slot.get("end"))
+		day = slot.get("day")
+		if start and end and isinstance(day, int) and 1 <= day <= 7:
+			hours[str(day)] = [start, end]
+	return hours
+
+
+def observed_daily_limits(child_data: dict[str, Any]) -> dict[str, int]:
+	"""Today's daily limit minutes per device, for devices where the limit is on."""
+	limits: dict[str, int] = {}
+	for device_id, time_data in (child_data.get("devices_time_data") or {}).items():
+		if not isinstance(time_data, dict) or not time_data.get("daily_limit_enabled"):
+			continue
+		minutes = time_data.get("daily_limit_minutes")
+		if type(minutes) is int and minutes > 0:
+			limits[device_id] = minutes
+	return limits
+
+
+def snapshot_values(
+	child_data: dict[str, Any],
+	rules: set[str] | frozenset[str],
+	intents: dict[str, Any] | None,
+) -> dict[str, Any]:
+	"""Values whose reference is missing: the weekly bedtime hours and the
+	daily limit minutes observed now become it. Returns the entries to add."""
+	if STRICT_RULE_VALUES not in rules:
+		return {}
+	known = (intents or {}).get("values") or {}
+	added: dict[str, Any] = {}
+	if "bedtime" not in known:
+		hours = observed_bedtime_hours(child_data)
+		if hours:
+			added["bedtime"] = hours
+	if "daily_limit" not in known:
+		limits = observed_daily_limits(child_data)
+		if limits:
+			added["daily_limit"] = limits
+	return added
+
+
+def _plan_values(child_data: dict[str, Any], values: dict[str, Any]) -> list[dict[str, Any]]:
+	"""Rule ``values``: put the weekly bedtime hours and the daily limits back."""
+	child_id = child_data.get("child_id")
+	actions: list[dict[str, Any]] = []
+
+	reference_hours = values.get("bedtime") or {}
+	if reference_hours:
+		observed = observed_bedtime_hours(child_data)
+		for day, (start, end) in sorted(reference_hours.items()):
+			if observed.get(day) == [start, end]:
+				continue
+			actions.append({
+				"action": ACTION_SET_BEDTIME,
+				"child_id": child_id,
+				"day": int(day),
+				"start": start,
+				"end": end,
+				"reason": (
+					f"bedtime hours for day {day} changed on Google's side "
+					f"({observed.get(day) or 'slot missing'} instead of {[start, end]})"
+				),
+			})
+
+	reference_limits = values.get("daily_limit") or {}
+	if reference_limits:
+		devices_time_data = child_data.get("devices_time_data") or {}
+		for device_id, minutes in reference_limits.items():
+			time_data = devices_time_data.get(device_id)
+			# Device gone or limit off: the daily_limit policy rule owns that case.
+			if not isinstance(time_data, dict) or not time_data.get("daily_limit_enabled"):
+				continue
+			observed_minutes = time_data.get("daily_limit_minutes")
+			if observed_minutes == minutes:
+				continue
+			actions.append({
+				"action": ACTION_SET_DAILY_LIMIT,
+				"child_id": child_id,
+				"device_id": device_id,
+				"minutes": int(minutes),
+				"reason": f"daily limit changed on Google's side ({observed_minutes} min instead of {minutes})",
+			})
+
+	return actions
