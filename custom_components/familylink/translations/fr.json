@@ -111,10 +111,10 @@
 			"options": {
 				"bonus": "Bonus de temps annulés",
 				"lock": "Verrou de l'appareil piloté par Home Assistant",
-				"bedtime": "Coucher verrouillé",
-				"daily_limit": "Limite du jour verrouillée",
-				"school_time": "Temps scolaire verrouillé",
-				"values": "Horaires du coucher et quotas de la semaine verrouillés"
+				"bedtime": "Coucher piloté par Home Assistant",
+				"daily_limit": "Limite du jour pilotée par Home Assistant",
+				"school_time": "Temps scolaire piloté par Home Assistant",
+				"values": "Horaires du coucher et quotas de la semaine pilotés par Home Assistant"
 			}
 		}
 	}

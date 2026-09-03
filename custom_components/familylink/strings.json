@@ -111,10 +111,10 @@
 			"options": {
 				"bonus": "Cancel time bonuses",
 				"lock": "Device lock follows Home Assistant",
-				"bedtime": "Bedtime locked",
-				"daily_limit": "Daily limit locked",
-				"school_time": "School time locked",
-				"values": "Bedtime hours and weekly quotas locked"
+				"bedtime": "Bedtime follows Home Assistant",
+				"daily_limit": "Daily limit follows Home Assistant",
+				"school_time": "School time follows Home Assistant",
+				"values": "Bedtime hours and weekly quotas follow Home Assistant"
 			}
 		}
 	}

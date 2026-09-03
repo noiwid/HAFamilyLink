@@ -111,10 +111,10 @@
       "options": {
         "bonus": "ביטול בונוסי זמן",
         "lock": "נעילת המכשיר בשליטת Home Assistant",
-        "bedtime": "שעת השינה נעולה",
-        "daily_limit": "המגבלה היומית נעולה",
-        "school_time": "זמן בית הספר נעול",
-        "values": "שעות השינה ומכסות השבוע נעולות"
+        "bedtime": "שעת השינה בשליטת Home Assistant",
+        "daily_limit": "המגבלה היומית בשליטת Home Assistant",
+        "school_time": "זמן בית הספר בשליטת Home Assistant",
+        "values": "שעות השינה ומכסות השבוע בשליטת Home Assistant"
       }
     }
   }
