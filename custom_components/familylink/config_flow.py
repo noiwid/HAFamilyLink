@@ -8,6 +8,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME, CONF_URL
+from homeassistant.helpers import selector
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
@@ -15,6 +16,10 @@ from homeassistant.exceptions import HomeAssistantError
 from .const import (
 	CONF_AUTH_URL,
 	CONF_ENABLE_LOCATION_TRACKING,
+	CONF_STRICT_MODE,
+	CONF_STRICT_MODE_RULES,
+	DEFAULT_STRICT_MODE,
+	DEFAULT_STRICT_MODE_RULES,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_TIMEOUT,
@@ -26,6 +31,18 @@ from .const import (
 from .exceptions import AuthenticationError
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
+
+
+def _strict_rules_selector() -> selector.SelectSelector:
+	"""Multi-select of the strict mode rules, labels come from the translations."""
+	return selector.SelectSelector(
+		selector.SelectSelectorConfig(
+			options=list(DEFAULT_STRICT_MODE_RULES),
+			multiple=True,
+			mode=selector.SelectSelectorMode.LIST,
+			translation_key="strict_mode_rules",
+		)
+	)
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -195,6 +212,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				vol.Coerce(int), vol.Range(min=10, max=120)
 			),
 			vol.Optional(CONF_ENABLE_LOCATION_TRACKING, default=False): bool,
+			vol.Optional(CONF_STRICT_MODE, default=DEFAULT_STRICT_MODE): bool,
+			vol.Optional(CONF_STRICT_MODE_RULES, default=list(DEFAULT_STRICT_MODE_RULES)): _strict_rules_selector(),
 		})
 
 		# Add description about detected source
@@ -272,5 +291,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 						current_data.get(CONF_ENABLE_LOCATION_TRACKING, False)
 					),
 				): bool,
+				vol.Optional(
+					CONF_STRICT_MODE,
+					default=current_options.get(
+						CONF_STRICT_MODE,
+						current_data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)
+					),
+				): bool,
+				vol.Optional(
+					CONF_STRICT_MODE_RULES,
+					default=list(current_options.get(
+						CONF_STRICT_MODE_RULES,
+						current_data.get(CONF_STRICT_MODE_RULES, DEFAULT_STRICT_MODE_RULES)
+					)),
+				): _strict_rules_selector(),
 			}),
 		)

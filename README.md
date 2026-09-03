@@ -27,6 +27,7 @@ The endpoints and payload shapes the integration relies on are documented in [GO
 | Screen time monitoring | Daily screen time per child, remaining time per device (bonuses included), top 10 apps, per-app usage breakdown |
 | App management | Block or unblock apps, per-app daily limits (blocked, limited, unrestricted or "unlimited time"), one-call school mode that blocks everything except an essentials whitelist |
 | Location (opt-in) | GPS device tracker with saved places and address, battery level of the source device, on-demand refresh |
+| Strict mode (opt-in) | Home Assistant reverts what is changed from the Family Link side: bonuses are cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. One switch per child, rules chosen in the options |
 | Robustness | Cached data on transient API errors, automatic session refresh, persistent notification when re-authentication is needed |
 
 Translations: English, French, Hebrew.
@@ -65,6 +66,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `device_tracker.<child>_family_link` | Child (GPS opt-in) | GPS location: zone, saved place, address, battery |
 | `switch.<child>_bedtime`, `_school_time`, `_daily_limit` | Child | Toggle restrictions. State reflects today's effective setting (weekly rule merged with same-day overrides); the school time switch also exposes `school_time_enabled_weekly` and `school_time_scheduled_today` attributes |
 | `select.<child>_allowed_calls_texts` | Child | Choose who can call and text the child: anyone, only contacts you add, or contacts you add and limited groups |
+| `switch.<child>_strict_mode` | Child | Strict mode on or off for this child (see below). Attributes: rules in force, last corrective action, count |
 | `sensor.<device>_screen_time_remaining` | Device | Remaining minutes today, accounting for bonuses and used time |
 | `sensor.<device>_next_restriction` | Device | Next upcoming restriction as text, window timestamps in attributes |
 | `sensor.<device>_daily_limit` | Device | Configured daily quota in minutes |
@@ -76,6 +78,19 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `button.<device>_ring` | Device | Ring the device to locate it |
 
 GPS entities are only created when location tracking is enabled in the integration options (off by default; each location poll may notify the child's device).
+
+### Strict mode
+
+A supervised child who knows the Google interface can undo what the parent set: post a time bonus, lift the lock of a device that has no time left, or switch bedtime and the daily limit off. Strict mode makes Home Assistant the authority. After every refresh the integration compares what Google reports with the rules you chose and reverts the difference:
+
+| Rule | What is reverted |
+|------|------------------|
+| Cancel time bonuses | Any active bonus on a device is cancelled |
+| Re-lock a device that has no time left | A device that is usable while its remaining time is 0 is locked again |
+| Switch bedtime back on | Bedtime found off for today is switched on again |
+| Switch the daily limit back on | A disabled daily limit is enabled again |
+
+Enable it with the **Strict mode** option of the integration (default for every child, rules to apply) and toggle it per child with `switch.<child>_strict_mode`. The switch state survives restarts. While it is on, the same changes made from Home Assistant are reverted too, so turn the switch off first when you want to give a bonus or lift a restriction yourself. Each corrective action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event (`child_id`, `device_id`, `action`, `reason`, `success`) for your own notifications. A given action is not repeated within 90 seconds, so a change Google refuses does not turn into a request storm.
 
 ## Services
 

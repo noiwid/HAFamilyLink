@@ -13,6 +13,8 @@ CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_AUTH_URL: Final = "auth_url"  # URL for Docker standalone mode
 CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
+CONF_STRICT_MODE: Final = "strict_mode"
+CONF_STRICT_MODE_RULES: Final = "strict_mode_rules"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
@@ -82,3 +84,9 @@ SERVICE_REFRESH_LOCATION: Final = "refresh_location"
 
 # Device remote actions
 SERVICE_RING_DEVICE: Final = "ring_device"
+
+# Strict mode (Home Assistant reverts changes made from the Family Link side)
+DEFAULT_STRICT_MODE: Final = False
+DEFAULT_STRICT_MODE_RULES: Final = ("bonus", "unlock", "bedtime", "daily_limit")
+STRICT_MODE_COOLDOWN: Final = 90  # seconds between two identical corrective actions
+EVENT_STRICT_MODE_ACTION: Final = "familylink_strict_mode_action"

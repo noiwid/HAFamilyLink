@@ -7,11 +7,15 @@
         "data": {
           "update_interval": "מרווח עדכון (שניות)",
           "timeout": "זמן תפוגה של בקשה (שניות)",
-          "enable_location_tracking": "אפשר מעקב מיקום GPS"
+          "enable_location_tracking": "אפשר מעקב מיקום GPS",
+          "strict_mode": "מצב קפדני (Home Assistant אוכף את המגבלות)",
+          "strict_mode_rules": "כללי המצב הקפדני"
         },
         "data_description": {
           "update_interval": "באיזו תדירות לאסוף נתונים מגוגל (30–3600 שניות)",
-          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה להתקן הילד"
+          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה להתקן הילד",
+          "strict_mode": "כשמופעל, בונוס זמן, ביטול נעילה ללא זמן שנותר, או כיבוי שעת השינה / המגבלה היומית מצד Family Link מבוטלים ברענון הבא. לכל ילד יש מתג \"מצב קפדני\" להשהיה.",
+          "strict_mode_rules": "אילו שינויים המצב הקפדני מבטל."
         }
       }
     }
@@ -40,10 +44,14 @@
           "name": "שם השילוב",
           "update_interval": "מרווח עדכון (שניות)",
           "timeout": "זמן תפוגה של בקשה (שניות)",
-          "enable_location_tracking": "אפשר מעקב מיקום GPS"
+          "enable_location_tracking": "אפשר מעקב מיקום GPS",
+          "strict_mode": "מצב קפדני (Home Assistant אוכף את המגבלות)",
+          "strict_mode_rules": "כללי המצב הקפדני"
         },
         "data_description": {
-          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה למכשיר הילד. מושבת כברירת מחדל מטעמי פרטיות."
+          "enable_location_tracking": "כאשר מופעל, כל סריקת מיקום עשויה לשלוח התראה למכשיר הילד. מושבת כברירת מחדל מטעמי פרטיות.",
+          "strict_mode": "כשמופעל, בונוס זמן, ביטול נעילה ללא זמן שנותר, או כיבוי שעת השינה / המגבלה היומית מצד Family Link מבוטלים ברענון הבא. לכל ילד יש מתג \"מצב קפדני\" להשהיה.",
+          "strict_mode_rules": "אילו שינויים המצב הקפדני מבטל."
         }
       }
     },
@@ -95,6 +103,16 @@
     "device_tracker": {
       "location": {
         "name": "מיקום"
+      }
+    }
+  },
+  "selector": {
+    "strict_mode_rules": {
+      "options": {
+        "bonus": "ביטול בונוסי זמן",
+        "unlock": "נעילה מחדש של מכשיר ללא זמן שנותר",
+        "bedtime": "הפעלה מחדש של שעת השינה",
+        "daily_limit": "הפעלה מחדש של המגבלה היומית"
       }
     }
   }

@@ -10,9 +10,16 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .client.api import FamilyLinkClient
 from .const import (
+	CONF_STRICT_MODE,
+	CONF_STRICT_MODE_RULES,
+	DEFAULT_STRICT_MODE,
+	DEFAULT_STRICT_MODE_RULES,
+	EVENT_STRICT_MODE_ACTION,
+	STRICT_MODE_COOLDOWN,
 	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
@@ -21,6 +28,13 @@ from .const import (
 	LOGGER_NAME,
 )
 from .exceptions import FamilyLinkException, SessionExpiredError
+from .strict_mode import (
+	ACTION_CANCEL_BONUS,
+	ACTION_ENABLE_BEDTIME,
+	ACTION_ENABLE_DAILY_LIMIT,
+	ACTION_LOCK_DEVICE,
+	plan_strict_actions,
+)
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -68,6 +82,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
 
+		# Strict mode: Home Assistant reverts restriction changes made from the
+		# Family Link side (see strict_mode.py). The default and the rule set
+		# come from the options; the per-child switch overrides the default.
+		self.strict_mode_default: bool = bool(entry.options.get(
+			CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)
+		))
+		self.strict_rules: frozenset[str] = frozenset(entry.options.get(
+			CONF_STRICT_MODE_RULES, entry.data.get(CONF_STRICT_MODE_RULES, DEFAULT_STRICT_MODE_RULES)
+		) or ())
+		self._strict_mode_children: dict[str, bool] = {}
+		self.strict_mode_status: dict[str, dict[str, Any]] = {}  # child_id -> last action info
+		self._strict_cooldown: dict[str, float] = {}  # action key -> last run timestamp
+
 		# Get settings from options (runtime changes) or fall back to data (initial config)
 		self._location_tracking_enabled = entry.options.get(
 			CONF_ENABLE_LOCATION_TRACKING,
@@ -95,6 +122,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
 			self._last_known_data = result  # Store successful result
+			await self._async_enforce_strict_mode(result)
 			return result
 
 		except SessionExpiredError as err:
@@ -115,6 +143,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
 				self._last_known_data = result  # Store successful result
+				await self._async_enforce_strict_mode(result)
 				return result
 
 			except SessionExpiredError:
@@ -670,6 +699,114 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		)
 		self._auth_notification_sent = True
 		_LOGGER.info("Created authentication notification for user")
+
+
+	# ------------------------------------------------------------------
+	# Strict mode
+	# ------------------------------------------------------------------
+
+	def is_strict_mode_enabled(self, child_id: str) -> bool:
+		"""Return whether strict mode is on for this child (switch, else option default)."""
+		return self._strict_mode_children.get(child_id, self.strict_mode_default)
+
+	def set_strict_mode(self, child_id: str, enabled: bool, enforce_now: bool = True) -> None:
+		"""Switch strict mode on or off for a child.
+
+		Turning it on runs an enforcement pass right away on the last data,
+		so a bonus already running is cancelled without waiting for the next
+		poll.
+		"""
+		self._strict_mode_children[child_id] = enabled
+		_LOGGER.info(f"Strict mode {'enabled' if enabled else 'disabled'} for child {child_id}")
+		if enabled and enforce_now and self.data:
+			self.hass.async_create_task(self._async_enforce_strict_mode(self.data))
+
+	async def _async_enforce_strict_mode(self, data: dict[str, Any] | None) -> None:
+		"""Revert restriction changes made from the Family Link side (strict mode).
+
+		Runs after every successful refresh. Never raises: a failed corrective
+		action is logged and retried at the next poll, after the cooldown.
+		"""
+		if not data or self.client is None:
+			return
+		for child_data in data.get("children_data", []):
+			child_id = child_data.get("child_id")
+			if not child_id or not self.is_strict_mode_enabled(child_id):
+				continue
+			try:
+				actions = plan_strict_actions(child_data, self.strict_rules)
+			except Exception as err:
+				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
+				continue
+			for action in actions:
+				await self._async_run_strict_action(child_data, action)
+
+	async def _async_run_strict_action(self, child_data: dict[str, Any], action: dict[str, Any]) -> None:
+		"""Execute one corrective action, with the same guards as the switches."""
+		child_id = action["child_id"]
+		name = action["action"]
+		device_id = action.get("device_id")
+
+		# A change Home Assistant itself just made is still propagating on
+		# Google's side: do not fight our own pending state.
+		if name == ACTION_ENABLE_BEDTIME and self.get_pending_time_limit_state(child_id, "bedtime") is not None:
+			return
+		if name == ACTION_ENABLE_DAILY_LIMIT and self.get_pending_time_limit_state(child_id, "daily_limit") is not None:
+			return
+		if name == ACTION_LOCK_DEVICE and device_id in self._pending_lock_states:
+			return
+
+		key = f"{child_id}:{name}:{device_id or ''}"
+		now = time.time()
+		if now - self._strict_cooldown.get(key, 0.0) < STRICT_MODE_COOLDOWN:
+			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} skipped, cooldown active")
+			return
+		self._strict_cooldown[key] = now
+
+		_LOGGER.info(
+			f"Strict mode: {name} for child {child_data.get('child_name', child_id)}"
+			f"{f' device {device_id}' if device_id else ''} ({action.get('reason')})"
+		)
+		success = False
+		try:
+			if name == ACTION_CANCEL_BONUS:
+				success = await self.client.async_cancel_time_bonus(
+					override_id=action["override_id"], account_id=child_id
+				)
+			elif name == ACTION_LOCK_DEVICE:
+				success = await self.async_control_device(device_id, DEVICE_LOCK_ACTION, child_id)
+			elif name == ACTION_ENABLE_BEDTIME:
+				self.set_pending_time_limit_state(child_id, "bedtime", True)
+				success = await self.client.async_enable_bedtime(account_id=child_id)
+				if not success:
+					self.set_pending_time_limit_state(child_id, "bedtime", None)
+			elif name == ACTION_ENABLE_DAILY_LIMIT:
+				self.set_pending_time_limit_state(child_id, "daily_limit", True)
+				success = await self.client.async_enable_daily_limit(account_id=child_id)
+				if not success:
+					self.set_pending_time_limit_state(child_id, "daily_limit", None)
+		except Exception as err:
+			_LOGGER.error(f"Strict mode: {name} failed for child {child_id}: {err}")
+
+		if not success:
+			_LOGGER.warning(f"Strict mode: {name} for child {child_id} was not applied, will retry after cooldown")
+
+		status = self.strict_mode_status.setdefault(child_id, {"actions_count": 0})
+		status["actions_count"] += 1
+		status["last_action"] = name
+		status["last_action_at"] = dt_util.now().isoformat()
+		status["last_reason"] = action.get("reason")
+		status["last_device_id"] = device_id
+		status["last_success"] = success
+
+		self.hass.bus.async_fire(EVENT_STRICT_MODE_ACTION, {
+			"child_id": child_id,
+			"child_name": child_data.get("child_name"),
+			"device_id": device_id,
+			"action": name,
+			"reason": action.get("reason"),
+			"success": success,
+		})
 
 	async def async_cleanup(self) -> None:
 		"""Clean up coordinator resources."""

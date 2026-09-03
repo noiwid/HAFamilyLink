@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Strict mode: Home Assistant reverts restriction changes made from the Family Link side** - A supervised child who knows the Google interface can post a time bonus, unlock a device that has no time left, or switch bedtime and the daily limit off. Parents were reproducing the fix with a set of automations (cancel the bonus, re-lock, switch the policy back on). This is now native: with the **Strict mode** option on, the coordinator compares Google's state with the chosen rules after every refresh and reverts the difference: bonus cancelled, device locked again, bedtime and daily limit switched back on. One `switch.<child>_strict_mode` per child pauses or resumes it (state kept across restarts; the option only sets the initial value), the rules are chosen in the options (all four by default), each action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event, and an action is not repeated within 90 s. Changes Home Assistant itself just made are left alone while they propagate. Option and rule labels translated in English, French and Hebrew.
+
+---
+
+## [1.2.15-rc3] - 2026-09-03
+
+### Added
 - **Allowed calls and texts select entity (PR #150, by @mdo77)** - Each child gets `select.<child>_allowed_calls_texts` to choose who can call and text them: **Anyone**, **Only contacts I add** or **Contacts I add & limited groups**. The level is read from Google's `trustedcontacts` endpoint by the coordinator with the other per-child data (cache fallback and session-expiry handling included) and written back through `trustedcontacts:update`. An account where the setting was never touched reports level 0, shown as Anyone. Endpoint shape confirmed on a live capture.
 
 ### Fixed

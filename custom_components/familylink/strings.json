@@ -7,11 +7,15 @@
 				"data": {
 					"update_interval": "Update Interval (seconds)",
 					"timeout": "Request Timeout (seconds)",
-					"enable_location_tracking": "Enable GPS location tracking"
+					"enable_location_tracking": "Enable GPS location tracking",
+					"strict_mode": "Strict mode (Home Assistant enforces the limits)",
+					"strict_mode_rules": "Strict mode rules"
 				},
 				"data_description": {
 					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
-					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device"
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
+					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
 		}
@@ -40,10 +44,14 @@
 					"name": "Integration Name",
 					"update_interval": "Update Interval (seconds)",
 					"timeout": "Request Timeout (seconds)",
-					"enable_location_tracking": "Enable GPS location tracking"
+					"enable_location_tracking": "Enable GPS location tracking",
+					"strict_mode": "Strict mode (Home Assistant enforces the limits)",
+					"strict_mode_rules": "Strict mode rules"
 				},
 				"data_description": {
-					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
+					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
+					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
 		},
@@ -95,6 +103,16 @@
 		"device_tracker": {
 			"location": {
 				"name": "Location"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Cancel time bonuses",
+				"unlock": "Re-lock a device that has no time left",
+				"bedtime": "Switch bedtime back on",
+				"daily_limit": "Switch the daily limit back on"
 			}
 		}
 	}

@@ -7,11 +7,15 @@
 				"data": {
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
+					"enable_location_tracking": "Activer le suivi GPS",
+					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles du mode strict"
 				},
 				"data_description": {
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant"
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
+					"strict_mode": "Quand il est actif, un bonus de temps, un déverrouillage sans temps restant, ou le coucher / la limite du jour désactivés depuis Family Link sont annulés à la mise à jour suivante. Chaque enfant a un interrupteur « Mode strict » pour le suspendre.",
+					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}
 		}
@@ -40,10 +44,14 @@
 					"name": "Nom de l'intégration",
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
+					"enable_location_tracking": "Activer le suivi GPS",
+					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles du mode strict"
 				},
 				"data_description": {
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité."
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
+					"strict_mode": "Quand il est actif, un bonus de temps, un déverrouillage sans temps restant, ou le coucher / la limite du jour désactivés depuis Family Link sont annulés à la mise à jour suivante. Chaque enfant a un interrupteur « Mode strict » pour le suspendre.",
+					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}
 		},
@@ -95,6 +103,16 @@
 		"device_tracker": {
 			"location": {
 				"name": "Localisation"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Annuler les bonus de temps",
+				"unlock": "Reverrouiller un appareil sans temps restant",
+				"bedtime": "Réactiver le coucher",
+				"daily_limit": "Réactiver la limite du jour"
 			}
 		}
 	}
