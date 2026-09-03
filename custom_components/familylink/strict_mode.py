@@ -11,7 +11,8 @@ performs the actions.
 The four rules mirror the automations parents were writing by hand:
 
 - ``bonus``: a bonus is active on a device -> cancel it
-- ``unlock``: a device is usable although no screen time is left -> lock it
+- ``unlock``: a device is usable although no screen time is left, while a
+  daily limit is on -> lock it
 - ``bedtime``: bedtime is off for today -> switch it back on
 - ``daily_limit``: the daily limit is off -> switch it back on
 - ``school_time``: school time is off for today -> switch it back on (opt-in,
@@ -115,11 +116,18 @@ def plan_strict_actions(
 				})
 
 		if STRICT_RULE_UNLOCK in rules and device_intents.get(device_id) != "unlock":
-			# The device is usable while the remaining time (bonus included,
-			# 0 when the daily limit is off) is exhausted: somebody lifted
-			# the lock or removed the limit from the Google side.
+			# The device is usable while the remaining time (bonus included) is
+			# exhausted: somebody lifted the lock from the Google side. Only
+			# meaningful while a daily limit is on: with the limit off the
+			# remaining time is 0 by construction, and a limit removed on the
+			# Google side is the daily_limit rule's job, not a reason to lock.
 			remaining = time_data.get("remaining_minutes", 0) or 0
-			if time_data and device_is_usable(device, time_data) and remaining <= 0:
+			if (
+				time_data
+				and time_data.get("daily_limit_enabled")
+				and device_is_usable(device, time_data)
+				and remaining <= 0
+			):
 				actions.append({
 					"action": ACTION_LOCK_DEVICE,
 					"child_id": child_id,
