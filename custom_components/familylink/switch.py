@@ -339,6 +339,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_bedtime(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "bedtime", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable bedtime for %s", self._child_name)
@@ -360,6 +363,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_bedtime(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "bedtime", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable bedtime for %s", self._child_name)
@@ -467,6 +473,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_school_time(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "school_time", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable school time for %s", self._child_name)
@@ -487,6 +496,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_school_time(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "school_time", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable school time for %s", self._child_name)
@@ -564,6 +576,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_daily_limit(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "daily_limit", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable daily limit for %s", self._child_name)
@@ -584,6 +599,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_daily_limit(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "daily_limit", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable daily limit for %s", self._child_name)

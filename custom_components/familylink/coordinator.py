@@ -650,9 +650,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.debug(f"Cleared pending {limit_type} state for child {child_id}")
 			return
 
-		# A limit set from HA is the parent's decision for the day (strict mode)
-		self.record_policy_intent(child_id, limit_type, enabled)
-
 		if child_id not in self._pending_time_limit_states:
 			self._pending_time_limit_states[child_id] = {}
 
@@ -864,21 +861,33 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					override_id=action["override_id"], account_id=child_id
 				)
 			elif name == ACTION_LOCK_DEVICE:
-				success = await self.async_control_device(device_id, DEVICE_LOCK_ACTION, child_id)
+				# Direct client call: async_control_device() requests a refresh,
+				# which must not run from inside the refresh in progress. The
+				# next poll picks the new state up; the pending state covers the UI.
+				success = await self.client.async_control_device(device_id, DEVICE_LOCK_ACTION, child_id)
+				if success:
+					self._pending_lock_states[device_id] = (True, time.time())
+					self.record_device_intent(child_id, device_id, DEVICE_LOCK_ACTION)
 			elif name == ACTION_ENABLE_BEDTIME:
 				self.set_pending_time_limit_state(child_id, "bedtime", True)
 				success = await self.client.async_enable_bedtime(account_id=child_id)
-				if not success:
+				if success:
+					self.record_policy_intent(child_id, "bedtime", True)
+				else:
 					self.set_pending_time_limit_state(child_id, "bedtime", None)
 			elif name == ACTION_ENABLE_DAILY_LIMIT:
 				self.set_pending_time_limit_state(child_id, "daily_limit", True)
 				success = await self.client.async_enable_daily_limit(account_id=child_id)
-				if not success:
+				if success:
+					self.record_policy_intent(child_id, "daily_limit", True)
+				else:
 					self.set_pending_time_limit_state(child_id, "daily_limit", None)
 			elif name == ACTION_ENABLE_SCHOOL_TIME:
 				self.set_pending_time_limit_state(child_id, "school_time", True)
 				success = await self.client.async_enable_school_time(account_id=child_id)
-				if not success:
+				if success:
+					self.record_policy_intent(child_id, "school_time", True)
+				else:
 					self.set_pending_time_limit_state(child_id, "school_time", None)
 		except Exception as err:
 			_LOGGER.error(f"Strict mode: {name} failed for child {child_id}: {err}")

@@ -60,11 +60,12 @@ def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -
 		return False
 	if not time_data:
 		return True
-	if time_data.get("bonus_minutes", 0) > 0:
+	if (time_data.get("bonus_minutes") or 0) > 0:
 		return True
 	if time_data.get("bedtime_active", False):
 		return False
-	if time_data.get("daily_limit_remaining", 1) <= 0:
+	daily_limit_remaining = time_data.get("daily_limit_remaining")
+	if daily_limit_remaining is not None and daily_limit_remaining <= 0:
 		return False
 	return True
 
