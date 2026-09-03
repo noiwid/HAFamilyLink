@@ -109,12 +109,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Cancel time bonuses",
-				"lock": "Device lock follows Home Assistant",
-				"bedtime": "Bedtime follows Home Assistant",
-				"daily_limit": "Daily limit follows Home Assistant",
-				"school_time": "School time follows Home Assistant",
-				"values": "Bedtime hours and weekly quotas follow Home Assistant"
+				"bonus": "Time bonuses: those added from Family Link are cancelled",
+				"lock": "Device lock: locking and unlocking reserved to Home Assistant",
+				"bedtime": "Bedtime: switching on and off reserved to Home Assistant",
+				"daily_limit": "Daily limit: switching on and off reserved to Home Assistant",
+				"school_time": "School time: switching on and off reserved to Home Assistant",
+				"values": "Bedtime hours and weekly quotas: values reserved to Home Assistant"
 			}
 		}
 	}

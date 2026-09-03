@@ -109,12 +109,12 @@
   "selector": {
     "strict_mode_rules": {
       "options": {
-        "bonus": "ביטול בונוסי זמן",
-        "lock": "נעילת המכשיר בשליטת Home Assistant",
-        "bedtime": "שעת השינה בשליטת Home Assistant",
-        "daily_limit": "המגבלה היומית בשליטת Home Assistant",
-        "school_time": "זמן בית הספר בשליטת Home Assistant",
-        "values": "שעות השינה ומכסות השבוע בשליטת Home Assistant"
+        "bonus": "בונוסי זמן: אלה שנוספו מ-Family Link מבוטלים",
+        "lock": "נעילת המכשיר: נעילה ופתיחה שמורות ל-Home Assistant",
+        "bedtime": "שעת השינה: הפעלה וכיבוי שמורים ל-Home Assistant",
+        "daily_limit": "המגבלה היומית: הפעלה וכיבוי שמורים ל-Home Assistant",
+        "school_time": "זמן בית הספר: הפעלה וכיבוי שמורים ל-Home Assistant",
+        "values": "שעות השינה ומכסות השבוע: הערכים שמורים ל-Home Assistant"
       }
     }
   }

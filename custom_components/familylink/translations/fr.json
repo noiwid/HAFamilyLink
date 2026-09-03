@@ -109,12 +109,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Bonus de temps annulés",
-				"lock": "Verrou de l'appareil piloté par Home Assistant",
-				"bedtime": "Coucher piloté par Home Assistant",
-				"daily_limit": "Limite du jour pilotée par Home Assistant",
-				"school_time": "Temps scolaire piloté par Home Assistant",
-				"values": "Horaires du coucher et quotas de la semaine pilotés par Home Assistant"
+				"bonus": "Bonus de temps : ceux ajoutés depuis Family Link sont annulés",
+				"lock": "Verrou de l'appareil : verrouiller et déverrouiller, réservé à Home Assistant",
+				"bedtime": "Coucher : activer et désactiver, réservé à Home Assistant",
+				"daily_limit": "Limite du jour : activer et désactiver, réservé à Home Assistant",
+				"school_time": "Temps scolaire : activer et désactiver, réservé à Home Assistant",
+				"values": "Horaires du coucher et quotas de la semaine : valeurs réservées à Home Assistant"
 			}
 		}
 	}
