@@ -729,9 +729,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 		if isinstance(data, dict) and isinstance(data.get("intents"), dict):
 			self._strict_intents = data["intents"]
+		if isinstance(data, dict) and isinstance(data.get("ha_bonus_until"), dict):
+			# An HA-granted bonus must survive a restart, or the first poll
+			# after it would cancel the bonus as a Google-side one (live test).
+			now = time.time()
+			self._ha_bonus_until = {
+				d: float(t) for d, t in data["ha_bonus_until"].items()
+				if isinstance(t, (int, float)) and t > now
+			}
 
 	def _save_strict_intents(self) -> None:
-		self._strict_store.async_delay_save(lambda: {"intents": self._strict_intents}, 2)
+		self._strict_store.async_delay_save(
+			lambda: {"intents": self._strict_intents, "ha_bonus_until": self._ha_bonus_until}, 2
+		)
 
 	def _intents_for(self, child_id: str) -> dict[str, Any]:
 		"""Today's intents of a child; a new day starts from the rules again."""
@@ -784,6 +794,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		duration plus a short grace period.
 		"""
 		self._ha_bonus_until[device_id] = time.time() + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
+		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
 
 	def _ha_bonus_devices(self) -> frozenset[str]:
