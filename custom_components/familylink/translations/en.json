@@ -15,7 +15,7 @@
 					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
 					"strict_mode": "Strict mode closes a gap on Google's side that many children know how to use: from the Family Link app or the Google interface, a supervised child can give themselves a time bonus, unlock a device that has no time left, or switch bedtime and the daily limit off. With strict mode on, Home Assistant becomes the single point of control: after every refresh it reverts those changes and overrides the Family Link settings with what you set from Home Assistant. WARNING: while it is on, manage Family Link from Home Assistant only, changes made in the Family Link app are undone. Turn the child's Strict Mode switch off to hand control back to Google.",
-					"strict_mode_rules": "Which changes strict mode reverts."
+					"strict_mode_rules": "Which changes strict mode reverts. Nothing is switched on by force: the state in force when strict mode starts is the reference, and only Home Assistant can change it."
 				}
 			}
 		}
@@ -51,7 +51,7 @@
 				"data_description": {
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
 					"strict_mode": "Strict mode closes a gap on Google's side that many children know how to use: from the Family Link app or the Google interface, a supervised child can give themselves a time bonus, unlock a device that has no time left, or switch bedtime and the daily limit off. With strict mode on, Home Assistant becomes the single point of control: after every refresh it reverts those changes and overrides the Family Link settings with what you set from Home Assistant. WARNING: while it is on, manage Family Link from Home Assistant only, changes made in the Family Link app are undone. Turn the child's Strict Mode switch off to hand control back to Google.",
-					"strict_mode_rules": "Which changes strict mode reverts."
+					"strict_mode_rules": "Which changes strict mode reverts. Nothing is switched on by force: the state in force when strict mode starts is the reference, and only Home Assistant can change it."
 				}
 			}
 		},
@@ -111,9 +111,9 @@
 			"options": {
 				"bonus": "Cancel time bonuses",
 				"lock": "Device lock follows Home Assistant (a lock or unlock done on the Google side is reverted; an unlock that bypasses an active bedtime, school time or reached daily limit is locked again until the restriction ends)",
-				"bedtime": "Switch bedtime back on",
-				"daily_limit": "Switch the daily limit back on",
-				"school_time": "Switch school time back on (off by default: keep it off if you drive school hours from Home Assistant)"
+				"bedtime": "Bedtime cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
+				"daily_limit": "The daily limit cannot be changed from Family Link (the state chosen in Home Assistant is put back)",
+				"school_time": "School time cannot be changed from Family Link (the state chosen in Home Assistant is put back)"
 			}
 		}
 	}

@@ -33,12 +33,16 @@ from .const import (
 from .exceptions import FamilyLinkException, SessionExpiredError
 from .strict_mode import (
 	ACTION_CANCEL_BONUS,
+	ACTION_DISABLE_BEDTIME,
+	ACTION_DISABLE_DAILY_LIMIT,
+	ACTION_DISABLE_SCHOOL_TIME,
 	ACTION_ENABLE_BEDTIME,
 	ACTION_ENABLE_DAILY_LIMIT,
 	ACTION_ENABLE_SCHOOL_TIME,
 	ACTION_LOCK_DEVICE,
 	ACTION_UNLOCK_DEVICE,
 	plan_strict_actions,
+	snapshot_policies,
 )
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -822,6 +826,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""
 		self._strict_mode_children[child_id] = enabled
 		_LOGGER.info(f"Strict mode {'enabled' if enabled else 'disabled'} for child {child_id}")
+		if enabled and enforce_now:
+			# Control was Google's while strict mode was off: what is in force
+			# now becomes the reference, not what HA decided earlier today.
+			self._strict_intents.pop(child_id, None)
+			self._save_strict_intents()
 		if enabled and enforce_now and self.data:
 			self.hass.async_create_task(self._async_enforce_strict_mode(self.data))
 
@@ -838,8 +847,17 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if not child_id or not self.is_strict_mode_enabled(child_id):
 				continue
 			try:
+				intents = self._intents_for(child_id)
+				added = snapshot_policies(child_data, self.strict_rules, intents)
+				if added:
+					intents["policies"].update(added)
+					self._save_strict_intents()
+					_LOGGER.info(
+						f"Strict mode: reference state for {child_data.get('child_name', child_id)} "
+						f"set from Google: {added}"
+					)
 				actions = plan_strict_actions(
-					child_data, self.strict_rules, self._ha_bonus_devices(), self._intents_for(child_id)
+					child_data, self.strict_rules, self._ha_bonus_devices(), intents
 				)
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
@@ -855,11 +873,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		# A change Home Assistant itself just made is still propagating on
 		# Google's side: do not fight our own pending state.
-		if name == ACTION_ENABLE_BEDTIME and self.get_pending_time_limit_state(child_id, "bedtime") is not None:
-			return
-		if name == ACTION_ENABLE_DAILY_LIMIT and self.get_pending_time_limit_state(child_id, "daily_limit") is not None:
-			return
-		if name == ACTION_ENABLE_SCHOOL_TIME and self.get_pending_time_limit_state(child_id, "school_time") is not None:
+		policy_of_action = {
+			ACTION_ENABLE_BEDTIME: "bedtime", ACTION_DISABLE_BEDTIME: "bedtime",
+			ACTION_ENABLE_DAILY_LIMIT: "daily_limit", ACTION_DISABLE_DAILY_LIMIT: "daily_limit",
+			ACTION_ENABLE_SCHOOL_TIME: "school_time", ACTION_DISABLE_SCHOOL_TIME: "school_time",
+		}
+		policy = policy_of_action.get(name)
+		if policy and self.get_pending_time_limit_state(child_id, policy) is not None:
 			return
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
 			return
@@ -893,27 +913,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						self.clear_device_intent(child_id, device_id)
 					elif action.get("record"):
 						self.record_device_intent(child_id, device_id, action["record"])
-			elif name == ACTION_ENABLE_BEDTIME:
-				self.set_pending_time_limit_state(child_id, "bedtime", True)
-				success = await self.client.async_enable_bedtime(account_id=child_id)
-				if success:
-					self.record_policy_intent(child_id, "bedtime", True)
-				else:
-					self.set_pending_time_limit_state(child_id, "bedtime", None)
-			elif name == ACTION_ENABLE_DAILY_LIMIT:
-				self.set_pending_time_limit_state(child_id, "daily_limit", True)
-				success = await self.client.async_enable_daily_limit(account_id=child_id)
-				if success:
-					self.record_policy_intent(child_id, "daily_limit", True)
-				else:
-					self.set_pending_time_limit_state(child_id, "daily_limit", None)
-			elif name == ACTION_ENABLE_SCHOOL_TIME:
-				self.set_pending_time_limit_state(child_id, "school_time", True)
-				success = await self.client.async_enable_school_time(account_id=child_id)
-				if success:
-					self.record_policy_intent(child_id, "school_time", True)
-				else:
-					self.set_pending_time_limit_state(child_id, "school_time", None)
+			elif policy:
+				enable = name in (ACTION_ENABLE_BEDTIME, ACTION_ENABLE_DAILY_LIMIT, ACTION_ENABLE_SCHOOL_TIME)
+				client_calls = {
+					("bedtime", True): self.client.async_enable_bedtime,
+					("bedtime", False): self.client.async_disable_bedtime,
+					("daily_limit", True): self.client.async_enable_daily_limit,
+					("daily_limit", False): self.client.async_disable_daily_limit,
+					("school_time", True): self.client.async_enable_school_time,
+					("school_time", False): self.client.async_disable_school_time,
+				}
+				self.set_pending_time_limit_state(child_id, policy, enable)
+				success = await client_calls[(policy, enable)](account_id=child_id)
+				if not success:
+					self.set_pending_time_limit_state(child_id, policy, None)
 		except Exception as err:
 			_LOGGER.error(f"Strict mode: {name} failed for child {child_id}: {err}")
 

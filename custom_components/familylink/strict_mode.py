@@ -17,15 +17,16 @@ The four rules mirror the automations parents were writing by hand:
   unlock override (code 4) bypassing an active bedtime, school time or
   reached daily limit -> locked again, and unlocked by strict mode itself
   once the restriction is over, as Google would have done
-- ``bedtime``: bedtime is off for today -> switch it back on
-- ``daily_limit``: the daily limit is off -> switch it back on
-- ``school_time``: school time is off for today -> switch it back on (opt-in,
-  many parents run school hours from Home Assistant and keep Google's off)
+- ``bedtime``, ``daily_limit``, ``school_time``: the policy cannot be changed
+  from the Family Link side. The reference is the state observed when strict
+  mode was switched on (or at the first poll of the day), changed only from
+  Home Assistant; whatever differs on Google's side is put back, on or off.
 
 Home Assistant stays in charge, not the rules: a change made from Home
 Assistant (a switch, a button, an action) is the parent's decision and becomes
 the setting to enforce for the rest of the day. Only what differs from that
-setting on Google's side is reverted. The coordinator passes those decisions
+setting on Google's side is reverted. Nothing is forced on: a policy that was
+off when strict mode was switched on stays off. The coordinator passes those decisions
 as ``intents``: the policies switched on or off from HA today, the devices
 locked or unlocked from HA today, and the devices whose HA-granted bonus is
 still running.
@@ -60,6 +61,16 @@ LOCK_OVERRIDE_UNLOCKED = 4
 ACTION_ENABLE_BEDTIME = "enable_bedtime"
 ACTION_ENABLE_DAILY_LIMIT = "enable_daily_limit"
 ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
+ACTION_DISABLE_BEDTIME = "disable_bedtime"
+ACTION_DISABLE_DAILY_LIMIT = "disable_daily_limit"
+ACTION_DISABLE_SCHOOL_TIME = "disable_school_time"
+
+POLICY_RULES: tuple[str, ...] = (STRICT_RULE_BEDTIME, STRICT_RULE_DAILY_LIMIT, STRICT_RULE_SCHOOL_TIME)
+_POLICY_ACTIONS = {
+	STRICT_RULE_BEDTIME: (ACTION_ENABLE_BEDTIME, ACTION_DISABLE_BEDTIME, "bedtime"),
+	STRICT_RULE_DAILY_LIMIT: (ACTION_ENABLE_DAILY_LIMIT, ACTION_DISABLE_DAILY_LIMIT, "daily limit"),
+	STRICT_RULE_SCHOOL_TIME: (ACTION_ENABLE_SCHOOL_TIME, ACTION_DISABLE_SCHOOL_TIME, "school time"),
+}
 
 
 def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -> bool:
@@ -194,36 +205,57 @@ def plan_strict_actions(
 		if STRICT_RULE_LOCK in rules and time_data:
 			actions.extend(_plan_device_lock(child_id, device, time_data, device_intents.get(device_id)))
 
-	if STRICT_RULE_BEDTIME in rules and wanted.get(STRICT_RULE_BEDTIME, True):
-		today = child_data.get("bedtime_enabled_today")
-		weekly = child_data.get("bedtime_enabled")
-		effective = today if today is not None else weekly
-		if effective is False:
-			actions.append({
-				"action": ACTION_ENABLE_BEDTIME,
-				"child_id": child_id,
-				"reason": "bedtime switched off",
-			})
-
-	if STRICT_RULE_DAILY_LIMIT in rules and wanted.get(STRICT_RULE_DAILY_LIMIT, True):
-		# daily_limit_enabled is aggregated over the devices, so it is False
-		# for a child without any device: nothing to enforce there.
-		if child_data.get("daily_limit_enabled") is False and child_data.get("devices"):
-			actions.append({
-				"action": ACTION_ENABLE_DAILY_LIMIT,
-				"child_id": child_id,
-				"reason": "daily limit switched off",
-			})
-
-	if STRICT_RULE_SCHOOL_TIME in rules and wanted.get(STRICT_RULE_SCHOOL_TIME, True):
-		today = child_data.get("school_time_enabled_today")
-		weekly = child_data.get("school_time_enabled")
-		effective = today if today is not None else weekly
-		if effective is False:
-			actions.append({
-				"action": ACTION_ENABLE_SCHOOL_TIME,
-				"child_id": child_id,
-				"reason": "school time switched off",
-			})
+	for policy in POLICY_RULES:
+		if policy not in rules:
+			continue
+		reference = wanted.get(policy)
+		observed = observed_policy_state(child_data, policy)
+		# No reference yet (snapshot pending) or state unknown: nothing to compare.
+		if reference is None or observed is None or observed == bool(reference):
+			continue
+		enable_action, disable_action, label = _POLICY_ACTIONS[policy]
+		actions.append({
+			"action": enable_action if reference else disable_action,
+			"child_id": child_id,
+			"reason": f"{label} switched {'off' if reference else 'on'} on Google's side",
+		})
 
 	return actions
+
+
+def observed_policy_state(child_data: dict[str, Any], policy: str) -> bool | None:
+	"""Today-effective state of a policy as Google reports it, None when unknown."""
+	if policy == STRICT_RULE_BEDTIME:
+		today = child_data.get("bedtime_enabled_today")
+		return today if today is not None else child_data.get("bedtime_enabled")
+	if policy == STRICT_RULE_SCHOOL_TIME:
+		today = child_data.get("school_time_enabled_today")
+		return today if today is not None else child_data.get("school_time_enabled")
+	if policy == STRICT_RULE_DAILY_LIMIT:
+		# Aggregated over the devices: meaningless for a child without any.
+		if not child_data.get("devices"):
+			return None
+		return child_data.get("daily_limit_enabled")
+	return None
+
+
+def snapshot_policies(
+	child_data: dict[str, Any],
+	rules: set[str] | frozenset[str],
+	intents: dict[str, Any] | None,
+) -> dict[str, bool]:
+	"""Policies whose reference is missing: the state observed now becomes it.
+
+	Called by the coordinator before planning, when strict mode is on: the
+	state in force when strict mode starts (or at the first poll of the day)
+	is what Family Link may no longer change. Returns the entries to add.
+	"""
+	known = (intents or {}).get("policies") or {}
+	added: dict[str, bool] = {}
+	for policy in POLICY_RULES:
+		if policy not in rules or policy in known:
+			continue
+		observed = observed_policy_state(child_data, policy)
+		if observed is not None:
+			added[policy] = bool(observed)
+	return added
