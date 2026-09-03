@@ -89,8 +89,9 @@ A supervised child who knows the Google interface can undo what the parent set: 
 | Re-lock a device that has no time left | A device that is usable while its remaining time is 0 is locked again |
 | Switch bedtime back on | Bedtime found off for today is switched on again |
 | Switch the daily limit back on | A disabled daily limit is enabled again |
+| Switch school time back on (off by default) | School time found off for today is switched on again. Leave it unchecked if you drive school hours from Home Assistant and keep Google's school time off |
 
-Enable it with the **Strict mode** option of the integration (default for every child, rules to apply) and toggle it per child with `switch.<child>_strict_mode`. The switch state survives restarts. While it is on, the same changes made from Home Assistant are reverted too, so turn the switch off first when you want to give a bonus or lift a restriction yourself. Each corrective action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event (`child_id`, `device_id`, `action`, `reason`, `success`) for your own notifications. A given action is not repeated within 90 seconds, so a change Google refuses does not turn into a request storm.
+Enable it with the **Strict mode** option of the integration (default for every child, rules to apply) and toggle it per child with `switch.<child>_strict_mode`. The switch state survives restarts. Bonuses given from Home Assistant (the bonus buttons or the `add_time_bonus` action) are legitimate and are kept for their duration; the other changes made from Home Assistant while strict mode is on are reverted too, so turn the switch off first when you want to lift bedtime or the daily limit yourself. Each corrective action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event (`child_id`, `device_id`, `action`, `reason`, `success`) for your own notifications. A given action is not repeated within 90 seconds, so a change Google refuses does not turn into a request storm.
 
 ## Services
 

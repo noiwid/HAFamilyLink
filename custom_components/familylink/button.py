@@ -136,6 +136,8 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.info(
 				f"Successfully added {self._bonus_minutes} minutes bonus to device {self._device_name}"
 			)
+			# A bonus given from HA is legitimate for strict mode
+			self.coordinator.register_ha_bonus(self._device_id, self._bonus_minutes)
 			# Refresh to update bonus sensor
 			await self.coordinator.async_request_refresh()
 

@@ -19,6 +19,7 @@ from .const import (
 	DEFAULT_STRICT_MODE,
 	DEFAULT_STRICT_MODE_RULES,
 	EVENT_STRICT_MODE_ACTION,
+	STRICT_MODE_BONUS_GRACE,
 	STRICT_MODE_COOLDOWN,
 	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_UPDATE_INTERVAL,
@@ -32,6 +33,7 @@ from .strict_mode import (
 	ACTION_CANCEL_BONUS,
 	ACTION_ENABLE_BEDTIME,
 	ACTION_ENABLE_DAILY_LIMIT,
+	ACTION_ENABLE_SCHOOL_TIME,
 	ACTION_LOCK_DEVICE,
 	plan_strict_actions,
 )
@@ -94,6 +96,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._strict_mode_children: dict[str, bool] = {}
 		self.strict_mode_status: dict[str, dict[str, Any]] = {}  # child_id -> last action info
 		self._strict_cooldown: dict[str, float] = {}  # action key -> last run timestamp
+		self._ha_bonus_until: dict[str, float] = {}  # device_id -> until when an HA-granted bonus is legitimate
 
 		# Get settings from options (runtime changes) or fall back to data (initial config)
 		self._location_tracking_enabled = entry.options.get(
@@ -709,6 +712,23 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""Return whether strict mode is on for this child (switch, else option default)."""
 		return self._strict_mode_children.get(child_id, self.strict_mode_default)
 
+	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
+		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
+
+		Strict mode reverts what is done from the Family Link side; a bonus the
+		parent gives through the buttons or the add_time_bonus action is the
+		parent's decision and must survive. The allowance lasts the bonus
+		duration plus a short grace period.
+		"""
+		self._ha_bonus_until[device_id] = time.time() + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
+		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
+
+	def _ha_bonus_devices(self) -> frozenset[str]:
+		"""Devices whose HA-granted bonus is still running (expired entries pruned)."""
+		now = time.time()
+		self._ha_bonus_until = {d: t for d, t in self._ha_bonus_until.items() if t > now}
+		return frozenset(self._ha_bonus_until)
+
 	def set_strict_mode(self, child_id: str, enabled: bool, enforce_now: bool = True) -> None:
 		"""Switch strict mode on or off for a child.
 
@@ -734,7 +754,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if not child_id or not self.is_strict_mode_enabled(child_id):
 				continue
 			try:
-				actions = plan_strict_actions(child_data, self.strict_rules)
+				actions = plan_strict_actions(child_data, self.strict_rules, self._ha_bonus_devices())
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
 				continue
@@ -752,6 +772,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if name == ACTION_ENABLE_BEDTIME and self.get_pending_time_limit_state(child_id, "bedtime") is not None:
 			return
 		if name == ACTION_ENABLE_DAILY_LIMIT and self.get_pending_time_limit_state(child_id, "daily_limit") is not None:
+			return
+		if name == ACTION_ENABLE_SCHOOL_TIME and self.get_pending_time_limit_state(child_id, "school_time") is not None:
 			return
 		if name == ACTION_LOCK_DEVICE and device_id in self._pending_lock_states:
 			return
@@ -785,6 +807,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				success = await self.client.async_enable_daily_limit(account_id=child_id)
 				if not success:
 					self.set_pending_time_limit_state(child_id, "daily_limit", None)
+			elif name == ACTION_ENABLE_SCHOOL_TIME:
+				self.set_pending_time_limit_state(child_id, "school_time", True)
+				success = await self.client.async_enable_school_time(account_id=child_id)
+				if not success:
+					self.set_pending_time_limit_state(child_id, "school_time", None)
 		except Exception as err:
 			_LOGGER.error(f"Strict mode: {name} failed for child {child_id}: {err}")
 

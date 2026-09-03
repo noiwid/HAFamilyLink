@@ -14,6 +14,11 @@ The four rules mirror the automations parents were writing by hand:
 - ``unlock``: a device is usable although no screen time is left -> lock it
 - ``bedtime``: bedtime is off for today -> switch it back on
 - ``daily_limit``: the daily limit is off -> switch it back on
+- ``school_time``: school time is off for today -> switch it back on (opt-in,
+  many parents run school hours from Home Assistant and keep Google's off)
+
+A bonus that Home Assistant itself granted is legitimate: the coordinator
+passes the devices whose HA bonus is still running so it is not cancelled.
 """
 from __future__ import annotations
 
@@ -23,18 +28,21 @@ STRICT_RULE_BONUS = "bonus"
 STRICT_RULE_UNLOCK = "unlock"
 STRICT_RULE_BEDTIME = "bedtime"
 STRICT_RULE_DAILY_LIMIT = "daily_limit"
+STRICT_RULE_SCHOOL_TIME = "school_time"
 
 STRICT_RULES: tuple[str, ...] = (
 	STRICT_RULE_BONUS,
 	STRICT_RULE_UNLOCK,
 	STRICT_RULE_BEDTIME,
 	STRICT_RULE_DAILY_LIMIT,
+	STRICT_RULE_SCHOOL_TIME,
 )
 
 ACTION_CANCEL_BONUS = "cancel_bonus"
 ACTION_LOCK_DEVICE = "lock_device"
 ACTION_ENABLE_BEDTIME = "enable_bedtime"
 ACTION_ENABLE_DAILY_LIMIT = "enable_daily_limit"
+ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
 
 
 def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -> bool:
@@ -56,8 +64,15 @@ def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -
 	return True
 
 
-def plan_strict_actions(child_data: dict[str, Any], rules: set[str] | frozenset[str]) -> list[dict[str, Any]]:
+def plan_strict_actions(
+	child_data: dict[str, Any],
+	rules: set[str] | frozenset[str],
+	ha_bonus_devices: set[str] | frozenset[str] = frozenset(),
+) -> list[dict[str, Any]]:
 	"""Return the actions strict mode must take for one child, in order.
+
+	``ha_bonus_devices`` lists the devices whose running bonus was granted from
+	Home Assistant (button or action) and must be left alone.
 
 	Each action is ``{"action": ..., "child_id": ..., "device_id"?: ...,
 	"override_id"?: ..., "reason": ...}``. Device actions come first (a bonus
@@ -74,7 +89,7 @@ def plan_strict_actions(child_data: dict[str, Any], rules: set[str] | frozenset[
 			continue
 		time_data = devices_time_data.get(device_id) or {}
 
-		if STRICT_RULE_BONUS in rules:
+		if STRICT_RULE_BONUS in rules and device_id not in ha_bonus_devices:
 			override_id = time_data.get("bonus_override_id")
 			if override_id:
 				actions.append({
@@ -117,6 +132,17 @@ def plan_strict_actions(child_data: dict[str, Any], rules: set[str] | frozenset[
 				"action": ACTION_ENABLE_DAILY_LIMIT,
 				"child_id": child_id,
 				"reason": "daily limit switched off",
+			})
+
+	if STRICT_RULE_SCHOOL_TIME in rules:
+		today = child_data.get("school_time_enabled_today")
+		weekly = child_data.get("school_time_enabled")
+		effective = today if today is not None else weekly
+		if effective is False:
+			actions.append({
+				"action": ACTION_ENABLE_SCHOOL_TIME,
+				"child_id": child_id,
+				"reason": "school time switched off",
 			})
 
 	return actions

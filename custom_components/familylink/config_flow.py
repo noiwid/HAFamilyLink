@@ -20,6 +20,7 @@ from .const import (
 	CONF_STRICT_MODE_RULES,
 	DEFAULT_STRICT_MODE,
 	DEFAULT_STRICT_MODE_RULES,
+	STRICT_MODE_RULES,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_TIMEOUT,
@@ -37,7 +38,7 @@ def _strict_rules_selector() -> selector.SelectSelector:
 	"""Multi-select of the strict mode rules, labels come from the translations."""
 	return selector.SelectSelector(
 		selector.SelectSelectorConfig(
-			options=list(DEFAULT_STRICT_MODE_RULES),
+			options=list(STRICT_MODE_RULES),
 			multiple=True,
 			mode=selector.SelectSelectorMode.LIST,
 			translation_key="strict_mode_rules",

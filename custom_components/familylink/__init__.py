@@ -462,6 +462,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			)
 			if success:
 				_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
+				# A bonus given from HA is legitimate for strict mode
+				coordinator.register_ha_bonus(device_id, bonus_minutes)
 				await coordinator.async_request_refresh()
 			else:
 				_LOGGER.error(f"Failed to add time bonus to device {device_id}")

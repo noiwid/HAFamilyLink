@@ -14,7 +14,7 @@
 				"data_description": {
 					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
-					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Bonuses given from Home Assistant are kept. Each child gets a Strict Mode switch to pause it.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
@@ -50,7 +50,7 @@
 				},
 				"data_description": {
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
-					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Bonuses given from Home Assistant are kept. Each child gets a Strict Mode switch to pause it.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
@@ -112,7 +112,8 @@
 				"bonus": "Cancel time bonuses",
 				"unlock": "Re-lock a device that has no time left",
 				"bedtime": "Switch bedtime back on",
-				"daily_limit": "Switch the daily limit back on"
+				"daily_limit": "Switch the daily limit back on",
+				"school_time": "Switch school time back on (off by default: keep it off if you drive school hours from Home Assistant)"
 			}
 		}
 	}

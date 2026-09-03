@@ -87,6 +87,10 @@ SERVICE_RING_DEVICE: Final = "ring_device"
 
 # Strict mode (Home Assistant reverts changes made from the Family Link side)
 DEFAULT_STRICT_MODE: Final = False
+STRICT_MODE_RULES: Final = ("bonus", "unlock", "bedtime", "daily_limit", "school_time")
+# school_time is opt-in: many parents drive school hours from Home Assistant
+# and keep Google's school time off on purpose.
 DEFAULT_STRICT_MODE_RULES: Final = ("bonus", "unlock", "bedtime", "daily_limit")
+STRICT_MODE_BONUS_GRACE: Final = 120  # seconds added to an HA-granted bonus before strict mode may cancel it
 STRICT_MODE_COOLDOWN: Final = 90  # seconds between two identical corrective actions
 EVENT_STRICT_MODE_ACTION: Final = "familylink_strict_mode_action"
