@@ -751,12 +751,25 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		)
 
 	def _intents_for(self, child_id: str) -> dict[str, Any]:
-		"""Today's intents of a child; a new day starts from the rules again."""
+		"""Intents of a child: policy references persist, device decisions expire daily.
+
+		The bedtime / daily limit / school time references are the parent's
+		standing choice (the HA switches act on the weekly policy), so they
+		stay until HA changes them or strict mode is switched on again; a
+		reset at midnight would let a weekly change made on Google's side
+		become the reference the next morning. A lock or unlock done from HA
+		is a decision for the day: it expires at midnight, and the bypass
+		protection of the lock rule resumes.
+		"""
 		today = dt_util.now().date().isoformat()
 		entry = self._strict_intents.get(child_id)
-		if not entry or entry.get("date") != today:
+		if not entry:
 			entry = {"date": today, "policies": {}, "devices": {}}
 			self._strict_intents[child_id] = entry
+		elif entry.get("date") != today:
+			entry["date"] = today
+			entry["devices"] = {}
+			entry.setdefault("policies", {})
 		return entry
 
 	def _resolve_child_id(self, child_id: str | None) -> str | None:
@@ -794,11 +807,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._save_strict_intents()
 
 	def strict_intents_today(self, child_id: str) -> dict[str, Any]:
-		"""Today's HA decisions for the switch attributes (no side effect on a new day)."""
+		"""References and today's device decisions for the switch attributes (no side effect)."""
 		entry = self._strict_intents.get(child_id) or {}
-		if entry.get("date") != dt_util.now().date().isoformat():
-			return {"policies": {}, "devices": {}}
-		return {"policies": dict(entry.get("policies", {})), "devices": dict(entry.get("devices", {}))}
+		devices = entry.get("devices", {}) if entry.get("date") == dt_util.now().date().isoformat() else {}
+		return {"policies": dict(entry.get("policies", {})), "devices": dict(devices)}
 
 	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
