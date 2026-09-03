@@ -46,7 +46,7 @@ async def async_setup_entry(
 	for child_data in coordinator.data["children_data"]:
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
-		ensure_child_device(hass, entry.entry_id, child_id, child_name)
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		entities.append(
 			FamilyLinkDeviceTracker(

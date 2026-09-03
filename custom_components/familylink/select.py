@@ -45,7 +45,7 @@ async def async_setup_entry(
         return
 
     for child_data in coordinator.data.get("children_data", []):
-        ensure_child_device(hass, entry.entry_id, child_data["child_id"], child_data["child_name"])
+        ensure_child_device(hass, coordinator, entry.entry_id, child_data["child_id"], child_data["child_name"])
 
     entities = [
         FamilyLinkContactRestrictionSelect(

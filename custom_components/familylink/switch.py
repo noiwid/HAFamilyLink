@@ -44,7 +44,7 @@ async def async_setup_entry(
 	for child_data in coordinator.data.get("children_data", []) if coordinator.data else []:
 		child_id = child_data["child_id"]
 		child_name = child_data["child_name"]
-		ensure_child_device(hass, entry.entry_id, child_id, child_name)
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		_LOGGER.debug(f"Creating switches for {child_name}")
 
@@ -109,7 +109,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			manufacturer="Google",
 			model=self._device.get("model", "Family Link Device"),
 			sw_version=self._device.get("version"),
-			**via_child(self.hass, self._child_id),  # Link to parent (child's account device)
+			**via_child(self.coordinator, self._child_id),  # Link to parent (child's account device)
 		)
 
 	@property
