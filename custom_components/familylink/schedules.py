@@ -299,17 +299,35 @@ def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int
 	return result
 
 
+def latest_daily_limit_override(
+	overrides: dict[int, dict[str, tuple[int, int]]],
+) -> tuple[int, int, int] | None:
+	"""The most recent type-8 override across days and devices: (day, minutes, created_ms)."""
+	latest: tuple[int, int, int] | None = None
+	for day, per_device in overrides.items():
+		for _device_id, (minutes, created) in per_device.items():
+			if latest is None or created >= latest[2]:
+				latest = (day, minutes, created)
+	return latest
+
+
 def daily_limit_week(
 	weekly: list[dict[str, Any]],
 	overrides: dict[int, dict[str, tuple[int, int]]],
+	today: int | None = None,
 ) -> list[dict[str, Any]]:
 	"""The seven weekday quotas as the Family Link app shows them.
 
-	For each weekday: the weekly value, the override in force (the most recent
-	one across devices, when any) and the effective minutes, i.e. the override
-	when present, the weekly value otherwise.
+	The app's "weekly limits" screen reads and writes the weekly rows of
+	``data[1]``; they are the value of each weekday. A type-8 override only
+	changes the quota Google applies today, and only while it is the most
+	recent override posted (a later override for another day supersedes it and
+	is itself ignored, live capture 2026-09-03). So the effective minutes are
+	the weekly value, except for ``today`` when the latest override carries
+	today's code.
 	"""
 	by_day = {row["day"]: row for row in weekly if isinstance(row, dict) and _is_int(row.get("day"))}
+	latest = latest_daily_limit_override(overrides)
 	week: list[dict[str, Any]] = []
 	for day in range(1, 8):
 		row = by_day.get(day) or {}
@@ -319,14 +337,18 @@ def daily_limit_week(
 			if override is None or created >= override[1]:
 				override = (minutes, created)
 		override_minutes = override[0] if override else None
-		effective = override_minutes if override_minutes is not None else weekly_minutes
+		applied_override = (
+			today is not None and day == today and latest is not None and latest[0] == day
+		)
+		effective = override_minutes if applied_override and override_minutes is not None else weekly_minutes
 		week.append({
 			"day": day,
 			"day_name": DAY_NAMES[day],
 			"weekly_minutes": weekly_minutes,
 			"override_minutes": override_minutes,
+			"applied_override": bool(applied_override and override_minutes is not None),
 			"effective_minutes": effective,
-			"source": "override" if override_minutes is not None else ("weekly" if weekly_minutes is not None else None),
+			"source": "override" if applied_override and override_minutes is not None else ("weekly" if weekly_minutes is not None else None),
 			"enabled": row.get("enabled"),
 		})
 	return week

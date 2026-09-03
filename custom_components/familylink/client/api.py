@@ -2613,10 +2613,19 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Weekday (1=Monday, 7=Sunday) mapped to its CAEQ code. Today by
-			# default; another day posts the override for that weekday, which is
-			# how the app's "weekly limits" screen sets a day's quota.
-			current_day = day if isinstance(day, int) and 1 <= day <= 7 else dt_util.now().isoweekday()
+			# Weekday (1=Monday, 7=Sunday) mapped to its CAEQ code. Google only
+			# applies the most recent type-8 override, and only when it carries
+			# today's code: an override posted for another weekday is inert AND
+			# cancels today's (live capture 2026-09-03). The app's weekly screen
+			# writes the weekly rows instead (form not captured yet), so another
+			# day is refused here rather than silently breaking today's quota.
+			current_day = dt_util.now().isoweekday()
+			if isinstance(day, int) and day != current_day:
+				_LOGGER.error(
+					f"Cannot set the daily limit for weekday {day}: Google only applies a quota "
+					"override for the current day. Change other weekdays in the Family Link app for now."
+				)
+				return False
 			day_code = self._DAY_CODES[current_day]
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -3159,7 +3168,9 @@ class FamilyLinkClient:
 				# Weekly daily-limit quotas (data[1]) merged with the per-weekday
 				# overrides of the override block, as the app's weekly screen shows.
 				weekly_limits = parse_daily_limit_schedule(data[1]) if isinstance(data, list) and len(data) > 1 else []
-				daily_limit_week_rows = daily_limit_week(weekly_limits, parse_daily_limit_overrides(data))
+				daily_limit_week_rows = daily_limit_week(
+					weekly_limits, parse_daily_limit_overrides(data), dt_util.now().isoweekday()
+				)
 
 				schedule_bedtime_id = bedtime_rule_id or self._BEDTIME_POLICY_ID
 				schedule_schooltime_id = schooltime_rule_id or self._SCHOOLTIME_POLICY_ID

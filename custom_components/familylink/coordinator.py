@@ -749,6 +749,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			for entry in self._strict_intents.values():
 				if isinstance(entry, dict) and isinstance(entry.get("values"), dict):
 					entry["values"].pop("daily_limit", None)
+					# 2026-09-03: effective-minutes reference replaced by the weekly values
+					entry["values"].pop("daily_limit_week", None)
 		if isinstance(data, dict) and isinstance(data.get("ha_bonus_until"), dict):
 			# An HA-granted bonus must survive a restart, or the first poll
 			# after it would cancel the bonus as a Google-side one (live test).
@@ -831,7 +833,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if not (isinstance(day, int) and 1 <= day <= 7):
 			day = dt_util.now().isoweekday()
 		values = self._intents_for(child_id).setdefault("values", {})
-		values.setdefault("daily_limit_week", {})[str(day)] = int(minutes)
+		values.setdefault("weekly_limits", {})[str(day)] = int(minutes)
 		self._save_strict_intents()
 
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
@@ -925,7 +927,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						f"set from Google: {added_values}"
 					)
 				actions = plan_strict_actions(
-					child_data, self.strict_rules, self._ha_bonus_devices(), intents
+					child_data, self.strict_rules, self._ha_bonus_devices(), intents,
+					today=dt_util.now().isoweekday(),
 				)
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")

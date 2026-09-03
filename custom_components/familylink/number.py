@@ -1,10 +1,10 @@
 """Number platform: the daily screen time quota of each weekday, per child.
 
 One entity per weekday, ``number.<child>_<weekday>_limit``, mirrors the
-"Weekly limits" screen of Family Link: its value is the quota in force for
-that day (the per-day override when one exists, the weekly value otherwise)
-and setting it posts a daily-limit override for that weekday on every
-device of the child, which is what the Family Link app does.
+"Weekly limits" screen of Family Link: its value is the weekly quota of that
+day, or today's override when Google applies one. Setting today's entity
+posts today's override on every device of the child; the other weekdays
+are read-only until the weekly write form is captured.
 """
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -116,13 +118,27 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 			"day_name": DAY_NAMES[self._day],
 			"weekly_minutes": entry.get("weekly_minutes"),
 			"override_minutes": entry.get("override_minutes"),
+			"applied_override": entry.get("applied_override"),
 			"source": entry.get("source"),
 			"enabled": entry.get("enabled"),
 		}
 
 	async def async_set_native_value(self, value: float) -> None:
-		"""Post a daily-limit override for this weekday on every device of the child."""
+		"""Post today's daily-limit override on every device of the child.
+
+		Google only applies the most recent type-8 override and only when it
+		carries today's code; an override posted for another weekday is inert
+		and cancels today's. The weekly rows the app writes for other days
+		have no captured write form yet, so other weekdays are refused.
+		"""
 		minutes = int(round(value))
+		today = dt_util.now().isoweekday()
+		if self._day != today:
+			raise HomeAssistantError(
+				f"{DAY_NAMES[self._day]}'s quota cannot be set from Home Assistant yet: Google only "
+				"applies a quota override for the current day. Change other weekdays in the "
+				"Family Link app for now."
+			)
 		client = self.coordinator.client
 		if client is None:
 			_LOGGER.error("Cannot set the daily limit: client not connected")
