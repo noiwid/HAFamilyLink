@@ -14,7 +14,7 @@
 				"data_description": {
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
-					"strict_mode": "Quand il est actif, ce qui est modifié côté Family Link est annulé à la mise à jour suivante : un bonus de temps est retiré, un appareil déverrouillé sans temps restant est reverrouillé, le coucher et la limite du jour sont réactivés. Ce que vous changez depuis Home Assistant (interrupteurs, boutons bonus, actions) reste en vigueur pour la journée. Chaque enfant a un interrupteur « Mode strict » ; le couper redonne la main à Google.",
+					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google.",
 					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}
@@ -50,7 +50,7 @@
 				},
 				"data_description": {
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
-					"strict_mode": "Quand il est actif, ce qui est modifié côté Family Link est annulé à la mise à jour suivante : un bonus de temps est retiré, un appareil déverrouillé sans temps restant est reverrouillé, le coucher et la limite du jour sont réactivés. Ce que vous changez depuis Home Assistant (interrupteurs, boutons bonus, actions) reste en vigueur pour la journée. Chaque enfant a un interrupteur « Mode strict » ; le couper redonne la main à Google.",
+					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google.",
 					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}

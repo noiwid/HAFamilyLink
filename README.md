@@ -81,7 +81,12 @@ GPS entities are only created when location tracking is enabled in the integrati
 
 ### Strict mode
 
-A supervised child who knows the Google interface can undo what the parent set: post a time bonus, lift the lock of a device that has no time left, or switch bedtime and the daily limit off. Strict mode makes Home Assistant the authority. After every refresh the integration compares what Google reports with what Home Assistant wants and reverts the difference:
+**Why it exists.** There is a gap on Google's side that many children know how to use: from the Family Link app or the Google interface, a supervised child can give themselves a time bonus, lift the lock of a device that has no time left, or switch bedtime and the daily limit off. Parents were closing it with a set of automations that watched the entities and reverted the change. Strict mode does this natively.
+
+**What it does.** With strict mode on, Home Assistant becomes the single point of control. After every refresh the integration compares what Google reports with what Home Assistant wants and reverts the difference, overriding the Family Link settings:
+
+> **Warning.** While strict mode is on, manage Family Link from Home Assistant only. Changes made in the Family Link app or on the Google interface are undone at the next refresh, whoever made them. Turn the child's Strict Mode switch off to hand control back to Google. With the option off (the default), nothing changes: the integration behaves exactly as before, the switch is just there, off.
+
 
 | Rule | What is reverted |
 |------|------------------|

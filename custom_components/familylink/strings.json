@@ -14,7 +14,7 @@
 				"data_description": {
 					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
-					"strict_mode": "When on, what is changed from the Family Link side is reverted at the next refresh: a time bonus is cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. What you change from Home Assistant (switches, bonus buttons, actions) stays in force for the day. Each child gets a Strict Mode switch; turn it off to hand control back to Google.",
+					"strict_mode": "Strict mode closes a gap on Google's side that many children know how to use: from the Family Link app or the Google interface, a supervised child can give themselves a time bonus, unlock a device that has no time left, or switch bedtime and the daily limit off. With strict mode on, Home Assistant becomes the single point of control: after every refresh it reverts those changes and overrides the Family Link settings with what you set from Home Assistant. WARNING: while it is on, manage Family Link from Home Assistant only, changes made in the Family Link app are undone. Turn the child's Strict Mode switch off to hand control back to Google.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
@@ -50,7 +50,7 @@
 				},
 				"data_description": {
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
-					"strict_mode": "When on, what is changed from the Family Link side is reverted at the next refresh: a time bonus is cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. What you change from Home Assistant (switches, bonus buttons, actions) stays in force for the day. Each child gets a Strict Mode switch; turn it off to hand control back to Google.",
+					"strict_mode": "Strict mode closes a gap on Google's side that many children know how to use: from the Family Link app or the Google interface, a supervised child can give themselves a time bonus, unlock a device that has no time left, or switch bedtime and the daily limit off. With strict mode on, Home Assistant becomes the single point of control: after every refresh it reverts those changes and overrides the Family Link settings with what you set from Home Assistant. WARNING: while it is on, manage Family Link from Home Assistant only, changes made in the Family Link app are undone. Turn the child's Strict Mode switch off to hand control back to Google.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
