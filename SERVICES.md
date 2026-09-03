@@ -141,6 +141,8 @@ data:
 
 Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory. The quota set is today's override. The `day` field is reserved for the weekly schedule write and is refused for any day other than today for now: Google only applies the most recent override, and only when it carries the current day's code, so an override posted for another weekday is inert and cancels today's (verified live 2026-09-03).
 
+The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
+
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `daily_minutes` | int, 0 to 1440 | yes | - (form prefills 120) | Minutes allowed per day. `0` disables the device for the day without fully locking it |
@@ -256,6 +258,23 @@ Makes the device ring to help locate it. A device target is mandatory. This is t
 action: familylink.ring_device
 data:
   entity_id: switch.pixel_7
+```
+
+## Polling
+
+### familylink.set_update_interval
+
+Changes how often the integration polls Google. The new interval applies immediately and lasts until the next reload or restart, after which the value set in the integration options applies again. It is not saved to the options on purpose, so an automation can lengthen the interval at bedtime and shorten it in the morning without changing the configured value.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `seconds` | integer | yes | - | Polling interval in seconds, 30 to 3600 |
+
+```yaml
+# Poll every 10 minutes at night
+action: familylink.set_update_interval
+data:
+  seconds: 600
 ```
 
 ## Finding package names

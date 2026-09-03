@@ -17,10 +17,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device, via_child
+from .schedules import WINDOW_BEDTIME, describe_time_until, next_scheduled_window
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -170,6 +172,10 @@ class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
 
                     if self._device_id in devices_time_data:
                         time_data = devices_time_data[self._device_id]
+                        # No daily limit and no bonus: there is no allowance to count
+                        # down, so the state is unknown rather than a misleading 0.
+                        if not time_data.get("daily_limit_enabled") and not time_data.get("bonus_minutes"):
+                            return None
                         remaining = time_data.get("remaining_minutes", 0)
                         _LOGGER.debug(
                             f"Found data for {self._device_id}: remaining={remaining}, "
@@ -260,20 +266,19 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
 
     def _calculate_time_until(self, target_ms: int) -> str | None:
         """Calculate human-readable time until target timestamp."""
-        now_ms = int(datetime.now().timestamp() * 1000)
-        diff_ms = target_ms - now_ms
+        now = dt_util.now()
+        target = datetime.fromtimestamp(target_ms / 1000, tz=now.tzinfo)
+        return describe_time_until(target, now)
 
-        if diff_ms <= 0:
-            return "Active now"
-
-        diff_seconds = diff_ms // 1000
-        hours = diff_seconds // 3600
-        minutes = (diff_seconds % 3600) // 60
-
-        if hours > 0:
-            return f"in {hours}h{minutes:02d}"
-        else:
-            return f"in {minutes}min"
+    def _next_scheduled_window(self, child_data: dict[str, Any]):
+        """Earliest bedtime / school time window from tomorrow on, from the weekly schedule."""
+        return next_scheduled_window(
+            dt_util.now(),
+            child_data.get("bedtime_schedule"),
+            child_data.get("school_time_schedule"),
+            child_data.get("bedtime_enabled"),
+            child_data.get("school_time_enabled"),
+        )
 
     @property
     def native_value(self) -> str | None:
@@ -325,6 +330,15 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                         if time_data.get("daily_limit_enabled") and remaining > 0 and remaining <= 30:
                             return f"Daily limit {remaining}min remaining"
 
+                        # Nothing left today: announce the next window of the weekly
+                        # schedule (tomorrow's bedtime, Monday's school time) instead of
+                        # "No restrictions" for the rest of the day.
+                        upcoming = self._next_scheduled_window(child_data)
+                        if upcoming:
+                            window_type, start_dt, _ = upcoming
+                            label = "Bedtime" if window_type == WINDOW_BEDTIME else "School time"
+                            return f"{label} {describe_time_until(start_dt, dt_util.now())}"
+
                         return "No restrictions"
 
         return None
@@ -354,6 +368,13 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
 
                         attributes["bedtime_active"] = time_data.get("bedtime_active", False)
                         attributes["schooltime_active"] = time_data.get("schooltime_active", False)
+
+                        upcoming = self._next_scheduled_window(child_data)
+                        if upcoming:
+                            window_type, start_dt, end_dt = upcoming
+                            attributes["next_scheduled_type"] = "bedtime" if window_type == WINDOW_BEDTIME else "school_time"
+                            attributes["next_scheduled_start"] = start_dt.isoformat()
+                            attributes["next_scheduled_end"] = end_dt.isoformat()
 
                         # Add window details if available
                         bedtime_window = time_data.get("bedtime_window")
@@ -1202,6 +1223,10 @@ class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
 
 					if self._device_id in devices_time_data:
 						time_data = devices_time_data[self._device_id]
+						# The row keeps its last value after the limit is switched off;
+						# showing it as the state read as an active limit (issue #155).
+						if not time_data.get("daily_limit_enabled"):
+							return None
 						return time_data.get("daily_limit_minutes", 0)
 
 		return None
@@ -1229,6 +1254,7 @@ class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
 					if self._device_id in devices_time_data:
 						time_data = devices_time_data[self._device_id]
 						attributes["enabled"] = time_data.get("daily_limit_enabled", False)
+						attributes["configured_minutes"] = time_data.get("daily_limit_minutes", 0)
 
 		return attributes
 

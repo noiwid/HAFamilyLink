@@ -19,6 +19,7 @@ where picking the wrong rule's id would corrupt the schedule).
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -239,18 +240,22 @@ def parse_daily_limit_schedule(config: Any) -> list[dict[str, Any]]:
 		state_flag = item[2]
 		minutes = item[3]
 
+		# Recognised by shape, not by the CAEQ prefix: accounts with their own
+		# slot ids (issue #157) key these rows differently.
 		if not (
 			isinstance(code, str)
-			and code.startswith(BEDTIME_CODE_PREFIX)
+			and code
 			and _is_int(day)
 			and day in DAY_NAMES
 			and _is_int(state_flag)
+			and state_flag in (1, 2)
 			and _is_int(minutes)
 			and minutes >= 0
 		):
 			continue
 
 		schedules_by_day[day] = {
+			"code": code,
 			"day": day,
 			"day_name": DAY_NAMES[day],
 			# A 0-minute limit is reported as disabled: Google keeps the row
@@ -274,6 +279,12 @@ def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int
 	Returns ``{day: {device_id: (minutes, created_ms)}}`` with the most recent
 	row per day and device.
 	"""
+	# Slot id -> weekday: the static codes, completed by the live ids of the
+	# weekly rows (accounts with their own slot ids, issue #157).
+	code_days = dict(CODE_DAYS)
+	for row in parse_daily_limit_schedule(data[1] if isinstance(data, list) and len(data) > 1 else data):
+		if isinstance(row.get("code"), str) and _is_int(row.get("day")):
+			code_days[row["code"]] = row["day"]
 	result: dict[int, dict[str, tuple[int, int]]] = {}
 	for item in _walk_lists(data):
 		if len(item) < 5 or item[2] != 8 or not isinstance(item[3], str) or not item[3]:
@@ -282,7 +293,7 @@ def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int
 		# The [2, minutes, "CAEQxx"] payload sits at [11] in the request and
 		# after the extra columns of a stored row: take the last such list.
 		payload = next(
-			(p for p in reversed(item[4:]) if isinstance(p, list) and len(p) >= 3 and _is_int(p[1]) and isinstance(p[2], str) and p[2] in CODE_DAYS),
+			(p for p in reversed(item[4:]) if isinstance(p, list) and len(p) >= 3 and _is_int(p[1]) and isinstance(p[2], str) and p[2] in code_days),
 			None,
 		)
 		if payload is None:
@@ -292,7 +303,7 @@ def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int
 			created = int(item[1])
 		except (TypeError, ValueError):
 			created = 0
-		day = CODE_DAYS[code]
+		day = code_days[code]
 		previous = result.setdefault(day, {}).get(device_id)
 		if previous is None or created >= previous[1]:
 			result[day][device_id] = (int(minutes), created)
@@ -352,3 +363,112 @@ def daily_limit_week(
 			"enabled": row.get("enabled"),
 		})
 	return week
+
+
+def find_daily_limit_slot_id(data: Any, day: int) -> str | None:
+	"""Return the live daily-limit slot id for an ISO weekday (issue #157).
+
+	The daily-limit rows of the timeLimit response reuse a weekly slot id,
+	and that id is not the static ``CAEQxx`` value on every account: posting
+	an unknown id to ``timeLimitOverrides:batchCreate`` returns HTTP 200 but
+	the override stays inert. A daily-limit row is recognised by its shape,
+	``[slot_id, day, state_flag, minutes, ...]``: window rows carry an
+	``[hour, minute]`` pair at index 3 and revision rows a timestamp list, so
+	requiring plain integer minutes keeps this lookup specific.
+
+	The daily-limit block is ``data[1]`` when the response has the documented
+	layout; it is searched first, the whole response only as a fallback.
+	As in ``parse_daily_limit_schedule``, a later row wins for the same day.
+	"""
+	if not _is_int(day) or day not in DAY_NAMES:
+		return None
+
+	def _search(fragment: Any) -> str | None:
+		found: str | None = None
+		for item in _walk_lists(fragment):
+			if len(item) < 4:
+				continue
+			code, row_day, state_flag, minutes = item[0], item[1], item[2], item[3]
+			if (
+				isinstance(code, str)
+				and code
+				and _is_int(row_day)
+				and row_day == day
+				and _is_int(state_flag)
+				and state_flag in (1, 2)
+				and _is_int(minutes)
+				and minutes >= 0
+			):
+				found = code
+		return found
+
+	if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+		found = _search(data[1])
+		if found:
+			return found
+	return _search(data)
+
+def describe_time_until(target: datetime, now: datetime) -> str:
+	"""Human-readable delay until `target`: "Active now", "in 25min", "in 3h05", "in 1d 14h"."""
+	diff_seconds = int((target - now).total_seconds())
+	if diff_seconds <= 0:
+		return "Active now"
+	days, rem = divmod(diff_seconds, 86400)
+	hours, rem = divmod(rem, 3600)
+	minutes = rem // 60
+	if days > 0:
+		return f"in {days}d {hours}h"
+	if hours > 0:
+		return f"in {hours}h{minutes:02d}"
+	return f"in {minutes}min"
+
+
+def next_scheduled_window(
+	now: datetime,
+	bedtime_schedule: list[dict[str, Any]] | None,
+	school_time_schedule: list[dict[str, Any]] | None,
+	bedtime_enabled: bool | None = None,
+	school_time_enabled: bool | None = None,
+	days_ahead: int = 7,
+) -> tuple[str, datetime, datetime] | None:
+	"""Earliest window of the weekly schedules starting after today.
+
+	Today's windows are covered by the per-device data of appliedTimeLimits
+	(which already merges the daily overrides); this helper only looks from
+	tomorrow on, so the next-restriction sensor can announce tomorrow's
+	bedtime once today's windows are over instead of "No restrictions".
+
+	A schedule is skipped when its weekly policy is off (`False`); `None`
+	means unknown and is treated as on. Rows are the dicts produced by
+	parse_window_schedule_items (day, enabled, start [h, m], end [h, m]).
+	Returns (WINDOW_BEDTIME | WINDOW_SCHOOL_TIME, start, end) or None.
+	"""
+	candidates: list[tuple[datetime, datetime, str]] = []
+	sources = (
+		(WINDOW_BEDTIME, bedtime_schedule, bedtime_enabled),
+		(WINDOW_SCHOOL_TIME, school_time_schedule, school_time_enabled),
+	)
+	for offset in range(1, days_ahead + 1):
+		day_dt = now + timedelta(days=offset)
+		weekday = day_dt.isoweekday()
+		for window_type, schedule, policy_enabled in sources:
+			if policy_enabled is False or not isinstance(schedule, list):
+				continue
+			for slot in schedule:
+				if not isinstance(slot, dict) or slot.get("day") != weekday or not slot.get("enabled"):
+					continue
+				start, end = slot.get("start"), slot.get("end")
+				if not (_is_time_pair(start) and _is_time_pair(end)):
+					continue
+				start_dt = day_dt.replace(hour=start[0], minute=start[1], second=0, microsecond=0)
+				end_dt = day_dt.replace(hour=end[0], minute=end[1], second=0, microsecond=0)
+				if end_dt <= start_dt:
+					end_dt += timedelta(days=1)
+				candidates.append((start_dt, end_dt, window_type))
+		if candidates:
+			break
+
+	if not candidates:
+		return None
+	start_dt, end_dt, window_type = min(candidates, key=lambda c: c[0])
+	return window_type, start_dt, end_dt

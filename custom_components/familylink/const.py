@@ -18,6 +18,8 @@ CONF_STRICT_MODE_RULES: Final = "strict_mode_rules"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
+MIN_UPDATE_INTERVAL: Final = 30  # seconds
+MAX_UPDATE_INTERVAL: Final = 3600  # seconds
 DEFAULT_TIMEOUT: Final = 30  # seconds
 DEFAULT_COOKIE_FILE: Final = "familylink_cookies.json"
 
@@ -94,3 +96,6 @@ DEFAULT_STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "
 STRICT_MODE_BONUS_GRACE: Final = 120  # seconds added to an HA-granted bonus before strict mode may cancel it
 STRICT_MODE_COOLDOWN: Final = 90  # seconds between two identical corrective actions
 EVENT_STRICT_MODE_ACTION: Final = "familylink_strict_mode_action"
+
+# Polling
+SERVICE_SET_UPDATE_INTERVAL: Final = "set_update_interval"

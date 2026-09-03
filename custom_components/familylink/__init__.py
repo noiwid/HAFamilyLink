@@ -2,18 +2,21 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from .const import (
 	DOMAIN,
 	LOGGER_NAME,
+	MAX_UPDATE_INTERVAL,
+	MIN_UPDATE_INTERVAL,
 	SERVICE_ADD_TIME_BONUS,
 	SERVICE_BLOCK_APP,
 	SERVICE_BLOCK_DEVICE_FOR_SCHOOL,
@@ -26,6 +29,7 @@ from .const import (
 	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_SET_UPDATE_INTERVAL,
 	SERVICE_REFRESH_LOCATION,
 	SERVICE_RING_DEVICE,
 	SERVICE_UNBLOCK_ALL_APPS,
@@ -134,6 +138,12 @@ SCHEMA_RING_DEVICE = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("device_id"): cv.string,
 	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_UPDATE_INTERVAL = vol.Schema({
+	vol.Required("seconds"): vol.All(
+		vol.Coerce(int), vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)
+	),
 })
 
 
@@ -693,6 +703,16 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					f"{len(device_ids) - len(failed)} device(s)"
 				)
 				await coordinator.async_request_refresh()
+			if failed:
+				# Surface the failure to the caller (automation trace, UI)
+				# instead of a silent log line: since #157 the client reads
+				# the value back, so a False here means Google accepted the
+				# request but did not apply it, or rejected it outright.
+				raise HomeAssistantError(
+					f"Daily limit of {daily_minutes} minutes was not applied for "
+					f"device(s): {', '.join(failed)}. See the Family Link log for "
+					"the slot used and the value observed."
+				)
 		except Exception as err:
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise
@@ -804,6 +824,30 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_SET_APP_DAILY_LIMIT,
 	)
 
+	async def handle_set_update_interval(call: ServiceCall) -> None:
+		"""Handle set_update_interval - change the polling interval at runtime (issue #156).
+
+		The new interval applies to every coordinator of the integration and lasts
+		until the next restart or reload, after which the value from the options
+		takes over again. Not persisted on purpose: an automation that lengthens
+		the interval at bedtime and shortens it in the morning must not leave the
+		configured value changed behind the user's back.
+		"""
+		seconds = call.data["seconds"]
+		interval = timedelta(seconds=seconds)
+		coordinators = [
+			c for c in hass.data.get(DOMAIN, {}).values()
+			if isinstance(c, FamilyLinkDataUpdateCoordinator)
+		]
+		for coord in coordinators:
+			previous = coord.update_interval
+			coord.update_interval = interval
+			_LOGGER.info(
+				f"Service called: set_update_interval - polling every {seconds}s "
+				f"(was {int(previous.total_seconds()) if previous else '?'}s, "
+				f"until the next reload or restart)"
+			)
+
 	async def handle_ring_device(call: ServiceCall) -> None:
 		"""Handle ring_device service call - make the device sound."""
 		_require_client()
@@ -913,6 +957,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_RING_DEVICE,
 	)
 
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_SET_UPDATE_INTERVAL,
+		handle_set_update_interval,
+		schema=SCHEMA_SET_UPDATE_INTERVAL,
+	)
+
 	_LOGGER.debug("Family Link services registered")
 
 
@@ -948,6 +999,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
+			hass.services.async_remove(DOMAIN, SERVICE_RING_DEVICE)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_UPDATE_INTERVAL)
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok
