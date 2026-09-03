@@ -366,6 +366,7 @@ def _plan_values(child_data: dict[str, Any], values: dict[str, Any], today: int 
 				"day": int(day),
 				"start": start,
 				"end": end,
+				"observed": observed.get(day),
 				"reason": (
 					f"bedtime hours for day {day} changed on Google's side "
 					f"({observed.get(day) or 'slot missing'} instead of {[start, end]})"
@@ -386,6 +387,7 @@ def _plan_values(child_data: dict[str, Any], values: dict[str, Any], today: int 
 				"child_id": child_id,
 				"day": int(day),
 				"minutes": int(minutes),
+				"observed": observed_minutes,
 				"reason": f"weekly daily limit for day {day} changed on Google's side ({observed_minutes} min instead of {minutes})",
 			})
 	reference_today = reference_limits.get(str(today)) if today is not None else None
@@ -406,6 +408,7 @@ def _plan_values(child_data: dict[str, Any], values: dict[str, Any], today: int 
 				"device_id": device_id,
 				"day": int(today),
 				"minutes": int(reference_today),
+				"observed": applied,
 				"reason": f"today's daily limit changed on Google's side ({applied} min instead of {reference_today})",
 			})
 

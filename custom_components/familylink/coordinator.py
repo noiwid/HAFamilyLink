@@ -1039,13 +1039,25 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		status["last_device_id"] = device_id
 		status["last_success"] = success
 
+		device_name = next(
+			(d.get("name") for d in child_data.get("devices") or [] if isinstance(d, dict) and d.get("id") == device_id),
+			None,
+		)
 		self.hass.bus.async_fire(EVENT_STRICT_MODE_ACTION, {
 			"child_id": child_id,
 			"child_name": child_data.get("child_name"),
 			"device_id": device_id,
+			"device_name": device_name,
 			"action": name,
 			"reason": action.get("reason"),
 			"success": success,
+			# Structured details for notifications: weekday (1 = Monday), minutes,
+			# bedtime bounds, and what Google reported before the correction.
+			"day": action.get("day"),
+			"minutes": action.get("minutes"),
+			"start": action.get("start"),
+			"end": action.get("end"),
+			"observed": action.get("observed"),
 		})
 
 	async def async_cleanup(self) -> None:
