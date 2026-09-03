@@ -139,7 +139,7 @@ data:
 
 ### familylink.set_daily_limit
 
-Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory. The quota set is today's override. The `day` field is reserved for the weekly schedule write and is refused for any day other than today for now: Google only applies the most recent override, and only when it carries the current day's code, so an override posted for another weekday is inert and cancels today's (verified live 2026-09-03).
+Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory. Without `day`, the quota set is today's override on the device(s). With `day`, the weekly quota of that weekday is written, as the weekly limits screen of the app does (captured 2026-09-03); when `day` is today, today's override is posted as well so the change applies at once. An override alone is only honoured by Google for the current day, which is why another weekday always goes through the weekly quota.
 
 The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
 
@@ -149,7 +149,7 @@ The override references today's slot of the weekly daily-limit schedule. That sl
 | `entity_id` | entity id | no | - | The device switch (`switch.<device>`) |
 | `device_id` | string | no | - | Device token, if not using the entity |
 | `child_id` | string | no | - | Child user ID. With a device target, defaults to the first supervised child. Given alone, targets every device of that child |
-| `day` | int, 1 to 7 | no | today | Weekday (1 = Monday, 7 = Sunday). Only today is accepted for now, see above |
+| `day` | int, 1 to 7 | no | - | Weekday (1 = Monday, 7 = Sunday) whose weekly quota is written, see above. Without it, today's override only |
 
 ```yaml
 action: familylink.set_daily_limit

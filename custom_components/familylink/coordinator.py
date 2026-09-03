@@ -43,6 +43,7 @@ from .strict_mode import (
 	ACTION_LOCK_DEVICE,
 	ACTION_SET_BEDTIME,
 	ACTION_SET_DAILY_LIMIT,
+	ACTION_SET_WEEKLY_LIMIT,
 	ACTION_UNLOCK_DEVICE,
 	plan_strict_actions,
 	snapshot_policies,
@@ -989,6 +990,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				success = await self.client.async_set_bedtime(
 					f"{start[0]:02d}:{start[1]:02d}", f"{end[0]:02d}:{end[1]:02d}",
 					day=action["day"], account_id=child_id, scope="weekly",
+				)
+			elif name == ACTION_SET_WEEKLY_LIMIT:
+				success = await self.client.async_set_weekly_daily_limit(
+					action["day"], action["minutes"], child_id
 				)
 			elif name == ACTION_SET_DAILY_LIMIT:
 				success = await self.client.async_set_daily_limit(

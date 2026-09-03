@@ -2236,6 +2236,64 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Error updating weekly policy {rule_id}: {err}")
 			return False
 
+	async def async_set_weekly_daily_limit(
+		self, day: int, daily_minutes: int, account_id: str | None = None
+	) -> bool:
+		"""Set the weekly screen time quota of one weekday (the app's "weekly schedule" screen).
+
+		Captured on the web app (2026-09-03): PUT timeLimit:update with
+		``[null, childId, [null, [[2, null, null, [[slot, minutes]]]]], null, [1]]``.
+		The daily-limit block sits at index 1 of the timeLimit object, only the
+		modified day is sent and Google merges it into the weekly rows of
+		``data[1]``. The slot is the day's weekly slot id (issue #157 accounts
+		have their own). This changes the recurring quota; the minutes applied
+		today still follow today's override while one is in force.
+		"""
+		if not (isinstance(day, int) and 1 <= day <= 7):
+			_LOGGER.error(f"Invalid weekday {day}: expected 1 (Monday) to 7 (Sunday)")
+			return False
+		if not (isinstance(daily_minutes, int) and 0 <= daily_minutes <= 1440):
+			_LOGGER.error(f"Invalid daily limit {daily_minutes}: expected 0 to 1440 minutes")
+			return False
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+		account_id = self._validate_id(account_id, "account_id")
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			slot = await self._async_get_daily_limit_slot_id(account_id, day, session, cookie_header)
+			if slot is None:
+				slot = self._DAY_CODES[day]
+				_LOGGER.warning(
+					f"Could not resolve the live daily-limit slot for account {account_id}, "
+					f"day {day}; falling back to {slot}"
+				)
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, [[2, None, None, [[slot, int(daily_minutes)]]]]],
+				None,
+				[1],
+			])
+			async with session.put(
+				self._people_url(account_id, "timeLimit:update"),
+				headers={"Content-Type": "application/json+protobuf", "Cookie": cookie_header},
+				data=payload,
+				params={"$httpMethod": "PUT"},
+			) as response:
+				if response.status != 200:
+					_LOGGER.error(
+						"Failed to set the weekly daily limit for day %s to %s min (HTTP %s): %s",
+						day, daily_minutes, response.status, await response.text(),
+					)
+					return False
+			_LOGGER.info(f"Weekly daily limit for day {day} set to {daily_minutes} min (slot {slot})")
+			self._weekly_slot_cache.pop(account_id, None)
+			return True
+		except Exception as err:
+			_LOGGER.error(f"Error setting the weekly daily limit for day {day}: {err}")
+			return False
+
 	async def _async_apply_school_time_today(
 		self,
 		enable: bool,
