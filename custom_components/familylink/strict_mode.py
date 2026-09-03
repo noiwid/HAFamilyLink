@@ -218,9 +218,11 @@ def plan_strict_actions(
 		if policy not in rules:
 			continue
 		reference = wanted.get(policy)
-		observed = observed_policy_state(child_data, policy)
+		observed_states = observed_policy_states(child_data, policy)
 		# No reference yet (snapshot pending) or state unknown: nothing to compare.
-		if reference is None or observed is None or observed == bool(reference):
+		# Both today's effective state and the weekly switch must match: a
+		# "today only" change and a weekly change are both reverted.
+		if reference is None or not observed_states or all(o == bool(reference) for o in observed_states):
 			continue
 		enable_action, disable_action, label = _POLICY_ACTIONS[policy]
 		actions.append({
@@ -233,6 +235,19 @@ def plan_strict_actions(
 		actions.extend(_plan_values(child_data, intents.get("values") or {}))
 
 	return actions
+
+
+def observed_policy_states(child_data: dict[str, Any], policy: str) -> list[bool]:
+	"""Today-effective and weekly states of a policy as Google reports them (known ones only)."""
+	if policy == STRICT_RULE_BEDTIME:
+		candidates = (child_data.get("bedtime_enabled_today"), child_data.get("bedtime_enabled"))
+	elif policy == STRICT_RULE_SCHOOL_TIME:
+		candidates = (child_data.get("school_time_enabled_today"), child_data.get("school_time_enabled"))
+	elif policy == STRICT_RULE_DAILY_LIMIT:
+		candidates = (observed_policy_state(child_data, policy),)
+	else:
+		candidates = ()
+	return [bool(c) for c in candidates if c is not None]
 
 
 def observed_policy_state(child_data: dict[str, Any], policy: str) -> bool | None:

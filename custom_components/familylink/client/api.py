@@ -2190,6 +2190,40 @@ class FamilyLinkClient:
 			enable=False, account_id=account_id, rule_id=rule_id
 		)
 
+	async def _async_set_weekly_policy(self, account_id: str, rule_id: str, enable: bool) -> bool:
+		"""Flip the weekly state of a bedtime / school time policy (timeLimit:update).
+
+		This is the switch shown in the Family Link app. A daily override alone
+		changes today only and leaves that switch as it was.
+		"""
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			payload = json.dumps([
+				None,
+				account_id,
+				[[None, None, None, None], None, None, None, [None, [[rule_id, 2 if enable else 1]]]],
+				None,
+				[1],
+			])
+			async with session.put(
+				self._people_url(account_id, "timeLimit:update"),
+				headers={"Content-Type": "application/json+protobuf", "Cookie": cookie_header},
+				data=payload,
+				params={"$httpMethod": "PUT"},
+			) as response:
+				if response.status != 200:
+					_LOGGER.error(
+						"Failed to update weekly policy %s to %s (HTTP %s): %s",
+						rule_id, enable, response.status, await response.text(),
+					)
+					return False
+			_LOGGER.info(f"Weekly policy {rule_id} set to {'ON' if enable else 'OFF'}")
+			return True
+		except Exception as err:
+			_LOGGER.error(f"Error updating weekly policy {rule_id}: {err}")
+			return False
+
 	async def _async_apply_school_time_today(
 		self,
 		enable: bool,
@@ -2219,6 +2253,11 @@ class FamilyLinkClient:
 
 		# Google uses ISO weekday numbering (1=Monday … 7=Sunday) in the user's
 		# local time, since Family Link schedules are per-day.
+		# Flip the weekly policy first, as the app does for bedtime: the daily
+		# override below only covers today, the weekly switch is what the app
+		# shows and what applies from tomorrow on.
+		await self._async_set_weekly_policy(account_id, rule_id, enable)
+
 		now_local = dt_util.now()
 		weekday = now_local.isoweekday()
 		start = [now_local.hour, now_local.minute]
