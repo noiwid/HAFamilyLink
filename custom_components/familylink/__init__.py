@@ -143,6 +143,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		# Create coordinator for data updates
 		coordinator = FamilyLinkDataUpdateCoordinator(hass, entry)
 
+		# Today's strict mode decisions survive a restart
+		await coordinator.async_load_strict_intents()
+
 		# Perform initial data fetch
 		await coordinator.async_config_entry_first_refresh()
 
@@ -487,6 +490,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_bedtime(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "bedtime", True)
 				_LOGGER.info("Successfully enabled bedtime")
 				await coordinator.async_request_refresh()
 			else:
@@ -511,6 +515,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_bedtime(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "bedtime", False)
 				_LOGGER.info("Successfully disabled bedtime")
 				await coordinator.async_request_refresh()
 			else:
@@ -535,6 +540,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_school_time(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "school_time", True)
 				_LOGGER.info("Successfully enabled school time")
 				await coordinator.async_request_refresh()
 			else:
@@ -559,6 +565,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_school_time(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "school_time", False)
 				_LOGGER.info("Successfully disabled school time")
 				await coordinator.async_request_refresh()
 			else:
@@ -583,6 +590,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_daily_limit(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "daily_limit", True)
 				_LOGGER.info("Successfully enabled daily limit")
 				await coordinator.async_request_refresh()
 			else:
@@ -607,6 +615,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_daily_limit(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "daily_limit", False)
 				_LOGGER.info("Successfully disabled daily limit")
 				await coordinator.async_request_refresh()
 			else:

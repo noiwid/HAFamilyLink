@@ -17,8 +17,13 @@ The four rules mirror the automations parents were writing by hand:
 - ``school_time``: school time is off for today -> switch it back on (opt-in,
   many parents run school hours from Home Assistant and keep Google's off)
 
-A bonus that Home Assistant itself granted is legitimate: the coordinator
-passes the devices whose HA bonus is still running so it is not cancelled.
+Home Assistant stays in charge, not the rules: a change made from Home
+Assistant (a switch, a button, an action) is the parent's decision and becomes
+the setting to enforce for the rest of the day. Only what differs from that
+setting on Google's side is reverted. The coordinator passes those decisions
+as ``intents``: the policies switched on or off from HA today, the devices
+locked or unlocked from HA today, and the devices whose HA-granted bonus is
+still running.
 """
 from __future__ import annotations
 
@@ -68,11 +73,16 @@ def plan_strict_actions(
 	child_data: dict[str, Any],
 	rules: set[str] | frozenset[str],
 	ha_bonus_devices: set[str] | frozenset[str] = frozenset(),
+	intents: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
 	"""Return the actions strict mode must take for one child, in order.
 
 	``ha_bonus_devices`` lists the devices whose running bonus was granted from
-	Home Assistant (button or action) and must be left alone.
+	Home Assistant (button or action) and must be left alone. ``intents`` holds
+	today's decisions made from Home Assistant: ``{"policies": {"bedtime":
+	bool, "daily_limit": bool, "school_time": bool}, "devices": {device_id:
+	"lock" | "unlock"}}``. A policy switched off from HA is not switched back
+	on; a device unlocked from HA is not locked again.
 
 	Each action is ``{"action": ..., "child_id": ..., "device_id"?: ...,
 	"override_id"?: ..., "reason": ...}``. Device actions come first (a bonus
@@ -82,6 +92,9 @@ def plan_strict_actions(
 	child_id = child_data.get("child_id")
 	actions: list[dict[str, Any]] = []
 	devices_time_data = child_data.get("devices_time_data") or {}
+	intents = intents or {}
+	wanted: dict[str, Any] = intents.get("policies") or {}
+	device_intents: dict[str, str] = intents.get("devices") or {}
 
 	for device in child_data.get("devices", []) or []:
 		device_id = device.get("id")
@@ -100,7 +113,7 @@ def plan_strict_actions(
 					"reason": f"bonus of {time_data.get('bonus_minutes', 0)} min active",
 				})
 
-		if STRICT_RULE_UNLOCK in rules:
+		if STRICT_RULE_UNLOCK in rules and device_intents.get(device_id) != "unlock":
 			# The device is usable while the remaining time (bonus included,
 			# 0 when the daily limit is off) is exhausted: somebody lifted
 			# the lock or removed the limit from the Google side.
@@ -113,7 +126,7 @@ def plan_strict_actions(
 					"reason": "device usable with no screen time left",
 				})
 
-	if STRICT_RULE_BEDTIME in rules:
+	if STRICT_RULE_BEDTIME in rules and wanted.get(STRICT_RULE_BEDTIME, True):
 		today = child_data.get("bedtime_enabled_today")
 		weekly = child_data.get("bedtime_enabled")
 		effective = today if today is not None else weekly
@@ -124,7 +137,7 @@ def plan_strict_actions(
 				"reason": "bedtime switched off",
 			})
 
-	if STRICT_RULE_DAILY_LIMIT in rules:
+	if STRICT_RULE_DAILY_LIMIT in rules and wanted.get(STRICT_RULE_DAILY_LIMIT, True):
 		# daily_limit_enabled is aggregated over the devices, so it is False
 		# for a child without any device: nothing to enforce there.
 		if child_data.get("daily_limit_enabled") is False and child_data.get("devices"):
@@ -134,7 +147,7 @@ def plan_strict_actions(
 				"reason": "daily limit switched off",
 			})
 
-	if STRICT_RULE_SCHOOL_TIME in rules:
+	if STRICT_RULE_SCHOOL_TIME in rules and wanted.get(STRICT_RULE_SCHOOL_TIME, True):
 		today = child_data.get("school_time_enabled_today")
 		weekly = child_data.get("school_time_enabled")
 		effective = today if today is not None else weekly

@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -97,6 +98,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.strict_mode_status: dict[str, dict[str, Any]] = {}  # child_id -> last action info
 		self._strict_cooldown: dict[str, float] = {}  # action key -> last run timestamp
 		self._ha_bonus_until: dict[str, float] = {}  # device_id -> until when an HA-granted bonus is legitimate
+		# Today's decisions made from Home Assistant, per child (persisted so a
+		# restart does not turn a bedtime the parent switched off back on):
+		# {child_id: {"date": "YYYY-MM-DD", "policies": {...}, "devices": {...}}}
+		self._strict_intents: dict[str, dict[str, Any]] = {}
+		self._strict_store: Store = Store(hass, 1, f"{DOMAIN}.strict_mode_intents")
 
 		# Get settings from options (runtime changes) or fall back to data (initial config)
 		self._location_tracking_enabled = entry.options.get(
@@ -610,6 +616,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			if success:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+				# A lock or unlock from HA is the parent's decision for the day (strict mode)
+				self.record_device_intent(child_id, device_id, action)
 
 				# Store the expected lock state temporarily (for 5 seconds)
 				# This ensures the UI reflects the change immediately, even if the API
@@ -641,6 +649,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			self._pending_time_limit_states.get(child_id, {}).pop(limit_type, None)
 			_LOGGER.debug(f"Cleared pending {limit_type} state for child {child_id}")
 			return
+
+		# A limit set from HA is the parent's decision for the day (strict mode)
+		self.record_policy_intent(child_id, limit_type, enabled)
 
 		if child_id not in self._pending_time_limit_states:
 			self._pending_time_limit_states[child_id] = {}
@@ -712,6 +723,61 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""Return whether strict mode is on for this child (switch, else option default)."""
 		return self._strict_mode_children.get(child_id, self.strict_mode_default)
 
+	async def async_load_strict_intents(self) -> None:
+		"""Load today's Home Assistant decisions saved before the last restart."""
+		try:
+			data = await self._strict_store.async_load()
+		except Exception as err:
+			_LOGGER.warning(f"Strict mode: could not load saved intents: {err}")
+			return
+		if isinstance(data, dict) and isinstance(data.get("intents"), dict):
+			self._strict_intents = data["intents"]
+
+	def _save_strict_intents(self) -> None:
+		self._strict_store.async_delay_save(lambda: {"intents": self._strict_intents}, 2)
+
+	def _intents_for(self, child_id: str) -> dict[str, Any]:
+		"""Today's intents of a child; a new day starts from the rules again."""
+		today = dt_util.now().date().isoformat()
+		entry = self._strict_intents.get(child_id)
+		if not entry or entry.get("date") != today:
+			entry = {"date": today, "policies": {}, "devices": {}}
+			self._strict_intents[child_id] = entry
+		return entry
+
+	def _resolve_child_id(self, child_id: str | None) -> str | None:
+		"""Actions without a child target apply to the first supervised child."""
+		if child_id:
+			return child_id
+		for child_data in (self.data or {}).get("children_data", []):
+			return child_data.get("child_id")
+		return None
+
+	def record_policy_intent(self, child_id: str | None, policy: str, enabled: bool) -> None:
+		"""Remember that bedtime / daily limit / school time was set from HA today."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id:
+			return
+		self._intents_for(child_id)["policies"][policy] = bool(enabled)
+		self._save_strict_intents()
+		_LOGGER.debug(f"Strict mode: {policy} set to {enabled} from HA for child {child_id} (kept for today)")
+
+	def record_device_intent(self, child_id: str | None, device_id: str, action: str) -> None:
+		"""Remember that a device was locked or unlocked from HA today."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id or not device_id:
+			return
+		self._intents_for(child_id)["devices"][device_id] = action
+		self._save_strict_intents()
+		_LOGGER.debug(f"Strict mode: device {device_id} {action}ed from HA for child {child_id} (kept for today)")
+
+	def strict_intents_today(self, child_id: str) -> dict[str, Any]:
+		"""Today's HA decisions for the switch attributes (no side effect on a new day)."""
+		entry = self._strict_intents.get(child_id) or {}
+		if entry.get("date") != dt_util.now().date().isoformat():
+			return {"policies": {}, "devices": {}}
+		return {"policies": dict(entry.get("policies", {})), "devices": dict(entry.get("devices", {}))}
+
 	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
 
@@ -754,7 +820,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if not child_id or not self.is_strict_mode_enabled(child_id):
 				continue
 			try:
-				actions = plan_strict_actions(child_data, self.strict_rules, self._ha_bonus_devices())
+				actions = plan_strict_actions(
+					child_data, self.strict_rules, self._ha_bonus_devices(), self._intents_for(child_id)
+				)
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
 				continue

@@ -81,7 +81,7 @@ GPS entities are only created when location tracking is enabled in the integrati
 
 ### Strict mode
 
-A supervised child who knows the Google interface can undo what the parent set: post a time bonus, lift the lock of a device that has no time left, or switch bedtime and the daily limit off. Strict mode makes Home Assistant the authority. After every refresh the integration compares what Google reports with the rules you chose and reverts the difference:
+A supervised child who knows the Google interface can undo what the parent set: post a time bonus, lift the lock of a device that has no time left, or switch bedtime and the daily limit off. Strict mode makes Home Assistant the authority. After every refresh the integration compares what Google reports with what Home Assistant wants and reverts the difference:
 
 | Rule | What is reverted |
 |------|------------------|
@@ -91,7 +91,7 @@ A supervised child who knows the Google interface can undo what the parent set: 
 | Switch the daily limit back on | A disabled daily limit is enabled again |
 | Switch school time back on (off by default) | School time found off for today is switched on again. Leave it unchecked if you drive school hours from Home Assistant and keep Google's school time off |
 
-Enable it with the **Strict mode** option of the integration (default for every child, rules to apply) and toggle it per child with `switch.<child>_strict_mode`. The switch state survives restarts. Bonuses given from Home Assistant (the bonus buttons or the `add_time_bonus` action) are legitimate and are kept for their duration; the other changes made from Home Assistant while strict mode is on are reverted too, so turn the switch off first when you want to lift bedtime or the daily limit yourself. Each corrective action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event (`child_id`, `device_id`, `action`, `reason`, `success`) for your own notifications. A given action is not repeated within 90 seconds, so a change Google refuses does not turn into a request storm.
+Enable it with the **Strict mode** option of the integration (default for every child, rules to apply) and toggle it per child with `switch.<child>_strict_mode`. The switch state survives restarts. What you change from Home Assistant is the parent's decision and stays in force for the day: a bonus given with the buttons or the `add_time_bonus` action is kept for its duration, a device you unlock is not locked again, bedtime, the daily limit or school time you switch off are not switched back on. Those decisions are remembered across restarts and expire at midnight, when the rules apply again. Turning the Strict Mode switch off hands control back to Google. The decisions in force are visible in the `ha_decisions_today` and `ha_device_decisions_today` attributes of the switch. Each corrective action is logged, kept in the switch attributes and fired as a `familylink_strict_mode_action` event (`child_id`, `device_id`, `action`, `reason`, `success`) for your own notifications. A given action is not repeated within 90 seconds, so a change Google refuses does not turn into a request storm.
 
 ## Services
 

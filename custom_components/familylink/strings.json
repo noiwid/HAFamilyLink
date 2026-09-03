@@ -14,7 +14,7 @@
 				"data_description": {
 					"update_interval": "How often to fetch data from Google (30-3600 seconds)",
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device",
-					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Bonuses given from Home Assistant are kept. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode": "When on, what is changed from the Family Link side is reverted at the next refresh: a time bonus is cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. What you change from Home Assistant (switches, bonus buttons, actions) stays in force for the day. Each child gets a Strict Mode switch; turn it off to hand control back to Google.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}
@@ -50,7 +50,7 @@
 				},
 				"data_description": {
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy.",
-					"strict_mode": "When on, a time bonus, an unlock with no time left, or bedtime / daily limit switched off from the Family Link side are reverted at the next refresh. Bonuses given from Home Assistant are kept. Each child gets a Strict Mode switch to pause it.",
+					"strict_mode": "When on, what is changed from the Family Link side is reverted at the next refresh: a time bonus is cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. What you change from Home Assistant (switches, bonus buttons, actions) stays in force for the day. Each child gets a Strict Mode switch; turn it off to hand control back to Google.",
 					"strict_mode_rules": "Which changes strict mode reverts."
 				}
 			}

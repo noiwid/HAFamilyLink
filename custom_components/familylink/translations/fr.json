@@ -14,7 +14,7 @@
 				"data_description": {
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
-					"strict_mode": "Quand il est actif, un bonus de temps, un déverrouillage sans temps restant, ou le coucher / la limite du jour désactivés depuis Family Link sont annulés à la mise à jour suivante. Les bonus donnés depuis Home Assistant sont conservés. Chaque enfant a un interrupteur « Mode strict » pour le suspendre.",
+					"strict_mode": "Quand il est actif, ce qui est modifié côté Family Link est annulé à la mise à jour suivante : un bonus de temps est retiré, un appareil déverrouillé sans temps restant est reverrouillé, le coucher et la limite du jour sont réactivés. Ce que vous changez depuis Home Assistant (interrupteurs, boutons bonus, actions) reste en vigueur pour la journée. Chaque enfant a un interrupteur « Mode strict » ; le couper redonne la main à Google.",
 					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}
@@ -50,7 +50,7 @@
 				},
 				"data_description": {
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
-					"strict_mode": "Quand il est actif, un bonus de temps, un déverrouillage sans temps restant, ou le coucher / la limite du jour désactivés depuis Family Link sont annulés à la mise à jour suivante. Les bonus donnés depuis Home Assistant sont conservés. Chaque enfant a un interrupteur « Mode strict » pour le suspendre.",
+					"strict_mode": "Quand il est actif, ce qui est modifié côté Family Link est annulé à la mise à jour suivante : un bonus de temps est retiré, un appareil déverrouillé sans temps restant est reverrouillé, le coucher et la limite du jour sont réactivés. Ce que vous changez depuis Home Assistant (interrupteurs, boutons bonus, actions) reste en vigueur pour la journée. Chaque enfant a un interrupteur « Mode strict » ; le couper redonne la main à Google.",
 					"strict_mode_rules": "Les changements que le mode strict annule."
 				}
 			}
