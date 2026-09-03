@@ -15,7 +15,7 @@
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
 					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
-					"strict_mode_rules": "Les changements que le mode strict annule. Rien n'est activé de force : l'état en vigueur au moment où le mode strict démarre sert de référence, et seul Home Assistant peut le changer."
+					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README."
 				}
 			}
 		}
@@ -51,7 +51,7 @@
 				"data_description": {
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
 					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
-					"strict_mode_rules": "Les changements que le mode strict annule. Rien n'est activé de force : l'état en vigueur au moment où le mode strict démarre sert de référence, et seul Home Assistant peut le changer."
+					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README."
 				}
 			}
 		},
@@ -109,12 +109,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Annuler les bonus de temps",
-				"lock": "Le verrou de l'appareil suit Home Assistant (un verrouillage ou déverrouillage fait côté Google est annulé ; un déverrouillage qui contourne un coucher, un temps scolaire ou une limite atteinte est reverrouillé jusqu'à la fin de la restriction)",
-				"bedtime": "Le coucher ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
-				"daily_limit": "La limite du jour ne peut plus être modifiée depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
-				"school_time": "Le temps scolaire ne peut plus être modifié depuis Family Link (l'état choisi dans Home Assistant est rétabli)",
-				"values": "Les horaires du coucher et le quota de chaque jour de la semaine ne peuvent plus être modifiés depuis Family Link (les valeurs choisies dans Home Assistant sont rétablies)"
+				"bonus": "Bonus de temps annulés",
+				"lock": "Verrou de l'appareil piloté par Home Assistant",
+				"bedtime": "Coucher verrouillé",
+				"daily_limit": "Limite du jour verrouillée",
+				"school_time": "Temps scolaire verrouillé",
+				"values": "Horaires du coucher et quotas de la semaine verrouillés"
 			}
 		}
 	}
