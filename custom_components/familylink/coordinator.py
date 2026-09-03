@@ -26,6 +26,7 @@ from .const import (
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
 	DEVICE_LOCK_ACTION,
+	DEVICE_UNLOCK_ACTION,
 	DOMAIN,
 	LOGGER_NAME,
 )
@@ -36,6 +37,7 @@ from .strict_mode import (
 	ACTION_ENABLE_DAILY_LIMIT,
 	ACTION_ENABLE_SCHOOL_TIME,
 	ACTION_LOCK_DEVICE,
+	ACTION_UNLOCK_DEVICE,
 	plan_strict_actions,
 )
 
@@ -778,6 +780,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: device {device_id} {action}ed from HA for child {child_id} (kept for today)")
 
+	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
+		"""Forget the decision of the day for a device (strict mode lock lifted)."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id:
+			return
+		self._intents_for(child_id)["devices"].pop(device_id, None)
+		self._save_strict_intents()
+
 	def strict_intents_today(self, child_id: str) -> dict[str, Any]:
 		"""Today's HA decisions for the switch attributes (no side effect on a new day)."""
 		entry = self._strict_intents.get(child_id) or {}
@@ -851,7 +861,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 		if name == ACTION_ENABLE_SCHOOL_TIME and self.get_pending_time_limit_state(child_id, "school_time") is not None:
 			return
-		if name == ACTION_LOCK_DEVICE and device_id in self._pending_lock_states:
+		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
 			return
 
 		key = f"{child_id}:{name}:{device_id or ''}"
@@ -871,14 +881,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				success = await self.client.async_cancel_time_bonus(
 					override_id=action["override_id"], account_id=child_id
 				)
-			elif name == ACTION_LOCK_DEVICE:
+			elif name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE):
 				# Direct client call: async_control_device() requests a refresh,
 				# which must not run from inside the refresh in progress. The
 				# next poll picks the new state up; the pending state covers the UI.
-				success = await self.client.async_control_device(device_id, DEVICE_LOCK_ACTION, child_id)
+				google_action = DEVICE_LOCK_ACTION if name == ACTION_LOCK_DEVICE else DEVICE_UNLOCK_ACTION
+				success = await self.client.async_control_device(device_id, google_action, child_id)
 				if success:
-					self._pending_lock_states[device_id] = (True, time.time())
-					self.record_device_intent(child_id, device_id, DEVICE_LOCK_ACTION)
+					self._pending_lock_states[device_id] = (name == ACTION_LOCK_DEVICE, time.time())
+					if action.get("clear_intent"):
+						self.clear_device_intent(child_id, device_id)
+					elif action.get("record"):
+						self.record_device_intent(child_id, device_id, action["record"])
 			elif name == ACTION_ENABLE_BEDTIME:
 				self.set_pending_time_limit_state(child_id, "bedtime", True)
 				success = await self.client.async_enable_bedtime(account_id=child_id)

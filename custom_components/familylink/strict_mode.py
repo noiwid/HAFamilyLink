@@ -11,8 +11,12 @@ performs the actions.
 The four rules mirror the automations parents were writing by hand:
 
 - ``bonus``: a bonus is active on a device -> cancel it
-- ``unlock``: a device is usable although no screen time is left, while a
-  daily limit is on -> lock it
+- ``lock``: the device lock follows Home Assistant. Locked from HA today and
+  unlocked on Google's side -> locked again; unlocked from HA today and
+  locked on Google's side -> unlocked again; no HA decision and a Google
+  unlock override (code 4) bypassing an active bedtime, school time or
+  reached daily limit -> locked again, and unlocked by strict mode itself
+  once the restriction is over, as Google would have done
 - ``bedtime``: bedtime is off for today -> switch it back on
 - ``daily_limit``: the daily limit is off -> switch it back on
 - ``school_time``: school time is off for today -> switch it back on (opt-in,
@@ -31,14 +35,14 @@ from __future__ import annotations
 from typing import Any
 
 STRICT_RULE_BONUS = "bonus"
-STRICT_RULE_UNLOCK = "unlock"
+STRICT_RULE_LOCK = "lock"
 STRICT_RULE_BEDTIME = "bedtime"
 STRICT_RULE_DAILY_LIMIT = "daily_limit"
 STRICT_RULE_SCHOOL_TIME = "school_time"
 
 STRICT_RULES: tuple[str, ...] = (
 	STRICT_RULE_BONUS,
-	STRICT_RULE_UNLOCK,
+	STRICT_RULE_LOCK,
 	STRICT_RULE_BEDTIME,
 	STRICT_RULE_DAILY_LIMIT,
 	STRICT_RULE_SCHOOL_TIME,
@@ -46,6 +50,13 @@ STRICT_RULES: tuple[str, ...] = (
 
 ACTION_CANCEL_BONUS = "cancel_bonus"
 ACTION_LOCK_DEVICE = "lock_device"
+ACTION_UNLOCK_DEVICE = "unlock_device"
+
+# Device decision recorded by strict mode itself when it counters a bypass:
+# it must lift that lock when the restriction ends.
+DEVICE_INTENT_AUTO_LOCK = "auto_lock"
+LOCK_OVERRIDE_LOCKED = 1
+LOCK_OVERRIDE_UNLOCKED = 4
 ACTION_ENABLE_BEDTIME = "enable_bedtime"
 ACTION_ENABLE_DAILY_LIMIT = "enable_daily_limit"
 ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
@@ -71,6 +82,71 @@ def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -
 	return True
 
 
+def restriction_active(time_data: dict[str, Any]) -> str | None:
+	"""Name of the restriction Google should be enforcing on the device right now, or None."""
+	if time_data.get("bedtime_active"):
+		return "bedtime"
+	if time_data.get("schooltime_active"):
+		return "school time"
+	remaining = time_data.get("daily_limit_remaining")
+	if time_data.get("daily_limit_enabled") and remaining is not None and remaining <= 0:
+		return "daily limit reached"
+	return None
+
+
+def _plan_device_lock(
+	child_id: str | None,
+	device: dict[str, Any],
+	time_data: dict[str, Any],
+	intent: str | None,
+) -> list[dict[str, Any]]:
+	"""The device lock follows Home Assistant (rule ``lock``).
+
+	``intent`` is today's HA decision for the device: "lock", "unlock",
+	"auto_lock" (a lock strict mode placed itself to counter a bypass) or
+	None. Google's manual override on the device is ``lock_override``:
+	1 locked, 4 unlocked (a bypass of the active restriction), None.
+	"""
+	device_id = device.get("id")
+	locked = bool(device.get("locked", False))
+	override = time_data.get("lock_override")
+	active = restriction_active(time_data)
+
+	def _action(name: str, reason: str, **extra: Any) -> dict[str, Any]:
+		return {"action": name, "child_id": child_id, "device_id": device_id, "reason": reason, **extra}
+
+	if intent == "lock":
+		if not locked:
+			return [_action(ACTION_LOCK_DEVICE, "unlocked on Google's side while locked from Home Assistant")]
+		return []
+
+	if intent == "unlock":
+		if locked:
+			return [_action(ACTION_UNLOCK_DEVICE, "locked on Google's side while unlocked from Home Assistant")]
+		return []
+
+	if intent == DEVICE_INTENT_AUTO_LOCK:
+		if active is None:
+			# The restriction strict mode was protecting is over: lift the
+			# lock it placed, as Google's schedule would have done.
+			return [_action(ACTION_UNLOCK_DEVICE, "restriction over, lifting the strict mode lock", clear_intent=True)]
+		if not locked:
+			return [_action(ACTION_LOCK_DEVICE, f"bypass of {active} ({'unlock override' if override == LOCK_OVERRIDE_UNLOCKED else 'lock lifted'})", record=DEVICE_INTENT_AUTO_LOCK)]
+		return []
+
+	# No HA decision: only a Google-side unlock override that bypasses an
+	# active restriction is countered. A running bonus is a legitimate
+	# bypass (a Google-side one is handled by the bonus rule first).
+	if (
+		active is not None
+		and override == LOCK_OVERRIDE_UNLOCKED
+		and not locked
+		and (time_data.get("bonus_minutes") or 0) <= 0
+	):
+		return [_action(ACTION_LOCK_DEVICE, f"unlock override bypassing {active}", record=DEVICE_INTENT_AUTO_LOCK)]
+	return []
+
+
 def plan_strict_actions(
 	child_data: dict[str, Any],
 	rules: set[str] | frozenset[str],
@@ -83,8 +159,8 @@ def plan_strict_actions(
 	Home Assistant (button or action) and must be left alone. ``intents`` holds
 	today's decisions made from Home Assistant: ``{"policies": {"bedtime":
 	bool, "daily_limit": bool, "school_time": bool}, "devices": {device_id:
-	"lock" | "unlock"}}``. A policy switched off from HA is not switched back
-	on; a device unlocked from HA is not locked again.
+	"lock" | "unlock" | "auto_lock"}}``. A policy switched off from HA is not
+	switched back on; the device lock follows the HA decision of the day.
 
 	Each action is ``{"action": ..., "child_id": ..., "device_id"?: ...,
 	"override_id"?: ..., "reason": ...}``. Device actions come first (a bonus
@@ -115,25 +191,8 @@ def plan_strict_actions(
 					"reason": f"bonus of {time_data.get('bonus_minutes', 0)} min active",
 				})
 
-		if STRICT_RULE_UNLOCK in rules and device_intents.get(device_id) != "unlock":
-			# The device is usable while the remaining time (bonus included) is
-			# exhausted: somebody lifted the lock from the Google side. Only
-			# meaningful while a daily limit is on: with the limit off the
-			# remaining time is 0 by construction, and a limit removed on the
-			# Google side is the daily_limit rule's job, not a reason to lock.
-			remaining = time_data.get("remaining_minutes", 0) or 0
-			if (
-				time_data
-				and time_data.get("daily_limit_enabled")
-				and device_is_usable(device, time_data)
-				and remaining <= 0
-			):
-				actions.append({
-					"action": ACTION_LOCK_DEVICE,
-					"child_id": child_id,
-					"device_id": device_id,
-					"reason": "device usable with no screen time left",
-				})
+		if STRICT_RULE_LOCK in rules and time_data:
+			actions.extend(_plan_device_lock(child_id, device, time_data, device_intents.get(device_id)))
 
 	if STRICT_RULE_BEDTIME in rules and wanted.get(STRICT_RULE_BEDTIME, True):
 		today = child_data.get("bedtime_enabled_today")

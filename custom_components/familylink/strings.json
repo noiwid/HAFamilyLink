@@ -110,7 +110,7 @@
 		"strict_mode_rules": {
 			"options": {
 				"bonus": "Cancel time bonuses",
-				"unlock": "Re-lock a device that has no time left",
+				"lock": "Device lock follows Home Assistant (a lock or unlock done on the Google side is reverted; an unlock that bypasses an active bedtime, school time or reached daily limit is locked again until the restriction ends)",
 				"bedtime": "Switch bedtime back on",
 				"daily_limit": "Switch the daily limit back on",
 				"school_time": "Switch school time back on (off by default: keep it off if you drive school hours from Home Assistant)"

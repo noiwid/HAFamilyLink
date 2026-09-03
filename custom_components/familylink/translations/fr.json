@@ -110,7 +110,7 @@
 		"strict_mode_rules": {
 			"options": {
 				"bonus": "Annuler les bonus de temps",
-				"unlock": "Reverrouiller un appareil sans temps restant",
+				"lock": "Le verrou de l'appareil suit Home Assistant (un verrouillage ou déverrouillage fait côté Google est annulé ; un déverrouillage qui contourne un coucher, un temps scolaire ou une limite atteinte est reverrouillé jusqu'à la fin de la restriction)",
 				"bedtime": "Réactiver le coucher",
 				"daily_limit": "Réactiver la limite du jour",
 				"school_time": "Réactiver le temps scolaire (désactivé par défaut : laissez-le décoché si vous pilotez les heures d'école depuis Home Assistant)"

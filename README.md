@@ -90,8 +90,8 @@ GPS entities are only created when location tracking is enabled in the integrati
 
 | Rule | What is reverted |
 |------|------------------|
-| Cancel time bonuses | Any active bonus on a device is cancelled |
-| Re-lock a device that has no time left | A device that is usable while its remaining time is 0 is locked again |
+| Cancel time bonuses | Any active bonus on a device is cancelled (bonuses given from Home Assistant are kept) |
+| Device lock follows Home Assistant | A device you locked from Home Assistant and unlocked on the Google side is locked again, and the reverse. Without a Home Assistant decision, an unlock done on the Google side that bypasses an active bedtime, school time or reached daily limit is locked again, and strict mode lifts that lock itself when the restriction ends, as Google's schedule would have done |
 | Switch bedtime back on | Bedtime found off for today is switched on again |
 | Switch the daily limit back on | A disabled daily limit is enabled again |
 | Switch school time back on (off by default) | School time found off for today is switched on again. Leave it unchecked if you drive school hours from Home Assistant and keep Google's school time off |

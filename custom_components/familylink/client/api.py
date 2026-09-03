@@ -1384,9 +1384,14 @@ class FamilyLinkClient:
 
 						# Parse lock state
 						has_lock_override = device_data[0] is not None and isinstance(device_data[0], list)
+						lock_override = None
 						if has_lock_override and len(device_data[0]) > 2:
 							action_code = device_data[0][2]
 							is_locked = (action_code == 1)
+							# 1 = manual lock, 4 = manual unlock (a bypass of the active
+							# restriction until the next scheduled event); kept for strict mode
+							if action_code in (1, 4):
+								lock_override = action_code
 						else:
 							is_locked = False
 						device_lock_states[device_id] = is_locked
@@ -1403,7 +1408,8 @@ class FamilyLinkClient:
 							"bedtime_active": False,
 							"schooltime_active": False,
 							"bonus_minutes": 0,
-							"bonus_override_id": None
+							"bonus_override_id": None,
+							"lock_override": lock_override,
 						}
 
 						# Parse bonus override (device_data[0] if it exists).
