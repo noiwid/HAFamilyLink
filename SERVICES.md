@@ -152,10 +152,20 @@ The override references today's slot of the weekly daily-limit schedule. That sl
 | `day` | int, 1 to 7 | no | - | Weekday (1 = Monday, 7 = Sunday) whose weekly quota is written, see above. Without it, today's override only |
 
 ```yaml
+# Today's quota on one device
 action: familylink.set_daily_limit
 data:
   entity_id: switch.pixel_7
   daily_minutes: 120
+```
+
+```yaml
+# Saturday's quota, permanently, on every device of the child
+action: familylink.set_daily_limit
+data:
+  child_id: "123456789012345678901"
+  daily_minutes: 240
+  day: 6
 ```
 
 ### familylink.enable_daily_limit / familylink.disable_daily_limit

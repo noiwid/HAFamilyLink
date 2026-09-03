@@ -142,7 +142,12 @@ This DELETE → CREATE pattern mirrors what the web app emits when unchecking th
 
 
 ### Day Codes (CAEQ* - for daily limit)
-The `day_code` in the daily limit payload encodes the day of the week. **You MUST use the code corresponding to the current day** for the change to take effect immediately.
+The `day_code` is the id of the weekday's row in the weekly daily-limit block (`timeLimit` `data[1]`). It is the static `CAEQxx` value on every account captured so far, but bedtime slots proved ids can be account-specific (#135, #157), so the client resolves it from the live row first (`schedules.find_daily_limit_slot_id`) and falls back to this table.
+
+The same id is used by two different writes, with different semantics (verified live 2026-09-03):
+
+- **Today's override** (`timeLimitOverrides:batchCreate`, type 8): Google applies only the **most recent** type-8 row, and only when its code is **today's**. A type-8 row posted for another weekday is inert AND supersedes today's row, so the applied quota falls back to the weekly value. Never post a type-8 row for another day.
+- **Weekly quota** (`timeLimit:update`, daily-limit block): rewrites the weekday's row in `data[1]`, which is what the app's "weekly limits" screen shows and writes. It does not change today's applied quota while a type-8 row for today is in force.
 
 | Day | Code | ISO weekday |
 |---|---|---|
@@ -167,7 +172,7 @@ The `day_code` in the daily limit payload encodes the day of the week. **You MUS
   - `data[0]` = **scheduling block**: `[stateFlag, [<flat list of schedule tuples>], createdMs, updatedMs, 1]`
     - ⚠️ `data[0][0]` is the **integer** global stateFlag (`2`=ON / `1`=OFF), **not** a nested list — do **not** guard on `isinstance(data[0][0], list)`.
     - `data[0][1]` is **one flat list** holding **both** Bedtime (`CAEQ*`) **and** School time (`CAMQ*`) window tuples, intermixed. Split them by the code prefix, not by position.
-  - `data[1]` = **daily-limit (minutes) config**: `[[stateFlag, [6,0], [<CAEQ* minutes tuples>], createdMs, updatedMs]]`. These inner tuples carry **minutes** (`[code, day, stateFlag, minutes, …]`), **not** `CAMQ*` time windows — school time windows are **not** here (a previous implementation read `data[1][0][2]` for school time and always found nothing).
+  - `data[1]` = **daily-limit (minutes) config**: `[[stateFlag, [6,0], [<weekly rows>], createdMs, updatedMs]]`. Each weekly row is `[slot_id, day, stateFlag, minutes, createdMs, updatedMs]` and carries **minutes**, **not** `CAMQ*` time windows — school time windows are **not** here (a previous implementation read `data[1][0][2]` for school time and always found nothing). These rows are the values of the app's "weekly limits" screen and of the `number.<child>_<weekday>_limit` entities; `updatedMs` moves when the app or `timeLimit:update` rewrites a day.
   - Last element (`data[-1]`): Revisions (exactly 4 elements: `[policyId, type_flag, state_flag, [sec, nanos]]`)
 - Two families of window tuples, both inside `data[0][1]`:
   - **Bedtime**: **`CAEQ*`** entries (per day)
@@ -589,9 +594,10 @@ Returns a transaction ID/timestamp on success.
 - **Revisions identification**: Exactly 4 elements `[uuid, type_flag, state_flag, timestamp]`, filter by length to avoid confusion with schedules (7+ elements)
 - **Policy UUIDs**: Hardcoded per policy type (bedtime, schooltime), same across all accounts
 - **Device control**: Use action codes (1=LOCK, 4=UNLOCK) not boolean values
-- **Set daily limit day code**: The CAEQ day code in `set_daily_limit` payload **MUST match the current day** (CAEQAQ=Monday...CAEQBw=Sunday). Using a hardcoded code will create an override for the wrong day!
+- **Set daily limit day code**: the type-8 override **must carry today's code**. Google applies only the most recent type-8 row overall, and only when its code is today's: a row posted for another weekday is inert and cancels today's (live 2026-09-03, applied limit fell from 300 back to the weekly 360 the moment a Friday row was posted on a Thursday). Another weekday's quota goes through the weekly write (`timeLimit:update`, see the endpoint table and Day Codes).
 - **Set daily limit slot id comes from the live schedule** (issue #157): the code above is the id of today's row in the daily-limit block of `GET .../timeLimit` (`data[1][0][2]`, rows `[slot_id, day, stateFlag, minutes, createdMs, updatedMs]`). Every capture so far (legacy accounts, the newer downtime model of #151, and #157) shows the static `CAEQxx` there, but bedtime slots already proved ids can differ per account (#135), so the client resolves the id from the live row first (`schedules.find_daily_limit_slot_id`) and falls back to the static code. The write is then read back from `appliedTimeLimits` after 3 s and 8 s, as for time bonuses (#141), because Google answers HTTP 200 even for an inert override.
-- **Daily-limit override echoed in `timeLimit`** (#157 capture): the effective daily limit set through `timeLimitOverrides:batchCreate` is stored as a type-8 row in the override block `data[2]`, shaped `[override_uuid, createdMs, 8, device_token, "", null, null, null, account_id, null, null, [2, minutes, "CAEQxx"]]`, one per day it was posted for, while `data[1]` keeps the recurring value. In `appliedTimeLimits` the device block carries both: the effective row near the front (index < 10) and the recurring copy further down; the parser must let the effective row win.
+- **Daily-limit override echoed in `timeLimit`** (#157 capture): the effective daily limit set through `timeLimitOverrides:batchCreate` is stored as a type-8 row in the override block `data[2]`, shaped `[override_uuid, createdMs, 8, device_token, "", null, null, null, account_id, null, null, [2, minutes, "CAEQxx"]]`, one per day it was posted for, while `data[1]` keeps the recurring value. In `appliedTimeLimits` the device block carries both: the effective row near the front (index < 10) and the recurring copy further down; the parser must let the effective row win. The 2026-09-03 capture also shows tomorrow's weekly row in that block (`["CAEQBQ", 5, 2, 255, …]` on a Thursday).
+- **Weekday quota model in the client** (`schedules.daily_limit_week`): the value of each weekday is its weekly row; today's value is the latest type-8 row when it carries today's code, the weekly row otherwise; the other type-8 rows are reported (`override_minutes`) but not applied. Writing a weekday = the weekly row; writing today = the weekly row plus today's override so the change applies at once.
 
 ---
 

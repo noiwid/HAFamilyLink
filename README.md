@@ -110,7 +110,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.block_device_for_school` | Block every app except an essentials whitelist (dialer, messages, settings, maps, ...) plus your own additions |
 | `familylink.unblock_all_apps` | Unblock every hidden app |
 | `familylink.add_time_bonus` | Add 1 to 1440 bonus minutes to a device |
-| `familylink.set_daily_limit` | Set a device's daily quota (0 disables the device for the day) |
+| `familylink.set_daily_limit` | Set today's quota on a device, or a weekday's weekly quota with `day` (0 disables the device for the day) |
 | `familylink.enable_daily_limit` / `familylink.disable_daily_limit` | Toggle the daily screen time limit |
 | `familylink.enable_bedtime` / `familylink.disable_bedtime` | Toggle bedtime, effective tonight (weekly toggle plus a same-day override) |
 | `familylink.set_bedtime` | Edit the recurring weekly bedtime for a day, or post a today-only override (`scope: today`) |
