@@ -458,6 +458,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
+			# Declared to strict mode BEFORE the call (the client verifies the
+			# bonus for several seconds, a poll in between must not cancel it)
+			coordinator.register_ha_bonus(device_id, bonus_minutes)
 			success = await coordinator.client.async_add_time_bonus(
 				bonus_minutes=bonus_minutes,
 				device_id=device_id,
@@ -465,8 +468,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			)
 			if success:
 				_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
-				# A bonus given from HA is legitimate for strict mode
-				coordinator.register_ha_bonus(device_id, bonus_minutes)
 				await coordinator.async_request_refresh()
 			else:
 				_LOGGER.error(f"Failed to add time bonus to device {device_id}")
