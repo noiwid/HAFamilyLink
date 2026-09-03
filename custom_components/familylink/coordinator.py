@@ -90,6 +90,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
+		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
 
 		# Strict mode: Home Assistant reverts restriction changes made from the
 		# Family Link side (see strict_mode.py). The default and the rule set

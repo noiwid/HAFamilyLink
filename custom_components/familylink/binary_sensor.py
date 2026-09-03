@@ -53,7 +53,7 @@ async def async_setup_entry(
 		_LOGGER.debug(f"Creating binary sensors for child: {child_name}")
 
 		# Ensure parent device (child account) exists in device registry
-		ensure_child_device(hass, entry.entry_id, child_id, child_name)
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		# Create binary sensors for each device
 		for device in child_data.get("devices", []):
@@ -130,7 +130,7 @@ class DeviceTimeBinarySensor(CoordinatorEntity, BinarySensorEntity):
 			manufacturer="Google",
 			model=self._device.get("model", "Family Link Device"),
 			sw_version=self._device.get("version"),
-			**via_child(self.hass, self._child_id),
+			**via_child(self.coordinator, self._child_id),
 		)
 
 	def _get_device_time_data(self) -> dict[str, Any] | None:

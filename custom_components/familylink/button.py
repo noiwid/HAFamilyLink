@@ -47,7 +47,7 @@ async def async_setup_entry(
 		_LOGGER.debug(f"Creating time bonus buttons for {child_name}'s devices")
 
 		# Ensure parent device (child account) exists in device registry
-		ensure_child_device(hass, entry.entry_id, child_id, child_name)
+		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		for device in child_data.get("devices", []):
 			# Create 4 time bonus buttons per device (15min, 30min, 60min, cancel)
