@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import time
 from datetime import timedelta
@@ -743,6 +744,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 		if isinstance(data, dict) and isinstance(data.get("intents"), dict):
 			self._strict_intents = data["intents"]
+			# The per-device daily limit reference of earlier builds is replaced
+			# by the seven weekday quotas (daily_limit_week).
+			for entry in self._strict_intents.values():
+				if isinstance(entry, dict) and isinstance(entry.get("values"), dict):
+					entry["values"].pop("daily_limit", None)
 		if isinstance(data, dict) and isinstance(data.get("ha_bonus_until"), dict):
 			# An HA-granted bonus must survive a restart, or the first poll
 			# after it would cancel the bonus as a Google-side one (live test).
@@ -840,10 +846,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""References and today's device decisions for the switch attributes (no side effect)."""
 		entry = self._strict_intents.get(child_id) or {}
 		devices = entry.get("devices", {}) if entry.get("date") == dt_util.now().date().isoformat() else {}
+		# Deep copies: the switch attributes must not share the nested dicts,
+		# or an in-place update of a reference leaves the last state unchanged
+		# in HA's eyes and the attributes go stale.
 		return {
 			"policies": dict(entry.get("policies", {})),
 			"devices": dict(devices),
-			"values": dict(entry.get("values", {})),
+			"values": copy.deepcopy(entry.get("values", {})),
 		}
 
 	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
