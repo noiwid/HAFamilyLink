@@ -1557,8 +1557,18 @@ class FamilyLinkClient:
 												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
 											)
 
-											# Parse time window if it's for current day and enabled
-											if (isinstance(day, int) and day == current_day and
+											# A window row is keyed by the day its occurrence STARTS. Today's
+											# row is the usual case. Accounts on Google's newer downtime model
+											# list, in the morning, yesterday's row for the bedtime that is
+											# still running (e.g. Wednesday 19:30-08:30 at 06:54 Thursday) and
+											# not today's, so a today-only filter reported no bedtime at all
+											# while the device was locked (issue #155, rc2 report). Yesterday's
+											# row is therefore accepted too, but only while its window, which
+											# must cross midnight, has not ended.
+											yesterday_day = (current_day - 2) % 7 + 1
+											is_today_row = day == current_day
+											is_yesterday_row = day == yesterday_day
+											if (isinstance(day, int) and (is_today_row or is_yesterday_row) and
 												isinstance(state_flag, int) and state_flag == 2 and
 												isinstance(start_time, list) and len(start_time) == 2 and
 												isinstance(end_time, list) and len(end_time) == 2):
@@ -1571,9 +1581,21 @@ class FamilyLinkClient:
 												# Create datetime objects for start and end
 												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
 												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+												crosses_midnight = end_hour < start_hour or (end_hour == start_hour and end_min < start_min)
 
-												# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
-												if end_hour < start_hour or (end_hour == start_hour and end_min < start_min):
+												if is_yesterday_row:
+													# Yesterday's occurrence: relevant only if it runs past
+													# midnight and is still running now.
+													if not crosses_midnight or now >= end_dt:
+														_LOGGER.debug(
+															f"Device {device_id}: {window_type} row for yesterday (day {day}) "
+															f"{start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d} is over, ignored"
+														)
+														continue
+													start_dt -= timedelta(days=1)
+													window_active = True
+												elif crosses_midnight:
+													# If end time is before start time, it crosses midnight (e.g., 20:55 -> 10:00)
 													window_active = (now >= start_dt) or (now < end_dt)
 													# Anchor both ends to the actual occurrence (issue #155):
 													# in the morning the window started yesterday, otherwise
@@ -1592,13 +1614,27 @@ class FamilyLinkClient:
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
 
+												# Several rows can describe the same rule (today's and
+												# yesterday's occurrence, or a duplicate further down the
+												# block): a window that is running now must never be
+												# replaced by one that is not.
+												def _keep_existing(kind: str) -> bool:
+													return bool(device_info.get(f"{kind}_active")) and not window_active
+
 												if parse_as_bedtime:
+													if _keep_existing("bedtime"):
+														_LOGGER.debug(
+															f"Device {device_id}: bedtime row for day {day} ignored, "
+															f"an active bedtime window is already recorded"
+														)
+														continue
 													device_info["bedtime_window"] = window_data
 													device_info["bedtime_active"] = window_active
 													# An enabled bedtime rule exists for today on this
 													# device — switch must show ON regardless of weekly
 													# revision (issue #114).
-													bedtime_enabled_today = True
+													if is_today_row:
+														bedtime_enabled_today = True
 
 													_LOGGER.debug(
 														f"Device {device_id}: Bedtime window parsed - "
@@ -1606,9 +1642,16 @@ class FamilyLinkClient:
 														f"current_time={now.strftime('%H:%M')}, active={window_active}"
 													)
 												elif parse_as_schooltime:
+													if _keep_existing("schooltime"):
+														_LOGGER.debug(
+															f"Device {device_id}: schooltime row for day {day} ignored, "
+															f"an active school time window is already recorded"
+														)
+														continue
 													device_info["schooltime_window"] = window_data
 													device_info["schooltime_active"] = window_active
-													schooltime_enabled_today = True
+													if is_today_row:
+														schooltime_enabled_today = True
 
 													_LOGGER.debug(
 														f"Device {device_id}: Schooltime window parsed - "
