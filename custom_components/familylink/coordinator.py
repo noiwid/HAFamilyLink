@@ -828,9 +828,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._strict_mode_children[child_id] = enabled
 		_LOGGER.info(f"Strict mode {'enabled' if enabled else 'disabled'} for child {child_id}")
 		if enabled and enforce_now:
-			# Control was Google's while strict mode was off: what is in force
-			# now becomes the reference, not what HA decided earlier today.
-			self._strict_intents.pop(child_id, None)
+			# Control was Google's while strict mode was off: the policies in
+			# force now become the reference again. Device decisions (a lock
+			# or unlock done from HA today) are kept: they are still what the
+			# parent wants.
+			self._intents_for(child_id)["policies"] = {}
 			self._save_strict_intents()
 		if enabled and enforce_now and self.data:
 			self.hass.async_create_task(self._async_enforce_strict_mode(self.data))
