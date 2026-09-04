@@ -92,7 +92,18 @@ export DISPLAY=:99
 # authenticate. The server is localhost-only and reached through websockify, so
 # truncate explicitly and warn rather than let the mismatch fail silently
 # (issue #136).
-VNC_PASSWORD=$(bashio::config 'vnc_password' 'familylink')
+VNC_PASSWORD=$(bashio::config 'vnc_password' '')
+if [ -z "${VNC_PASSWORD}" ] || [ "${VNC_PASSWORD}" = "familylink" ]; then
+    # The browser view shows a live Google session, so it must never be
+    # reachable with a known password: the historical default 'familylink'
+    # was published in the docs and even embedded in the web UI link. With no
+    # password configured (or that default), generate one for this start and
+    # print it in the add-on log, which only a Home Assistant administrator
+    # can read. Set vnc_password in the configuration to choose your own.
+    VNC_PASSWORD=$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 8)
+    bashio::log.warning "vnc_password is not set (or is the old default 'familylink'): a random VNC password was generated for this start. Set vnc_password in the add-on configuration to choose your own."
+    bashio::log.warning "VNC password for this start: ${VNC_PASSWORD}"
+fi
 if [ "${#VNC_PASSWORD}" -gt 8 ]; then
     bashio::log.warning "VNC password longer than 8 chars; VNC DES auth uses only the first 8"
     VNC_PASSWORD="${VNC_PASSWORD:0:8}"

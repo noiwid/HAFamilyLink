@@ -1,11 +1,14 @@
 {
   "name": "Google Family Link Auth",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "slug": "familylink-playwright",
   "description": "Authentication service for Google Family Link integration using browser automation",
   "url": "https://github.com/noiwid/HAFamilyLink",
   "image": "ghcr.io/noiwid/familylink-auth",
-  "arch": ["amd64", "aarch64"],
+  "arch": [
+    "amd64",
+    "aarch64"
+  ],
   "startup": "application",
   "boot": "auto",
   "init": false,
@@ -14,17 +17,19 @@
     "6080/tcp": 6080
   },
   "ports_description": {
-    "8099/tcp": "Web interface for Google authentication",
-    "6080/tcp": "noVNC web interface for browser access"
+    "8099/tcp": "Web interface for Google authentication. Never expose it to the internet",
+    "6080/tcp": "noVNC browser view, protected by the VNC password. Unmap it when you are not authenticating"
   },
-  "map": ["share:rw"],
+  "map": [
+    "share:rw"
+  ],
   "options": {
     "log_level": "info",
     "auth_timeout": 300,
     "session_duration": 86400,
     "language": "",
     "timezone": "",
-    "vnc_password": "familylink"
+    "vnc_password": ""
   },
   "schema": {
     "log_level": "list(trace|debug|info|warning|error)?",

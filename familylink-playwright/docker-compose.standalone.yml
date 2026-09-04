@@ -20,7 +20,9 @@ services:
       - LOG_LEVEL=info
       - AUTH_TIMEOUT=300
       - SESSION_DURATION=86400
-      - VNC_PASSWORD=familylink
+      # VNC password of the browser view. Unset: a random one is generated at
+      # every start and printed in the container log.
+      # - VNC_PASSWORD=choose-your-own
       - LANGUAGE=en-US
       - TIMEZONE=Europe/Paris
       # Recommended: protect /api/cookies with a key. In standalone mode no key
