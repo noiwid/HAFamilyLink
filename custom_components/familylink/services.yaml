@@ -446,3 +446,19 @@ ring_device:
       selector:
         text:
 
+
+set_update_interval:
+  name: Set Update Interval
+  description: Change how often the integration polls Google, until the next reload or restart (the value from the integration options applies again afterwards). Lets an automation poll less often at night and more often during the day.
+  fields:
+    seconds:
+      name: Interval (seconds)
+      description: Polling interval in seconds, between 30 and 3600
+      required: true
+      example: 600
+      selector:
+        number:
+          min: 30
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box

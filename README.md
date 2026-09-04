@@ -93,6 +93,7 @@ GPS entities are only created when location tracking is enabled in the integrati
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.refresh_location` | Force a fresh GPS fix (uses more battery than the regular polling) |
 | `familylink.ring_device` | Make a device ring so it can be found |
+| `familylink.set_update_interval` | Change the polling interval until the next restart (e.g. slower at night) |
 
 Targeting: every service accepts an optional `entity_id` or explicit `child_id` / `device_id`. Without a target, the app and location services apply to **all** supervised children, while the time services fall back to the **first** supervised child. Full field reference, defaults and examples: **[SERVICES.md](SERVICES.md)**.
 
