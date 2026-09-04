@@ -10,9 +10,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+	CONF_STRICT_MODE,
+	DEFAULT_STRICT_MODE,
 	ATTR_DEVICE_ID,
 	ATTR_DEVICE_NAME,
 	ATTR_DEVICE_TYPE,
@@ -52,6 +55,7 @@ async def async_setup_entry(
 		entities.append(FamilyLinkBedtimeSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkSchoolTimeSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkDailyLimitSwitch(coordinator, child_id, child_name))
+		entities.append(FamilyLinkStrictModeSwitch(coordinator, child_id, child_name))
 
 		# Create device lock/unlock switches for each device
 		for device in child_data.get("devices", []):
@@ -339,6 +343,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_bedtime(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "bedtime", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable bedtime for %s", self._child_name)
@@ -360,6 +367,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_bedtime(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "bedtime", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable bedtime for %s", self._child_name)
@@ -467,6 +477,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_school_time(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "school_time", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable school time for %s", self._child_name)
@@ -487,6 +500,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_school_time(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "school_time", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable school time for %s", self._child_name)
@@ -564,6 +580,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_enable_daily_limit(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "daily_limit", True)
 
 		if not success:
 			_LOGGER.error("Failed to enable daily limit for %s", self._child_name)
@@ -584,6 +603,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.async_write_ha_state()
 
 		success = await self.coordinator.client.async_disable_daily_limit(account_id=self._child_id)
+		if success:
+			# A limit set from HA is the parent's decision for the day (strict mode)
+			self.coordinator.record_policy_intent(self._child_id, "daily_limit", False)
 
 		if not success:
 			_LOGGER.error("Failed to disable daily limit for %s", self._child_name)
@@ -592,3 +614,96 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		else:
 			_LOGGER.info("Successfully disabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
+
+
+
+class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity):
+	"""Per-child switch for strict mode.
+
+	When on, the coordinator reverts, after every refresh, the restriction
+	changes made from the Family Link side (bonus, unlock without time left,
+	bedtime or daily limit switched off), according to the rules chosen in
+	the integration options. The state survives restarts; the option only
+	provides the initial value.
+	"""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the switch."""
+		super().__init__(coordinator)
+		self._child_id = child_id
+		self._child_name = child_name
+		self._attr_name = f"{child_name} Strict Mode"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_strict_mode"
+		self._attr_entity_category = EntityCategory.CONFIG
+
+	async def async_added_to_hass(self) -> None:
+		"""The Strict mode option of the integration is the state at every (re)load."""
+		await super().async_added_to_hass()
+		self.coordinator.set_strict_mode(self._child_id, self.coordinator.strict_mode_default, enforce_now=False)
+
+	def _write_option(self) -> None:
+		"""Mirror the switches into the option: all on -> on, all off -> off, mixed -> unchanged."""
+		entry = self.coordinator.entry
+		states = [
+			self.coordinator.is_strict_mode_enabled(child_data["child_id"])
+			for child_data in (self.coordinator.data or {}).get("children_data", [])
+			if child_data.get("child_id")
+		]
+		if not states or len(set(states)) != 1:
+			return
+		wanted = states[0]
+		current = entry.options.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE))
+		if bool(current) != wanted:
+			self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_STRICT_MODE: wanted})
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, self._child_id)},
+			name=f"{self._child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+	@property
+	def is_on(self) -> bool:
+		"""Return True if strict mode is enforced for this child."""
+		return self.coordinator.is_strict_mode_enabled(self._child_id)
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the switch."""
+		return "mdi:shield-lock" if self.is_on else "mdi:shield-off-outline"
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Rules in force and the last corrective action taken."""
+		attributes: dict[str, Any] = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"rules": sorted(self.coordinator.strict_rules),
+		}
+		attributes.update(self.coordinator.strict_mode_status.get(self._child_id, {"actions_count": 0}))
+		intents = self.coordinator.strict_intents_today(self._child_id)
+		attributes["ha_decisions_today"] = intents["policies"]
+		attributes["ha_device_decisions_today"] = intents["devices"]
+		attributes["ha_reference_values"] = intents.get("values", {})
+		return attributes
+
+	async def async_turn_on(self) -> None:
+		"""Enable strict mode: an enforcement pass runs immediately."""
+		self.coordinator.set_strict_mode(self._child_id, True)
+		self.async_write_ha_state()
+		self._write_option()
+
+	async def async_turn_off(self) -> None:
+		"""Disable strict mode."""
+		self.coordinator.set_strict_mode(self._child_id, False)
+		self.async_write_ha_state()
+		self._write_option()

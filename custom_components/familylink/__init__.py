@@ -2,18 +2,24 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
+from homeassistant.util import dt as dt_util
 
 from .const import (
+	CONF_STRICT_MODE,
+	DEFAULT_STRICT_MODE,
 	DOMAIN,
 	LOGGER_NAME,
+	MAX_UPDATE_INTERVAL,
+	MIN_UPDATE_INTERVAL,
 	SERVICE_ADD_TIME_BONUS,
 	SERVICE_BLOCK_APP,
 	SERVICE_BLOCK_DEVICE_FOR_SCHOOL,
@@ -26,6 +32,7 @@ from .const import (
 	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_SET_UPDATE_INTERVAL,
 	SERVICE_REFRESH_LOCATION,
 	SERVICE_RING_DEVICE,
 	SERVICE_UNBLOCK_ALL_APPS,
@@ -33,10 +40,11 @@ from .const import (
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .exceptions import FamilyLinkException
+from .schedules import parse_time_string
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.NUMBER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT, Platform.TIME]
 
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
@@ -109,6 +117,7 @@ SCHEMA_DISABLE_DAILY_LIMIT = vol.Schema({
 })
 
 SCHEMA_SET_DAILY_LIMIT = vol.Schema({
+	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("device_id"): cv.string,
 	vol.Required("daily_minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
@@ -134,6 +143,12 @@ SCHEMA_RING_DEVICE = vol.Schema({
 	vol.Optional("child_id"): cv.string,
 })
 
+SCHEMA_SET_UPDATE_INTERVAL = vol.Schema({
+	vol.Required("seconds"): vol.All(
+		vol.Coerce(int), vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)
+	),
+})
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	"""Set up Google Family Link from a config entry."""
@@ -142,6 +157,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	try:
 		# Create coordinator for data updates
 		coordinator = FamilyLinkDataUpdateCoordinator(hass, entry)
+
+		# Today's strict mode decisions survive a restart
+		await coordinator.async_load_strict_intents()
 
 		# Perform initial data fetch
 		await coordinator.async_config_entry_first_refresh()
@@ -171,7 +189,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-	"""Handle options update - reload the config entry."""
+	"""Handle options update.
+
+	The Strict mode flag drives the per-child switches live (it is also
+	written back when a switch is toggled); any other change reloads the
+	entry, which recreates the entities.
+	"""
+	coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+	if coordinator is not None:
+		before = dict(coordinator.applied_options)
+		after = dict(entry.options)
+		other_changed = any(
+			before.get(key) != after.get(key)
+			for key in set(before) | set(after)
+			if key != CONF_STRICT_MODE
+		)
+		if not other_changed:
+			wanted = bool(after.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)))
+			coordinator.applied_options = after
+			if wanted != coordinator.strict_mode_default:
+				_LOGGER.info(f"Strict mode option set to {wanted}, applied to every child without reload")
+				coordinator.apply_strict_mode_option(wanted)
+			return
 	_LOGGER.debug("Options updated, reloading integration")
 	await hass.config_entries.async_reload(entry.entry_id)
 
@@ -455,6 +494,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
+			# Declared to strict mode BEFORE the call (the client verifies the
+			# bonus for several seconds, a poll in between must not cancel it)
+			coordinator.register_ha_bonus(device_id, bonus_minutes)
 			success = await coordinator.client.async_add_time_bonus(
 				bonus_minutes=bonus_minutes,
 				device_id=device_id,
@@ -485,6 +527,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_bedtime(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "bedtime", True)
 				_LOGGER.info("Successfully enabled bedtime")
 				await coordinator.async_request_refresh()
 			else:
@@ -509,6 +552,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_bedtime(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "bedtime", False)
 				_LOGGER.info("Successfully disabled bedtime")
 				await coordinator.async_request_refresh()
 			else:
@@ -533,6 +577,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_school_time(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "school_time", True)
 				_LOGGER.info("Successfully enabled school time")
 				await coordinator.async_request_refresh()
 			else:
@@ -557,6 +602,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_school_time(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "school_time", False)
 				_LOGGER.info("Successfully disabled school time")
 				await coordinator.async_request_refresh()
 			else:
@@ -581,6 +627,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_enable_daily_limit(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "daily_limit", True)
 				_LOGGER.info("Successfully enabled daily limit")
 				await coordinator.async_request_refresh()
 			else:
@@ -605,6 +652,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		try:
 			success = await coordinator.client.async_disable_daily_limit(account_id=child_id)
 			if success:
+				coordinator.record_policy_intent(child_id, "daily_limit", False)
 				_LOGGER.info("Successfully disabled daily limit")
 				await coordinator.async_request_refresh()
 			else:
@@ -660,21 +708,45 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		try:
 			results = {}
-			for target_device_id in device_ids:
-				results[target_device_id] = await coordinator.client.async_set_daily_limit(
-					daily_minutes=daily_minutes,
-					device_id=target_device_id,
-					account_id=child_id
+			day = call.data.get("day")
+			today = dt_util.now().isoweekday()
+			if day is not None:
+				# A weekday: the weekly quota of that day, as the app's weekly
+				# screen writes it. Today also gets the override below so the
+				# change applies at once.
+				results["weekly"] = await coordinator.client.async_set_weekly_daily_limit(
+					day, daily_minutes, child_id
 				)
+				if results["weekly"]:
+					coordinator.record_daily_limit_minutes(child_id, daily_minutes, day)
+			if day is None or day == today:
+				for target_device_id in device_ids:
+					results[target_device_id] = await coordinator.client.async_set_daily_limit(
+						daily_minutes=daily_minutes,
+						device_id=target_device_id,
+						account_id=child_id,
+					)
+					if results[target_device_id]:
+						coordinator.record_daily_limit_minutes(child_id, daily_minutes, today)
 			failed = [d for d, ok in results.items() if not ok]
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
-			if len(failed) < len(device_ids):
+			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "
 					f"{len(device_ids) - len(failed)} device(s)"
 				)
 				await coordinator.async_request_refresh()
+			if failed:
+				# Surface the failure to the caller (automation trace, UI)
+				# instead of a silent log line: since #157 the client reads
+				# the value back, so a False here means Google accepted the
+				# request but did not apply it, or rejected it outright.
+				raise HomeAssistantError(
+					f"Daily limit of {daily_minutes} minutes was not applied for "
+					f"device(s): {', '.join(failed)}. See the Family Link log for "
+					"the slot used and the value observed."
+				)
 		except Exception as err:
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise
@@ -704,6 +776,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			)
 			if success:
 				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+				if scope == "weekly":
+					coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
 				await coordinator.async_request_refresh()
 			else:
 				_LOGGER.error("Failed to set bedtime")
@@ -783,6 +857,30 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		handle_set_app_daily_limit,
 		schema=SCHEMA_SET_APP_DAILY_LIMIT,
 	)
+
+	async def handle_set_update_interval(call: ServiceCall) -> None:
+		"""Handle set_update_interval - change the polling interval at runtime (issue #156).
+
+		The new interval applies to every coordinator of the integration and lasts
+		until the next restart or reload, after which the value from the options
+		takes over again. Not persisted on purpose: an automation that lengthens
+		the interval at bedtime and shortens it in the morning must not leave the
+		configured value changed behind the user's back.
+		"""
+		seconds = call.data["seconds"]
+		interval = timedelta(seconds=seconds)
+		coordinators = [
+			c for c in hass.data.get(DOMAIN, {}).values()
+			if isinstance(c, FamilyLinkDataUpdateCoordinator)
+		]
+		for coord in coordinators:
+			previous = coord.update_interval
+			coord.update_interval = interval
+			_LOGGER.info(
+				f"Service called: set_update_interval - polling every {seconds}s "
+				f"(was {int(previous.total_seconds()) if previous else '?'}s, "
+				f"until the next reload or restart)"
+			)
 
 	async def handle_ring_device(call: ServiceCall) -> None:
 		"""Handle ring_device service call - make the device sound."""
@@ -893,6 +991,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		schema=SCHEMA_RING_DEVICE,
 	)
 
+	hass.services.async_register(
+		DOMAIN,
+		SERVICE_SET_UPDATE_INTERVAL,
+		handle_set_update_interval,
+		schema=SCHEMA_SET_UPDATE_INTERVAL,
+	)
+
 	_LOGGER.debug("Family Link services registered")
 
 
@@ -928,6 +1033,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
+			hass.services.async_remove(DOMAIN, SERVICE_RING_DEVICE)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_UPDATE_INTERVAL)
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok

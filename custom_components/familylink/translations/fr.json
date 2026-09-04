@@ -7,11 +7,15 @@
 				"data": {
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
+					"enable_location_tracking": "Activer le suivi GPS",
+					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles du mode strict"
 				},
 				"data_description": {
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant"
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
+					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
+					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README."
 				}
 			}
 		}
@@ -40,10 +44,14 @@
 					"name": "Nom de l'intégration",
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
-					"enable_location_tracking": "Activer le suivi GPS"
+					"enable_location_tracking": "Activer le suivi GPS",
+					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles du mode strict"
 				},
 				"data_description": {
-					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité."
+					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
+					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
+					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README."
 				}
 			}
 		},
@@ -95,6 +103,18 @@
 		"device_tracker": {
 			"location": {
 				"name": "Localisation"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Bonus de temps : ceux ajoutés depuis Family Link sont annulés",
+				"lock": "Verrou de l'appareil : verrouiller et déverrouiller, réservé à Home Assistant",
+				"bedtime": "Coucher : activer et désactiver, réservé à Home Assistant",
+				"daily_limit": "Limite du jour : activer et désactiver, réservé à Home Assistant",
+				"school_time": "Temps scolaire : activer et désactiver, réservé à Home Assistant",
+				"values": "Horaires du coucher et quotas de la semaine : valeurs réservées à Home Assistant"
 			}
 		}
 	}

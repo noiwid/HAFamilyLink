@@ -139,7 +139,9 @@ data:
 
 ### familylink.set_daily_limit
 
-Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory.
+Sets the daily screen time quota of one device, or of every device of a child when only `child_id` is given. A device or a child target is mandatory. Without `day`, the quota set is today's override on the device(s). With `day`, the weekly quota of that weekday is written, as the weekly limits screen of the app does (captured 2026-09-03); when `day` is today, today's override is posted as well so the change applies at once. An override alone is only honoured by Google for the current day, which is why another weekday always goes through the weekly quota.
+
+The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -147,12 +149,23 @@ Sets the daily screen time quota of one device, or of every device of a child wh
 | `entity_id` | entity id | no | - | The device switch (`switch.<device>`) |
 | `device_id` | string | no | - | Device token, if not using the entity |
 | `child_id` | string | no | - | Child user ID. With a device target, defaults to the first supervised child. Given alone, targets every device of that child |
+| `day` | int, 1 to 7 | no | - | Weekday (1 = Monday, 7 = Sunday) whose weekly quota is written, see above. Without it, today's override only |
 
 ```yaml
+# Today's quota on one device
 action: familylink.set_daily_limit
 data:
   entity_id: switch.pixel_7
   daily_minutes: 120
+```
+
+```yaml
+# Saturday's quota, permanently, on every device of the child
+action: familylink.set_daily_limit
+data:
+  child_id: "123456789012345678901"
+  daily_minutes: 240
+  day: 6
 ```
 
 ### familylink.enable_daily_limit / familylink.disable_daily_limit
@@ -255,6 +268,23 @@ Makes the device ring to help locate it. A device target is mandatory. This is t
 action: familylink.ring_device
 data:
   entity_id: switch.pixel_7
+```
+
+## Polling
+
+### familylink.set_update_interval
+
+Changes how often the integration polls Google. The new interval applies immediately and lasts until the next reload or restart, after which the value set in the integration options applies again. It is not saved to the options on purpose, so an automation can lengthen the interval at bedtime and shorten it in the morning without changing the configured value.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `seconds` | integer | yes | - | Polling interval in seconds, 30 to 3600 |
+
+```yaml
+# Poll every 10 minutes at night
+action: familylink.set_update_interval
+data:
+  seconds: 600
 ```
 
 ## Finding package names

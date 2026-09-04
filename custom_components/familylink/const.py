@@ -13,9 +13,13 @@ CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_AUTH_URL: Final = "auth_url"  # URL for Docker standalone mode
 CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
+CONF_STRICT_MODE: Final = "strict_mode"
+CONF_STRICT_MODE_RULES: Final = "strict_mode_rules"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
+MIN_UPDATE_INTERVAL: Final = 30  # seconds
+MAX_UPDATE_INTERVAL: Final = 3600  # seconds
 DEFAULT_TIMEOUT: Final = 30  # seconds
 DEFAULT_COOKIE_FILE: Final = "familylink_cookies.json"
 
@@ -82,3 +86,16 @@ SERVICE_REFRESH_LOCATION: Final = "refresh_location"
 
 # Device remote actions
 SERVICE_RING_DEVICE: Final = "ring_device"
+
+# Strict mode (Home Assistant reverts changes made from the Family Link side)
+DEFAULT_STRICT_MODE: Final = False
+STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "school_time", "values")
+# Policies are not forced on: the state in force when strict mode starts is
+# the reference, so school_time is safe by default even when kept off.
+DEFAULT_STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "school_time", "values")
+STRICT_MODE_BONUS_GRACE: Final = 120  # seconds added to an HA-granted bonus before strict mode may cancel it
+STRICT_MODE_COOLDOWN: Final = 90  # seconds between two identical corrective actions
+EVENT_STRICT_MODE_ACTION: Final = "familylink_strict_mode_action"
+
+# Polling
+SERVICE_SET_UPDATE_INTERVAL: Final = "set_update_interval"
