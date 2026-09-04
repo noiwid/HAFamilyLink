@@ -261,3 +261,46 @@ def parse_daily_limit_schedule(config: Any) -> list[dict[str, Any]]:
 		}
 
 	return [schedules_by_day[day] for day in sorted(schedules_by_day)]
+
+def find_daily_limit_slot_id(data: Any, day: int) -> str | None:
+	"""Return the live daily-limit slot id for an ISO weekday (issue #157).
+
+	The daily-limit rows of the timeLimit response reuse a weekly slot id,
+	and that id is not the static ``CAEQxx`` value on every account: posting
+	an unknown id to ``timeLimitOverrides:batchCreate`` returns HTTP 200 but
+	the override stays inert. A daily-limit row is recognised by its shape,
+	``[slot_id, day, state_flag, minutes, ...]``: window rows carry an
+	``[hour, minute]`` pair at index 3 and revision rows a timestamp list, so
+	requiring plain integer minutes keeps this lookup specific.
+
+	The daily-limit block is ``data[1]`` when the response has the documented
+	layout; it is searched first, the whole response only as a fallback.
+	As in ``parse_daily_limit_schedule``, a later row wins for the same day.
+	"""
+	if not _is_int(day) or day not in DAY_NAMES:
+		return None
+
+	def _search(fragment: Any) -> str | None:
+		found: str | None = None
+		for item in _walk_lists(fragment):
+			if len(item) < 4:
+				continue
+			code, row_day, state_flag, minutes = item[0], item[1], item[2], item[3]
+			if (
+				isinstance(code, str)
+				and code
+				and _is_int(row_day)
+				and row_day == day
+				and _is_int(state_flag)
+				and state_flag in (1, 2)
+				and _is_int(minutes)
+				and minutes >= 0
+			):
+				found = code
+		return found
+
+	if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list):
+		found = _search(data[1])
+		if found:
+			return found
+	return _search(data)

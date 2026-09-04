@@ -8,7 +8,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
@@ -685,6 +685,16 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					f"{len(device_ids) - len(failed)} device(s)"
 				)
 				await coordinator.async_request_refresh()
+			if failed:
+				# Surface the failure to the caller (automation trace, UI)
+				# instead of a silent log line: since #157 the client reads
+				# the value back, so a False here means Google accepted the
+				# request but did not apply it, or rejected it outright.
+				raise HomeAssistantError(
+					f"Daily limit of {daily_minutes} minutes was not applied for "
+					f"device(s): {', '.join(failed)}. See the Family Link log for "
+					"the slot used and the value observed."
+				)
 		except Exception as err:
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise

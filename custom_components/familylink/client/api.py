@@ -34,6 +34,7 @@ from ..schedules import (
 	WINDOW_SCHOOL_TIME,
 	classify_window_row,
 	DAY_CODES,
+	find_daily_limit_slot_id,
 	parse_time_string,
 	parse_window_schedule_items,
 )
@@ -1405,6 +1406,11 @@ class FamilyLinkClient:
 							"bonus_minutes": 0,
 							"bonus_override_id": None
 						}
+						# A device block can carry two daily-limit rows for today: the
+						# effective one near the front (index < 10) and a recurring or
+						# historical copy further down. Without a priority the later
+						# copy overwrote a fresh override with the base value (#157).
+						daily_limit_row_priority = -1
 
 						# Parse bonus override (device_data[0] if it exists).
 						# Two wire shapes exist (issue #141):
@@ -1523,9 +1529,12 @@ class FamilyLinkClient:
 													is_active_position = (idx < 10)
 													is_enabled_flag = (state_flag == 2)
 													daily_enabled = is_active_position and is_enabled_flag
+													row_priority = 2 if is_active_position else 1
 
-													device_info["daily_limit_enabled"] = daily_enabled
-													device_info["daily_limit_minutes"] = minutes
+													if row_priority >= daily_limit_row_priority:
+														daily_limit_row_priority = row_priority
+														device_info["daily_limit_enabled"] = daily_enabled
+														device_info["daily_limit_minutes"] = minutes
 
 													_LOGGER.debug(
 														f"Device {device_id}: CURRENT DAY ({day}) daily_limit - "
@@ -2564,9 +2573,21 @@ class FamilyLinkClient:
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
-			# Get current day of week (1=Monday, 7=Sunday) and map to CAEQ code
+			# The daily-limit override references today's weekly slot. That
+			# slot id is the static CAEQxx code on most accounts but not on
+			# all of them: with an unknown id Google still answers HTTP 200
+			# and the override stays inert (issue #157, same class of failure
+			# as the bedtime slots in #135). Resolve the live id first.
 			current_day = dt_util.now().isoweekday()
-			day_code = self._DAY_CODES[current_day]
+			day_code = await self._async_get_daily_limit_slot_id(
+				account_id, current_day, session, cookie_header
+			)
+			if day_code is None:
+				day_code = self._DAY_CODES[current_day]
+				_LOGGER.warning(
+					f"Could not resolve the live daily-limit slot for account "
+					f"{account_id}, day {current_day}; falling back to {day_code}"
+				)
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
 			payload = json.dumps([
@@ -2587,17 +2608,71 @@ class FamilyLinkClient:
 				},
 				data=payload
 			) as response:
+				response_text = await response.text()
 				if response.status != 200:
-					response_text = await response.text()
 					_LOGGER.error(f"Failed to set daily limit {response.status}: {response_text}")
 					return False
 
-				_LOGGER.info(f"Successfully set daily limit to {daily_minutes} minutes for device {device_id}")
+				# Google also returns HTTP 200 for overrides it silently
+				# ignores, so the response body only goes to the debug log
+				# and the effective value is read back below.
+				_LOGGER.debug(
+					f"Daily-limit batchCreate response for device {device_id}: "
+					f"{response_text[:500]}"
+				)
+
+			if await self._async_verify_daily_limit_applied(account_id, device_id, daily_minutes):
+				_LOGGER.info(
+					f"Successfully set daily limit to {daily_minutes} minutes for "
+					f"device {device_id} (slot={day_code})"
+				)
 				return True
+
+			_LOGGER.error(
+				f"Google accepted the daily-limit request for device {device_id} "
+				f"but did not apply {daily_minutes} minutes (slot={day_code})"
+			)
+			return False
 
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
 			return False
+
+	async def _async_verify_daily_limit_applied(
+		self, account_id: str, device_id: str, expected_minutes: int
+	) -> bool:
+		"""Check that a just-created daily limit is visible in appliedTimeLimits (issue #157).
+
+		Same approach as the time bonus verification (#141): batchCreate
+		answers HTTP 200 whether or not the override takes effect, so the
+		applied value is polled twice (after 3s, then after 5 more). Returns
+		True when the expected minutes are visible, or when the verification
+		itself errored (an unknown state must not be reported as a failure),
+		False when the value is confirmed unchanged.
+		"""
+		observed: list[Any] = []
+		try:
+			for delay in (3, 5):
+				await asyncio.sleep(delay)
+				applied = await self.async_get_applied_time_limits(account_id)
+				device_data = (applied or {}).get("devices", {}).get(device_id, {})
+				actual = device_data.get("daily_limit_minutes")
+				observed.append(actual)
+				if actual == expected_minutes:
+					_LOGGER.info(
+						f"Daily limit verified for device {device_id}: {actual} minutes "
+						f"visible in applied time limits"
+					)
+					return True
+			_LOGGER.warning(
+				f"Daily limit for device {device_id} is still not {expected_minutes} "
+				f"minutes after two checks (observed={observed}): Google accepted "
+				f"the override but did not apply it (issue #157)"
+			)
+			return False
+		except Exception as err:
+			_LOGGER.debug(f"Could not verify daily limit application: {err}")
+			return True
 
 	# Slot-id protobuf field 1 ("rule type"): 1 = bedtime, 3 = school time.
 	_SLOT_TYPE_BEDTIME = 1
@@ -2721,24 +2796,24 @@ class FamilyLinkClient:
 
 		return _walk(data)
 
-	async def _async_get_weekly_bedtime_slot_id(
+	async def _async_get_weekly_schedule_data(
 		self,
 		account_id: str,
-		day: int,
 		session: aiohttp.ClientSession,
 		cookie_header: str,
-	) -> str | None:
-		"""Fetch the live weekly schedule and resolve the slot id for `day`.
+	) -> Any | None:
+		"""Fetch and briefly cache the live timeLimit response.
 
-		The parsed schedule is cached briefly because writing a full week issues
-		one call per day; without the cache that would be seven extra fetches
-		per sync. Best-effort: returns None on any failure so the caller can
-		fall back to the static day codes.
+		Shared by the bedtime slot lookup and the daily-limit slot lookup
+		(#157). The response is cached briefly because writing a full week
+		issues one call per day; without the cache that would be seven extra
+		fetches per sync. Best-effort: returns None on any failure so the
+		callers can fall back to the static day codes.
 		"""
 		now = time.time()
 		cached = self._weekly_slot_cache.get(account_id)
 		if cached and now - cached[0] < self._WEEKLY_SLOT_CACHE_TTL:
-			return self._find_weekly_bedtime_slot_id(cached[1], day)
+			return cached[1]
 
 		try:
 			get_url = self._people_url(account_id, "timeLimit")
@@ -2771,7 +2846,29 @@ class FamilyLinkClient:
 			return None
 
 		self._weekly_slot_cache[account_id] = (now, data)
-		return self._find_weekly_bedtime_slot_id(data, day)
+		return data
+
+	async def _async_get_weekly_bedtime_slot_id(
+		self,
+		account_id: str,
+		day: int,
+		session: aiohttp.ClientSession,
+		cookie_header: str,
+	) -> str | None:
+		"""Resolve the live weekly bedtime slot id for `day` (None on failure)."""
+		data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
+		return self._find_weekly_bedtime_slot_id(data, day) if data is not None else None
+
+	async def _async_get_daily_limit_slot_id(
+		self,
+		account_id: str,
+		day: int,
+		session: aiohttp.ClientSession,
+		cookie_header: str,
+	) -> str | None:
+		"""Resolve the account-specific daily-limit slot id for `day` (issue #157)."""
+		data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
+		return find_daily_limit_slot_id(data, day) if data is not None else None
 
 	async def async_set_bedtime(
 		self,
