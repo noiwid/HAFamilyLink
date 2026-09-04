@@ -19,6 +19,7 @@ where picking the wrong rule's id would corrupt the schedule).
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -304,3 +305,68 @@ def find_daily_limit_slot_id(data: Any, day: int) -> str | None:
 		if found:
 			return found
 	return _search(data)
+
+def describe_time_until(target: datetime, now: datetime) -> str:
+	"""Human-readable delay until `target`: "Active now", "in 25min", "in 3h05", "in 1d 14h"."""
+	diff_seconds = int((target - now).total_seconds())
+	if diff_seconds <= 0:
+		return "Active now"
+	days, rem = divmod(diff_seconds, 86400)
+	hours, rem = divmod(rem, 3600)
+	minutes = rem // 60
+	if days > 0:
+		return f"in {days}d {hours}h"
+	if hours > 0:
+		return f"in {hours}h{minutes:02d}"
+	return f"in {minutes}min"
+
+
+def next_scheduled_window(
+	now: datetime,
+	bedtime_schedule: list[dict[str, Any]] | None,
+	school_time_schedule: list[dict[str, Any]] | None,
+	bedtime_enabled: bool | None = None,
+	school_time_enabled: bool | None = None,
+	days_ahead: int = 7,
+) -> tuple[str, datetime, datetime] | None:
+	"""Earliest window of the weekly schedules starting after today.
+
+	Today's windows are covered by the per-device data of appliedTimeLimits
+	(which already merges the daily overrides); this helper only looks from
+	tomorrow on, so the next-restriction sensor can announce tomorrow's
+	bedtime once today's windows are over instead of "No restrictions".
+
+	A schedule is skipped when its weekly policy is off (`False`); `None`
+	means unknown and is treated as on. Rows are the dicts produced by
+	parse_window_schedule_items (day, enabled, start [h, m], end [h, m]).
+	Returns (WINDOW_BEDTIME | WINDOW_SCHOOL_TIME, start, end) or None.
+	"""
+	candidates: list[tuple[datetime, datetime, str]] = []
+	sources = (
+		(WINDOW_BEDTIME, bedtime_schedule, bedtime_enabled),
+		(WINDOW_SCHOOL_TIME, school_time_schedule, school_time_enabled),
+	)
+	for offset in range(1, days_ahead + 1):
+		day_dt = now + timedelta(days=offset)
+		weekday = day_dt.isoweekday()
+		for window_type, schedule, policy_enabled in sources:
+			if policy_enabled is False or not isinstance(schedule, list):
+				continue
+			for slot in schedule:
+				if not isinstance(slot, dict) or slot.get("day") != weekday or not slot.get("enabled"):
+					continue
+				start, end = slot.get("start"), slot.get("end")
+				if not (_is_time_pair(start) and _is_time_pair(end)):
+					continue
+				start_dt = day_dt.replace(hour=start[0], minute=start[1], second=0, microsecond=0)
+				end_dt = day_dt.replace(hour=end[0], minute=end[1], second=0, microsecond=0)
+				if end_dt <= start_dt:
+					end_dt += timedelta(days=1)
+				candidates.append((start_dt, end_dt, window_type))
+		if candidates:
+			break
+
+	if not candidates:
+		return None
+	start_dt, end_dt, window_type = min(candidates, key=lambda c: c[0])
+	return window_type, start_dt, end_dt
