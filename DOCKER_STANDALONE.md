@@ -108,7 +108,7 @@ Keep this volume across container recreations so you do not have to log in to Go
 | Port | Purpose |
 |---|---|
 | `8099` | Web UI and REST API (the Home Assistant integration reads `/api/cookies` here). **Never expose it to the internet** |
-| `6080` | noVNC web interface, where the Google login happens |
+| `6080` | noVNC web interface, where the Google login happens. Protected by the VNC password only: keep it on a trusted network, or bind it to `127.0.0.1:6080:6080` and reach it through an SSH tunnel |
 
 The VNC server itself (port 5900) is bound to localhost inside the container and is not exposed.
 
@@ -122,7 +122,7 @@ The flow uses **two ports**, in this order:
 
 1. Open the web UI: `http://<docker-host>:8099`.
 2. Click **Start Authentication**. A Chromium browser launches inside the container.
-3. Open noVNC in another tab: `http://<docker-host>:6080/vnc.html`, and enter the VNC password (default `familylink`).
+3. Open noVNC in another tab: `http://<docker-host>:6080/vnc.html`, and enter the VNC password: the `VNC_PASSWORD` environment variable if you set one, otherwise the password generated at start and printed in the container log (`docker logs familylink-auth`, line "VNC password for this start").
 4. Complete the Google login and 2FA in the Chromium window shown through noVNC.
 5. Wait for the success message showing how many cookies were saved, then close the noVNC tab.
 

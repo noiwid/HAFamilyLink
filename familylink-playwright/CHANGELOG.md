@@ -2,6 +2,12 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.0] - 2026-09-04
+
+### Security
+- **The browser view is no longer reachable with a known password.** The add-on shipped with a documented default VNC password (`familylink`), and the web UI on port 8099, which needs no authentication, even embedded it in the noVNC link: anyone on the home network, the supervised child included, could open the browser holding the parent's Google session. With no `vnc_password` configured (or that old default), a random password is now generated at every start and printed in the add-on log, which only a Home Assistant administrator can read; the web UI never carries it. Set `vnc_password` to choose your own. Same behaviour in the standalone container (`VNC_PASSWORD`).
+- Port descriptions and a new **Security** section in DOCS.md: unmap port 6080 outside of a login, stop the add-on after the login, never expose the ports to the internet, use a dedicated parent account. Found while reviewing [Haulund-ATP's fork](https://github.com/Haulund-ATP/HAFamilyLink), whose wider hardening is being ported step by step.
+
 ## [1.8.1] - 2026-08-21
 
 ### Changed

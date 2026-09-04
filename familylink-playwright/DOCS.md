@@ -22,7 +22,7 @@ After a successful login, the add-on extracts the Google session cookies, encryp
 1. Click **Open Web UI**, or browse to `http://<HA local IP>:8099`.
 2. Click **Start Authentication**. Chromium starts inside the container, never on your computer.
 3. Open the noVNC link shown on that page, or browse to `http://<HA local IP>:6080/vnc.html`.
-4. Enter the VNC password if asked: it is the `vnc_password` option (default `familylink`). While the password is still the default, the web UI link connects without asking.
+4. Enter the VNC password: the `vnc_password` option if you set one, otherwise the password generated at start and printed in the add-on **Log** tab (it changes at every start).
 5. Sign in to Google in the noVNC window and complete 2FA. Wait for the success message showing how many cookies were saved, then close the noVNC tab.
 6. Set up the integration in Home Assistant, following [INSTALL.md](https://github.com/noiwid/HAFamilyLink/blob/main/INSTALL.md). On Home Assistant OS the integration discovers the add-on and its API key automatically.
 
@@ -47,15 +47,28 @@ vnc_password: familylink
 | `session_duration` | int, 3600 to 604800 | `86400` | Has no effect, kept for backward compatibility. Cookie lifetime is decided by Google. |
 | `language` | string | `""` | Browser locale and web UI language. Empty: auto-detected from Home Assistant, fallback `en-US`. The web UI itself is translated in English and French; other locales fall back to English. |
 | `timezone` | string | `""` | Browser timezone. Empty: auto-detected from Home Assistant, fallback `Europe/Paris`. |
-| `vnc_password` | password | `familylink` | noVNC password. VNC authentication uses at most 8 characters: longer values are truncated to the first 8, with a warning in the log. Empty: VNC runs without a password. |
+| `vnc_password` | password | empty | noVNC password. Empty (or the old default `familylink`): a random password is generated at every start and printed in the add-on log. VNC authentication uses at most 8 characters: longer values are truncated to the first 8, with a warning in the log. |
 
 ### Ports
 
 | Port | Exposed | Purpose |
 |---|---|---|
 | 8099 | yes | Web UI and REST API. **Never expose it to the internet**: `/api/cookies` returns Google session cookies. |
-| 6080 | yes | noVNC browser view. |
+| 6080 | yes | noVNC browser view, protected by the VNC password only. Unmap it in **Configuration > Network** when you are not authenticating. |
 | 5900 | no | VNC server, bound to localhost inside the container. |
+
+## Security
+
+The browser view behind noVNC shows a live Google session of the parent account. Whoever can open it can lift every restriction on the child's device. Keep this in mind:
+
+- **The VNC password is the only protection of port 6080.** Until version 1.9.0 the add-on shipped with a documented default password, so anyone on the home network could open the view; since 1.9.0 a random password is generated at every start when none is configured, and the web UI never carries it.
+- **Unmap port 6080** (and 8099 if the integration runs on the same Home Assistant) in **Configuration > Network** when you are not authenticating. You only need them during a login.
+- **Stop the add-on after the login.** The integration reads the encrypted cookie file from `/share/familylink` on its own, so the add-on can stay stopped until the session expires. Disable **Start on boot** if you prefer.
+- **Never expose ports 8099 or 6080 to the internet**, through a reverse proxy, Nabu Casa or a port forward: `/api/cookies` hands out a Google session.
+- **Use a dedicated Google parent account** for this integration. The stored cookies are Google account cookies, not Family Link cookies: a leaked session reaches the whole account.
+- Home Assistant backups include `/share/familylink`, and so a live session. Treat them accordingly.
+
+A broader hardening of the add-on (authenticated browser view, service token in a header, session expiry, log redaction) is being ported from [Haulund-ATP's fork](https://github.com/Haulund-ATP/HAFamilyLink).
 
 ## How the integration gets the cookies
 
@@ -92,6 +105,8 @@ Set `log_level: debug` for more detail. A successful run logs, among others: `St
 Expected: Chromium runs inside the container. Open the noVNC page (port 6080) to see and control it.
 
 ### noVNC does not connect, or the VNC password is refused
+
+With no `vnc_password` configured, the password changes at every start: read the current one in the add-on **Log** tab (line "VNC password for this start").
 
 - Check that ports 8099 and 6080 are both reachable from your browser; behind a reverse proxy, use the local IP.
 - If the password is refused, check the `vnc_password` notes in the [Configuration](#configuration) table.

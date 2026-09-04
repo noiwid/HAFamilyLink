@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- **Auth add-on 1.9.0: the browser view is no longer reachable with a known password.** The default VNC password `familylink` is gone; a random one is generated at every start when none is configured, and the web UI never carries it. See the add-on changelog and its new Security section (`familylink-playwright/DOCS.md`).
+
 ### Added
 - **Allowed calls and texts select entity (PR #150, by @mdo77)** - Each child gets `select.<child>_allowed_calls_texts` to choose who can call and text them: **Anyone**, **Only contacts I add** or **Contacts I add & limited groups**. The level is read from Google's `trustedcontacts` endpoint by the coordinator with the other per-child data (cache fallback and session-expiry handling included) and written back through `trustedcontacts:update`. An account where the setting was never touched reports level 0, shown as Anyone. Endpoint shape confirmed on a live capture.
 

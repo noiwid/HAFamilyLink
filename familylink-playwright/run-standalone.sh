@@ -14,7 +14,7 @@ echo ""
 LOG_LEVEL="${LOG_LEVEL:-info}"
 AUTH_TIMEOUT="${AUTH_TIMEOUT:-300}"
 SESSION_DURATION="${SESSION_DURATION:-86400}"
-VNC_PASSWORD="${VNC_PASSWORD:-familylink}"
+VNC_PASSWORD="${VNC_PASSWORD:-}"
 LANGUAGE="${LANGUAGE:-en-US}"
 TIMEZONE="${TIMEZONE:-Europe/Paris}"
 
@@ -71,6 +71,15 @@ fi
 # reached through websockify, so truncate explicitly and warn rather than let
 # the mismatch fail silently (issue #136). TigerVNC's VNC-auth has the same
 # 8-char limit, so this applies to both display backends below.
+if [ -z "${VNC_PASSWORD}" ] || [ "${VNC_PASSWORD}" = "familylink" ]; then
+    # The browser view shows a live Google session: never start VNC with a
+    # known password. No VNC_PASSWORD (or the old default): generate one for
+    # this start and print it here. Set VNC_PASSWORD to choose your own.
+    VNC_PASSWORD=$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 8)
+    echo "⚠ VNC_PASSWORD is not set (or is the old default 'familylink'): a random VNC password was generated for this start."
+    echo "  VNC password for this start: ${VNC_PASSWORD}"
+    echo "  Set the VNC_PASSWORD environment variable to choose your own."
+fi
 if [ "${#VNC_PASSWORD}" -gt 8 ]; then
     echo "⚠ VNC password longer than 8 chars; VNC DES auth uses only the first 8."
     VNC_PASSWORD="${VNC_PASSWORD:0:8}"

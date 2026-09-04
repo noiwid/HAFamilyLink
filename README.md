@@ -98,7 +98,7 @@ Targeting: every service accepts an optional `entity_id` or explicit `child_id` 
 
 ## Troubleshooting
 
-Setup and authentication problems (no entities, 403 on the cookie endpoint, session expired) are covered in [INSTALL.md](INSTALL.md); add-on specifics (web UI, VNC) in [familylink-playwright/DOCS.md](familylink-playwright/DOCS.md).
+Setup and authentication problems (no entities, 403 on the cookie endpoint, session expired) are covered in [INSTALL.md](INSTALL.md); add-on specifics (web UI, VNC) in [familylink-playwright/DOCS.md](familylink-playwright/DOCS.md), including its [Security](familylink-playwright/DOCS.md#security) section: the browser view shows a live Google session, unmap port 6080 and stop the add-on when you are not authenticating.
 
 ## Changelog
 
