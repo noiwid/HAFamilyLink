@@ -106,7 +106,7 @@ All notable changes are tracked in [CHANGELOG.md](CHANGELOG.md) and published on
 
 ## Contributing
 
-Contributions are welcome: fork the repository, create a feature branch, make your changes with clear commit messages, test against a live Home Assistant (there is no test suite; the integration is loaded by Home Assistant at runtime), and open a pull request.
+Contributions are welcome: fork the repository, create a feature branch, make your changes with clear commit messages, run the Home Assistant test suite documented in `tests/README.md`, test user-facing changes against a disposable Home Assistant instance, and open a pull request.
 
 This integration is free and maintained in my spare time. If it helped you or saved you time, you can buy me a beer:
 

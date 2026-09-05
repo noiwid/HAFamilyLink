@@ -1,0 +1,4 @@
+# Stable Home Assistant version matched by this test-harness release.
+# Keep the pair aligned when updating (currently Home Assistant 2026.9.0).
+homeassistant==2026.9.0
+pytest-homeassistant-custom-component==0.13.363

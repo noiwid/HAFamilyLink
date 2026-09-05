@@ -36,7 +36,7 @@ echo "✓ Shared storage ready at /share/familylink"
 # variable is set; no key is auto-generated (app/main.py logs a warning).
 if [ -n "${API_KEY:-}" ]; then
     echo "✓ Cookie API key: provided via API_KEY environment variable"
-    echo "  Configure the HA integration with: http://<this-host>:8099?api_key=<key>"
+    echo "  Configure the HA integration with URL http://<this-host>:8099 and enter this key in its separate API-key field"
 else
     echo "⚠ Cookie API key: not set. /api/cookies is open; set API_KEY to protect it."
     echo "  Configure the HA integration with: http://<this-host>:8099"

@@ -18,6 +18,9 @@ from homeassistant.util import dt as dt_util
 
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
+	CONF_API_KEY,
+	CONF_AUTH_SOURCE,
+	CONF_AUTH_URL,
 	DEVICE_LOCK_ACTION,
 	DEVICE_RING_ACTION_CODE,
 	DEVICE_UNLOCK_ACTION,
@@ -70,9 +73,13 @@ class FamilyLinkClient:
 		"""Initialize the Family Link client."""
 		self.hass = hass
 		self.config = config
-		# Get auth_url from config if available (for Docker standalone mode)
-		auth_url = config.get("auth_url")
-		self.addon_client = AddonCookieClient(hass, auth_url=auth_url)
+		# Keep the endpoint and credential separate throughout the runtime.
+		self.addon_client = AddonCookieClient(
+			hass,
+			auth_url=config.get(CONF_AUTH_URL),
+			api_key=config.get(CONF_API_KEY),
+			auth_source=config.get(CONF_AUTH_SOURCE),
+		)
 		self._session: aiohttp.ClientSession | None = None
 		self._session_lock = asyncio.Lock()
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
@@ -104,10 +111,8 @@ class FamilyLinkClient:
 		if not self._cookies:
 			if getattr(self.addon_client, "last_fetch_status", None) == 403:
 				raise AuthenticationError(
-					"Auth server rejected the request (403): the cookie endpoint "
-					"requires an API key. Append ?api_key=<key> to the configured "
-					"auth URL. The key is in the auth container's data directory "
-					"(./data/api_key), or set it via the API_KEY environment variable."
+					"Authentication server rejected the configured cookie API key "
+					"(403). Verify the separate API key setting."
 				)
 			raise AuthenticationError(
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first."

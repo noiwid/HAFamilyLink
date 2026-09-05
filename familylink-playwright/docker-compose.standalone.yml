@@ -25,8 +25,8 @@ services:
       - TIMEZONE=Europe/Paris
       # Recommended: protect /api/cookies with a key. In standalone mode no key
       # is auto-generated: if unset, the endpoint stays open (a warning is
-      # logged at startup). If set, point the HA integration at:
-      # http://<host>:8099?api_key=<key>
+      # logged at startup). If set, enter the key in the HA integration's
+      # separate masked API-key field and use http://<host>:8099 as the URL.
       # - API_KEY=change-me
     dns:
       - 8.8.8.8

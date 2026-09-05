@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+]
+testpaths = ["tests"]
+xfail_strict = true
+markers = [
+    "contract: security behavior required by a later, production-changing PR",
+]

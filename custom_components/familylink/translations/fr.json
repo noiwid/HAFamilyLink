@@ -28,9 +28,10 @@
 			},
 			"manual_url": {
 				"title": "URL du serveur d'authentification",
-				"description": "Aucune source d'authentification locale n'a été détectée. Veuillez entrer l'URL de votre conteneur Family Link Auth.\n\nExemple : `http://192.168.1.100:8099` ou `http://familylink-auth:8099`\n\nSi le serveur d'authentification exige une clé API (conteneur v1.7.0+), ajoutez-la à l'URL : `http://192.168.1.100:8099?api_key=<clé>` (clé dans le fichier `data/api_key` du conteneur).",
+				"description": "Aucune source locale n'a été détectée. Saisissez l'URL du serveur Family Link Auth. Si API_KEY est configurée sur le conteneur autonome, saisissez-la séparément ; sinon laissez la clé vide.\n\nExemple d'URL : `http://192.168.1.100:8099`",
 				"data": {
-					"auth_url": "URL du serveur d'authentification"
+					"auth_url": "URL du serveur d'authentification",
+					"api_key": "Clé API"
 				}
 			},
 			"configure": {
@@ -45,6 +46,15 @@
 				"data_description": {
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité."
 				}
+			},
+			"reconfigure": {
+				"title": "Mettre à jour le serveur d'authentification",
+				"description": "Mettez à jour l'URL et la clé API. La clé existante n'est jamais affichée ; laissez la clé vide pour la conserver.",
+				"data": {
+					"auth_url": "URL du serveur d'authentification",
+					"api_key": "Clé API",
+					"clear_api_key": "Effacer la clé API"
+				}
 			}
 		},
 		"error": {
@@ -52,12 +62,16 @@
 			"invalid_auth": "Aucun cookie trouvé. Veuillez d'abord vous authentifier via le module complémentaire ou le conteneur Family Link Auth.",
 			"url_required": "L'URL est requise",
 			"no_cookies": "Le serveur est accessible mais aucun cookie n'a été trouvé. Veuillez d'abord vous authentifier via l'interface web.",
-			"invalid_api_key": "Le serveur exige une clé API. Ajoutez ?api_key=<clé> à l'URL, où <clé> est la valeur de la variable d'environnement API_KEY définie sur le conteneur d'authentification.",
+			"invalid_api_key": "Le serveur d'authentification a rejeté la clé API.",
+			"api_key_conflict": "Saisissez une nouvelle clé API ou sélectionnez Effacer la clé API, pas les deux.",
+			"api_key_required_for_new_url": "Lorsque vous changez l'URL du serveur, saisissez sa clé API ou sélectionnez Effacer la clé API.",
+			"invalid_url": "Saisissez une URL HTTP ou HTTPS valide, sans identifiants, paramètres de requête ni fragment.",
 			"unknown": "Une erreur inattendue s'est produite"
 		},
 		"abort": {
 			"already_configured": "L'intégration est déjà configurée",
-			"invalid_config": "Configuration invalide"
+			"invalid_config": "Configuration invalide",
+			"reconfigure_successful": "Serveur d'authentification mis à jour"
 		}
 	},
 	"entity": {

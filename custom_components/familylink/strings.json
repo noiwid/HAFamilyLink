@@ -28,9 +28,10 @@
 			},
 			"manual_url": {
 				"title": "Authentication Server URL",
-				"description": "No local authentication source was detected. Please enter the URL of your Family Link Auth container.\n\nExample: `http://192.168.1.100:8099` or `http://familylink-auth:8099`\n\nIf the auth server requires an API key (auth container v1.7.0+), append it to the URL: `http://192.168.1.100:8099?api_key=<key>` (key in the container's `data/api_key` file).",
+				"description": "No local authentication source was detected. Enter the Family Link Auth server base URL. Any reverse-proxy path prefix is preserved. If the standalone container has API_KEY configured, enter it separately; otherwise leave the key blank.\n\nURL example: `http://192.168.1.100:8099`",
 				"data": {
-					"auth_url": "Authentication Server URL"
+					"auth_url": "Authentication Server URL",
+					"api_key": "API Key"
 				}
 			},
 			"configure": {
@@ -45,6 +46,15 @@
 				"data_description": {
 					"enable_location_tracking": "When enabled, each location poll may send a notification to the child's device. Disabled by default for privacy."
 				}
+			},
+			"reconfigure": {
+				"title": "Update Authentication Server",
+				"description": "Update the server URL and API key. The existing key is never displayed; leave the key blank to keep it.",
+				"data": {
+					"auth_url": "Authentication Server URL",
+					"api_key": "API Key",
+					"clear_api_key": "Clear API key"
+				}
 			}
 		},
 		"error": {
@@ -52,12 +62,16 @@
 			"invalid_auth": "No cookies found. Please authenticate first using the Family Link Auth add-on or container.",
 			"url_required": "URL is required",
 			"no_cookies": "Server is reachable but no cookies found. Please authenticate first via the web interface.",
-			"invalid_api_key": "The server requires an API key. Append ?api_key=<key> to the URL, where <key> is the value of the API_KEY environment variable set on the auth container.",
+			"invalid_api_key": "The authentication server rejected the API key.",
+			"api_key_conflict": "Enter a new API key or select Clear API key, not both.",
+			"api_key_required_for_new_url": "When changing the server URL, enter its API key or select Clear API key.",
+			"invalid_url": "Enter a valid HTTP or HTTPS URL without credentials, query parameters, or fragments.",
 			"unknown": "Unexpected error occurred"
 		},
 		"abort": {
 			"already_configured": "Integration is already configured",
-			"invalid_config": "Invalid configuration"
+			"invalid_config": "Invalid configuration",
+			"reconfigure_successful": "Authentication server updated"
 		}
 	},
 	"entity": {

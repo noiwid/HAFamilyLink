@@ -76,8 +76,8 @@ def _load_or_create_cookie_api_key() -> "str | None":
         _LOGGER.warning(
             "Cookie endpoint /api/cookies is UNPROTECTED: standalone mode "
             "without API_KEY. Anyone able to reach port 8099 can read the "
-            "stored Google cookies. Set API_KEY and point the integration at "
-            "http://<host>:8099?api_key=<key> to protect it."
+            "stored Google cookies. Set API_KEY and enter it in the integration's "
+            "separate API-key field to protect the endpoint."
         )
         return None
     key_path = Path(config.share_dir) / "api_key"

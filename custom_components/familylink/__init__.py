@@ -12,6 +12,11 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from .const import (
+	AUTH_SOURCE_MANAGED,
+	AUTH_SOURCE_MANUAL,
+	CONF_API_KEY,
+	CONF_AUTH_SOURCE,
+	CONF_AUTH_URL,
 	DOMAIN,
 	LOGGER_NAME,
 	SERVICE_ADD_TIME_BONUS,
@@ -37,6 +42,70 @@ from .exceptions import FamilyLinkException
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT]
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+	"""Migrate legacy credential-bearing authentication URLs."""
+	if entry.version == 2:
+		return True
+	if entry.version != 1:
+		_LOGGER.error(
+			"Unsupported Family Link config entry version: %s",
+			entry.version,
+		)
+		return False
+
+	new_data = dict(entry.data)
+	auth_url = new_data.get(CONF_AUTH_URL)
+	if CONF_AUTH_URL in new_data:
+		if not isinstance(auth_url, str) or not auth_url.strip():
+			_LOGGER.error("Unable to migrate empty authentication server URL")
+			return False
+		from .auth.addon_client import split_legacy_auth_url
+
+		try:
+			clean_url, legacy_key = split_legacy_auth_url(auth_url)
+		except (TypeError, ValueError):
+			_LOGGER.error("Unable to migrate unsafe authentication server URL")
+			return False
+		existing_key = new_data.get(CONF_API_KEY)
+		if existing_key and legacy_key and existing_key != legacy_key:
+			_LOGGER.error("Unable to migrate conflicting authentication credentials")
+			return False
+		new_data[CONF_AUTH_URL] = clean_url
+		if legacy_key:
+			new_data[CONF_API_KEY] = existing_key or legacy_key
+		new_data[CONF_AUTH_SOURCE] = AUTH_SOURCE_MANUAL
+		unique_id = clean_url
+	else:
+		new_data[CONF_AUTH_SOURCE] = AUTH_SOURCE_MANAGED
+		unique_id = "familylink_default"
+
+	for other_entry in hass.config_entries.async_entries(DOMAIN):
+		if other_entry.entry_id == entry.entry_id:
+			continue
+		other_unique_id = other_entry.unique_id
+		other_auth_url = other_entry.data.get(CONF_AUTH_URL)
+		if other_entry.data.get(CONF_AUTH_SOURCE) == AUTH_SOURCE_MANAGED:
+			other_unique_id = "familylink_default"
+		elif isinstance(other_auth_url, str) and other_auth_url.strip():
+			try:
+				other_unique_id, _ = split_legacy_auth_url(other_auth_url)
+			except (TypeError, ValueError):
+				pass
+		elif other_unique_id is None:
+			other_unique_id = "familylink_default"
+		if other_unique_id == unique_id:
+			_LOGGER.error("Unable to migrate duplicate authentication server entry")
+			return False
+
+	hass.config_entries.async_update_entry(
+		entry,
+		data=new_data,
+		unique_id=unique_id,
+		version=2,
+	)
+	return True
 
 # Service schemas
 SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
@@ -936,4 +1005,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 	"""Reload config entry."""
 	await async_unload_entry(hass, entry)
-	await async_setup_entry(hass, entry) 
+	await async_setup_entry(hass, entry)
