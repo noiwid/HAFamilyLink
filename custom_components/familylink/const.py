@@ -12,7 +12,13 @@ CONF_COOKIE_FILE: Final = "cookie_file"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_AUTH_URL: Final = "auth_url"  # URL for Docker standalone mode
+CONF_API_KEY: Final = "api_key"  # Cookie API credential, stored separately
+CONF_AUTH_SOURCE: Final = "_auth_source"  # Internal endpoint ownership marker
+CONF_CLEAR_API_KEY: Final = "clear_api_key"  # Reconfigure-only credential removal
 CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
+
+AUTH_SOURCE_MANAGED: Final = "managed"
+AUTH_SOURCE_MANUAL: Final = "manual"
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds

@@ -38,7 +38,7 @@ Both routes then continue with the same [integration install](#install-the-integ
 
 1. Run the standalone auth container: [DOCKER_STANDALONE.md](DOCKER_STANDALONE.md) covers the Docker Compose file, environment variables, volumes, ports, and the `API_KEY` protection.
 2. Authenticate through its web UI (`http://<docker-host>:8099`), using the same two-port flow as the add-on (start the authentication on port 8099, finish the Google login via noVNC on port 6080).
-3. Note the URL you will give the integration: `http://<docker-host>:8099`, with `?api_key=<key>` appended if you set the `API_KEY` environment variable on the container.
+3. Note the URL you will give the integration: `http://<docker-host>:8099`. If you set the container's `API_KEY` environment variable, enter its value in the integration's separate masked API-key field.
 4. Continue with [Install the integration](#install-the-integration). In the configuration flow, choose **Manual URL configuration (Docker standalone)** and enter that URL.
 
 ## Install the integration
@@ -73,9 +73,11 @@ The first screen is a menu with two options:
 
 If auto-detect finds nothing, the flow falls back to the manual URL form.
 
-### Step 2 (manual URL only): authentication server URL
+### Step 2 (manual URL only): authentication server URL and API key
 
-A single field: the auth server URL, for example `http://192.168.1.100:8099`. If the container requires an API key (auth container v1.7.0 or later with `API_KEY` set), append it: `http://192.168.1.100:8099?api_key=<key>`.
+Enter the auth server URL, for example `http://192.168.1.100:8099`. If the standalone container has `API_KEY` configured, enter that value in the separate masked API-key field; otherwise leave the field empty.
+
+Existing version-1 entries containing a query key are migrated automatically. The stored URL and unique ID become key-free, and diagnostics redact the separate key. Home Assistant config-entry storage and backups still contain the credential, so continue treating them as sensitive.
 
 The flow verifies the URL with `GET /api/health`, then tries to fetch the cookies. If an error appears, see [Troubleshooting (setup)](#troubleshooting-setup) below.
 
@@ -92,7 +94,7 @@ The first data fetch runs during setup, so entities appear as soon as the flow c
 
 ### Changing settings later
 
-**Settings > Devices & Services > Google Family Link > Configure** exposes the same update interval, timeout, and GPS options. Saving reloads the integration.
+**Configure** exposes update interval, timeout, and GPS options. To replace the authentication server or key, use the integration's **Reconfigure** action. With the same URL, leave the key blank to keep its existing value. When changing URL, enter the new server's key or explicitly select **Clear API key** for an unprotected standalone server. Saving reloads the integration.
 
 ## Re-authentication
 
@@ -120,7 +122,7 @@ Auth-service issues (noVNC not connecting, black screen, login timeout, VNC pass
 
 ### "The server requires an API key" (HTTP 403)
 
-- Route B: append `?api_key=<key>` to the URL, using the value you set in the container's `API_KEY` environment variable.
+- Route B: enter the value of the container's `API_KEY` environment variable in the separate API-key field. Leave it blank only when `API_KEY` is not configured.
 - Route A: the key is read automatically from `/share/familylink/api_key`; a 403 usually means the URL was entered manually without the key. Prefer auto-detect on Route A.
 
 ### "No cookies found"

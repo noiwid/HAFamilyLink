@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- **Authentication server credentials are no longer stored in URLs.** Manual setup now uses a separate masked API-key field; version-1 entries are migrated to a query-free URL and unique ID, runtime requests send only `X-API-Key`, and config-entry diagnostics redact the credential. The API-key field remains optional for standalone auth containers that do not set `API_KEY`; existing keys can be rotated or cleared through Reconfigure. This change raises the minimum Home Assistant version to 2024.4, when native reconfigure flows were introduced.
+
 ### Added
 - **Allowed calls and texts select entity (PR #150, by @mdo77)** - Each child gets `select.<child>_allowed_calls_texts` to choose who can call and text them: **Anyone**, **Only contacts I add** or **Contacts I add & limited groups**. The level is read from Google's `trustedcontacts` endpoint by the coordinator with the other per-child data (cache fallback and session-expiry handling included) and written back through `trustedcontacts:update`. An account where the setting was never touched reports level 0, shown as Anyone. Endpoint shape confirmed on a live capture.
 

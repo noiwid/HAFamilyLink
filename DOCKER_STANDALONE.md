@@ -134,7 +134,8 @@ To re-authenticate after the session expires, repeat the same steps; the integra
 
 - **In standalone mode the endpoint is open by default.** The container and Home Assistant do not share a volume, so an auto-generated key could not be handed over automatically; the container logs a warning at startup instead. (On Home Assistant OS add-on installs, a key is auto-generated and shared through `/share/familylink/api_key`: nothing to configure there.)
 - To lock it down, set the `API_KEY` environment variable (uncomment the line in the compose file) and recreate the container.
-- Then point the integration at `http://<docker-host>:8099?api_key=<your-key>` in the configuration flow's **Manual URL** step (see [INSTALL.md](INSTALL.md#configuration-flow)). The key is accepted as an `X-API-Key` header or an `?api_key=` query parameter.
+- Then enter `http://<docker-host>:8099` and the key in the configuration flow's separate **Manual URL** fields (see [INSTALL.md](INSTALL.md#configuration-flow)). The integration sends the key as an `X-API-Key` header. The auth server continues accepting legacy query keys temporarily for older integration versions.
+- Treat the Manual URL as a base URL. If a trusted reverse proxy exposes the service under a path such as `https://home.example/familylink-auth`, include that prefix; the integration preserves it when requesting `/api/health` and `/api/cookies`.
 - API key or not, keep port 8099 inside your trusted network.
 
 ## Connecting to Home Assistant
@@ -178,7 +179,7 @@ Your Google login survives updates as long as the `./data` volume is kept. Versi
 
 - Ensure the container is running: `docker ps | grep familylink`.
 - Check the health endpoint: `curl http://<docker-host>:8099/api/health`.
-- An HTTP 403 on the cookies endpoint means `API_KEY` is set but the integration URL lacks `?api_key=<key>`.
+- An HTTP 403 on the cookies endpoint means `API_KEY` is set but the integration's separate API-key field is missing or incorrect.
 - Verify Home Assistant can reach the Docker host on port `8099`.
 
 ### DNS issues (Pi-hole, AdGuard, etc.)
