@@ -1,7 +1,6 @@
 """Button platform for Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
@@ -11,11 +10,13 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOGGER_NAME
+from .const import DOMAIN
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .privacy import get_privacy_logger
 from .devices import ensure_child_device
+from .entity import privacy_safe_entity_action
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 async def async_setup_entry(
@@ -105,6 +106,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		"""Return True if entity is available."""
 		return self.coordinator.last_update_success
 
+	@privacy_safe_entity_action
 	async def async_press(self) -> None:
 		"""Handle the button press."""
 		if self.coordinator.client is None:
@@ -191,6 +193,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 
 		return False
 
+	@privacy_safe_entity_action
 	async def async_press(self) -> None:
 		"""Handle the button press - cancel active bonus."""
 		# Get the override_id from coordinator data
@@ -278,6 +281,7 @@ class RingDeviceButton(CoordinatorEntity, ButtonEntity):
 		"""Return True if entity is available."""
 		return self.coordinator.last_update_success
 
+	@privacy_safe_entity_action
 	async def async_press(self) -> None:
 		"""Handle the button press - ring the device."""
 		if self.coordinator.client is None:

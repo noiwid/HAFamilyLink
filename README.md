@@ -121,6 +121,22 @@ Enable it with the **Strict mode** option of the integration (default for every 
 
 Targeting: every service accepts an optional `entity_id` or explicit `child_id` / `device_id`. Without a target, the app and location services apply to **all** supervised children, while the time services fall back to the **first** supervised child. Full field reference, defaults and examples: **[SERVICES.md](SERVICES.md)**.
 
+## Privacy and history
+
+The integration redacts credentials, URLs, household identifiers, names,
+devices, applications, and location details from its logs while retaining
+useful diagnostic messages and sanitized tracebacks. New Recorder rows exclude
+identities, application and device inventories, detailed schedules and
+timestamps, and location details. Compact operational attributes such as
+formatted screen time and dates, plus device model/type, remain recordable. All
+live attributes remain available, so dashboards, services, strict mode, and
+events continue to work.
+
+This does not purge existing Recorder history. Review and purge prior data
+separately if needed. MQTT, InfluxDB, Prometheus, backups, and other
+non-Recorder exporters or stores are separate and must be configured or cleaned
+up independently.
+
 ## Troubleshooting
 
 Setup and authentication problems (no entities, 403 on the cookie endpoint, session expired) are covered in [INSTALL.md](INSTALL.md); add-on specifics (web UI, VNC) in [familylink-playwright/DOCS.md](familylink-playwright/DOCS.md), including its [Security](familylink-playwright/DOCS.md#security) section: the browser view shows a live Google session, unmap port 6080 and stop the add-on when you are not authenticating.

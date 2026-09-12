@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- **Integration logs and new Recorder rows minimize Family Link data.** Sensitive values are redacted while useful diagnostic messages, levels, and tracebacks are retained. Heavy or identifying dynamic attributes are excluded from Recorder while compact operational attributes remain available in history. Primary entity states and live attributes are unchanged; existing history is not purged automatically, and non-Recorder exporters require separate configuration.
+
 ---
 
 ## [2.0.0-rc2] - 2026-09-11

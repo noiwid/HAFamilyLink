@@ -5,7 +5,6 @@ import asyncio
 import base64
 import hashlib
 import json
-import logging
 import re
 import time
 from datetime import datetime, timedelta
@@ -24,14 +23,15 @@ from ..const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_RING_ACTION_CODE,
 	DEVICE_UNLOCK_ACTION,
-	LOGGER_NAME,
 )
 from ..exceptions import (
 	AuthenticationError,
 	DeviceControlError,
+	FamilyLinkValidationError,
 	NetworkError,
 	SessionExpiredError,
 )
+from ..privacy import get_privacy_logger
 from ..schedules import (
 	WINDOW_BEDTIME,
 	WINDOW_SCHOOL_TIME,
@@ -45,7 +45,7 @@ from ..schedules import (
 	parse_window_schedule_items,
 )
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 class FamilyLinkClient:
@@ -122,7 +122,7 @@ class FamilyLinkClient:
 				"No cookies found. Please use the Family Link Auth add-on to authenticate first."
 			)
 
-		_LOGGER.info(f"Successfully loaded {len(self._cookies)} cookies from add-on")
+		_LOGGER.info("Loaded authentication cookies count=%d", len(self._cookies))
 
 	async def async_refresh_session(self) -> None:
 		"""Refresh the authentication session."""
@@ -160,7 +160,7 @@ class FamilyLinkClient:
 		to_hash = f"{timestamp} {sapisid} {origin}"
 		sha1_hash = hashlib.sha1(to_hash.encode("utf-8")).hexdigest()
 		sapisidhash = f"{timestamp}_{sha1_hash}"
-		_LOGGER.debug(f"Generated SAPISIDHASH with timestamp={timestamp}, hash={sha1_hash[:16]}...")
+		_LOGGER.debug("Generated SAPISIDHASH for timestamp=%s", timestamp)
 		return sapisidhash
 
 	def _get_cookies_dict(self) -> dict[str, str]:
@@ -201,20 +201,16 @@ class FamilyLinkClient:
 
 							# Only replace if new domain has higher priority (lower value)
 							if domain_priority(cookie_domain) < domain_priority(existing_domain):
-								_LOGGER.debug(
-									f"Cookie '{cookie_name}': replacing {existing_domain} with {cookie_domain} (higher priority)"
-								)
+								_LOGGER.debug("Selected higher-priority cookie domain")
 								self._cookie_dict[cookie_name] = cookie_value
 								cookie_domains[cookie_name] = cookie_domain
 							else:
-								_LOGGER.debug(
-									f"Cookie '{cookie_name}': keeping {existing_domain} over {cookie_domain}"
-								)
+								_LOGGER.debug("Retained higher-priority cookie domain")
 						else:
 							self._cookie_dict[cookie_name] = cookie_value
 							cookie_domains[cookie_name] = cookie_domain
 
-				_LOGGER.debug(f"Built cookie dict with {len(self._cookie_dict)} cookies: {list(self._cookie_dict.keys())}")
+			_LOGGER.debug("Built cookie dictionary with %d entries", len(self._cookie_dict))
 		return self._cookie_dict
 
 	def _get_cookie_header(self) -> str:
@@ -229,7 +225,7 @@ class FamilyLinkClient:
 			# No quotes around values, even if they contain /
 			cookie_parts = [f"{name}={value}" for name, value in cookies_dict.items()]
 			self._cookie_header = "; ".join(cookie_parts)
-			_LOGGER.debug(f"Built Cookie header with {len(cookies_dict)} cookies (length: {len(self._cookie_header)} chars)")
+			_LOGGER.debug("Built cookie header count=%d", len(cookies_dict))
 		return self._cookie_header
 
 	async def _get_session(self) -> aiohttp.ClientSession:
@@ -272,9 +268,9 @@ class FamilyLinkClient:
 									"domain": cookie_domain,
 									"domain_lower": domain_lower
 								})
-								_LOGGER.debug(f"✓ Found SAPISID cookie with domain: {cookie_domain}")
+								_LOGGER.debug("Found SAPISID cookie candidate")
 							else:
-								_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
+								_LOGGER.warning("Ignored SAPISID cookie with unsupported domain")
 
 					if sapisid_candidates:
 						def domain_priority(candidate):
@@ -293,10 +289,10 @@ class FamilyLinkClient:
 
 						if len(sapisid_candidates) > 1:
 							_LOGGER.info(
-								f"Found {len(sapisid_candidates)} SAPISID cookies, "
-								f"using {sapisid_domain} (prioritized over regional domains)"
+								"Found SAPISID cookie candidates count=%d",
+								len(sapisid_candidates),
 							)
-						_LOGGER.debug(f"Selected SAPISID from domain: {sapisid_domain}")
+						_LOGGER.debug("Selected preferred SAPISID cookie candidate")
 						_LOGGER.debug("SAPISID cookie found")
 
 				if not sapisid:
@@ -318,7 +314,7 @@ class FamilyLinkClient:
 					"Authorization": f"SAPISIDHASH {sapisidhash}",
 				}
 
-				_LOGGER.debug(f"Session headers: Origin={self.ORIGIN}")
+				_LOGGER.debug("Prepared authenticated session headers")
 
 				self._session = aiohttp.ClientSession(
 					headers=headers,
@@ -345,7 +341,7 @@ class FamilyLinkClient:
 			cookie_header = self._get_cookie_header()
 
 			url = f"{self.BASE_URL}/families/mine/members"
-			_LOGGER.debug(f"Requesting: GET {url}")
+			_LOGGER.debug("Requesting family members")
 
 			async with session.get(
 				url,
@@ -358,16 +354,17 @@ class FamilyLinkClient:
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+					_LOGGER.error("Family members API returned HTTP %s", response.status)
 
 				response.raise_for_status()
 				data = await response.json()
-				_LOGGER.debug(f"✓ Fetched {len(data.get('members', []))} family members")
+				member_count = len(data.get("members", []))
+				_LOGGER.debug("Fetched family members count=%d", member_count)
 				return data
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("Family members request was unauthorized")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_LOGGER.error("Failed to fetch family members: %s", err)
 			raise NetworkError(f"Failed to fetch family members: {err}") from err
@@ -393,7 +390,7 @@ class FamilyLinkClient:
 			supervision_info = member.get("memberSupervisionInfo")
 			if supervision_info and supervision_info.get("isSupervisedMember"):
 				self._account_id = member["userId"]
-				_LOGGER.info(f"Found supervised child: {member['profile']['displayName']} (ID: {self._account_id})")
+				_LOGGER.info("Found supervised child")
 				return self._account_id
 
 		raise ValueError("No supervised child found in family")
@@ -416,7 +413,7 @@ class FamilyLinkClient:
 				child_id = member["userId"]
 				child_name = member.get("profile", {}).get("displayName", "Unknown")
 				children.append({"id": child_id, "name": child_name})
-				_LOGGER.debug(f"Found supervised child: {child_name} (ID: {child_id})")
+				_LOGGER.debug("Found supervised child")
 
 		if not children:
 			raise ValueError("No supervised children found in family")
@@ -454,7 +451,7 @@ class FamilyLinkClient:
 			]
 
 			url = self._people_url(account_id, "appsandusage")
-			_LOGGER.debug(f"Requesting: GET {url}")
+			_LOGGER.debug("Requesting apps and usage")
 
 			async with session.get(
 				url,
@@ -467,21 +464,22 @@ class FamilyLinkClient:
 				_LOGGER.debug(f"Response status: {response.status}")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text}")
-					_LOGGER.error(f"Request URL was: {url}")
+					_LOGGER.error("Apps and usage API returned HTTP %s", response.status)
 
 				response.raise_for_status()
 				data = await response.json()
+				app_count = len(data.get("apps", []))
+				device_count = len(data.get("deviceInfo", []))
+				session_count = len(data.get("appUsageSessions", []))
 				_LOGGER.debug(
-					f"✓ Fetched usage data: {len(data.get('apps', []))} apps, "
-					f"{len(data.get('deviceInfo', []))} devices, "
-					f"{len(data.get('appUsageSessions', []))} usage sessions"
+					"Fetched usage data apps=%d devices=%d sessions=%d",
+					app_count, device_count, session_count,
 				)
 				return data
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("Apps and usage request was unauthorized")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_LOGGER.error("Failed to fetch apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
@@ -524,7 +522,7 @@ class FamilyLinkClient:
 			all_sessions = data.get("appUsageSessions", [])
 			_LOGGER.debug(f"Found {len(all_sessions)} total app usage sessions")
 			if all_sessions:
-				_LOGGER.debug(f"First session example: {all_sessions[0]}")
+				_LOGGER.debug("App usage sessions are available")
 
 			for session in all_sessions:
 				session_date = session.get("date", {})
@@ -559,7 +557,7 @@ class FamilyLinkClient:
 			if not app_breakdown:
 				_LOGGER.debug(f"No app usage data found for {target_date.date()}")
 			else:
-				_LOGGER.debug(f"App breakdown: {app_breakdown}")
+				_LOGGER.debug("App breakdown contains %d entries", len(app_breakdown))
 
 			return {
 				"total_seconds": total_seconds,
@@ -624,7 +622,7 @@ class FamilyLinkClient:
 				("supportedConsents", "SUPERVISED_LOCATION_SHARING"),
 			]
 
-			_LOGGER.debug(f"Fetching location for child {account_id} (refresh={refresh})")
+			_LOGGER.debug("Fetching location refresh=%s", refresh)
 
 			async with session.get(
 				url,
@@ -638,36 +636,36 @@ class FamilyLinkClient:
 					_LOGGER.error("✗ 401 Unauthorized - Session expired fetching location")
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status == 404:
-					_LOGGER.warning(f"Location not available for child {account_id}")
+					_LOGGER.warning("Location not available")
 					return None
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch location (HTTP {response.status}): {response_text}")
+					_LOGGER.error("Location API returned HTTP %s", response.status)
 					return None
 
 				data = await response.json()
-				_LOGGER.debug(f"Location response: {str(data)[:500]}")
+				_LOGGER.debug("Location API returned data")
 
 				# Parse the protobuf-like JSON response
 				# Structure: [[null, timestamp], [child_id, status, [location_data], ...]]
 				if not isinstance(data, list) or len(data) < 2:
-					_LOGGER.warning(f"Unexpected location response structure: {data}")
+					_LOGGER.warning("Unexpected location response structure")
 					return None
 
 				child_data = data[1] if len(data) > 1 else None
 				if not isinstance(child_data, list) or len(child_data) < 3:
-					_LOGGER.warning(f"No location data in response for child {account_id}")
+					_LOGGER.warning("No location data in response")
 					return None
 
 				location_array = child_data[2] if len(child_data) > 2 else None
 				if not isinstance(location_array, list) or len(location_array) < 2:
-					_LOGGER.warning(f"Invalid location array for child {account_id}")
+					_LOGGER.warning("Invalid location array")
 					return None
 
 				# Extract coordinates [lat, lng]
 				coords = location_array[0] if len(location_array) > 0 else None
 				if not isinstance(coords, list) or len(coords) < 2:
-					_LOGGER.warning(f"Invalid coordinates for child {account_id}")
+					_LOGGER.warning("Invalid coordinates")
 					return None
 
 				latitude = coords[0]
@@ -728,10 +726,7 @@ class FamilyLinkClient:
 				}
 
 				_LOGGER.debug(
-					f"Location for child {account_id}: "
-					f"({latitude}, {longitude}) accuracy={accuracy}m, "
-					f"place={place_name or 'unknown'}, device={source_device_id}, "
-					f"battery={battery_level}%"
+					"Location received accuracy=%sm battery=%s%%", accuracy, battery_level
 				)
 
 				return result
@@ -739,7 +734,7 @@ class FamilyLinkClient:
 		except SessionExpiredError:
 			raise  # Re-raise to trigger auth notification
 		except Exception as err:
-			_LOGGER.error(f"Failed to fetch location for child {account_id}: {err}")
+			_LOGGER.error("Failed to fetch location: %s", err)
 			return None
 
 	async def async_block_app(self, package_name: str, account_id: str | None = None) -> bool:
@@ -775,16 +770,16 @@ class FamilyLinkClient:
 				data=payload
 			) as response:
 				response.raise_for_status()
-				_LOGGER.info(f"Successfully blocked app: {package_name}")
+				_LOGGER.info("Successfully blocked app")
 				return True
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
-			_LOGGER.error(f"Failed to block app {package_name}: {err}")
+			_LOGGER.error("Failed to block app: %s", err)
 			return False
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error blocking app {package_name}: {err}")
+			_LOGGER.error("Unexpected error blocking app: %s", err)
 			return False
 
 	async def async_unblock_app(self, package_name: str, account_id: str | None = None) -> bool:
@@ -820,16 +815,16 @@ class FamilyLinkClient:
 				data=payload
 			) as response:
 				response.raise_for_status()
-				_LOGGER.info(f"Successfully unblocked app: {package_name}")
+				_LOGGER.info("Successfully unblocked app")
 				return True
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
-			_LOGGER.error(f"Failed to unblock app {package_name}: {err}")
+			_LOGGER.error("Failed to unblock app: %s", err)
 			return False
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error unblocking app {package_name}: {err}")
+			_LOGGER.error("Unexpected error unblocking app: %s", err)
 			return False
 
 	async def async_set_app_daily_limit(
@@ -862,17 +857,17 @@ class FamilyLinkClient:
 				# Unlimited time: [account_id, [[[package_name], null, null, [1]]]]
 				# App ignores device daily limits entirely
 				payload = json.dumps([account_id, [[[package_name], None, None, [1]]]])
-				_LOGGER.debug(f"Setting app to unlimited time: {package_name}")
+				_LOGGER.debug("Setting app to unlimited time")
 			elif minutes >= 0:
 				# Set limit: [account_id, [[[package_name], null, [minutes, 1]]]]
 				# Note: minutes=0 means 0 minutes allowed (app completely blocked for today)
 				payload = json.dumps([account_id, [[[package_name], None, [minutes, 1]]]])
-				_LOGGER.debug(f"Setting app daily limit: {package_name} = {minutes} minutes")
+				_LOGGER.debug("Setting app daily limit=%s minutes", minutes)
 			else:
 				# Remove limit entirely (minutes == -1): [account_id, [[[package_name]]]]
 				# This disables the per-app limit (app follows device limits)
 				payload = json.dumps([account_id, [[[package_name]]]])
-				_LOGGER.debug(f"Removing app daily limit: {package_name}")
+				_LOGGER.debug("Removing app daily limit")
 
 			async with session.post(
 				self._people_url(account_id, "apps:updateRestrictions"),
@@ -884,20 +879,20 @@ class FamilyLinkClient:
 			) as response:
 				response.raise_for_status()
 				if minutes == -2:
-					_LOGGER.info(f"Successfully set app to unlimited time: {package_name}")
+					_LOGGER.info("Successfully set app to unlimited time")
 				elif minutes >= 0:
-					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} minutes")
+					_LOGGER.info("Successfully set app daily limit=%s minutes", minutes)
 				else:
-					_LOGGER.info(f"Successfully removed app daily limit: {package_name}")
+					_LOGGER.info("Successfully removed app daily limit")
 				return True
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
-			_LOGGER.error(f"Failed to set app daily limit for {package_name}: {err}")
+			_LOGGER.error("Failed to set app daily limit: %s", err)
 			return False
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error setting app daily limit for {package_name}: {err}")
+			_LOGGER.error("Unexpected error setting app daily limit: %s", err)
 			return False
 
 	async def async_block_device_for_school(
@@ -955,7 +950,7 @@ class FamilyLinkClient:
 			if package_name in whitelist_set:
 				# Unblock whitelisted apps that are currently blocked
 				if is_blocked:
-					_LOGGER.debug(f"Unblocking whitelisted app: {package_name}")
+					_LOGGER.debug("Unblocking whitelisted app")
 					success = await self.async_unblock_app(package_name, account_id)
 					if success:
 						unblocked.append({
@@ -966,12 +961,12 @@ class FamilyLinkClient:
 						failed.append(package_name)
 					await asyncio.sleep(0.1)
 				else:
-					_LOGGER.debug(f"Skipping whitelisted app (already allowed): {package_name}")
+					_LOGGER.debug("Skipping whitelisted app (already allowed)")
 				continue
 
 			# Skip if already blocked
 			if is_blocked:
-				_LOGGER.debug(f"App already blocked: {package_name}")
+				_LOGGER.debug("App already blocked")
 				continue
 
 			# Block the app
@@ -1093,8 +1088,7 @@ class FamilyLinkClient:
 			])
 
 			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
-			_LOGGER.debug(f"Requesting device {action}: POST {url}")
-			_LOGGER.debug(f"Payload: {payload}")
+			_LOGGER.debug("Requesting device action=%s", action)
 
 			async with session.post(
 				url,
@@ -1108,16 +1102,16 @@ class FamilyLinkClient:
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Device control failed {response.status}: {response_text}")
+					_LOGGER.error("Device control failed with HTTP %s", response.status)
 					return False
 
 				response_data = await response.json()
-				_LOGGER.debug(f"Device control response: {response_data}")
-				_LOGGER.info(f"Successfully {action}ed device {device_id}")
+				_LOGGER.debug("Device control response received")
+				_LOGGER.info("Successfully completed device action=%s", action)
 				return True
 
 		except Exception as err:
-			_LOGGER.error("Failed to control device %s: %s", device_id, err)
+			_LOGGER.error("Failed to control device action=%s: %s", action, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
 
 	async def async_ring_device(self, device_id: str, child_id: str | None = None) -> bool:
@@ -1158,8 +1152,7 @@ class FamilyLinkClient:
 			])
 
 			url = self._people_url(account_id, f"devices/{device_id}:executeRemoteAction")
-			_LOGGER.debug(f"Requesting device ring: POST {url}")
-			_LOGGER.debug(f"Payload: {payload}")
+			_LOGGER.debug("Requesting device ring")
 
 			async with session.post(
 				url,
@@ -1173,16 +1166,16 @@ class FamilyLinkClient:
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Device ring failed {response.status}: {response_text}")
+					_LOGGER.error("Device ring failed with HTTP %s", response.status)
 					return False
 
 				response_data = await response.json()
-				_LOGGER.debug(f"Device ring response: {response_data}")
-				_LOGGER.info(f"Successfully rang device {device_id}")
+				_LOGGER.debug("Device ring response received")
+				_LOGGER.info("Successfully rang device")
 				return True
 
 		except Exception as err:
-			_LOGGER.error("Failed to ring device %s: %s", device_id, err)
+			_LOGGER.error("Failed to ring device: %s", err)
 			raise DeviceControlError(f"Failed to ring device: {err}") from err
 
 	# Policy ids observed at item[7] of every window row (timeLimit and
@@ -1343,7 +1336,7 @@ class FamilyLinkClient:
 			url = self._people_url(account_id, "appliedTimeLimits")
 			params = [("capabilities", "TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME")]
 
-			_LOGGER.debug(f"Fetching applied time limits from {url}")
+			_LOGGER.debug("Fetching applied time limits")
 
 			async with session.get(
 				url,
@@ -1359,11 +1352,11 @@ class FamilyLinkClient:
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
+					_LOGGER.error("Applied time limits API returned HTTP %s", response.status)
 					raise NetworkError(f"Failed to fetch applied time limits: HTTP {response.status}")
 
 				data = await response.json()
-				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")
+				_LOGGER.debug("Applied time limits response received")
 
 				device_lock_states = {}
 				devices = {}
@@ -1434,7 +1427,6 @@ class FamilyLinkClient:
 							override_type = device_data[0][2] if len(device_data[0]) > 2 else None
 							if override_type in (6, 10):
 								override_id = device_data[0][0]
-								override_device_id = device_data[0][3]
 								bonus_seconds = None
 
 								if (override_type == 10 and len(device_data[0]) > 13 and
@@ -1456,18 +1448,16 @@ class FamilyLinkClient:
 									device_info["bonus_override_id"] = override_id
 									device_info["bonus_minutes"] = bonus_seconds // 60
 									_LOGGER.debug(
-										f"Device {override_device_id}: Found bonus override - "
-										f"id={override_id}, type={override_type}, "
-										f"duration={bonus_seconds // 60}min ({bonus_seconds}s)"
+										"Found bonus override type=%s duration_minutes=%s duration_seconds=%s",
+										override_type, bonus_seconds // 60, bonus_seconds,
 									)
 								else:
 									# Unknown duration encoding: still expose the
 									# override id so cancel and verification work.
 									device_info["bonus_override_id"] = override_id
 									_LOGGER.debug(
-										f"Device {override_device_id}: bonus override "
-										f"{override_id} (type={override_type}) with "
-										f"unparsed duration"
+										"Found bonus override type=%s with unparsed duration",
+										override_type,
 									)
 
 
@@ -1480,35 +1470,44 @@ class FamilyLinkClient:
 								pos19_ms = int(device_data[19])
 								pos19_mins = pos19_ms // 60000
 								_LOGGER.debug(
-									f"Device {device_id}: Position 19 contains {pos19_mins} minutes ({pos19_ms} ms) "
-									f"- override_id={device_info.get('bonus_override_id')}"
+									"Position 19 contains minutes=%s milliseconds=%s",
+									pos19_mins, pos19_ms,
 								)
 
 							# Parse used time from position 20
 							if isinstance(device_data[20], str) and device_data[20].isdigit():
 								used_ms = int(device_data[20])
 								device_info["used_minutes"] = used_ms // 60000
-								_LOGGER.debug(f"Device {device_id}: Used time = {device_info['used_minutes']} minutes ({used_ms} ms)")
+								_LOGGER.debug(
+									"Used time minutes=%s milliseconds=%s",
+									device_info["used_minutes"], used_ms,
+								)
 
 						# Parse windows and CAEQBg/CAMQ tuples
 						# Look for bedtime window (indices vary, usually around 3-10)
 						# Look for schooltime window
 						# Look for CAEQBg (daily limit) tuple
 						# Format: ["CAEQBg", day, stateFlag, minutes_or_hours, ...]
-						_LOGGER.debug(f"Device {device_id}: device_data has {len(device_data)} elements")
-						_LOGGER.debug(f"Device {device_id}: First 10 elements (types): {[type(x).__name__ for x in device_data[:10]]}")
+						_LOGGER.debug("Device data element count=%d", len(device_data))
+						_LOGGER.debug("Inspected device time-limit element types")
 
 						# Get current day of week (1=Monday, 7=Sunday)
 						current_day = dt_util.now().isoweekday()
-						_LOGGER.debug(f"Device {device_id}: Current day of week: {current_day}")
+						_LOGGER.debug("Current weekday=%d", current_day)
 
 						# Google's own typing of the window rows (issue #151).
 						typed_windows = self._collect_typed_windows(device_data)
-						_LOGGER.debug(f"Device {device_id}: typed window section: {typed_windows}")
+						_LOGGER.debug(
+							"Device has %d typed time-window rows", len(typed_windows)
+						)
 
 						for idx, item in enumerate(device_data):
 							if isinstance(item, list) and len(item) >= 4:
-								_LOGGER.debug(f"Device {device_id}: item[{idx}] is list with {len(item)} elements, first element: {item[0]}")
+								_LOGGER.debug(
+									"Device time-limit item index=%d length=%d",
+									idx,
+									len(item),
+								)
 								if isinstance(item[0], str):
 									first_elem = item[0]
 									is_caeq = first_elem.startswith("CAEQ")
@@ -1518,8 +1517,8 @@ class FamilyLinkClient:
 
 									if is_uuid:
 										_LOGGER.debug(
-											f"Device {device_id}: UUID-format identifier detected at index {idx}: "
-											f"{first_elem} (tuple length={len(item)})"
+											"UUID-format identifier detected index=%d length=%d",
+											idx, len(item),
 										)
 
 									if is_known_prefix or is_uuid:
@@ -1530,8 +1529,8 @@ class FamilyLinkClient:
 											minutes = item[3] if len(item) > 3 else None
 
 											_LOGGER.debug(
-												f"Device {device_id}: Found daily limit at index {idx}: "
-												f"id={first_elem}, day={day}, state_flag={state_flag}, minutes={minutes}"
+												"Found daily limit index=%s day=%s state=%s minutes=%s",
+												idx, day, state_flag, minutes,
 											)
 
 											# Daily limit is ACTIVE only if:
@@ -1550,12 +1549,12 @@ class FamilyLinkClient:
 														device_info["daily_limit_enabled"] = daily_enabled
 														device_info["daily_limit_minutes"] = minutes
 
-													_LOGGER.debug(
-														f"Device {device_id}: CURRENT DAY ({day}) daily_limit - "
-														f"index={idx}, position_active={is_active_position}, "
-														f"state_flag={state_flag}, enabled_flag={is_enabled_flag}, "
-														f"FINAL enabled={daily_enabled}, minutes={minutes}"
-													)
+												_LOGGER.debug(
+													"Current-day daily limit day=%s index=%s position_active=%s "
+													"state=%s enabled_flag=%s enabled=%s minutes=%s",
+													day, idx, is_active_position, state_flag,
+													is_enabled_flag, daily_enabled, minutes,
+												)
 										elif len(item) == 8:
 											# Time window (8 elements): bedtime or school time.
 											# Classified by the key prefix (CAEQ/CAMQ) or, for
@@ -1576,8 +1575,10 @@ class FamilyLinkClient:
 											parse_as_schooltime = window_type == "schooltime"
 
 											_LOGGER.debug(
-												f"Device {device_id}: {first_elem} is {window_type} window (8 elements, by {classify_reason}) - "
-												f"day={day}, state_flag={state_flag}, start={start_time}, end={end_time}"
+												"Classified time window index=%s length=%s type=%s reason=%s "
+												"day=%s state=%s start=%s end=%s",
+												idx, len(item), window_type, classify_reason,
+												day, state_flag, start_time, end_time,
 											)
 
 											# A window row is keyed by the day its occurrence STARTS. Today's
@@ -1611,8 +1612,9 @@ class FamilyLinkClient:
 													# midnight and is still running now.
 													if not crosses_midnight or now >= end_dt:
 														_LOGGER.debug(
-															f"Device {device_id}: {window_type} row for yesterday (day {day}) "
-															f"{start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d} is over, ignored"
+															"Time window type=%s day=%s start=%02d:%02d end=%02d:%02d "
+															"is over and was ignored",
+															window_type, day, start_hour, start_min, end_hour, end_min,
 														)
 														continue
 													start_dt -= timedelta(days=1)
@@ -1647,8 +1649,8 @@ class FamilyLinkClient:
 												if parse_as_bedtime:
 													if _keep_existing("bedtime"):
 														_LOGGER.debug(
-															f"Device {device_id}: bedtime row for day {day} ignored, "
-															f"an active bedtime window is already recorded"
+															"Bedtime row day=%s ignored because an active window is recorded",
+															day,
 														)
 														continue
 													device_info["bedtime_window"] = window_data
@@ -1660,15 +1662,15 @@ class FamilyLinkClient:
 														bedtime_enabled_today = True
 
 													_LOGGER.debug(
-														f"Device {device_id}: Bedtime window parsed - "
-														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+														"Bedtime window parsed start=%02d:%02d end=%02d:%02d current=%s active=%s",
+														start_hour, start_min, end_hour, end_min,
+														now.strftime("%H:%M"), window_active,
 													)
 												elif parse_as_schooltime:
 													if _keep_existing("schooltime"):
 														_LOGGER.debug(
-															f"Device {device_id}: schooltime row for day {day} ignored, "
-															f"an active school time window is already recorded"
+															"School-time row day=%s ignored because an active window is recorded",
+															day,
 														)
 														continue
 													device_info["schooltime_window"] = window_data
@@ -1677,9 +1679,9 @@ class FamilyLinkClient:
 														schooltime_enabled_today = True
 
 													_LOGGER.debug(
-														f"Device {device_id}: Schooltime window parsed - "
-														f"start={start_hour:02d}:{start_min:02d}, end={end_hour:02d}:{end_min:02d}, "
-														f"current_time={now.strftime('%H:%M')}, active={window_active}"
+														"School-time window parsed start=%02d:%02d end=%02d:%02d current=%s active=%s",
+														start_hour, start_min, end_hour, end_min,
+														now.strftime("%H:%M"), window_active,
 													)
 
 							# Look for window objects (arrays with 2 epoch timestamps)
@@ -1695,12 +1697,12 @@ class FamilyLinkClient:
 												device_info["bedtime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
 												device_info["bedtime_active"] = True
 												bedtime_enabled_today = True
-												_LOGGER.debug(f"Device {device_id}: bedtime window {start_ms}-{end_ms}")
+												_LOGGER.debug("Bedtime window start_ms=%s end_ms=%s", start_ms, end_ms)
 											elif device_info["schooltime_window"] is None:
 												device_info["schooltime_window"] = {"start_ms": start_ms, "end_ms": end_ms}
 												device_info["schooltime_active"] = True
 												schooltime_enabled_today = True
-												_LOGGER.debug(f"Device {device_id}: schooltime window {start_ms}-{end_ms}")
+												_LOGGER.debug("School-time window start_ms=%s end_ms=%s", start_ms, end_ms)
 									except (ValueError, TypeError):
 										pass
 
@@ -1724,7 +1726,7 @@ class FamilyLinkClient:
 									device_info["total_allowed_minutes"] = bonus_mins
 									device_info["remaining_minutes"] = bonus_mins
 									_LOGGER.debug(
-										f"Device {device_id}: BONUS ACTIVE - "
+										f"Bonus active: "
 										f"bonus={bonus_mins} min (from override), "
 										f"daily_limit={daily_limit_mins} min, "
 										f"used={used_mins} min, "
@@ -1735,19 +1737,19 @@ class FamilyLinkClient:
 									device_info["total_allowed_minutes"] = daily_limit_mins
 									device_info["remaining_minutes"] = max(0, daily_limit_mins - used_mins)
 									_LOGGER.debug(
-										f"Device {device_id}: NO BONUS - "
+										f"No bonus: "
 										f"daily_limit={daily_limit_mins}, used={used_mins}, "
 										f"remaining={device_info['remaining_minutes']}"
 									)
 
 						# Log final daily_limit values for this device
 						_LOGGER.debug(
-							f"Device {device_id}: daily_limit_enabled={device_info.get('daily_limit_enabled', False)}, "
+							f"Daily limit enabled={device_info.get('daily_limit_enabled', False)}, "
 							f"daily_limit_minutes={device_info.get('daily_limit_minutes', 0)}"
 						)
 
 						devices[device_id] = device_info
-						_LOGGER.debug(f"Device {device_id} parsed: {device_info}")
+						_LOGGER.debug("Parsed device time-limit data")
 
 				return {
 					"device_lock_states": device_lock_states,
@@ -1806,7 +1808,7 @@ class FamilyLinkClient:
 				return False
 			_LOGGER.info(
 				f"Time bonus of {bonus_minutes} minutes ({shape} shape) accepted "
-				f"by Google for device {device_id}, verifying it was applied"
+				"by Google; verifying it was applied"
 			)
 			if await self._async_verify_bonus_applied(account_id, device_id):
 				return True
@@ -1826,8 +1828,7 @@ class FamilyLinkClient:
 						account_id, created.group(0)
 					)
 				_LOGGER.warning(
-					f"ChromeOS-shape bonus not visible for device {device_id}, "
-					f"retrying with the legacy Android shape"
+					"ChromeOS-shape bonus not visible; retrying with the legacy Android shape"
 				)
 				ok, _ = await self._async_post_bonus_override(
 					account_id, device_id, bonus_seconds, "android"
@@ -1838,7 +1839,7 @@ class FamilyLinkClient:
 			return True
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error adding time bonus: {err}")
+			_LOGGER.error("Unexpected error adding time bonus: %s", err)
 			return False
 
 	# ChromeOS device ids observed in the wild are much longer (91 chars) than
@@ -1886,7 +1887,7 @@ class FamilyLinkClient:
 
 		url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 		_LOGGER.debug(
-			f"Posting {shape}-shape time bonus ({bonus_seconds}s) to device {device_id}"
+			"Posting %s-shape time bonus duration_seconds=%s", shape, bonus_seconds
 		)
 
 		async with session.post(
@@ -1899,16 +1900,13 @@ class FamilyLinkClient:
 		) as response:
 			response_text = await response.text()
 			if response.status != 200:
-				_LOGGER.error(f"Failed to add time bonus {response.status}: {response_text}")
+				_LOGGER.error("Failed to add time bonus with HTTP %s", response.status)
 				return False, response_text
 
 			# Google acknowledges the batchCreate with HTTP 200 even when the
 			# override never takes effect on the target device (issue #141),
 			# so a 200 alone is not proof of success.
-			_LOGGER.debug(
-				f"Time bonus batchCreate response for device {device_id}: "
-				f"{response_text[:300]}"
-			)
+			_LOGGER.debug("Time bonus batchCreate response received")
 			return True, response_text
 
 	async def _async_verify_bonus_applied(self, account_id: str, device_id: str) -> bool:
@@ -1930,20 +1928,19 @@ class FamilyLinkClient:
 				override_id = device_data.get("bonus_override_id")
 				if override_id:
 					_LOGGER.info(
-						f"Time bonus verified for device {device_id}: override "
-						f"{override_id}, {device_data.get('bonus_minutes', 0)} min "
-						f"visible in applied time limits"
+						"Time bonus verified duration_minutes=%s",
+						device_data.get("bonus_minutes", 0),
 					)
 					return True
 			_LOGGER.warning(
-				f"Time bonus for device {device_id} was accepted by Google "
+				f"Time bonus was accepted by Google "
 				f"(HTTP 200) but is still not visible in applied time limits "
 				f"after two checks: the device did not apply this override "
 				f"shape (issue #141)"
 			)
 			return False
 		except Exception as err:
-			_LOGGER.debug(f"Could not verify time bonus application: {err}")
+			_LOGGER.debug("Could not verify time bonus application: %s", err)
 			return True
 
 	async def async_cancel_time_bonus(
@@ -1973,7 +1970,7 @@ class FamilyLinkClient:
 			# Use POST with $httpMethod=DELETE query parameter (Google API convention)
 			self._validate_id(override_id, "override_id")
 			url = self._people_url(account_id, f"timeLimitOverride/{override_id}") + "?$httpMethod=DELETE"
-			_LOGGER.debug(f"Cancelling time bonus override {override_id} for account {account_id}")
+			_LOGGER.debug("Cancelling time bonus override")
 
 			async with session.post(
 				url,
@@ -1984,18 +1981,15 @@ class FamilyLinkClient:
 			) as response:
 				response_text = await response.text()
 				if response.status != 200:
-					_LOGGER.error(f"Failed to cancel time bonus {response.status}: {response_text}")
+					_LOGGER.error("Failed to cancel time bonus with HTTP %s", response.status)
 					return False
 
-				_LOGGER.debug(
-					f"Time bonus delete response for override {override_id}: "
-					f"{response_text[:300]}"
-				)
-				_LOGGER.info(f"Successfully cancelled time bonus override {override_id}")
+				_LOGGER.debug("Time bonus delete response received")
+				_LOGGER.info("Successfully cancelled time bonus override")
 				return True
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error cancelling time bonus: {err}")
+			_LOGGER.error("Unexpected error cancelling time bonus: %s", err)
 			return False
 
 	# Day-of-week → day_code used by Google's batchCreate payloads (bedtime
@@ -2079,8 +2073,8 @@ class FamilyLinkClient:
 
 		bedtime_schedule = time_limit_data.get("bedtime_schedule") or []
 		_LOGGER.debug(
-			"Bedtime schedule has %d entries (looking for weekday %d): %s",
-			len(bedtime_schedule), weekday, bedtime_schedule,
+			"Bedtime schedule entries=%d weekday=%d",
+			len(bedtime_schedule), weekday,
 		)
 
 		start, end = [21, 30], [7, 0]
@@ -2126,10 +2120,9 @@ class FamilyLinkClient:
 				params={"$httpMethod": "PUT"},
 			) as response:
 				if response.status != 200:
-					response_text = await response.text()
 					_LOGGER.error(
-						"Failed to update weekly bedtime policy (HTTP %s): %s",
-						response.status, response_text,
+						"Failed to update weekly bedtime policy (HTTP %s)",
+						response.status,
 					)
 					return False
 
@@ -2150,8 +2143,8 @@ class FamilyLinkClient:
 			])
 			override_url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(
-				"Applying bedtime override action=%s window=%s-%s day_code=%s rule=%s",
-				action, start, end, day_code, rule_id,
+				"Applying bedtime override action=%s window=%s-%s day=%s",
+				action, start, end, weekday,
 			)
 			async with session.post(
 				override_url,
@@ -2162,18 +2155,17 @@ class FamilyLinkClient:
 				data=override_payload,
 			) as response:
 				if response.status != 200:
-					response_text = await response.text()
 					_LOGGER.error(
 						"Bedtime weekly policy was updated but the daily override failed "
-						"(HTTP %s): %s — tonight may not reflect the change",
-						response.status, response_text,
+						"(HTTP %s); tonight may not reflect the change",
+						response.status,
 					)
 					return False
 
 			_LOGGER.info(
-				"Successfully %s bedtime for account %s (weekly + tonight %02d:%02d-%02d:%02d)",
+				"Successfully %s bedtime (weekly + tonight %02d:%02d-%02d:%02d)",
 				"enabled" if enable else "disabled",
-				account_id, start[0], start[1], end[0], end[1],
+				start[0], start[1], end[0], end[1],
 			)
 			return True
 
@@ -2231,14 +2223,14 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					_LOGGER.error(
-						"Failed to update weekly policy %s to %s (HTTP %s): %s",
-						rule_id, enable, response.status, await response.text(),
+						"Failed to update weekly policy state=%s (HTTP %s)",
+						enable, response.status,
 					)
 					return False
-			_LOGGER.info(f"Weekly policy {rule_id} set to {'ON' if enable else 'OFF'}")
+			_LOGGER.info("Weekly policy set to %s", "ON" if enable else "OFF")
 			return True
 		except Exception as err:
-			_LOGGER.error(f"Error updating weekly policy {rule_id}: {err}")
+			_LOGGER.error("Error updating weekly policy: %s", err)
 			return False
 
 	async def async_set_weekly_daily_limit(
@@ -2270,8 +2262,8 @@ class FamilyLinkClient:
 			if slot is None:
 				slot = self._DAY_CODES[day]
 				_LOGGER.warning(
-					f"Could not resolve the live daily-limit slot for account {account_id}, "
-					f"day {day}; falling back to {slot}"
+					"Could not resolve live daily-limit slot day=%s fallback_used=True",
+					day,
 				)
 			payload = json.dumps([
 				None,
@@ -2288,15 +2280,17 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					_LOGGER.error(
-						"Failed to set the weekly daily limit for day %s to %s min (HTTP %s): %s",
-						day, daily_minutes, response.status, await response.text(),
+						"Failed to set weekly daily limit day=%s minutes=%s (HTTP %s)",
+						day, daily_minutes, response.status,
 					)
 					return False
-			_LOGGER.info(f"Weekly daily limit for day {day} set to {daily_minutes} min (slot {slot})")
+			_LOGGER.info(
+				"Weekly daily limit set day=%s minutes=%s", day, daily_minutes
+			)
 			self._weekly_slot_cache.pop(account_id, None)
 			return True
 		except Exception as err:
-			_LOGGER.error(f"Error setting the weekly daily limit for day {day}: {err}")
+			_LOGGER.error("Error setting the weekly daily limit for day %s: %s", day, err)
 			return False
 
 	async def _async_apply_school_time_today(
@@ -2372,8 +2366,8 @@ class FamilyLinkClient:
 
 			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
 			_LOGGER.debug(
-				"Applying school time override action=%s window=%s-%s weekday=%s rule=%s",
-				action, start, end, weekday, rule_id,
+				"Applying school time override action=%s window=%s-%s weekday=%s",
+				action, start, end, weekday,
 			)
 
 			async with session.post(
@@ -2385,17 +2379,16 @@ class FamilyLinkClient:
 				data=payload,
 			) as response:
 				if response.status != 200:
-					response_text = await response.text()
 					_LOGGER.error(
-						"Failed to create school time override (HTTP %s): %s",
-						response.status, response_text,
+						"Failed to create school time override (HTTP %s)",
+						response.status,
 					)
 					return False
 
 				_LOGGER.info(
-					"Successfully %s school time today for account %s (window %02d:%02d-23:59)",
+					"Successfully %s school time today (window %02d:%02d-23:59)",
 					"enabled" if enable else "disabled",
-					account_id, start[0], start[1],
+					start[0], start[1],
 				)
 				return True
 
@@ -2519,8 +2512,8 @@ class FamilyLinkClient:
 
 		if matches:
 			_LOGGER.debug(
-				"Found %d existing schooltime override(s) for weekday=%s: %s",
-				len(matches), weekday, matches,
+				"Found schooltime overrides count=%d weekday=%s",
+				len(matches), weekday,
 			)
 		return matches
 
@@ -2540,16 +2533,14 @@ class FamilyLinkClient:
 				params={"$httpMethod": "DELETE"},
 			) as response:
 				if response.status != 200:
-					response_text = await response.text()
 					_LOGGER.warning(
-						"Failed to delete override %s (HTTP %s): %s",
-						override_uuid, response.status, response_text,
+						"Failed to delete override (HTTP %s)", response.status,
 					)
 					return False
-				_LOGGER.debug("Deleted school time override %s", override_uuid)
+				_LOGGER.debug("Deleted school time override")
 				return True
-		except Exception as err:
-			_LOGGER.warning("Error deleting override %s: %s", override_uuid, err)
+		except Exception:
+			_LOGGER.exception("Error deleting school time override")
 			return False
 
 	async def async_enable_daily_limit(self, account_id: str | None = None) -> bool:
@@ -2582,7 +2573,7 @@ class FamilyLinkClient:
 			])
 
 			url = self._people_url(account_id, "timeLimit:update")
-			_LOGGER.debug(f"Enabling daily limit for account {account_id}")
+			_LOGGER.debug("Enabling daily limit")
 
 			async with session.put(
 				url,
@@ -2595,14 +2586,14 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to enable daily limit {response.status}: {response_text}")
+					_LOGGER.error("Failed to enable daily limit with HTTP %s", response.status)
 					return False
 
-				_LOGGER.info(f"Successfully enabled daily limit for account {account_id}")
+				_LOGGER.info("Successfully enabled daily limit")
 				return True
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error enabling daily limit: {err}")
+			_LOGGER.error("Unexpected error enabling daily limit: %s", err)
 			return False
 
 	async def async_disable_daily_limit(self, account_id: str | None = None) -> bool:
@@ -2635,7 +2626,7 @@ class FamilyLinkClient:
 			])
 
 			url = self._people_url(account_id, "timeLimit:update")
-			_LOGGER.debug(f"Disabling daily limit for account {account_id}")
+			_LOGGER.debug("Disabling daily limit")
 
 			async with session.put(
 				url,
@@ -2648,14 +2639,14 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to disable daily limit {response.status}: {response_text}")
+					_LOGGER.error("Failed to disable daily limit with HTTP %s", response.status)
 					return False
 
-				_LOGGER.info(f"Successfully disabled daily limit for account {account_id}")
+				_LOGGER.info("Successfully disabled daily limit")
 				return True
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error disabling daily limit: {err}")
+			_LOGGER.error("Unexpected error disabling daily limit: %s", err)
 			return False
 
 	async def async_set_daily_limit(
@@ -2709,8 +2700,8 @@ class FamilyLinkClient:
 			if day_code is None:
 				day_code = self._DAY_CODES[current_day]
 				_LOGGER.warning(
-					f"Could not resolve the live daily-limit slot for account "
-					f"{account_id}, day {current_day}; falling back to {day_code}"
+					"Could not resolve live daily-limit slot day=%s fallback_used=True",
+					current_day,
 				)
 
 			# Payload format: [null, account_id, [[null, null, 8, device_token, null, null, null, null, null, null, null, [2, daily_minutes, day_code]]], [1]]
@@ -2722,7 +2713,9 @@ class FamilyLinkClient:
 			])
 
 			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
-			_LOGGER.debug(f"Setting daily limit to {daily_minutes} minutes for device {device_id} (day={current_day}, code={day_code})")
+			_LOGGER.debug(
+				"Setting daily limit minutes=%s day=%s", daily_minutes, current_day
+			)
 
 			async with session.post(
 				url,
@@ -2734,32 +2727,28 @@ class FamilyLinkClient:
 			) as response:
 				response_text = await response.text()
 				if response.status != 200:
-					_LOGGER.error(f"Failed to set daily limit {response.status}: {response_text}")
+					_LOGGER.error("Failed to set daily limit with HTTP %s", response.status)
 					return False
 
 				# Google also returns HTTP 200 for overrides it silently
 				# ignores, so the response body only goes to the debug log
 				# and the effective value is read back below.
-				_LOGGER.debug(
-					f"Daily-limit batchCreate response for device {device_id}: "
-					f"{response_text[:500]}"
-				)
+				_LOGGER.debug("Daily-limit batchCreate response received")
 
 			if await self._async_verify_daily_limit_applied(account_id, device_id, daily_minutes):
 				_LOGGER.info(
-					f"Successfully set daily limit to {daily_minutes} minutes for "
-					f"device {device_id} (slot={day_code})"
+					"Successfully set daily limit minutes=%s", daily_minutes
 				)
 				return True
 
 			_LOGGER.error(
-				f"Google accepted the daily-limit request for device {device_id} "
-				f"but did not apply {daily_minutes} minutes (slot={day_code})"
+				"Google accepted the daily-limit request but did not apply minutes=%s",
+				daily_minutes,
 			)
 			return False
 
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
+			_LOGGER.error("Unexpected error setting daily limit: %s", err)
 			return False
 
 	async def _async_verify_daily_limit_applied(
@@ -2784,18 +2773,17 @@ class FamilyLinkClient:
 				observed.append(actual)
 				if actual == expected_minutes:
 					_LOGGER.info(
-						f"Daily limit verified for device {device_id}: {actual} minutes "
-						f"visible in applied time limits"
+						"Daily limit verified minutes=%s", actual
 					)
 					return True
 			_LOGGER.warning(
-				f"Daily limit for device {device_id} is still not {expected_minutes} "
+				f"Daily limit is still not {expected_minutes} "
 				f"minutes after two checks (observed={observed}): Google accepted "
 				f"the override but did not apply it (issue #157)"
 			)
 			return False
 		except Exception as err:
-			_LOGGER.debug(f"Could not verify daily limit application: {err}")
+			_LOGGER.debug("Could not verify daily limit application: %s", err)
 			return True
 
 	# Slot-id protobuf field 1 ("rule type"): 1 = bedtime, 3 = school time.
@@ -3032,6 +3020,15 @@ class FamilyLinkClient:
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
 
+		# Validate deliberate caller input before opening a session so validation
+		# reaches Home Assistant service/entity boundaries unchanged.
+		start_hour, start_min = parse_time_string(start_time)
+		end_hour, end_min = parse_time_string(end_time)
+		if day is not None and day not in self._DAY_CODES:
+			raise FamilyLinkValidationError(
+				f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)"
+			)
+
 		if not account_id:
 			account_id = await self.async_get_supervised_child_id()
 
@@ -3041,21 +3038,12 @@ class FamilyLinkClient:
 			return False
 
 		try:
-			# Parse start and end times. parse_time_string also range-checks the
-			# hours/minutes, which the old inline int() split did not: "99:99"
-			# used to reach Google and be rejected there.
-			start_hour, start_min = parse_time_string(start_time)
-			end_hour, end_min = parse_time_string(end_time)
-
 			session = await self._get_session()
 			cookie_header = self._get_cookie_header()
 
 			# Use provided day or default to today
 			if day is None:
 				day = dt_util.now().isoweekday()
-
-			if day not in self._DAY_CODES:
-				raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
 
 			day_code = self._DAY_CODES[day]
 
@@ -3084,8 +3072,8 @@ class FamilyLinkClient:
 				])
 				url = self._people_url(account_id, "timeLimit:update")
 				_LOGGER.debug(
-					"Setting WEEKLY bedtime %s-%s for day=%s (code=%s)",
-					start_time, end_time, day, day_code,
+					"Setting weekly bedtime %s-%s for day=%s",
+					start_time, end_time, day,
 				)
 				async with session.post(
 					url,
@@ -3097,10 +3085,8 @@ class FamilyLinkClient:
 					params={"$httpMethod": "PUT"},
 				) as response:
 					if response.status != 200:
-						response_text = await response.text()
 						_LOGGER.error(
-							"Failed to set weekly bedtime (HTTP %s): %s",
-							response.status, response_text,
+							"Failed to set weekly bedtime (HTTP %s)", response.status,
 						)
 						return False
 					_LOGGER.info(
@@ -3118,7 +3104,9 @@ class FamilyLinkClient:
 				[1]
 			])
 			url = self._people_url(account_id, "timeLimitOverrides:batchCreate")
-			_LOGGER.debug(f"Setting TODAY-only bedtime {start_time}-{end_time} for day={day} (code={day_code})")
+			_LOGGER.debug(
+				"Setting today-only bedtime %s-%s for day=%s", start_time, end_time, day
+			)
 
 			async with session.post(
 				url,
@@ -3130,17 +3118,19 @@ class FamilyLinkClient:
 			) as response:
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to set bedtime {response.status}: {response_text}")
+					_LOGGER.error("Failed to set bedtime with HTTP %s", response.status)
 					return False
 
 				_LOGGER.info(f"Successfully set today-only bedtime {start_time}-{end_time} for day {day}")
 				return True
 
+		except FamilyLinkValidationError:
+			raise
 		except ValueError as err:
-			_LOGGER.error(f"Invalid time format: {err}")
+			_LOGGER.error("Invalid time format: %s", err)
 			return False
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error setting bedtime: {err}")
+			_LOGGER.error("Unexpected error setting bedtime: %s", err)
 			return False
 
 	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
@@ -3172,7 +3162,7 @@ class FamilyLinkClient:
 				("timeLimitKey.type", "SUPERVISED_DEVICES")
 			]
 
-			_LOGGER.debug(f"Fetching time limit rules from {url}")
+			_LOGGER.debug("Fetching time limit rules")
 
 			async with session.get(
 				url,
@@ -3194,7 +3184,7 @@ class FamilyLinkClient:
 					response_text = await response.text()
 					# Use warning for temporary errors (503), error for others
 					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
-					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
+					log_method("Failed to fetch time limit rules (HTTP %s)", response.status)
 				if response.status != 200:
 					return {
 						"bedtime_enabled": False,
@@ -3208,11 +3198,11 @@ class FamilyLinkClient:
 					}
 
 				response_data = await response.json()
-				_LOGGER.debug(f"Time limit rules response: {response_data}")
+				_LOGGER.debug("Time limit rules response received")
 
 				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
 				if not isinstance(response_data, list) or len(response_data) < 2:
-					_LOGGER.error(f"Unexpected response structure: {response_data}")
+					_LOGGER.error("Unexpected time limit response structure")
 					return {
 						"bedtime_enabled": False,
 						"school_time_enabled": False,
@@ -3225,7 +3215,12 @@ class FamilyLinkClient:
 					}
 
 				data = response_data[1]  # Extract the real data array (index 1)
-				_LOGGER.debug(f"Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")
+				data_type = type(data).__name__
+				data_count = len(data) if isinstance(data, list) else "n/a"
+				_LOGGER.debug(
+					"Unwrapped time-limit response type=%s count=%s",
+					data_type, data_count,
+				)
 
 				# Parse bedtime and schooltime schedules
 				bedtime_schedule = []
@@ -3255,15 +3250,20 @@ class FamilyLinkClient:
 				# Look for revisions in the last element of data
 				revisions_found = False
 				if isinstance(data, list) and len(data) > 0:
-					_LOGGER.debug(f"[REVISION DEBUG] Data array has {len(data)} elements")
+					_LOGGER.debug("Time-limit response element count=%d", len(data))
 					# Search backwards from the end to find revision list
 					for idx in range(len(data) - 1, -1, -1):
 						element = data[idx]
-						_LOGGER.debug(f"[REVISION DEBUG] Checking data[{idx}], type={type(element)}, is_list={isinstance(element, list)}")
+						_LOGGER.debug(
+							"Checking time-limit element index=%d type=%s",
+							idx, type(element).__name__,
+						)
 						if not isinstance(element, list):
 							continue
 
-						_LOGGER.debug(f"[REVISION DEBUG] data[{idx}] is a list with {len(element)} items")
+						_LOGGER.debug(
+							"Time-limit list index=%d count=%d", idx, len(element)
+						)
 
 						# Filter to only revision items (exactly 4 elements with timestamp list at end)
 						# This excludes schedule items which have 7+ elements
@@ -3272,9 +3272,10 @@ class FamilyLinkClient:
 							if isinstance(item, list) and len(item) == 4 and isinstance(item[3], list)
 						]
 
-						_LOGGER.debug(f"[REVISION DEBUG] Found {len(revision_candidates)} candidates at index {idx}")
-						if len(revision_candidates) > 0:
-							_LOGGER.debug(f"[REVISION DEBUG] Candidates: {revision_candidates}")
+						_LOGGER.debug(
+							"Revision candidates count=%d index=%d",
+							len(revision_candidates), idx,
+						)
 
 						# Check if these look like valid revisions
 						if len(revision_candidates) > 0:
@@ -3285,9 +3286,14 @@ class FamilyLinkClient:
 								    isinstance(item[2], int) and item[2] in [1, 2])  # state_flag
 							]
 
-							_LOGGER.debug(f"[REVISION DEBUG] {len(valid_revisions)} valid revisions after validation")
+							_LOGGER.debug(
+								"Validated revision count=%d", len(valid_revisions)
+							)
 							if len(valid_revisions) > 0:
-								_LOGGER.debug(f"Found {len(valid_revisions)} revision entries at index {idx}")
+								_LOGGER.debug(
+									"Found revision entries count=%d index=%d",
+									len(valid_revisions), idx,
+								)
 								for revision in valid_revisions:
 									rule_id = revision[0]
 									type_flag = revision[1]
@@ -3296,12 +3302,18 @@ class FamilyLinkClient:
 									if type_flag == 1:  # downtime/bedtime
 										bedtime_enabled = (state_flag == 2)
 										bedtime_rule_id = rule_id
-										_LOGGER.debug(f"Found bedtime revision: rule_id={rule_id}, type={type_flag}, state={state_flag}, enabled={bedtime_enabled}")
+										_LOGGER.debug(
+											"Found bedtime revision type=%s state=%s enabled=%s",
+											type_flag, state_flag, bedtime_enabled,
+										)
 										revisions_found = True
 									elif type_flag == 2:  # schooltime
 										school_time_enabled = (state_flag == 2)
 										schooltime_rule_id = rule_id
-										_LOGGER.debug(f"Found schooltime revision: rule_id={rule_id}, type={type_flag}, state={state_flag}, enabled={school_time_enabled}")
+										_LOGGER.debug(
+											"Found schooltime revision type=%s state=%s enabled=%s",
+											type_flag, state_flag, school_time_enabled,
+										)
 										revisions_found = True
 								break
 
@@ -3421,8 +3433,7 @@ class FamilyLinkClient:
 					if latest_action is not None:
 						bedtime_enabled_today = (latest_action == 2)
 						_LOGGER.debug(
-							f"Most recent bedtime override for today (day_code="
-							f"{today_day_code}, ts={latest_ts}): action={latest_action} "
+							f"Most recent bedtime override for today: action={latest_action} "
 							f"-> bedtime_enabled_today={bedtime_enabled_today} "
 							f"(weekly was {bedtime_enabled})"
 						)
@@ -3461,9 +3472,9 @@ class FamilyLinkClient:
 						)
 
 				_LOGGER.info(
-					f"Time limit rules: bedtime_enabled={bedtime_enabled} (rule_id={bedtime_rule_id}, {len(bedtime_schedule)} schedules), "
+					f"Time limit rules: bedtime_enabled={bedtime_enabled} ({len(bedtime_schedule)} schedules), "
 					f"bedtime_enabled_today={bedtime_enabled_today}, "
-					f"school_time_enabled={school_time_enabled} (rule_id={schooltime_rule_id}, {len(school_time_schedule)} schedules), "
+					f"school_time_enabled={school_time_enabled} ({len(school_time_schedule)} schedules), "
 					f"school_time_enabled_today={school_time_enabled_today}"
 				)
 
@@ -3495,7 +3506,7 @@ class FamilyLinkClient:
 			try:
 				await self._session.close()
 			except Exception as e:
-				_LOGGER.debug(f"Error closing session during cleanup: {e}")
+				_LOGGER.debug("Error closing session during cleanup: %s", e)
 			self._session = None
 		# Clear cached cookie data
 		if hasattr(self, '_cookie_dict'):
@@ -3535,21 +3546,21 @@ class FamilyLinkClient:
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch contact restriction {response.status}: {response_text}")
+					_LOGGER.error("Failed to fetch contact restriction with HTTP %s", response.status)
 					raise NetworkError(f"Failed to fetch contact restriction: HTTP {response.status}")
 
 				data = await response.json()
-				_LOGGER.debug(f"Contact restriction response: {data}")
+				_LOGGER.debug("Contact restriction response received")
 
 				if isinstance(data, list) and len(data) > 2 and type(data[2]) is int:
 					return data[2]
-				_LOGGER.warning(f"Unexpected trustedcontacts response shape: {str(data)[:200]}")
+				_LOGGER.warning("Unexpected trustedcontacts response shape")
 				return None
 
 		except (SessionExpiredError, NetworkError):
 			raise
 		except Exception as err:
-			_LOGGER.error(f"Error fetching contact restriction: {err}")
+			_LOGGER.error("Error fetching contact restriction: %s", err)
 			raise NetworkError(f"Error fetching contact restriction: {err}") from err
 
 	async def async_set_contact_restriction(
@@ -3573,7 +3584,7 @@ class FamilyLinkClient:
 			url = self._people_url(account_id, "trustedcontacts:update")
 			payload = json.dumps([None, account_id, None, None, restriction_level])
 
-			_LOGGER.debug(f"Setting contact restriction level to {restriction_level} for {account_id}")
+			_LOGGER.debug("Setting contact restriction level=%s", restriction_level)
 
 			async with session.post(
 				url,
@@ -3589,15 +3600,15 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(
-						f"Failed to set contact restriction (HTTP {response.status}): {response_text}"
+						"Failed to set contact restriction with HTTP %s", response.status
 					)
 					return False
 
-				_LOGGER.info(f"Set contact restriction to {restriction_level} for {account_id}")
+				_LOGGER.info("Set contact restriction level=%s", restriction_level)
 				return True
 
 		except SessionExpiredError:
 			raise
 		except Exception as err:
-			_LOGGER.error(f"Unexpected error setting contact restriction: {err}")
+			_LOGGER.error("Unexpected error setting contact restriction: %s", err)
 			return False

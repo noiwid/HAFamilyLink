@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import logging
 import time
 from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -29,9 +29,13 @@ from .const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
 	DOMAIN,
-	LOGGER_NAME,
 )
 from .exceptions import FamilyLinkException, SessionExpiredError
+from .privacy import (
+	get_privacy_logger,
+	register_household_data,
+	replace_household_snapshot,
+)
 from .strict_mode import (
 	ACTION_CANCEL_BONUS,
 	ACTION_DISABLE_BEDTIME,
@@ -50,7 +54,7 @@ from .strict_mode import (
 	snapshot_values,
 )
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 def _gate_windows_on_policy_state(
@@ -146,15 +150,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
 			self._last_known_data = result  # Store successful result
+			replace_household_snapshot(self.entry.entry_id, result)
 			await self._async_enforce_strict_mode(result)
 			return result
 
-		except SessionExpiredError as err:
+		except SessionExpiredError:
 			# Prevent infinite retry loops
 			if self._is_retrying_auth:
 				_LOGGER.error("Session still expired after refresh - cookies are invalid")
 				await self._create_auth_notification()
-				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
+				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from None
 
 			_LOGGER.warning("Session expired, attempting to refresh authentication")
 			self._is_retrying_auth = True
@@ -167,6 +172,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
 				self._last_known_data = result  # Store successful result
+				replace_household_snapshot(self.entry.entry_id, result)
 				await self._async_enforce_strict_mode(result)
 				return result
 
@@ -174,26 +180,31 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# If it still fails after refresh, cookies are truly invalid
 				_LOGGER.error("Session still expired after refresh - please re-authenticate via add-on")
 				await self._create_auth_notification()
-				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from err
+				raise UpdateFailed("Session expired, please re-authenticate via Family Link Auth add-on") from None
+			except HomeAssistantError:
+				raise
 			except Exception as retry_err:
-				_LOGGER.error(f"Retry after auth refresh failed: {retry_err}")
-				raise UpdateFailed(f"Failed after auth refresh: {retry_err}") from retry_err
+				_LOGGER.error("Retry after auth refresh failed: %s", retry_err)
+				raise UpdateFailed("Family Link authentication refresh failed") from None
 			finally:
 				self._is_retrying_auth = False  # Always reset flag
+
+		except HomeAssistantError:
+			raise
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
 			if self._last_known_data is not None:
 				_LOGGER.info("Returning last known data due to FamilyLinkException: %s", err)
 				return self._last_known_data
-			raise UpdateFailed(f"Error communicating with Family Link: {err}") from err
+			raise UpdateFailed("Unable to communicate with Family Link") from None
 
 		except Exception as err:
 			_LOGGER.exception("Unexpected error fetching Family Link data")
 			if self._last_known_data is not None:
 				_LOGGER.info("Returning last known data due to unexpected error: %s", err)
 				return self._last_known_data
-			raise UpdateFailed(f"Unexpected error: {err}") from err
+			raise UpdateFailed("Family Link update failed") from None
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
@@ -209,6 +220,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		try:
 			members_data = await self.client.async_get_family_members()
 			family_members = members_data.get("members", [])
+			register_household_data(family_members)
 
 			# Find ALL supervised children (not just the first one)
 			for member in family_members:
@@ -220,7 +232,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		except SessionExpiredError:
 			raise  # Re-raise to trigger auth notification
 		except Exception as err:
-			_LOGGER.warning(f"Failed to fetch family members: {err}")
+			_LOGGER.warning("Failed to fetch family members: %s", err)
 
 		if not supervised_children:
 			_LOGGER.warning("No supervised children found — entities will not be created. Check your Family Link account configuration.")
@@ -230,17 +242,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		for child in supervised_children:
 			child_id = child.get("userId")
 			if not child_id:
-				_LOGGER.warning("Skipping child with missing userId: %s", child)
+				_LOGGER.warning("Skipping supervised child with missing userId")
 				continue
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
-			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
+			_LOGGER.debug("Fetching data for supervised child")
 
 			# Fetch complete apps and usage data for this child
 			apps_usage_data = None
 			cached_devices = None  # Populated from cache only if the fetch fails
 			try:
 				apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
+				register_household_data(apps_usage_data)
 				_LOGGER.debug(
 					f"Fetched for {child_name}: {len(apps_usage_data.get('apps', []))} apps, "
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
@@ -249,7 +262,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
+				_LOGGER.warning("Failed to fetch apps and usage data for %s: %s", child_name, err)
 				# Try to recover apps_usage_data from last known data cache.
 				# Note: deviceInfo is intentionally left out here — the cached
 				# child stores already-parsed `devices`, not raw deviceInfo, so
@@ -330,7 +343,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+				_LOGGER.warning("Failed to fetch time limit config for %s: %s", child_name, err)
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -374,7 +387,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
+				_LOGGER.warning("Failed to fetch applied time limits for %s: %s", child_name, err)
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -481,7 +494,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+				_LOGGER.warning("Failed to fetch screen time data for %s: %s", child_name, err)
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -506,15 +519,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 									source_device_name = device.get("name")
 									break
 						location["source_device_name"] = source_device_name
-						_LOGGER.debug(
-							f"Fetched location for {child_name}: "
-							f"({location['latitude']}, {location['longitude']}) "
-							f"place={location.get('place_name') or 'unknown'}"
-						)
+						register_household_data(location)
+						_LOGGER.debug("Fetched location data for supervised child")
 				except SessionExpiredError:
 					raise  # Re-raise to trigger auth notification
 				except Exception as err:
-					_LOGGER.warning(f"Failed to fetch location data for {child_name}: {err}")
+					_LOGGER.warning("Failed to fetch location data for %s: %s", child_name, err)
 
 			# Who can call and text the child (select entity). One call per
 			# child; on a transient error keep the last known level.
@@ -524,7 +534,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch contact restriction for {child_name}: {err}")
+				_LOGGER.warning("Failed to fetch contact restriction for %s: %s", child_name, err)
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
 						if cached_child.get("child_id") == child_id:
@@ -744,7 +754,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		try:
 			data = await self._strict_store.async_load()
 		except Exception as err:
-			_LOGGER.warning(f"Strict mode: could not load saved intents: {err}")
+			_LOGGER.warning("Strict mode: could not load saved intents: %s", err)
 			return
 		if isinstance(data, dict) and isinstance(data.get("intents"), dict):
 			self._strict_intents = data["intents"]
@@ -928,23 +938,22 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					intents["policies"].update(added)
 					self._save_strict_intents()
 					_LOGGER.info(
-						f"Strict mode: reference state for {child_data.get('child_name', child_id)} "
-						f"set from Google: {added}"
+						"Strict mode reference states captured count=%d", len(added)
 					)
 				added_values = snapshot_values(child_data, self.strict_rules, intents)
 				if added_values:
 					intents.setdefault("values", {}).update(added_values)
 					self._save_strict_intents()
 					_LOGGER.info(
-						f"Strict mode: reference values for {child_data.get('child_name', child_id)} "
-						f"set from Google: {added_values}"
+						"Strict mode reference values captured count=%d",
+						len(added_values),
 					)
 				actions = plan_strict_actions(
 					child_data, self.strict_rules, self._ha_bonus_devices(), intents,
 					today=dt_util.now().isoweekday(),
 				)
 			except Exception as err:
-				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
+				_LOGGER.warning("Strict mode could not evaluate child: %s", err)
 				continue
 			for action in actions:
 				await self._async_run_strict_action(child_data, action)
@@ -1026,7 +1035,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				if not success:
 					self.set_pending_time_limit_state(child_id, policy, None)
 		except Exception as err:
-			_LOGGER.error(f"Strict mode: {name} failed for child {child_id}: {err}")
+			_LOGGER.error("Strict mode: %s failed for child %s: %s", name, child_id, err)
 
 		if not success:
 			_LOGGER.warning(f"Strict mode: {name} for child {child_id} was not applied, will retry after cooldown")

@@ -1,7 +1,6 @@
 """Select platform for Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.select import SelectEntity
@@ -11,11 +10,13 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOGGER_NAME
+from .const import DOMAIN
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device
+from .entity import privacy_safe_entity_action
+from .privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 # Restriction levels of the trustedcontacts endpoint. 0 is what an account
 # returns before the setting has ever been touched (captured live 2026-08-26)
@@ -66,6 +67,7 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
 
     _attr_options = list(OPTION_TO_LEVEL)
     _attr_icon = "mdi:phone-lock"
+    _unrecorded_attributes = frozenset({"child_id", "child_name"})
 
     def __init__(
         self,
@@ -127,6 +129,7 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
             attributes["restriction_level"] = child_data.get("contact_restriction")
         return attributes
 
+    @privacy_safe_entity_action
     async def async_select_option(self, option: str) -> None:
         """Change who can call and text the child."""
         level = OPTION_TO_LEVEL[option]

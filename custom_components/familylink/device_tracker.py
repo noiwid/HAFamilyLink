@@ -1,7 +1,6 @@
 """Device tracker platform for Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.device_tracker import SourceType, TrackerEntity
@@ -11,11 +10,12 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, INTEGRATION_NAME, LOGGER_NAME
+from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device
+from .privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 async def async_setup_entry(
@@ -66,6 +66,12 @@ class FamilyLinkDeviceTracker(CoordinatorEntity[FamilyLinkDataUpdateCoordinator]
 	"""Representation of a Family Link device tracker for a child."""
 
 	_attr_has_entity_name = True
+	_unrecorded_attributes = frozenset(
+		{
+			"latitude", "longitude", "gps_accuracy", "source_device",
+			"place_name", "address", "location_timestamp",
+		}
+	)
 
 	def __init__(
 		self,

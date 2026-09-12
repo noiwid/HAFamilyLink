@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -24,13 +23,13 @@ from .const import (
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
 	DOMAIN,
-	INTEGRATION_NAME,
-	LOGGER_NAME,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device, via_child
+from .entity import privacy_safe_entity_action
+from .privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 async def async_setup_entry(
@@ -67,6 +66,13 @@ async def async_setup_entry(
 
 class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 	"""Representation of a Family Link device as a smart switch that accounts for all restrictions."""
+
+	_unrecorded_attributes = frozenset(
+		{
+			ATTR_DEVICE_ID, ATTR_DEVICE_NAME, "child_id", "child_name",
+			ATTR_LAST_SEEN,
+		}
+	)
 
 	def __init__(
 		self,
@@ -219,6 +225,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		return attributes
 
+	@privacy_safe_entity_action
 	async def async_turn_on(self) -> None:
 		"""Unlock device (bypass restrictions without disabling bedtime/daily_limit)."""
 		_LOGGER.info("Unlocking device %s for child %s (bypass restrictions)", self._device_id, self._child_name)
@@ -233,6 +240,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		else:
 			_LOGGER.info("Successfully unlocked device %s", self._device_id)
 
+	@privacy_safe_entity_action
 	async def async_turn_off(self) -> None:
 		"""Lock device (cancel bonus if active, then lock)."""
 		if self.coordinator.client is None:
@@ -331,6 +339,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Return the icon for the switch."""
 		return "mdi:sleep" if self.is_on else "mdi:sleep-off"
 
+	@privacy_safe_entity_action
 	async def async_turn_on(self) -> None:
 		"""Enable bedtime."""
 		if self.coordinator.client is None:
@@ -355,6 +364,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.info("Successfully enabled bedtime for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
+	@privacy_safe_entity_action
 	async def async_turn_off(self) -> None:
 		"""Disable bedtime."""
 		if self.coordinator.client is None:
@@ -382,6 +392,8 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 	"""Representation of school time (evening limit) control as a switch."""
+
+	_unrecorded_attributes = frozenset()
 
 	def __init__(
 		self,
@@ -466,6 +478,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Return the icon for the switch."""
 		return "mdi:school" if self.is_on else "mdi:school-outline"
 
+	@privacy_safe_entity_action
 	async def async_turn_on(self) -> None:
 		"""Enable school time."""
 		if self.coordinator.client is None:
@@ -489,6 +502,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.info("Successfully enabled school time for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
+	@privacy_safe_entity_action
 	async def async_turn_off(self) -> None:
 		"""Disable school time."""
 		if self.coordinator.client is None:
@@ -569,6 +583,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		"""Return the icon for the switch."""
 		return "mdi:timer" if self.is_on else "mdi:timer-off"
 
+	@privacy_safe_entity_action
 	async def async_turn_on(self) -> None:
 		"""Enable daily limit."""
 		if self.coordinator.client is None:
@@ -592,6 +607,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.info("Successfully enabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
+	@privacy_safe_entity_action
 	async def async_turn_off(self) -> None:
 		"""Disable daily limit."""
 		if self.coordinator.client is None:
@@ -626,6 +642,13 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 	the integration options. The state survives restarts; the option only
 	provides the initial value.
 	"""
+
+	_unrecorded_attributes = frozenset(
+		{
+			"child_id", "child_name", "last_action_at", "ha_decisions_today",
+			"ha_device_decisions_today", "ha_reference_values",
+		}
+	)
 
 	def __init__(
 		self,
@@ -697,12 +720,14 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 		attributes["ha_reference_values"] = intents.get("values", {})
 		return attributes
 
+	@privacy_safe_entity_action
 	async def async_turn_on(self) -> None:
 		"""Enable strict mode: an enforcement pass runs immediately."""
 		self.coordinator.set_strict_mode(self._child_id, True)
 		self.async_write_ha_state()
 		self._write_option()
 
+	@privacy_safe_entity_action
 	async def async_turn_off(self) -> None:
 		"""Disable strict mode."""
 		self.coordinator.set_strict_mode(self._child_id, False)
