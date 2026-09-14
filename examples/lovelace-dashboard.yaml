@@ -879,6 +879,8 @@ views:
         card_size: 6
         tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
         tile_layer_attribution: Family Link
+  - type: vertical-stack
+    cards:
     - type: custom:vertical-stack-in-card
       cards:
       - type: custom:button-card
@@ -977,8 +979,6 @@ views:
         card:
           type: custom:mushroom-title-card
           title: ''
-  - type: vertical-stack
-    cards:
     - type: custom:vertical-stack-in-card
       cards:
       - type: custom:button-card
