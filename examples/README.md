@@ -26,7 +26,14 @@ The YAML was exported from a real setup (Family Link 2.0). Find your own entity 
 
 ## Cards that need extra work
 
-One card references an entity the integration does **not** create: the hourly screen time chart reads `sensor.firstname_ecran_par_heure`, a template sensor that stores the minutes used in the current hour. Build an equivalent (a `derivative` or `utility_meter` helper on `sensor.firstname_name_daily_screen_time` with an hourly cycle works) or delete that card.
+Two cards reference entities the integration does **not** create:
+
+| Entity | Used for |
+|--------|----------|
+| `sensor.firstname_ecran_par_heure` | hourly screen time chart, a template sensor that stores the minutes used in the current hour (a `derivative` or `utility_meter` helper on `sensor.firstname_name_daily_screen_time` with an hourly cycle works) |
+| `sensor.firstname_pending_requests`, `button.firstname_approve_request`, `button.firstname_deny_request` | the "Incoming requests" card (app and time requests); Family Link does not expose them, the author's come from another parental-control integration |
+
+Build equivalents or delete those cards.
 
 ## Weekly limits card (2.0)
 

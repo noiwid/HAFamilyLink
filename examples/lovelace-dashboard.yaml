@@ -1103,3 +1103,101 @@ views:
         card_size: 6
         tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
         tile_layer_attribution: Family Link
+    - type: custom:vertical-stack-in-card
+      cards:
+      - type: custom:button-card
+        tap_action:
+          action: none
+        styles:
+          grid:
+          - grid-template-areas: '"t"'
+          - justify-items: start
+          card:
+          - height: 40px
+          - box-shadow: none
+          - border: none
+          - padding: 0 0 0 16px
+          - margin: 0
+          - border-bottom-left-radius: 0 !important
+          - border-bottom-right-radius: 0 !important
+          custom_fields:
+            t:
+            - grid-area: t
+            - justify-self: start
+            - align-self: center
+        card_mod:
+          style: 'ha-card { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
+        show_icon: false
+        show_name: false
+        custom_fields:
+          t: <div style="display:flex;align-items:center;gap:8px;line-height:1;"><ha-icon icon="mdi:bell-ring" style="--mdc-icon-size:20px;width:20px;height:20px;color:#fff;opacity:0.35;"></ha-icon><span style="font-size:15px;font-weight:bold;line-height:20px;display:inline-flex;align-items:center;color:var(--primary-text-color);">Incoming requests</span></div>
+      - type: custom:mod-card
+        card_mod:
+          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
+        card:
+          type: custom:mushroom-title-card
+          title: ''
+      - type: custom:button-card
+        entity: sensor.firstname_pending_requests
+        show_name: false
+        show_state: false
+        show_icon: false
+        show_label: true
+        label: "[[[\n  const n = parseInt(states['sensor.firstname_pending_requests']?.state) || 0;\n  const color = n > 0 ? 'var(--warning-color)' : 'var(--success-color)';\n  const txt = n > 0 ? n + ' pending' : 'No pending request';\n  return `<div style=\"display:flex;align-items:center;gap:10px;padding:2px 4px;\"><span style=\"width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;\"></span><span style=\"font-size:13px;color:rgba(255,255,255,0.85);\">${txt}</span></div>`;\n]]]\n"
+        tap_action:
+          action: none
+        styles:
+          card:
+          - background: transparent
+          - box-shadow: none
+          - border: none
+          - padding: 6px 12px
+          - margin: 0
+          label:
+          - width: 100%
+          - justify-self: start
+      - type: custom:stack-in-card
+        mode: horizontal
+        cards:
+        - type: custom:button-card
+          entity: button.firstname_approve_request
+          name: Approve
+          icon: mdi:check-circle
+          tap_action:
+            action: toggle
+          styles:
+            card:
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 10px 0
+            icon:
+            - color: var(--success-color)
+            - width: 22px
+            name:
+            - font-size: 12px
+            - color: rgba(255,255,255,0.8)
+        - type: custom:button-card
+          entity: button.firstname_deny_request
+          name: Deny
+          icon: mdi:close-circle
+          tap_action:
+            action: toggle
+          styles:
+            card:
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 10px 0
+            icon:
+            - color: var(--error-color)
+            - width: 22px
+            name:
+            - font-size: 12px
+            - color: rgba(255,255,255,0.8)
+      - type: custom:mod-card
+        card_mod:
+          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
+        card:
+          type: custom:mushroom-title-card
+          title: ''
