@@ -231,9 +231,9 @@ views:
             - font-weight: 500
             - z-index: 1
         - type: custom:button-card
-          entity: switch.firstname_name_strict_mode
-          name: Strict mode
-          icon: mdi:shield-lock
+          entity: switch.firstname_name_school_time
+          name: School time
+          icon: mdi:school
           tap_action:
             action: toggle
           hold_action:

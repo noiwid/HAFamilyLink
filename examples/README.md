@@ -19,7 +19,7 @@ The YAML was exported from a real setup (Family Link 2.0). Find your own entity 
 | Placeholder | Replace with |
 |-------------|--------------|
 | `sensor.firstname_name_*` (daily_screen_time, screen_time_formatted, installed_apps, blocked_apps, apps_with_time_limits, device_count, battery_level, top_app_1 to top_app_7) | your child's sensors |
-| `switch.firstname_name_bedtime`, `switch.firstname_name_daily_limit`, `switch.firstname_name_strict_mode` | your child's restriction switches and the strict mode switch |
+| `switch.firstname_name_bedtime`, `switch.firstname_name_daily_limit`, `switch.firstname_name_school_time` | your child's restriction switches (the strict mode switch, `switch.firstname_name_strict_mode`, fits the same row if you want it on the dashboard) |
 | `number.firstname_name_<weekday>_limit`, `time.firstname_name_<weekday>_bedtime_start` / `_end` | your child's weekly limits entities (2.0) |
 | `switch.sm_s916b`, `sensor.sm_s916b_*` (screen_time_remaining, daily_limit, active_bonus), `button.sm_s916b_*` (15min, 30min, 60min, reset_bonus) | your phone's entities |
 | `device_tracker.firstname_name_family_link_firstname_name` | your child's device tracker (requires GPS tracking enabled in the integration options) |
