@@ -277,7 +277,7 @@ views:
     - type: custom:vertical-stack-in-card
       cards:
       - type: custom:button-card
-        name: Phone
+        name: Kid's phone
         entity: switch.sm_s916b
         triggers_update:
         - sensor.sm_s916b_daily_limit
