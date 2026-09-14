@@ -810,6 +810,173 @@ views:
               - padding: '0'
       card_mod:
         style: 'ha-card { overflow: hidden !important; border-radius: var(--ha-card-border-radius, 12px) !important; }'
+    - type: custom:vertical-stack-in-card
+      cards:
+      - type: custom:button-card
+        entity: device_tracker.firstname_name_family_link_firstname_name
+        triggers_update:
+        - device_tracker.firstname_name_family_link_firstname_name
+        show_name: false
+        show_icon: false
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: familylink.refresh_location
+          data:
+            entity_id: device_tracker.firstname_name_family_link_firstname_name
+        custom_fields:
+          sync: '[[[ return `<ha-icon class="fl-sync" icon="mdi:sync" onmousedown="this.classList.add(''spin''); setTimeout(()=>this.classList.remove(''spin''),4000);" style="width:20px;height:20px;color:#ffffff;transition:color .2s;cursor:pointer;"></ha-icon>`; ]]]'
+          title: "[[[ \n  if (!entity) return 'Unknown';\n  const place = entity.attributes && entity.attributes.place_name;\n  let loc = place ? place : (entity.state ? entity.state.charAt(0).toUpperCase() + entity.state.slice(1) : 'Unknown');\n  \n  // orange when home, grey otherwise\n  let color = entity.state === 'home' ? '#f4b400' : 'rgba(255,255,255,0.6)';\n  \n  return `\n    <div style=\"display: flex; align-items: center; gap: 8px; cursor:pointer;\" onmousedown=\"const i=this.closest('#card')?.querySelector('.fl-sync'); if(i){i.classList.add('spin'); setTimeout(()=>i.classList.remove('spin'),4000);}\">\n      <span style=\"font-size:15px; font-weight:bold; color:var(--primary-text-color);\">Location</span>\n      <span style=\"display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: bold; color: ${color};\">\n        <ha-icon icon=\"mdi:map-marker\" style=\"--mdc-icon-size: 14px; width: 14px; height: 14px; color: ${color};\"></ha-icon>\n        ${loc}\n\
+            \      </span>\n    </div>\n  `; \n]]]"
+        extra_styles: '@keyframes fl-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+          #card { cursor: pointer; }
+
+          ha-icon.fl-sync.spin { animation: fl-spin 0.9s linear infinite; color: var(--primary-color) !important; }
+
+          #card:hover ha-icon.fl-sync { color: var(--primary-color) !important; }
+
+          '
+        styles:
+          grid:
+          - grid-template-areas: '"title sync"'
+          - grid-template-columns: 1fr auto
+          - align-items: center
+          card:
+          - height: 40px
+          - box-shadow: none
+          - border: none
+          - padding: 0 16px
+          - margin: 0
+          custom_fields:
+            title:
+            - grid-area: title
+            - justify-self: start
+            - align-self: center
+            sync:
+            - grid-area: sync
+            - justify-self: end
+            - align-self: center
+        card_mod:
+          style: 'ha-card { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
+      - type: custom:mod-card
+        card_mod:
+          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
+        card:
+          type: custom:mushroom-title-card
+          title: ''
+      - type: custom:map-card
+        card_mod:
+          style: "ha-card {\n  border: none !important;\n  box-shadow: none !important;\n  border-radius: 0 !important;\n  overflow: hidden;\n}\nha-card > div, .leaflet-container, #map, .map, ha-map {\n  border-radius: 0 !important;\n}\n"
+        entities:
+        - entity: device_tracker.firstname_name_family_link_firstname_name
+          display: icon
+          size: 35
+          color: deep-purple
+        focus_entity: device_tracker.firstname_name_family_link_firstname_name
+        theme_mode: auto
+        zoom: 15
+        card_size: 6
+        tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+        tile_layer_attribution: Family Link
+    - type: custom:vertical-stack-in-card
+      cards:
+      - type: custom:button-card
+        tap_action:
+          action: none
+        styles:
+          grid:
+          - grid-template-areas: '"t"'
+          - justify-items: start
+          card:
+          - height: 40px
+          - box-shadow: none
+          - border: none
+          - padding: 0 0 0 16px
+          - margin: 0
+          - border-bottom-left-radius: 0 !important
+          - border-bottom-right-radius: 0 !important
+          custom_fields:
+            t:
+            - grid-area: t
+            - justify-self: start
+            - align-self: center
+        card_mod:
+          style: 'ha-card { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
+        show_icon: false
+        show_name: false
+        custom_fields:
+          t: <div style="display:flex;align-items:center;gap:8px;line-height:1;"><ha-icon icon="mdi:bell-ring" style="--mdc-icon-size:20px;width:20px;height:20px;color:#fff;opacity:0.35;"></ha-icon><span style="font-size:15px;font-weight:bold;line-height:20px;display:inline-flex;align-items:center;color:var(--primary-text-color);">Incoming requests</span></div>
+      - type: custom:mod-card
+        card_mod:
+          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
+        card:
+          type: custom:mushroom-title-card
+          title: ''
+      - type: custom:button-card
+        entity: sensor.firstname_pending_requests
+        show_name: false
+        show_state: false
+        show_icon: false
+        show_label: true
+        label: "[[[\n  const n = parseInt(states['sensor.firstname_pending_requests']?.state) || 0;\n  const color = n > 0 ? 'var(--warning-color)' : 'var(--success-color)';\n  const txt = n > 0 ? n + ' pending' : 'No pending request';\n  return `<div style=\"display:flex;align-items:center;gap:10px;padding:2px 4px;\"><span style=\"width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;\"></span><span style=\"font-size:13px;color:rgba(255,255,255,0.85);\">${txt}</span></div>`;\n]]]\n"
+        tap_action:
+          action: none
+        styles:
+          card:
+          - background: transparent
+          - box-shadow: none
+          - border: none
+          - padding: 6px 12px
+          - margin: 0
+          label:
+          - width: 100%
+          - justify-self: start
+      - type: custom:stack-in-card
+        mode: horizontal
+        cards:
+        - type: custom:button-card
+          entity: button.firstname_approve_request
+          name: Approve
+          icon: mdi:check-circle
+          tap_action:
+            action: toggle
+          styles:
+            card:
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 10px 0
+            icon:
+            - color: var(--success-color)
+            - width: 22px
+            name:
+            - font-size: 12px
+            - color: rgba(255,255,255,0.8)
+        - type: custom:button-card
+          entity: button.firstname_deny_request
+          name: Deny
+          icon: mdi:close-circle
+          tap_action:
+            action: toggle
+          styles:
+            card:
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 10px 0
+            icon:
+            - color: var(--error-color)
+            - width: 22px
+            name:
+            - font-size: 12px
+            - color: rgba(255,255,255,0.8)
+      - type: custom:mod-card
+        card_mod:
+          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
+        card:
+          type: custom:mushroom-title-card
+          title: ''
   - type: vertical-stack
     cards:
     - type: custom:vertical-stack-in-card
@@ -1032,172 +1199,3 @@ views:
           name: '{{ state_attr(''sensor.firstname_name_top_app_7'', ''app_name'') | default(''Application'') }}'
           state: '{{ states(''sensor.firstname_name_top_app_7'') | round(1) }} min'
           icon: mdi:numeric-7-circle
-  - type: vertical-stack
-    cards:
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        entity: device_tracker.firstname_name_family_link_firstname_name
-        triggers_update:
-        - device_tracker.firstname_name_family_link_firstname_name
-        show_name: false
-        show_icon: false
-        show_state: false
-        tap_action:
-          action: perform-action
-          perform_action: familylink.refresh_location
-          data:
-            entity_id: device_tracker.firstname_name_family_link_firstname_name
-        custom_fields:
-          sync: '[[[ return `<ha-icon class="fl-sync" icon="mdi:sync" onmousedown="this.classList.add(''spin''); setTimeout(()=>this.classList.remove(''spin''),4000);" style="width:20px;height:20px;color:#ffffff;transition:color .2s;cursor:pointer;"></ha-icon>`; ]]]'
-          title: "[[[ \n  if (!entity) return 'Unknown';\n  const place = entity.attributes && entity.attributes.place_name;\n  let loc = place ? place : (entity.state ? entity.state.charAt(0).toUpperCase() + entity.state.slice(1) : 'Unknown');\n  \n  // orange when home, grey otherwise\n  let color = entity.state === 'home' ? '#f4b400' : 'rgba(255,255,255,0.6)';\n  \n  return `\n    <div style=\"display: flex; align-items: center; gap: 8px; cursor:pointer;\" onmousedown=\"const i=this.closest('#card')?.querySelector('.fl-sync'); if(i){i.classList.add('spin'); setTimeout(()=>i.classList.remove('spin'),4000);}\">\n      <span style=\"font-size:15px; font-weight:bold; color:var(--primary-text-color);\">Location</span>\n      <span style=\"display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: bold; color: ${color};\">\n        <ha-icon icon=\"mdi:map-marker\" style=\"--mdc-icon-size: 14px; width: 14px; height: 14px; color: ${color};\"></ha-icon>\n        ${loc}\n\
-            \      </span>\n    </div>\n  `; \n]]]"
-        extra_styles: '@keyframes fl-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
-
-          #card { cursor: pointer; }
-
-          ha-icon.fl-sync.spin { animation: fl-spin 0.9s linear infinite; color: var(--primary-color) !important; }
-
-          #card:hover ha-icon.fl-sync { color: var(--primary-color) !important; }
-
-          '
-        styles:
-          grid:
-          - grid-template-areas: '"title sync"'
-          - grid-template-columns: 1fr auto
-          - align-items: center
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 16px
-          - margin: 0
-          custom_fields:
-            title:
-            - grid-area: title
-            - justify-self: start
-            - align-self: center
-            sync:
-            - grid-area: sync
-            - justify-self: end
-            - align-self: center
-        card_mod:
-          style: 'ha-card { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
-      - type: custom:mod-card
-        card_mod:
-          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:map-card
-        card_mod:
-          style: "ha-card {\n  border: none !important;\n  box-shadow: none !important;\n  border-radius: 0 !important;\n  overflow: hidden;\n}\nha-card > div, .leaflet-container, #map, .map, ha-map {\n  border-radius: 0 !important;\n}\n"
-        entities:
-        - entity: device_tracker.firstname_name_family_link_firstname_name
-          display: icon
-          size: 35
-          color: deep-purple
-        focus_entity: device_tracker.firstname_name_family_link_firstname_name
-        theme_mode: auto
-        zoom: 15
-        card_size: 6
-        tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
-        tile_layer_attribution: Family Link
-    - type: custom:vertical-stack-in-card
-      cards:
-      - type: custom:button-card
-        tap_action:
-          action: none
-        styles:
-          grid:
-          - grid-template-areas: '"t"'
-          - justify-items: start
-          card:
-          - height: 40px
-          - box-shadow: none
-          - border: none
-          - padding: 0 0 0 16px
-          - margin: 0
-          - border-bottom-left-radius: 0 !important
-          - border-bottom-right-radius: 0 !important
-          custom_fields:
-            t:
-            - grid-area: t
-            - justify-self: start
-            - align-self: center
-        card_mod:
-          style: 'ha-card { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
-        show_icon: false
-        show_name: false
-        custom_fields:
-          t: <div style="display:flex;align-items:center;gap:8px;line-height:1;"><ha-icon icon="mdi:bell-ring" style="--mdc-icon-size:20px;width:20px;height:20px;color:#fff;opacity:0.35;"></ha-icon><span style="font-size:15px;font-weight:bold;line-height:20px;display:inline-flex;align-items:center;color:var(--primary-text-color);">Incoming requests</span></div>
-      - type: custom:mod-card
-        card_mod:
-          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
-        card:
-          type: custom:mushroom-title-card
-          title: ''
-      - type: custom:button-card
-        entity: sensor.firstname_pending_requests
-        show_name: false
-        show_state: false
-        show_icon: false
-        show_label: true
-        label: "[[[\n  const n = parseInt(states['sensor.firstname_pending_requests']?.state) || 0;\n  const color = n > 0 ? 'var(--warning-color)' : 'var(--success-color)';\n  const txt = n > 0 ? n + ' pending' : 'No pending request';\n  return `<div style=\"display:flex;align-items:center;gap:10px;padding:2px 4px;\"><span style=\"width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;\"></span><span style=\"font-size:13px;color:rgba(255,255,255,0.85);\">${txt}</span></div>`;\n]]]\n"
-        tap_action:
-          action: none
-        styles:
-          card:
-          - background: transparent
-          - box-shadow: none
-          - border: none
-          - padding: 6px 12px
-          - margin: 0
-          label:
-          - width: 100%
-          - justify-self: start
-      - type: custom:stack-in-card
-        mode: horizontal
-        cards:
-        - type: custom:button-card
-          entity: button.firstname_approve_request
-          name: Approve
-          icon: mdi:check-circle
-          tap_action:
-            action: toggle
-          styles:
-            card:
-            - background: transparent
-            - box-shadow: none
-            - border: none
-            - padding: 10px 0
-            icon:
-            - color: var(--success-color)
-            - width: 22px
-            name:
-            - font-size: 12px
-            - color: rgba(255,255,255,0.8)
-        - type: custom:button-card
-          entity: button.firstname_deny_request
-          name: Deny
-          icon: mdi:close-circle
-          tap_action:
-            action: toggle
-          styles:
-            card:
-            - background: transparent
-            - box-shadow: none
-            - border: none
-            - padding: 10px 0
-            icon:
-            - color: var(--error-color)
-            - width: 22px
-            name:
-            - font-size: 12px
-            - color: rgba(255,255,255,0.8)
-      - type: custom:mod-card
-        card_mod:
-          style: "ha-card {\n  height: 1px;\n  background: rgba(152, 152, 157, 0.3);\n  box-shadow: none;\n  border: none;\n}\n"
-        card:
-          type: custom:mushroom-title-card
-          title: ''
