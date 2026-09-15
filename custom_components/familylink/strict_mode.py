@@ -16,7 +16,9 @@ The four rules mirror the automations parents were writing by hand:
   locked on Google's side -> unlocked again; no HA decision and a Google
   unlock override (code 4) bypassing an active bedtime, school time or
   reached daily limit -> locked again, and unlocked by strict mode itself
-  once the restriction is over, as Google would have done
+  once the restriction is over, as Google would have done. A bonus granted
+  from HA suspends the relock for its duration: the parent chose to give
+  that time, the lock is put back once the bonus is over
 - ``bedtime``, ``daily_limit``, ``school_time``: the policy cannot be changed
   from the Family Link side. The reference is the state observed when strict
   mode was switched on, changed only from Home Assistant; whatever differs on
@@ -122,6 +124,7 @@ def _plan_device_lock(
 	device: dict[str, Any],
 	time_data: dict[str, Any],
 	intent: str | None,
+	ha_bonus: bool = False,
 ) -> list[dict[str, Any]]:
 	"""The device lock follows Home Assistant (rule ``lock``).
 
@@ -129,6 +132,10 @@ def _plan_device_lock(
 	"auto_lock" (a lock strict mode placed itself to counter a bypass) or
 	None. Google's manual override on the device is ``lock_override``:
 	1 locked, 4 unlocked (a bypass of the active restriction), None.
+	``ha_bonus`` says a bonus granted from Home Assistant is running on the
+	device: the parent's latest decision, so no relock while it lasts
+	(posting the bonus lifts Google's lock override, and relocking would
+	only be fought again at every poll without any effect).
 	"""
 	device_id = device.get("id")
 	locked = bool(device.get("locked", False))
@@ -139,7 +146,7 @@ def _plan_device_lock(
 		return {"action": name, "child_id": child_id, "device_id": device_id, "reason": reason, **extra}
 
 	if intent == "lock":
-		if not locked:
+		if not locked and not ha_bonus:
 			return [_action(ACTION_LOCK_DEVICE, "unlocked on Google's side while locked from Home Assistant")]
 		return []
 
@@ -153,7 +160,7 @@ def _plan_device_lock(
 			# The restriction strict mode was protecting is over: lift the
 			# lock it placed, as Google's schedule would have done.
 			return [_action(ACTION_UNLOCK_DEVICE, "restriction over, lifting the strict mode lock", clear_intent=True)]
-		if not locked:
+		if not locked and not ha_bonus:
 			return [_action(ACTION_LOCK_DEVICE, f"bypass of {active} ({'unlock override' if override == LOCK_OVERRIDE_UNLOCKED else 'lock lifted'})", record=DEVICE_INTENT_AUTO_LOCK)]
 		return []
 
@@ -216,7 +223,10 @@ def plan_strict_actions(
 				})
 
 		if STRICT_RULE_LOCK in rules and time_data:
-			actions.extend(_plan_device_lock(child_id, device, time_data, device_intents.get(device_id)))
+			actions.extend(_plan_device_lock(
+				child_id, device, time_data, device_intents.get(device_id),
+				ha_bonus=device_id in ha_bonus_devices,
+			))
 
 	for policy in POLICY_RULES:
 		if policy not in rules:

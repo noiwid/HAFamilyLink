@@ -423,24 +423,30 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			for device in devices:
 				device_id = device["id"]
 
-				# Check if we have a pending lock state change (within last 5 seconds)
+				# Check if we have a pending lock state change (within last 5 seconds).
+				# Only the lock state is provisional: the time data below must be
+				# copied whatever the lock state, otherwise the refresh that follows
+				# a lock or unlock from HA leaves the device without its daily limit
+				# fields and the child-level daily_limit_enabled aggregate reads
+				# False for one poll (the switch blinked off, and strict mode
+				# "re-enabled" a limit nobody had touched).
+				locked = device_lock_states.get(device_id, False)
 				if device_id in self._pending_lock_states:
 					pending_locked, timestamp = self._pending_lock_states[device_id]
 					age = current_time - timestamp
 
 					if age < 5.0:  # Use pending state for 5 seconds
-						device["locked"] = pending_locked
+						locked = pending_locked
 						_LOGGER.debug(
 							f"Using pending lock state for {device_id}: {pending_locked} "
 							f"(age: {age:.1f}s, API says: {device_lock_states.get(device_id)})"
 						)
-						continue
 					else:
 						# Expired, remove from pending
 						del self._pending_lock_states[device_id]
 
 				# Use real lock state from API if available, otherwise default to False
-				device["locked"] = device_lock_states.get(device_id, False)
+				device["locked"] = locked
 
 				# Enrich device with time data from devices_time_data
 				if device_id in devices_time_data:

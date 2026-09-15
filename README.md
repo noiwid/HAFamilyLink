@@ -95,7 +95,7 @@ GPS entities are only created when location tracking is enabled in the integrati
 | Rule | What is reverted |
 |------|------------------|
 | Time bonuses: those added from Family Link are cancelled | Any active bonus on a device is cancelled (bonuses given from Home Assistant are kept) |
-| Device lock: locking and unlocking reserved to Home Assistant | A device you locked from Home Assistant and unlocked on the Google side is locked again, and the reverse. Without a Home Assistant decision, an unlock done on the Google side that bypasses an active bedtime, school time or reached daily limit is locked again, and strict mode lifts that lock itself when the restriction ends, as Google's schedule would have done |
+| Device lock: locking and unlocking reserved to Home Assistant | A device you locked from Home Assistant and unlocked on the Google side is locked again, and the reverse. Without a Home Assistant decision, an unlock done on the Google side that bypasses an active bedtime, school time or reached daily limit is locked again, and strict mode lifts that lock itself when the restriction ends, as Google's schedule would have done. A bonus given from Home Assistant suspends the relock for its duration, then the lock is put back |
 | Bedtime: switching on and off reserved to Home Assistant | Bedtime switched on or off on the Google side is put back to the state chosen in Home Assistant |
 | Daily limit: switching on and off reserved to Home Assistant | Same for the daily limit |
 | School time: switching on and off reserved to Home Assistant | Same for school time. Nothing is forced on: if you keep Google's school time off and drive school hours from Home Assistant, it simply stays off |

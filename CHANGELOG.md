@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.1] - 2026-09-15
+
+Two strict mode corrections, both about corrective actions being fired when nothing needed correcting.
+
+### Fixed
+- **Strict mode: a bonus given from Home Assistant on a device locked from Home Assistant was fought at every refresh** - Posting a bonus lifts Google's lock override, so the device showed as unlocked while the lock decision of the day still stood: strict mode relocked it every 90 s, without effect while the bonus ran, one "device locked again" event each time. A bonus given from Home Assistant now suspends the relock for its duration; the lock is put back once the bonus is over.
+- **Daily limit read as switched off for one refresh after a lock or unlock from Home Assistant** - During the five seconds the lock state is provisional after a lock or unlock, the refresh skipped the copy of the device's time data, so the child-level daily limit state read as off for that poll: the daily limit switch blinked off, and with strict mode on, a "daily limit switched off on Google's side" correction (and its event) fired after every lock or unlock made from Home Assistant, re-enabling a limit nobody had touched. The time data is now copied whatever the lock state.
+
+---
+
 ## [2.0.0] - 2026-09-14
 
 Two things change the nature of the integration: it can now impose the parent's settings on Google (strict mode), and it drives the app's weekly limits screen. Nothing changes for an existing installation until the Strict mode option is switched on. Read the **Strict mode** section of the README before enabling it: while it is on, manage Family Link from Home Assistant only, changes made in the app are undone. Cumulative release of the 2.0.0-rc1 (2026-09-07) and 2.0.0-rc2 (2026-09-11) pre-releases; the auth add-on stays at 1.9.0.
