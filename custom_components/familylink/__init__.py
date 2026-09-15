@@ -1,7 +1,6 @@
 """The Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from datetime import timedelta
 from typing import Any
 
@@ -22,7 +21,6 @@ from .const import (
 	CONF_STRICT_MODE,
 	DEFAULT_STRICT_MODE,
 	DOMAIN,
-	LOGGER_NAME,
 	MAX_UPDATE_INTERVAL,
 	MIN_UPDATE_INTERVAL,
 	SERVICE_ADD_TIME_BONUS,
@@ -44,12 +42,16 @@ from .const import (
 	SERVICE_UNBLOCK_APP,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .exceptions import FamilyLinkException
+from .exceptions import FamilyLinkException, FamilyLinkValidationError
+from .entity import async_error_boundary
+from .privacy import clear_household_snapshot, get_privacy_logger
 from .schedules import parse_time_string
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.NUMBER, Platform.SENSOR, Platform.SWITCH, Platform.SELECT, Platform.TIME]
+
+_privacy_safe_handler = async_error_boundary("The Family Link service action failed")
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -258,11 +260,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		return True
 
 	except FamilyLinkException as err:
-		_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
-		raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
-	except Exception as err:
-		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
-		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
+		_LOGGER.exception("Failed to set up Family Link, will retry")
+		raise ConfigEntryNotReady("Unable to connect to Family Link") from None
+	except HomeAssistantError:
+		raise
+	except Exception:
+		_LOGGER.exception("Unexpected error setting up Family Link, will retry")
+		raise ConfigEntryNotReady("Unable to set up Family Link") from None
 
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -311,14 +315,17 @@ def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_
 
 	state = hass.states.get(entity_id)
 	if not state:
-		raise ValueError(f"Entity {entity_id} not found")
+		raise FamilyLinkValidationError("Selected entity was not found")
 
 	attributes = state.attributes
 	device_id = attributes.get("device_id")
 	child_id = attributes.get("child_id")
 
 	if require_device_id and not device_id:
-		raise ValueError(f"Entity {entity_id} does not have a device_id attribute. Please select a device switch entity.")
+		raise FamilyLinkValidationError(
+			"Selected entity does not have a device_id attribute. "
+			"Please select a device switch entity."
+		)
 
 	_LOGGER.debug(f"Extracted from {entity_id}: device_id={device_id}, child_id={child_id}")
 	return device_id, child_id
@@ -326,7 +333,6 @@ def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_
 
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
 	"""Set up services for Family Link."""
-
 	def _require_client():
 		"""Raise if the API client is not available."""
 		if coordinator.client is None:
@@ -369,10 +375,10 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 							f"{result.get('unblocked_count', 0)} unblocked, {result['failed_count']} failed"
 						)
 					except Exception as child_err:
-						_LOGGER.error(f"Failed to block device for school for {child_name}: {child_err}")
+						_LOGGER.error("Failed to block device for school for %s: %s", child_name, child_err)
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Failed to block device for school: {err}")
+			_LOGGER.error("Failed to block device for school: %s", err)
 			raise
 
 	async def handle_unblock_all_apps(call: ServiceCall) -> None:
@@ -407,7 +413,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					)
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Failed to unblock all apps: {err}")
+			_LOGGER.error("Failed to unblock all apps: %s", err)
 			raise
 
 	async def handle_block_app(call: ServiceCall) -> None:
@@ -453,7 +459,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Error blocking app {package_name}: {err}")
+			_LOGGER.error("Error blocking app %s: %s", package_name, err)
 			raise
 
 	async def handle_unblock_app(call: ServiceCall) -> None:
@@ -499,7 +505,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Error unblocking app {package_name}: {err}")
+			_LOGGER.error("Error unblocking app %s: %s", package_name, err)
 			raise
 
 	async def handle_set_app_daily_limit(call: ServiceCall) -> None:
@@ -546,7 +552,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Error setting app daily limit for {package_name}: {err}")
+			_LOGGER.error("Error setting app daily limit for %s: %s", package_name, err)
 			raise
 
 	async def handle_add_time_bonus(call: ServiceCall) -> None:
@@ -566,7 +572,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			child_id = child_id or extracted_child_id
 
 		if not device_id:
-			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+			raise FamilyLinkValidationError(
+				"device_id is required. Either select an entity or provide device_id manually."
+			)
 
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
@@ -585,7 +593,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error(f"Failed to add time bonus to device {device_id}")
 		except Exception as err:
-			_LOGGER.error(f"Error adding time bonus: {err}")
+			_LOGGER.error("Error adding time bonus: %s", err)
 			raise
 
 	async def handle_enable_bedtime(call: ServiceCall) -> None:
@@ -610,7 +618,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to enable bedtime")
 		except Exception as err:
-			_LOGGER.error(f"Error enabling bedtime: {err}")
+			_LOGGER.error("Error enabling bedtime: %s", err)
 			raise
 
 	async def handle_disable_bedtime(call: ServiceCall) -> None:
@@ -635,7 +643,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to disable bedtime")
 		except Exception as err:
-			_LOGGER.error(f"Error disabling bedtime: {err}")
+			_LOGGER.error("Error disabling bedtime: %s", err)
 			raise
 
 	async def handle_enable_school_time(call: ServiceCall) -> None:
@@ -660,7 +668,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to enable school time")
 		except Exception as err:
-			_LOGGER.error(f"Error enabling school time: {err}")
+			_LOGGER.error("Error enabling school time: %s", err)
 			raise
 
 	async def handle_disable_school_time(call: ServiceCall) -> None:
@@ -685,7 +693,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to disable school time")
 		except Exception as err:
-			_LOGGER.error(f"Error disabling school time: {err}")
+			_LOGGER.error("Error disabling school time: %s", err)
 			raise
 
 	async def handle_enable_daily_limit(call: ServiceCall) -> None:
@@ -710,7 +718,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to enable daily limit")
 		except Exception as err:
-			_LOGGER.error(f"Error enabling daily limit: {err}")
+			_LOGGER.error("Error enabling daily limit: %s", err)
 			raise
 
 	async def handle_disable_daily_limit(call: ServiceCall) -> None:
@@ -735,7 +743,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to disable daily limit")
 		except Exception as err:
-			_LOGGER.error(f"Error disabling daily limit: {err}")
+			_LOGGER.error("Error disabling daily limit: %s", err)
 			raise
 
 	async def handle_set_daily_limit(call: ServiceCall) -> None:
@@ -768,19 +776,19 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				if device.get("id")
 			]
 			if not device_ids:
-				raise ValueError(
-					f"No device known for child_id {child_id}. Check the child_id "
+				raise FamilyLinkValidationError(
+					"No device is known for the selected child. Check the target "
 					"or select a device entity instead."
 				)
 		else:
-			raise ValueError(
+			raise FamilyLinkValidationError(
 				"device_id or child_id is required. Either select an entity or "
 				"provide one of them manually."
 			)
 
 		_LOGGER.info(
 			f"Service called: set_daily_limit ({daily_minutes} minutes) for "
-			f"{len(device_ids)} device(s): {', '.join(device_ids)}"
+			f"{len(device_ids)} device(s)"
 		)
 
 		try:
@@ -807,7 +815,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 						coordinator.record_daily_limit_minutes(child_id, daily_minutes, today)
 			failed = [d for d, ok in results.items() if not ok]
 			if failed:
-				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
+				_LOGGER.error(
+					"Failed to set daily limit for device_count=%d", len(failed)
+				)
 			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "
@@ -825,7 +835,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					"the slot used and the value observed."
 				)
 		except Exception as err:
-			_LOGGER.error(f"Error setting daily limit: {err}")
+			_LOGGER.error("Error setting daily limit: %s", err)
 			raise
 
 	async def handle_set_bedtime(call: ServiceCall) -> None:
@@ -859,7 +869,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error("Failed to set bedtime")
 		except Exception as err:
-			_LOGGER.error(f"Error setting bedtime: {err}")
+			_LOGGER.error("Error setting bedtime: %s", err)
 			raise
 
 	async def handle_refresh_location(call: ServiceCall) -> None:
@@ -896,42 +906,42 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 			await coordinator.async_request_refresh()
 		except Exception as err:
-			_LOGGER.error(f"Error refreshing location: {err}")
+			_LOGGER.error("Error refreshing location: %s", err)
 			raise
 
 	# Register services
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_BLOCK_DEVICE_FOR_SCHOOL,
-		handle_block_device_for_school,
+		_privacy_safe_handler(handle_block_device_for_school),
 		schema=SCHEMA_BLOCK_DEVICE_FOR_SCHOOL,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_UNBLOCK_ALL_APPS,
-		handle_unblock_all_apps,
+		_privacy_safe_handler(handle_unblock_all_apps),
 		schema=SCHEMA_UNBLOCK_ALL_APPS,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_BLOCK_APP,
-		handle_block_app,
+		_privacy_safe_handler(handle_block_app),
 		schema=SCHEMA_BLOCK_APP,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_UNBLOCK_APP,
-		handle_unblock_app,
+		_privacy_safe_handler(handle_unblock_app),
 		schema=SCHEMA_UNBLOCK_APP,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_SET_APP_DAILY_LIMIT,
-		handle_set_app_daily_limit,
+		_privacy_safe_handler(handle_set_app_daily_limit),
 		schema=SCHEMA_SET_APP_DAILY_LIMIT,
 	)
 
@@ -973,7 +983,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			child_id = child_id or extracted_child_id
 
 		if not device_id:
-			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+			raise FamilyLinkValidationError(
+				"device_id is required. Either select an entity or provide device_id manually."
+			)
 
 		_LOGGER.info(f"Service called: ring_device for device {device_id}")
 
@@ -987,91 +999,91 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.error(f"Failed to ring device {device_id}")
 		except Exception as err:
-			_LOGGER.error(f"Error ringing device: {err}")
+			_LOGGER.error("Error ringing device: %s", err)
 			raise
 
 	# Register time management services
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_ADD_TIME_BONUS,
-		handle_add_time_bonus,
+		_privacy_safe_handler(handle_add_time_bonus),
 		schema=SCHEMA_ADD_TIME_BONUS,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_ENABLE_BEDTIME,
-		handle_enable_bedtime,
+		_privacy_safe_handler(handle_enable_bedtime),
 		schema=SCHEMA_ENABLE_BEDTIME,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_DISABLE_BEDTIME,
-		handle_disable_bedtime,
+		_privacy_safe_handler(handle_disable_bedtime),
 		schema=SCHEMA_DISABLE_BEDTIME,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_ENABLE_SCHOOL_TIME,
-		handle_enable_school_time,
+		_privacy_safe_handler(handle_enable_school_time),
 		schema=SCHEMA_ENABLE_SCHOOL_TIME,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_DISABLE_SCHOOL_TIME,
-		handle_disable_school_time,
+		_privacy_safe_handler(handle_disable_school_time),
 		schema=SCHEMA_DISABLE_SCHOOL_TIME,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_ENABLE_DAILY_LIMIT,
-		handle_enable_daily_limit,
+		_privacy_safe_handler(handle_enable_daily_limit),
 		schema=SCHEMA_ENABLE_DAILY_LIMIT,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_DISABLE_DAILY_LIMIT,
-		handle_disable_daily_limit,
+		_privacy_safe_handler(handle_disable_daily_limit),
 		schema=SCHEMA_DISABLE_DAILY_LIMIT,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_SET_DAILY_LIMIT,
-		handle_set_daily_limit,
+		_privacy_safe_handler(handle_set_daily_limit),
 		schema=SCHEMA_SET_DAILY_LIMIT,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_SET_BEDTIME,
-		handle_set_bedtime,
+		_privacy_safe_handler(handle_set_bedtime),
 		schema=SCHEMA_SET_BEDTIME,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_REFRESH_LOCATION,
-		handle_refresh_location,
+		_privacy_safe_handler(handle_refresh_location),
 		schema=SCHEMA_REFRESH_LOCATION,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_RING_DEVICE,
-		handle_ring_device,
+		_privacy_safe_handler(handle_ring_device),
 		schema=SCHEMA_RING_DEVICE,
 	)
 
 	hass.services.async_register(
 		DOMAIN,
 		SERVICE_SET_UPDATE_INTERVAL,
-		handle_set_update_interval,
+		_privacy_safe_handler(handle_set_update_interval),
 		schema=SCHEMA_SET_UPDATE_INTERVAL,
 	)
 
@@ -1086,6 +1098,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 	if unload_ok:
+		clear_household_snapshot(entry.entry_id)
 		# Remove coordinator from hass data
 		coordinator = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
 

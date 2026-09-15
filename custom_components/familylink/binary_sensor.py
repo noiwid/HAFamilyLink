@@ -1,7 +1,6 @@
 """Binary sensor platform for Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -17,12 +16,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
 	DOMAIN,
-	LOGGER_NAME,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device, via_child
+from .privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 async def async_setup_entry(
@@ -158,6 +157,9 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 	"""Binary sensor indicating if device is currently in bedtime window."""
 
 	_attr_device_class = BinarySensorDeviceClass.RUNNING
+	_unrecorded_attributes = frozenset(
+		{"device_id", "device_name", "child_id", "child_name", "bedtime_start", "bedtime_end"}
+	)
 
 	def __init__(
 		self,
@@ -224,6 +226,9 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 	"""Binary sensor indicating if device is currently in school time window."""
 
 	_attr_device_class = BinarySensorDeviceClass.RUNNING
+	_unrecorded_attributes = frozenset(
+		{"device_id", "device_name", "child_id", "child_name", "schooltime_start", "schooltime_end"}
+	)
 
 	def __init__(
 		self,
@@ -290,6 +295,9 @@ class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 	"""Binary sensor indicating if device has reached its daily time limit."""
 
 	# No device_class = returns on/off (true/false) instead of OK/PROBLEM
+	_unrecorded_attributes = frozenset(
+		{"device_id", "device_name", "child_id", "child_name"}
+	)
 
 	def __init__(
 		self,

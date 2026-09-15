@@ -8,7 +8,6 @@ scope): setting the start keeps the end, and the reverse.
 from __future__ import annotations
 
 from datetime import time
-import logging
 from typing import Any
 
 from homeassistant.components.time import TimeEntity
@@ -19,12 +18,14 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOGGER_NAME
+from .const import DOMAIN
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device
+from .entity import privacy_safe_entity_action
+from .privacy import get_privacy_logger
 from .schedules import DAY_NAMES
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 BOUND_START = "start"
 BOUND_END = "end"
@@ -57,6 +58,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 
 	_attr_has_entity_name = True
 	_attr_entity_category = EntityCategory.CONFIG
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "start", "end"})
 
 	def __init__(
 		self,
@@ -131,6 +133,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 			"end": slot.get("end"),
 		}
 
+	@privacy_safe_entity_action
 	async def async_set_value(self, value: time) -> None:
 		"""Rewrite the weekly bedtime slot of this weekday with the new bound."""
 		client = self.coordinator.client

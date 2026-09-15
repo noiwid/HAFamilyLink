@@ -1,7 +1,6 @@
 """Config flow for Google Family Link integration."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import voluptuous as vol
@@ -37,11 +36,11 @@ from .const import (
 	DEFAULT_UPDATE_INTERVAL,
 	DOMAIN,
 	INTEGRATION_NAME,
-	LOGGER_NAME,
 )
 from .exceptions import AuthenticationError
+from .privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 def _strict_rules_selector() -> selector.SelectSelector:
@@ -91,12 +90,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
 	except InvalidApiKey:
 		raise
-	except AuthenticationError as err:
+	except AuthenticationError:
 		_LOGGER.error("Authentication failed")
-		raise InvalidAuth from err
-	except Exception as err:
+		raise InvalidAuth from None
+	except Exception:
 		_LOGGER.exception("Unexpected error during validation")
-		raise CannotConnect from err
+		raise CannotConnect from None
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

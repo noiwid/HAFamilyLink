@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
+
+from .exceptions import FamilyLinkValidationError
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 DAY_NAMES = {
@@ -82,19 +84,19 @@ def format_time_pair(value: list[int]) -> str:
 def parse_time_string(value: str) -> list[int]:
 	"""Parse HH:MM into a Family Link [hour, minute] pair."""
 	if not isinstance(value, str):
-		raise ValueError("Time must be a string in HH:MM format")
+		raise FamilyLinkValidationError("Time must be a string in HH:MM format")
 
 	parts = value.split(":")
 	if len(parts) != 2:
-		raise ValueError(f"Invalid time: {value}. Expected HH:MM")
+		raise FamilyLinkValidationError(f"Invalid time: {value}. Expected HH:MM")
 
 	try:
 		pair = [int(parts[0]), int(parts[1])]
 	except ValueError as err:
-		raise ValueError(f"Invalid time: {value}. Expected HH:MM") from err
+		raise FamilyLinkValidationError(f"Invalid time: {value}. Expected HH:MM") from err
 
 	if not _is_time_pair(pair):
-		raise ValueError(f"Invalid time: {value}. Expected HH:MM in 24-hour time")
+		raise FamilyLinkValidationError(f"Invalid time: {value}. Expected HH:MM in 24-hour time")
 
 	return pair
 
@@ -102,7 +104,9 @@ def parse_time_string(value: str) -> list[int]:
 def day_code_for(day: int) -> str:
 	"""Return the fallback Family Link day code for an ISO weekday."""
 	if not _is_int(day) or day not in DAY_CODES:
-		raise ValueError(f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)")
+		raise FamilyLinkValidationError(
+			f"Invalid day: {day}. Must be 1-7 (Monday-Sunday)"
+		)
 	return DAY_CODES[day]
 
 
