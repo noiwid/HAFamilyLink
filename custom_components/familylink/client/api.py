@@ -520,6 +520,25 @@ class FamilyLinkClient:
 				data = await self.async_get_apps_and_usage(account_id)
 			total_seconds = 0
 			app_breakdown = {}
+			device_screen_time: dict[str, dict[str, Any]] = {}
+			device_app_seconds: dict[tuple[str, str], float] = {}
+
+			# Extract devices map: deviceId -> friendlyName/model
+			device_names: dict[str, str] = {}
+			for dev in data.get("deviceInfo", []):
+				dev_id = dev.get("deviceId")
+				disp = dev.get("displayInfo", {})
+				dev_name = disp.get("friendlyName") or disp.get("model") or dev_id
+				if dev_id and dev_name:
+					device_names[dev_id] = dev_name
+
+			# Extract app to deviceIds mapping as fallback
+			app_device_map: dict[str, list[str]] = {}
+			for app in data.get("apps", []):
+				pkg = app.get("packageName")
+				dids = app.get("deviceIds", [])
+				if pkg and dids:
+					app_device_map[pkg] = dids
 
 			all_sessions = data.get("appUsageSessions", [])
 			_LOGGER.debug(f"Found {len(all_sessions)} total app usage sessions")
@@ -547,6 +566,63 @@ class FamilyLinkClient:
 					package_name = session.get("appId", {}).get("androidAppPackageName", "unknown")
 					app_breakdown[package_name] = app_breakdown.get(package_name, 0) + usage_seconds
 
+					# Resolve device ID
+					device_id = session.get("deviceMudId")
+					if not device_id and package_name in app_device_map and len(app_device_map[package_name]) == 1:
+						device_id = app_device_map[package_name][0]
+					if not device_id:
+						device_id = "unknown"
+
+					# Accumulate per (package, device)
+					device_app_seconds[(package_name, device_id)] = (
+						device_app_seconds.get((package_name, device_id), 0) + usage_seconds
+					)
+
+					# Accumulate per device
+					if device_id not in device_screen_time:
+						device_screen_time[device_id] = {
+							"device_id": device_id,
+							"name": device_names.get(device_id, "Unknown Device" if device_id == "unknown" else device_id),
+							"total_seconds": 0.0,
+							"app_breakdown": {},
+						}
+					device_screen_time[device_id]["total_seconds"] += usage_seconds
+					device_screen_time[device_id]["app_breakdown"][package_name] = (
+						device_screen_time[device_id]["app_breakdown"].get(package_name, 0) + usage_seconds
+					)
+
+			# Ensure all known devices exist in device_screen_time even with 0 usage
+			for dev_id, dev_name in device_names.items():
+				if dev_id not in device_screen_time:
+					device_screen_time[dev_id] = {
+						"device_id": dev_id,
+						"name": dev_name,
+						"total_seconds": 0.0,
+						"app_breakdown": {},
+					}
+
+			# Compute formatted times and minutes for each device
+			for dev_id, dinfo in device_screen_time.items():
+				d_secs = dinfo["total_seconds"]
+				d_hours = int(d_secs // 3600)
+				d_mins = int((d_secs % 3600) // 60)
+				d_seconds = int(d_secs % 60)
+				dinfo["formatted"] = f"{d_hours:02d}:{d_mins:02d}:{d_seconds:02d}"
+				dinfo["minutes"] = round(d_secs / 60, 1)
+				dinfo["hours"] = d_hours
+
+			# Build sorted app_device_usage list
+			app_device_usage = []
+			for (package_name, device_id), seconds in sorted(
+				device_app_seconds.items(), key=lambda x: x[1], reverse=True
+			):
+				app_device_usage.append({
+					"package": package_name,
+					"device_id": device_id,
+					"device": device_names.get(device_id, "Unknown Device" if device_id == "unknown" else device_id),
+					"seconds": seconds,
+				})
+
 			# Convert to hours, minutes, seconds
 			hours = int(total_seconds // 3600)
 			minutes = int((total_seconds % 3600) // 60)
@@ -554,7 +630,7 @@ class FamilyLinkClient:
 
 			_LOGGER.debug(
 				f"Daily screen time for {target_date.date()}: {hours:02d}:{minutes:02d}:{seconds:02d} "
-				f"({len(app_breakdown)} apps, {total_seconds} total seconds)"
+				f"({len(app_breakdown)} apps, {total_seconds} total seconds, {len(device_screen_time)} devices)"
 			)
 			if not app_breakdown:
 				_LOGGER.debug(f"No app usage data found for {target_date.date()}")
@@ -568,6 +644,9 @@ class FamilyLinkClient:
 				"minutes": minutes,
 				"seconds": seconds,
 				"app_breakdown": app_breakdown,
+				"device_screen_time": device_screen_time,
+				"device_names": device_names,
+				"app_device_usage": app_device_usage,
 				"date": target_date.date(),
 			}
 
