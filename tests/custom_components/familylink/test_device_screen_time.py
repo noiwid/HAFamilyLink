@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTime
 
@@ -17,10 +15,9 @@ from custom_components.familylink.sensor import (
 )
 
 
-@pytest.mark.asyncio
-async def test_async_get_daily_screen_time_per_device():
+async def test_async_get_daily_screen_time_per_device(hass):
     """Test that async_get_daily_screen_time breaks down usage by device."""
-    client = FamilyLinkClient(cookies=[])
+    client = FamilyLinkClient(hass, {})
     target_date = datetime(2026, 9, 19, 12, 0, 0)
 
     mock_data = {
