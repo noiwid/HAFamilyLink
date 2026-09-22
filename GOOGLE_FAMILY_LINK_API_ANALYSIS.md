@@ -488,6 +488,8 @@ Each session represents daily usage for one app:
     "day": 17
   },
   "usage": "1809.5s",
+  "deviceMudId": "aannnpp...",
+  "modeType": "unknownMode",
   "appId": {
     "androidAppPackageName": "com.example.app"
   }
@@ -496,6 +498,16 @@ Each session represents daily usage for one app:
 - `usage`: Format `"XXX.Xs"` where XXX is seconds (can have decimals)
 - Parse: `float(usage.replace("s", ""))` to get seconds
 - Sum all sessions for a given date to get total daily screen time
+- `deviceMudId`: the device the session happened on. Same value as
+  `deviceInfo[].deviceId`, so sessions can be grouped per device. Verified live
+  on 2026-09-22 against an account with two supervised devices (one phone, one
+  tablet): present on all 601 sessions returned, no session without it. This is
+  what makes per-device screen time possible (PR #174).
+- `modeType`: observed as `"unknownMode"` on every session of that account.
+  Meaning unknown, not used anywhere.
+- Note that a session is per (app, device, day): the same app used on two
+  devices yields two sessions for the same date, so summing per app requires
+  merging them.
 
 ---
 
