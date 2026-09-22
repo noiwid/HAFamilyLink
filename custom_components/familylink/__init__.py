@@ -44,6 +44,7 @@ from .const import (
 	SERVICE_UNBLOCK_APP,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .permissions import async_register_guarded_service
 from .exceptions import FamilyLinkException
 from .schedules import parse_time_string
 
@@ -900,35 +901,40 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			raise
 
 	# Register services
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_BLOCK_DEVICE_FOR_SCHOOL,
 		handle_block_device_for_school,
 		schema=SCHEMA_BLOCK_DEVICE_FOR_SCHOOL,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_UNBLOCK_ALL_APPS,
 		handle_unblock_all_apps,
 		schema=SCHEMA_UNBLOCK_ALL_APPS,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_BLOCK_APP,
 		handle_block_app,
 		schema=SCHEMA_BLOCK_APP,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_UNBLOCK_APP,
 		handle_unblock_app,
 		schema=SCHEMA_UNBLOCK_APP,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_SET_APP_DAILY_LIMIT,
 		handle_set_app_daily_limit,
@@ -991,84 +997,96 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			raise
 
 	# Register time management services
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_ADD_TIME_BONUS,
 		handle_add_time_bonus,
 		schema=SCHEMA_ADD_TIME_BONUS,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_ENABLE_BEDTIME,
 		handle_enable_bedtime,
 		schema=SCHEMA_ENABLE_BEDTIME,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_DISABLE_BEDTIME,
 		handle_disable_bedtime,
 		schema=SCHEMA_DISABLE_BEDTIME,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_ENABLE_SCHOOL_TIME,
 		handle_enable_school_time,
 		schema=SCHEMA_ENABLE_SCHOOL_TIME,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_DISABLE_SCHOOL_TIME,
 		handle_disable_school_time,
 		schema=SCHEMA_DISABLE_SCHOOL_TIME,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_ENABLE_DAILY_LIMIT,
 		handle_enable_daily_limit,
 		schema=SCHEMA_ENABLE_DAILY_LIMIT,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_DISABLE_DAILY_LIMIT,
 		handle_disable_daily_limit,
 		schema=SCHEMA_DISABLE_DAILY_LIMIT,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_SET_DAILY_LIMIT,
 		handle_set_daily_limit,
 		schema=SCHEMA_SET_DAILY_LIMIT,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_SET_BEDTIME,
 		handle_set_bedtime,
 		schema=SCHEMA_SET_BEDTIME,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_REFRESH_LOCATION,
 		handle_refresh_location,
 		schema=SCHEMA_REFRESH_LOCATION,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_RING_DEVICE,
 		handle_ring_device,
 		schema=SCHEMA_RING_DEVICE,
 	)
 
-	hass.services.async_register(
+	async_register_guarded_service(
+		hass,
 		DOMAIN,
 		SERVICE_SET_UPDATE_INTERVAL,
 		handle_set_update_interval,
