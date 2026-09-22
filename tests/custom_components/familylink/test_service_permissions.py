@@ -58,7 +58,9 @@ async def services(hass, coordinator):
 
 
 def _user(hass, *, is_admin: bool = False, policy: dict | None = None) -> MockUser:
-    user = MockUser(is_admin=is_admin).add_to_hass(hass)
+    # MockUser has no is_admin flag: an owner is an administrator, a user
+    # without groups is not.
+    user = MockUser(is_owner=is_admin).add_to_hass(hass)
     if policy is not None:
         user.mock_policy(policy)
     return user

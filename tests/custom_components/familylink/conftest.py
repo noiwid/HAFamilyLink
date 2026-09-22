@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -51,4 +51,9 @@ def coordinator():
         client=client,
         data={"children_data": []},
         async_request_refresh=AsyncMock(),
+        # Strict mode hooks the service handlers call before hitting the API
+        register_ha_bonus=MagicMock(),
+        record_policy_intent=MagicMock(),
+        record_daily_limit_minutes=MagicMock(),
+        record_bedtime_hours=MagicMock(),
     )
