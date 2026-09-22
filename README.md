@@ -89,7 +89,7 @@ GPS entities are only created when location tracking is enabled in the integrati
 
 > **Warning.** While strict mode is on, manage Family Link from Home Assistant only. Changes made in the Family Link app or on the Google interface are undone at the next refresh, whoever made them. Turn the child's Strict Mode switch off to hand control back to Google. With the option off (the default), nothing changes: the integration behaves exactly as before, the switch is just there, off.
 
-> **The child's Home Assistant account.** Strict mode closes the Google side, not the Home Assistant side. A child who has a Home Assistant user can find these entities and give themselves a bonus or switch a restriction off, and any user or long-lived token can call the `familylink.*` actions. Give the child a non-admin user, keep the Family Link entities out of the dashboards they see, and consider [ha-rbac](https://github.com/FezVrasta/ha-rbac) to hide entities per user.
+> **The child's Home Assistant account.** Strict mode closes the Google side, not the Home Assistant side. A child who has a Home Assistant user can find these entities and give themselves a bonus or switch a restriction off. The `familylink.*` actions refuse a non-admin user unless the call targets an entity that user may control (see [Who may call a service](SERVICES.md#who-may-call-a-service)), so give the child a non-admin user, keep the Family Link entities out of the dashboards they see, and consider [ha-rbac](https://github.com/FezVrasta/ha-rbac) to deny those entities per user, which then covers the actions as well.
 
 
 | Rule | What is reverted |

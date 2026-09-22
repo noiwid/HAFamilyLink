@@ -1,6 +1,6 @@
 # Service Reference
 
-The integration registers 16 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
+The integration registers 17 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
 
 For installation see [INSTALL.md](INSTALL.md). For the entity catalog see the [README](README.md).
 
@@ -28,6 +28,19 @@ What happens with **no target** differs per service, which matters in multi-chil
 The device-scoped services (`add_time_bonus`, `ring_device`) raise an error unless a `device_id` is resolved, from the entity's attributes or the manual field. If they get a `device_id` but no `child_id`, the child resolves to the first supervised child. `set_daily_limit` also accepts a `child_id` alone, in which case it applies the limit to every device of that child.
 
 After every successful call the integration refreshes its data immediately, except `ring_device`.
+
+## Who may call a service
+
+Home Assistant checks a user's entity permissions on entity actions (toggling a switch, pressing a button), not on domain services. Since these services accept raw identifiers, the integration applies the same rule itself:
+
+| Caller | Result |
+|---|---|
+| An automation or a script run by the system (no user in the context) | Allowed, as before |
+| An administrator | Allowed, any target |
+| A non-administrator calling with an `entity_id` they are allowed to control, and nothing else | Allowed, as if they had toggled that entity |
+| A non-administrator calling with a raw `child_id` or `device_id`, with no target, or mixing an `entity_id` with a raw identifier | Refused with an Unauthorized error and a warning in the log |
+
+So a child with a non-admin Home Assistant account cannot grant themselves a bonus through the API, and an entity permission policy (for example one written with [ha-rbac](https://github.com/FezVrasta/ha-rbac)) applies to the services too. A dashboard used by a non-administrator should call services with the `entity_id` of the device or child, never with raw identifiers.
 
 ## App management
 

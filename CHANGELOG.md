@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **The `familylink.*` services now check who is calling.** Home Assistant evaluates entity permissions on entity actions (switches, buttons, numbers, times) but not on domain services, so the services that take a raw `child_id` or `device_id`, or no target at all, could be called by any authenticated user, administrator or not, including a supervised child who has a Home Assistant account (#169). From now on: a call from an automation is trusted as before; an administrator can do anything; a non-administrator may call a service with an `entity_id` they are allowed to control, exactly as if they had toggled it from a dashboard; everything else is refused with an Unauthorized error and a warning in the log. If a dashboard used by a non-administrator calls a service with a raw `device_id` or `child_id`, switch it to the matching `entity_id`.
+
 ---
 
 ## [2.0.1] - 2026-09-15
