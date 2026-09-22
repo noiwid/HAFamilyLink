@@ -522,6 +522,7 @@ class FamilyLinkClient:
 			app_breakdown = {}
 			device_screen_time: dict[str, dict[str, Any]] = {}
 			device_app_seconds: dict[tuple[str, str], float] = {}
+			unattributed_sessions = 0
 
 			# Extract devices map: deviceId -> friendlyName/model
 			device_names: dict[str, str] = {}
@@ -572,6 +573,7 @@ class FamilyLinkClient:
 						device_id = app_device_map[package_name][0]
 					if not device_id:
 						device_id = "unknown"
+						unattributed_sessions += 1
 
 					# Accumulate per (package, device)
 					device_app_seconds[(package_name, device_id)] = (
@@ -632,6 +634,14 @@ class FamilyLinkClient:
 				f"Daily screen time for {target_date.date()}: {hours:02d}:{minutes:02d}:{seconds:02d} "
 				f"({len(app_breakdown)} apps, {total_seconds} total seconds, {len(device_screen_time)} devices)"
 			)
+			if unattributed_sessions:
+				# A rename of `deviceMudId` by Google would show up here as every
+				# session landing on the "Unknown Device" bucket.
+				_LOGGER.debug(
+					"%d app usage session(s) for %s could not be attributed to a device",
+					unattributed_sessions,
+					target_date.date(),
+				)
 			if not app_breakdown:
 				_LOGGER.debug(f"No app usage data found for {target_date.date()}")
 			else:

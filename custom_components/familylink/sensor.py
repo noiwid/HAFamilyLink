@@ -145,7 +145,6 @@ class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
         self._device_id = device_id
         self._device_name = device_name
         self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_daily_screen_time"
-        self._attr_translation_key = "device_daily_screen_time"
         self._attr_name = f"{device_name} Daily Screen Time"
 
     @property
@@ -167,50 +166,43 @@ class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
             if child_data.get("child_id") == self._child_id:
                 screen_time = child_data.get("screen_time", {})
                 device_st = screen_time.get("device_screen_time", {})
-                # Try exact device_id match first
-                if self._device_id in device_st:
-                    return device_st[self._device_id]
-                # Fallback: match by device_name
-                for did, dinfo in device_st.items():
-                    if dinfo.get("name") == self._device_name:
-                        return dinfo
+                return device_st.get(self._device_id)
         return None
 
     @property
     def native_value(self) -> float | None:
         """Return total screen time in minutes for this device."""
         dev_data = self._get_device_screen_time_data()
-        if dev_data:
-            return dev_data.get("minutes", 0.0)
-        return 0.0
+        if dev_data is None:
+            # Missing data (e.g. transient API failure) is unknown, not a confident zero.
+            return None
+        return dev_data.get("minutes", 0.0)
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return detailed device screen time attributes."""
-        dev_data = self._get_device_screen_time_data()
-        if not dev_data:
-            return {
-                "child_id": self._child_id,
-                "child_name": self._child_name,
-                "device_id": self._device_id,
-                "device_name": self._device_name,
-                "total_seconds": 0.0,
-                "formatted_time": "00:00:00",
-                "minutes": 0.0,
-                "hours": 0,
-                "apps": [],
-            }
-
         attributes = {
             "child_id": self._child_id,
             "child_name": self._child_name,
             "device_id": self._device_id,
             "device_name": self._device_name,
+        }
+
+        dev_data = self._get_device_screen_time_data()
+        if dev_data is None:
+            return attributes
+
+        attributes.update({
             "total_seconds": dev_data.get("total_seconds", 0.0),
             "formatted_time": dev_data.get("formatted", "00:00:00"),
             "minutes": dev_data.get("minutes", 0.0),
             "hours": dev_data.get("hours", 0),
-        }
+        })
 
         # Build apps list for this device
         app_breakdown = dev_data.get("app_breakdown", {})
@@ -614,9 +606,10 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 		# Add per-device screen time breakdown
 		device_screen_time = screen_time.get("device_screen_time", {})
 		if device_screen_time:
+			# Keyed by device id: friendly names are not unique.
 			attributes["by_device"] = {
-				dinfo["name"]: {
-					"device_id": did,
+				did: {
+					"name": dinfo["name"],
 					"minutes": dinfo["minutes"],
 					"seconds": dinfo["total_seconds"],
 					"formatted": dinfo["formatted"],
@@ -624,42 +617,11 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 				for did, dinfo in device_screen_time.items()
 			}
 
-		# Add all apps by usage with device info (dynamically truncated to fit HA's 16KB limit)
-		app_device_usage = screen_time.get("app_device_usage")
+		# Add all apps by usage (dynamically truncated to fit HA's 16KB limit)
 		app_breakdown = screen_time.get("app_breakdown", {})
-		if app_device_usage:
+		if app_breakdown:
 			# Build package-to-name lookup from apps data
 			app_names: dict[str, str] = {}
-			for app in child_data.get("apps", []):
-				pkg = app.get("packageName", "")
-				if pkg:
-					app_names[pkg] = app.get("title", pkg)
-
-			app_list = []
-			for item in app_device_usage:
-				package = item["package"]
-				seconds = item["seconds"]
-				device_name = item.get("device", "Unknown")
-				device_id = item.get("device_id", "")
-				hours = int(seconds // 3600)
-				mins = int((seconds % 3600) // 60)
-				secs = int(seconds % 60)
-				app_list.append({
-					"name": app_names.get(package, package),
-					"package": package,
-					"device": device_name,
-					"device_id": device_id,
-					"time": f"{hours:02d}:{mins:02d}:{secs:02d}",
-					"minutes": round(seconds / 60, 1),
-				})
-
-			truncated_apps, was_truncated = _truncate_app_list(app_list, attributes)
-			attributes["apps"] = truncated_apps
-			if was_truncated:
-				attributes["truncated"] = True
-		elif app_breakdown:
-			# Fallback if app_device_usage is not present
-			app_names = {}
 			for app in child_data.get("apps", []):
 				pkg = app.get("packageName", "")
 				if pkg:

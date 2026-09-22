@@ -87,9 +87,6 @@
 			"daily_screen_time": {
 				"name": "Daily Screen Time"
 			},
-			"device_daily_screen_time": {
-				"name": "Daily Screen Time"
-			},
 			"screen_time_formatted": {
 				"name": "Screen Time (formatted)"
 			},
