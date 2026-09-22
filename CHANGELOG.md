@@ -8,9 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.1.0] - 2026-09-22
+
+Screen time per device, and the services now check who is calling.
+
+### Added
+- **Screen time per device** (#174, thanks to @zupis) - A new `sensor.<device>_daily_screen_time` for every supervised device, in minutes, with the per-app breakdown of that device in its attributes and `unknown` while the data is missing. The child's `sensor.<child>_daily_screen_time` gains a `by_device` attribute keyed by device id (name, minutes, seconds, formatted time); its `apps` attribute keeps its shape. Google reports every usage session with the device it happened on (`deviceMudId`), verified on an account with a phone and a tablet.
+
 ### Security
 
-- **The `familylink.*` services now check who is calling.** Home Assistant evaluates entity permissions on entity actions (switches, buttons, numbers, times) but not on domain services, so the services that take a raw `child_id` or `device_id`, or no target at all, could be called by any authenticated user, administrator or not, including a supervised child who has a Home Assistant account (#169). From now on: a call from an automation is trusted as before; an administrator can do anything; a non-administrator may call a service with an `entity_id` they are allowed to control, exactly as if they had toggled it from a dashboard; everything else is refused with an Unauthorized error and a warning in the log. If a dashboard used by a non-administrator calls a service with a raw `device_id` or `child_id`, switch it to the matching `entity_id`.
+- **The `familylink.*` services now check who is calling** (#177). Home Assistant evaluates entity permissions on entity actions (switches, buttons, numbers, times) but not on domain services, so the services that take a raw `child_id` or `device_id`, or no target at all, could be called by any authenticated user, administrator or not, including a supervised child who has a Home Assistant account (#169). From now on: a call from an automation is trusted as before; an administrator can do anything; a non-administrator may call a service with an `entity_id` they are allowed to control, exactly as if they had toggled it from a dashboard; everything else is refused with an Unauthorized error and a warning in the log. If a dashboard used by a non-administrator calls a service with a raw `device_id` or `child_id`, switch it to the matching `entity_id`.
 
 ---
 

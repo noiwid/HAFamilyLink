@@ -52,11 +52,11 @@ The full walkthrough (prerequisites, both auth routes, configuration options, re
 
 ## Entities
 
-Each child appears as a hub device named `<child> (Family Link)`, with every physical device attached to it. `<child>` and `<device>` below stand for the slugified child and device names.
+Each child appears as a hub device named `<child> (Family Link)`, with every physical device attached to it. `<child>` and `<device>` below stand for the slugified child and device names. Recent Home Assistant versions build the id of a newly created entity from its device's area as well, so a phone placed in an area named "Kids" gets `sensor.kids_<device>_…` ids; the display names are unchanged.
 
 | Entity | Scope | Shows / does |
 |--------|-------|--------------|
-| `sensor.<child>_daily_screen_time` | Child | Today's screen time in minutes, per-app breakdown in attributes |
+| `sensor.<child>_daily_screen_time` | Child | Today's screen time in minutes, all devices together; per-app breakdown and a `by_device` split in attributes |
 | `sensor.<child>_screen_time_formatted` | Child | The same value as `HH:MM:SS` text |
 | `sensor.<child>_installed_apps`, `_blocked_apps`, `_apps_with_time_limits`, `_apps_without_limits`, `_always_allowed_apps` | Child | App counts, with the matching app lists in attributes |
 | `sensor.<child>_top_app_1` to `_top_app_10` | Child | Today's most-used apps, usage in minutes |
@@ -73,6 +73,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `sensor.<device>_next_restriction` | Device | Next upcoming restriction as text, window timestamps in attributes |
 | `sensor.<device>_daily_limit` | Device | Configured daily quota in minutes |
 | `sensor.<device>_active_bonus` | Device | Active bonus minutes (0 when none) |
+| `sensor.<device>_daily_screen_time` | Device | Today's screen time on this device in minutes, per-app breakdown in attributes; unknown while the data is missing |
 | `binary_sensor.<device>_bedtime_active`, `_school_time_active` | Device | Currently inside the bedtime / school time window |
 | `binary_sensor.<device>_daily_limit_reached` | Device | Daily limit used up (ignores bonus time) |
 | `switch.<device>` | Device | Device usability: ON means usable, OFF means manually locked, bedtime active, or daily limit reached. An active bonus overrides bedtime and daily-limit restrictions, but not a manual lock. The `restriction_reason` attribute tells you why |
