@@ -69,6 +69,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `switch.<child>_strict_mode` | Child | Strict mode on or off for this child (see below). Attributes: rules in force, last corrective action, count |
 | `number.<child>_<weekday>_limit` | Child | Screen time quota of that weekday in minutes, as the weekly limits screen of the app shows it (the weekly value, or today's override when Google applies one; see the `source` and `applied_override` attributes). Setting it writes the weekly quota of that weekday, as the weekly limits screen of the app does; today's entity also posts today's override on every device so the change applies at once |
 | `time.<child>_<weekday>_bedtime_start`, `_bedtime_end` | Child | Start and end of that weekday's bedtime in the weekly schedule. Setting one rewrites the slot (the other bound is kept) |
+| `time.<child>_<weekday>_school_time_start`, `_school_time_end` | Child | Start and end of that weekday's school time in the weekly schedule. Setting one rewrites the slot (the other bound is kept). Unavailable for a weekday that has no school time window in Family Link |
 | `sensor.<device>_screen_time_remaining` | Device | Remaining minutes today, accounting for bonuses and used time |
 | `sensor.<device>_next_restriction` | Device | Next upcoming restriction as text, window timestamps in attributes |
 | `sensor.<device>_daily_limit` | Device | Configured daily quota in minutes |
@@ -117,6 +118,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.enable_daily_limit` / `familylink.disable_daily_limit` | Toggle the daily screen time limit |
 | `familylink.enable_bedtime` / `familylink.disable_bedtime` | Toggle bedtime, effective tonight (weekly toggle plus a same-day override) |
 | `familylink.set_bedtime` | Edit the recurring weekly bedtime for a day, or post a today-only override (`scope: today`) |
+| `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, or post a today-only window (`scope: today`) |
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.refresh_location` | Force a fresh GPS fix (uses more battery than the regular polling) |
 | `familylink.ring_device` | Make a device ring so it can be found |

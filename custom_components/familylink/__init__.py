@@ -36,6 +36,7 @@ from .const import (
 	SERVICE_ENABLE_SCHOOL_TIME,
 	SERVICE_SET_APP_DAILY_LIMIT,
 	SERVICE_SET_BEDTIME,
+	SERVICE_SET_SCHOOL_TIME,
 	SERVICE_SET_DAILY_LIMIT,
 	SERVICE_SET_UPDATE_INTERVAL,
 	SERVICE_REFRESH_LOCATION,
@@ -210,6 +211,15 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 	vol.Optional("child_id"): cv.string,
 })
 
+SCHEMA_SET_SCHOOL_TIME = vol.Schema({
+	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
+	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
+	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
 SCHEMA_REFRESH_LOCATION = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
@@ -293,6 +303,23 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
 	await hass.config_entries.async_reload(entry.entry_id)
 
 
+def _child_id_from_device(hass: HomeAssistant, entity_id: str) -> str | None:
+	"""Child id from the familylink device an entity belongs to (None if unknown)."""
+	from homeassistant.helpers import device_registry as dr, entity_registry as er
+
+	reg_entry = er.async_get(hass).async_get(entity_id)
+	if reg_entry is None or not reg_entry.device_id:
+		return None
+	device = dr.async_get(hass).async_get(reg_entry.device_id)
+	if device is None:
+		return None
+	for domain, identifier in device.identifiers:
+		if domain == DOMAIN and identifier:
+			# Child hub: "<child_id>"; supervised phone: "<child_id>_<device_token>"
+			return str(identifier).split("_", 1)[0]
+	return None
+
+
 def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_device_id: bool = False) -> tuple[str | None, str | None]:
 	"""Extract device_id and child_id from entity attributes.
 
@@ -317,6 +344,9 @@ def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_
 	attributes = state.attributes
 	device_id = attributes.get("device_id")
 	child_id = attributes.get("child_id")
+
+	if not child_id:
+		child_id = _child_id_from_device(hass, entity_id)
 
 	if require_device_id and not device_id:
 		raise ValueError(f"Entity {entity_id} does not have a device_id attribute. Please select a device switch entity.")
@@ -863,6 +893,39 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_LOGGER.error(f"Error setting bedtime: {err}")
 			raise
 
+	async def handle_set_school_time(call: ServiceCall) -> None:
+		"""Handle set_school_time service call (school time start and finish)."""
+		_require_client()
+		# The UI time selector sends HH:MM:SS; the API wants HH:MM.
+		start_time = ":".join(str(call.data["start_time"]).split(":")[:2])
+		end_time = ":".join(str(call.data["end_time"]).split(":")[:2])
+		day = call.data.get("day")
+		scope = call.data.get("scope", "weekly")
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		if entity_id and not child_id:
+			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
+			child_id = extracted_child_id
+
+		if day is not None:
+			day = int(day)
+
+		_LOGGER.info(f"Service called: set_school_time ({start_time}-{end_time}) for day={day or 'today'} scope={scope}")
+
+		success = await coordinator.client.async_set_school_time(
+			start_time=start_time,
+			end_time=end_time,
+			day=day,
+			account_id=child_id,
+			scope=scope,
+		)
+		if not success:
+			raise HomeAssistantError(
+				f"Family Link rejected school time {start_time}-{end_time} (see the log for details)"
+			)
+		await coordinator.async_request_refresh()
+
 	async def handle_refresh_location(call: ServiceCall) -> None:
 		"""Handle refresh_location service call - request fresh location from device."""
 		_require_client()
@@ -1072,6 +1135,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async_register_guarded_service(
 		hass,
 		DOMAIN,
+		SERVICE_SET_SCHOOL_TIME,
+		handle_set_school_time,
+		schema=SCHEMA_SET_SCHOOL_TIME,
+	)
+
+	async_register_guarded_service(
+		hass,
+		DOMAIN,
 		SERVICE_REFRESH_LOCATION,
 		handle_refresh_location,
 		schema=SCHEMA_REFRESH_LOCATION,
@@ -1127,6 +1198,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_DISABLE_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_SCHOOL_TIME)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
 			hass.services.async_remove(DOMAIN, SERVICE_RING_DEVICE)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_UPDATE_INTERVAL)

@@ -41,6 +41,7 @@ ALL_SERVICES = [
     ("disable_daily_limit", {}),
     ("set_daily_limit", {"daily_minutes": 60}),
     ("set_bedtime", {"start_time": "21:00", "end_time": "07:00"}),
+    ("set_school_time", {"start_time": "08:00", "end_time": "13:00"}),
     ("refresh_location", {}),
     ("ring_device", {}),
     ("set_update_interval", {"seconds": 300}),

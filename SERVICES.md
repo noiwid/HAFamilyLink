@@ -10,18 +10,18 @@ Most services accept three optional targeting fields:
 
 | Field | What it is | Where to find it |
 |---|---|---|
-| `entity_id` | Any Family Link entity. The integration reads the `device_id` and `child_id` **attributes** of that entity, not the entity itself | Per-child sensors (e.g. `sensor.<child>_daily_screen_time`) carry `child_id`; the device switch (`switch.<device>`) and every per-device sensor and binary sensor carry both `device_id` and `child_id` |
+| `entity_id` | Any Family Link entity. The integration reads the `device_id` and `child_id` **attributes** of that entity; when the entity has no `child_id` attribute (the child's bedtime, school time and daily limit switches, for example), the child is taken from the Family Link device the entity belongs to | Per-child sensors (e.g. `sensor.<child>_daily_screen_time`) carry `child_id`; the device switch (`switch.<device>`) and every per-device sensor and binary sensor carry both `device_id` and `child_id` |
 | `child_id` | The child's Google user ID | `child_id` attribute of any per-child sensor, or `user_id` on `sensor.<child>_child_info` |
 | `device_id` | The device token | `device_id` attribute of the device switch (the simplest source) or of any per-device sensor or binary sensor |
 
-Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that lacks the `child_id` attribute is treated as no target at all.
+Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that has no `child_id` attribute and belongs to no Family Link device is treated as no target at all.
 
 What happens with **no target** differs per service, which matters in multi-child families:
 
 | No target given | Services |
 |---|---|
 | Applies to **ALL** supervised children | [`block_device_for_school`](#familylinkblock_device_for_school), [`unblock_all_apps`](#familylinkunblock_all_apps), [`block_app`](#familylinkblock_app--familylinkunblock_app), [`unblock_app`](#familylinkblock_app--familylinkunblock_app), [`set_app_daily_limit`](#familylinkset_app_daily_limit), [`refresh_location`](#familylinkrefresh_location) |
-| Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
+| Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`set_school_time`](#familylinkset_school_time), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
 | Fails (a device target is mandatory) | [`add_time_bonus`](#familylinkadd_time_bonus), [`ring_device`](#familylinkring_device) |
 | Fails without a device or a child | [`set_daily_limit`](#familylinkset_daily_limit) |
 
@@ -218,6 +218,33 @@ data:
   end_time: "09:00"
   day: 5
   scope: weekly
+```
+
+### familylink.set_school_time
+
+Sets the school time start and finish for a day. By default this edits the recurring **weekly** school time slot of that day, the same way `set_bedtime` edits bedtime. Use `scope: today` for a one-off window today only, which leaves the weekly schedule untouched and replaces any school time override already posted for today.
+
+The weekly scope only changes an existing slot: the day must already have a school time window in Family Link (create it once in the app). School time is a same-day window, so the end must be after the start.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `start_time` | string, `H:MM`, `HH:MM` or `HH:MM:SS` (24 h) | yes | - | School time start, e.g. `08:00` |
+| `end_time` | string, `H:MM`, `HH:MM` or `HH:MM:SS` (24 h) | yes | - | School time end, same day, e.g. `13:15` |
+| `day` | int, 1 to 7 (1 = Monday) | no | today | Day of the week to change. With `scope: today` it must be today |
+| `scope` | `weekly` or `today` | no | `weekly` | `weekly` edits the recurring schedule; `today` posts a one-off window for today |
+| `entity_id` | entity id | no | - | Any entity of the child |
+| `child_id` | string | no | - | Child user ID. No target: FIRST supervised child |
+
+The call raises an error when Google rejects the window or the day has no school time slot, so an automation can tell.
+
+```yaml
+# Follow today's timetable (e.g. from the WebUntis integration)
+action: familylink.set_school_time
+data:
+  entity_id: switch.emma_school_time
+  start_time: "{{ as_timestamp(states('sensor.emma_today_s_school_start')) | timestamp_custom('%H:%M') }}"
+  end_time: "{{ as_timestamp(states('sensor.emma_today_s_school_end')) | timestamp_custom('%H:%M') }}"
+  day: "{{ now().isoweekday() }}"
 ```
 
 ### familylink.enable_bedtime / familylink.disable_bedtime
