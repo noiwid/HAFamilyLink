@@ -69,6 +69,10 @@ ACTION_UNLOCK_DEVICE = "unlock_device"
 DEVICE_INTENT_AUTO_LOCK = "auto_lock"
 LOCK_OVERRIDE_LOCKED = 1
 LOCK_OVERRIDE_UNLOCKED = 4
+# A lock that keeps the "apps without time limit" reachable from the lock
+# screen (issue #175). Read as locked everywhere; only the unlock override
+# (4) is ever countered.
+LOCK_OVERRIDE_LOCKED_ALLOWED_APPS = 7
 ACTION_ENABLE_BEDTIME = "enable_bedtime"
 ACTION_ENABLE_DAILY_LIMIT = "enable_daily_limit"
 ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
@@ -99,7 +103,7 @@ def device_is_usable(device: dict[str, Any], time_data: dict[str, Any] | None) -
 		return True
 	if (time_data.get("bonus_minutes") or 0) > 0:
 		return True
-	if time_data.get("bedtime_active", False):
+	if time_data.get("bedtime_active", False) or time_data.get("schooltime_active", False):
 		return False
 	daily_limit_remaining = time_data.get("daily_limit_remaining")
 	if daily_limit_remaining is not None and daily_limit_remaining <= 0:

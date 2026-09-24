@@ -131,6 +131,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		time_data = self._get_device_time_data()
 		if time_data:
 			bedtime_active = time_data.get("bedtime_active", False)
+			schooltime_active = time_data.get("schooltime_active", False)
 			daily_limit_remaining = time_data.get("daily_limit_remaining", 1)
 			bonus_active = time_data.get("bonus_minutes", 0) > 0
 
@@ -138,8 +139,9 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			if bonus_active:
 				return True
 
-			# If restrictions active and no bonus, device is not usable
-			if bedtime_active or daily_limit_remaining <= 0:
+			# If restrictions active and no bonus, device is not usable (issue #176:
+			# school time counts like bedtime)
+			if bedtime_active or schooltime_active or daily_limit_remaining <= 0:
 				return False
 
 		# No restrictions, device is usable
@@ -168,6 +170,8 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 				return "mdi:cellphone-clock"  # Bonus active
 			if bedtime_active:
 				return "mdi:cellphone-off"  # Bedtime
+			if time_data.get("schooltime_active", False):
+				return "mdi:school"  # School time
 			if daily_limit_remaining <= 0:
 				return "mdi:cellphone-remove"  # Daily limit reached
 
@@ -204,6 +208,9 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			attributes["bonus_active"] = time_data.get("bonus_minutes", 0) > 0
 			attributes["bonus_minutes"] = time_data.get("bonus_minutes", 0)
 			attributes["remaining_minutes"] = time_data.get("remaining_minutes", 0)
+			# Raw Google override on the device: 1 lock, 7 lock with the allowed
+			# apps reachable, 4 unlock, None when there is none (issue #175)
+			attributes["lock_override_code"] = time_data.get("lock_override")
 
 			# Add restriction reason
 			if device and device.get("locked", False):
@@ -212,6 +219,8 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 				attributes["restriction_reason"] = "bonus_active"
 			elif time_data.get("bedtime_active", False):
 				attributes["restriction_reason"] = "bedtime_active"
+			elif time_data.get("schooltime_active", False):
+				attributes["restriction_reason"] = "school_time_active"
 			elif time_data.get("daily_limit_remaining", 1) <= 0:
 				attributes["restriction_reason"] = "daily_limit_reached"
 			else:
