@@ -76,7 +76,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `sensor.<device>_daily_screen_time` | Device | Today's screen time on this device in minutes, per-app breakdown in attributes; unknown while the data is missing |
 | `binary_sensor.<device>_bedtime_active`, `_school_time_active` | Device | Currently inside the bedtime / school time window |
 | `binary_sensor.<device>_daily_limit_reached` | Device | Daily limit used up (ignores bonus time) |
-| `switch.<device>` | Device | Device usability: ON means usable, OFF means manually locked, bedtime active, or daily limit reached. An active bonus overrides bedtime and daily-limit restrictions, but not a manual lock. The `restriction_reason` attribute tells you why |
+| `switch.<device>` | Device | Device usability: ON means usable, OFF means manually locked, bedtime active, or daily limit reached. An active bonus overrides bedtime, school time and daily-limit restrictions, but not a manual lock. The `restriction_reason` attribute tells you why, and `lock_override_code` gives Google's raw override on the device (1 lock, 7 lock with the allowed apps reachable, 4 unlock, empty when none) |
 | `button.<device>_15min`, `_30min`, `_60min`, `_reset_bonus` | Device | Add or cancel a time bonus |
 | `button.<device>_ring` | Device | Ring the device to locate it |
 
