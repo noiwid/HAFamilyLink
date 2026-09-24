@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - **The device switch ignored school time** (#176, thanks to @wojtulab) - During a school time window the switch stayed ON, its icon unchanged and `restriction_reason` never said `school_time_active`, although the `school_time_active` attribute was right; only bedtime and a reached daily limit turned it OFF. School time now counts like bedtime in the state, the icon (`mdi:school`) and the reason, and in strict mode's own usability reading. A running bonus still wins, as it does for bedtime.
+- **A lock that keeps the allowed apps reachable was read as unlocked** (#175, thanks to @wojtulab) - When the "apps without time limit" lock screen setting is on in the Family Link app, Google writes the device lock with override code 7 instead of 1. The integration only knew 1, so such a lock showed as unlocked, and strict mode or a relock automation replaced it within seconds with a plain lock, taking the allowed-apps button away from the child. Code 7 is now read as locked. The switch gains a `lock_override_code` attribute (1 lock, 7 lock with allowed apps, 4 unlock, empty when none) so automations can tell the two locks apart. Writing a code 7 lock from Home Assistant is not offered yet.
 
 ---
 

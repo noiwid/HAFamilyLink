@@ -5,6 +5,7 @@ from __future__ import annotations
 from custom_components.familylink.strict_mode import (
     ACTION_LOCK_DEVICE,
     DEVICE_INTENT_AUTO_LOCK,
+    LOCK_OVERRIDE_LOCKED_ALLOWED_APPS,
     LOCK_OVERRIDE_UNLOCKED,
     STRICT_RULES,
     device_is_usable,
@@ -100,3 +101,12 @@ def test_unlock_override_during_school_time_is_countered():
     """A Google-side unlock bypassing school time is locked again, like a bedtime bypass."""
     child = _child(locked=False, schooltime_active=True, lock_override=LOCK_OVERRIDE_UNLOCKED)
     assert _actions(child, _intents(None)) == [ACTION_LOCK_DEVICE]
+
+def test_lock_with_allowed_apps_is_a_lock_for_strict_mode():
+    """Issue #175: a code 7 lock (allowed apps reachable) must not be fought or countered."""
+    child = _child(locked=True, lock_override=LOCK_OVERRIDE_LOCKED_ALLOWED_APPS)
+    # Locked from HA today: nothing to relock, the code 7 lock stands
+    assert _actions(child, _intents("lock")) == []
+    # No HA decision and bedtime running: a lock is not a bypass, nothing to counter
+    child = _child(locked=True, bedtime_active=True, lock_override=LOCK_OVERRIDE_LOCKED_ALLOWED_APPS)
+    assert _actions(child, _intents(None)) == []

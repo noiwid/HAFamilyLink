@@ -208,6 +208,9 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			attributes["bonus_active"] = time_data.get("bonus_minutes", 0) > 0
 			attributes["bonus_minutes"] = time_data.get("bonus_minutes", 0)
 			attributes["remaining_minutes"] = time_data.get("remaining_minutes", 0)
+			# Raw Google override on the device: 1 lock, 7 lock with the allowed
+			# apps reachable, 4 unlock, None when there is none (issue #175)
+			attributes["lock_override_code"] = time_data.get("lock_override")
 
 			# Add restriction reason
 			if device and device.get("locked", False):

@@ -75,6 +75,7 @@
 ### timeLimitOverrides:batchCreate action codes
 - **1**: LOCK device / DISABLE school time today (when used with type 9 + schooltime rule)
 - **4**: UNLOCK device
+- **7**: LOCK device with the "apps without time limit" reachable from the lock screen. Reported in issue #175: when the parent turns on that lock screen setting in the app while the device is locked, the app rewrites the override with code 7 instead of 1, the record being otherwise identical, and the child gets the allowed-apps button. Meaning inferred from that behaviour, not captured by us yet; the integration reads it as locked and does not write it
 - **8**: SET daily limit duration (per device)
 - **9**: SET bedtime / school time schedule (per child)
 - **10**: ADD time bonus (per device, Android)

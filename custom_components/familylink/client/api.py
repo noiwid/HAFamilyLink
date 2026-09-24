@@ -1485,10 +1485,13 @@ class FamilyLinkClient:
 						lock_override = None
 						if has_lock_override and len(device_data[0]) > 2:
 							action_code = device_data[0][2]
-							is_locked = (action_code == 1)
-							# 1 = manual lock, 4 = manual unlock (a bypass of the active
-							# restriction until the next scheduled event); kept for strict mode
-							if action_code in (1, 4):
+							# 1 = manual lock, 7 = manual lock that keeps the "apps without
+							# time limit" reachable from the lock screen (written by the app
+							# when that lock screen setting is on, issue #175), 4 = manual
+							# unlock (a bypass of the active restriction until the next
+							# scheduled event); kept for strict mode and the switch attribute
+							is_locked = action_code in (1, 7)
+							if action_code in (1, 4, 7):
 								lock_override = action_code
 						else:
 							is_locked = False
