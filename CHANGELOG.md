@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **The device switch ignored school time** (#176, thanks to @wojtulab) - During a school time window the switch stayed ON, its icon unchanged and `restriction_reason` never said `school_time_active`, although the `school_time_active` attribute was right; only bedtime and a reached daily limit turned it OFF. School time now counts like bedtime in the state, the icon (`mdi:school`) and the reason, and in strict mode's own usability reading. A running bonus still wins, as it does for bedtime.
+
 ---
 
 ## [2.1.0] - 2026-09-22
