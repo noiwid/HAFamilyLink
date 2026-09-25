@@ -8,8 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.2.0] - 2026-09-25
+
+School time start and finish per weekday, contributed by @grifmo (#179), plus a targeting fix that came with it.
+
 ### Added
-- **School time start and finish** - New `familylink.set_school_time` service that edits the weekly school time window of a weekday (`scope: weekly`, default), or posts a window for today only (`scope: today`) without touching the weekly schedule. New `time.<child>_<weekday>_school_time_start` / `_school_time_end` entities read the weekly school time schedule and write it back, like the bedtime ones. The weekly write reuses the `timeLimit:update` call of `set_bedtime`, pointed at the day's school time slot id (the row attached to the school time policy); the today write is the type-9 override `enable_school_time` already posts, with the chosen window instead of now → 23:59.
+- **School time start and finish** (#179, thanks to @grifmo) - New `familylink.set_school_time` service that edits the weekly school time window of a weekday (`scope: weekly`, default), or posts a window for today only (`scope: today`) without touching the weekly schedule. New `time.<child>_<weekday>_school_time_start` / `_school_time_end` entities read the weekly school time schedule and write it back, like the bedtime ones. The weekly write reuses the `timeLimit:update` call of `set_bedtime`, pointed at the day's school time slot id (the row attached to the school time policy); the today write is the type-9 override `enable_school_time` already posts, with the chosen window instead of now → 23:59.
 
 ### Fixed
 - **Services called with a child-level entity acted on the first child** - The child's bedtime, school time and daily limit switches carry no `child_id` attribute, so `enable_school_time`, `disable_school_time`, `enable_bedtime` and the other services given such an `entity_id` silently fell back to the first supervised child. The child is now taken from the Family Link device of the entity when the attribute is missing.
