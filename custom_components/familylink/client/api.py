@@ -3235,6 +3235,240 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error setting bedtime: {err}")
 			return False
 
+	# ------------------------------------------------------------------
+	# School time start / finish (weekly schedule and today-only override)
+	# ------------------------------------------------------------------
+
+	_SLOT_TYPE_SCHOOL_TIME = 3
+
+	@classmethod
+	def _is_school_time_slot_row(
+		cls,
+		row: Any,
+		day: int,
+		bedtime_rule_id: str | None = None,
+		schooltime_rule_id: str | None = None,
+	) -> bool:
+		"""Return true for a weekly SCHOOL TIME window row of `day`.
+
+		Mirror of _is_bedtime_slot_row. School time rows look like
+		["CAMQASIk...", day, state, [h, m], [h, m], ts, ts, rule_id]. The policy
+		id at [7] is authoritative; accounts on the newer downtime model also
+		key BEDTIME rows CAMQ* (issue #151), so a row attached to the bedtime
+		policy is never treated as school time, whatever its key decodes to.
+		"""
+		if not (isinstance(row, list) and len(row) >= 5):
+			return False
+		if not (isinstance(row[0], str) and row[0].startswith("CA")):
+			return False
+		if not (type(row[1]) is int and row[1] == day):
+			return False
+		policy_id = row[7] if len(row) > 7 and isinstance(row[7], str) else None
+		if policy_id and bedtime_rule_id and policy_id == bedtime_rule_id:
+			return False
+		attached_to_school = bool(schooltime_rule_id) and policy_id == schooltime_rule_id
+		if not attached_to_school and cls._slot_id_rule_type(row[0]) != cls._SLOT_TYPE_SCHOOL_TIME:
+			return False
+
+		def _is_hm(value: Any) -> bool:
+			return (
+				isinstance(value, list)
+				and len(value) == 2
+				and type(value[0]) is int
+				and type(value[1]) is int
+				and 0 <= value[0] <= 23
+				and 0 <= value[1] <= 59
+			)
+
+		return _is_hm(row[3]) and _is_hm(row[4])
+
+	@classmethod
+	def _find_weekly_school_time_row(cls, data: Any, day: int) -> list | None:
+		"""Find the live weekly school time row for `day` (None if the day has none)."""
+		bedtime_rule_id = cls._find_revision_rule_id(data, 1)
+		schooltime_rule_id = cls._find_revision_rule_id(data, 2)
+
+		def _walk(value: Any) -> list | None:
+			if isinstance(value, list):
+				if cls._is_school_time_slot_row(value, day, bedtime_rule_id, schooltime_rule_id):
+					return value
+				for item in value:
+					found = _walk(item)
+					if found:
+						return found
+			elif isinstance(value, dict):
+				for item in value.values():
+					found = _walk(item)
+					if found:
+						return found
+			return None
+
+		return _walk(data)
+
+	async def async_set_school_time(
+		self,
+		start_time: str,
+		end_time: str,
+		day: int | None = None,
+		account_id: str | None = None,
+		scope: str = "weekly",
+	) -> bool:
+		"""Set the school time window (start and finish) for a given day.
+
+		Args:
+			start_time: School time start, HH:MM (e.g. "08:00")
+			end_time: School time end, HH:MM (e.g. "13:15"); must be after start
+			day: ISO weekday (1=Monday ... 7=Sunday). Defaults to today.
+			account_id: Supervised child's user id (optional)
+			scope: "weekly" (default) edits the recurring weekly school time slot
+				of `day`, the same call the bedtime weekly editor uses, pointed at
+				the school time slot id. The day must already have a school time
+				slot in Family Link (Google does not create one from this call).
+				"today" posts a one-off school time override for today only with
+				the given window, leaving the weekly schedule untouched; `day`
+				must then be today (or omitted).
+
+		Returns:
+			True if Google accepted the change, False otherwise.
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		scope = (scope or "weekly").lower()
+		if scope not in ("weekly", "today"):
+			_LOGGER.error("Invalid school time scope %r (expected 'weekly' or 'today')", scope)
+			return False
+
+		try:
+			start_hour, start_min = parse_time_string(start_time)
+			end_hour, end_min = parse_time_string(end_time)
+		except ValueError as err:
+			_LOGGER.error(f"Invalid school time: {err}")
+			return False
+		if (end_hour, end_min) <= (start_hour, start_min):
+			_LOGGER.error(
+				f"Invalid school time {start_time}-{end_time}: the end must be after the start "
+				f"(school time cannot run past midnight)"
+			)
+			return False
+
+		today = dt_util.now().isoweekday()
+		if day is None:
+			day = today
+		if not (type(day) is int and 1 <= day <= 7):
+			_LOGGER.error(f"Invalid day {day}: expected 1 (Monday) to 7 (Sunday)")
+			return False
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			# Always work from a fresh read: slot ids and rule ids are account
+			# specific and a stale cache could point the write at the wrong row.
+			self._weekly_slot_cache.pop(account_id, None)
+			data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
+
+			if scope == "weekly":
+				row = self._find_weekly_school_time_row(data, day) if data is not None else None
+				if row is None:
+					_LOGGER.error(
+						f"No weekly school time slot found for day {day}. Create a school time "
+						f"window for that day once in the Family Link app, then it can be "
+						f"changed from Home Assistant."
+					)
+					return False
+				slot_id = row[0]
+				payload = json.dumps([
+					None,
+					account_id,
+					[
+						[None, None, None, [[slot_id, [start_hour, start_min], [end_hour, end_min]]]],
+						None, None, None, [],
+					],
+					None,
+					[1],
+				])
+				_LOGGER.debug(
+					"Setting WEEKLY school time %s-%s for day=%s (slot=%s, was %s-%s)",
+					start_time, end_time, day, slot_id, row[3], row[4],
+				)
+				async with session.post(
+					self._people_url(account_id, "timeLimit:update"),
+					headers={
+						"Content-Type": "application/json+protobuf",
+						"Cookie": cookie_header,
+					},
+					data=payload,
+					params={"$httpMethod": "PUT"},
+				) as response:
+					if response.status != 200:
+						_LOGGER.error(
+							"Failed to set weekly school time (HTTP %s): %s",
+							response.status, await response.text(),
+						)
+						return False
+				self._weekly_slot_cache.pop(account_id, None)
+				_LOGGER.info(f"Successfully set weekly school time {start_time}-{end_time} for day {day}")
+				return True
+
+			# scope == "today": one-off override with an explicit window.
+			if day != today:
+				_LOGGER.error(
+					f"scope 'today' only applies to today (day {today}); got day {day}. "
+					f"Use scope 'weekly' to change another day."
+				)
+				return False
+			rule_id = self._find_revision_rule_id(data, 2) if data is not None else None
+			if not rule_id:
+				time_limit_data = await self.async_get_time_limit(account_id)
+				rule_id = time_limit_data.get("schooltime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find the school time rule id for this account")
+				return False
+
+			# Overrides accumulate on Google's side; clear today's school time
+			# overrides first so the new window is the only one arbitrating.
+			for override_uuid in await self._async_list_schooltime_overrides_today(account_id, rule_id, today):
+				await self._async_delete_time_limit_override(account_id, override_uuid)
+
+			payload = json.dumps([
+				None,
+				account_id,
+				[[
+					None, None,
+					9,
+					None, None, None, None, None, None, None, None, None,
+					[2, [start_hour, start_min], [end_hour, end_min], None, [today, rule_id]],
+				]],
+				[1],
+			])
+			_LOGGER.debug(
+				"Setting TODAY school time %s-%s (weekday=%s, rule=%s)",
+				start_time, end_time, today, rule_id,
+			)
+			async with session.post(
+				self._people_url(account_id, "timeLimitOverrides:batchCreate"),
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": cookie_header,
+				},
+				data=payload,
+			) as response:
+				if response.status != 200:
+					_LOGGER.error(
+						"Failed to set today's school time (HTTP %s): %s",
+						response.status, await response.text(),
+					)
+					return False
+			_LOGGER.info(f"Successfully set today-only school time {start_time}-{end_time}")
+			return True
+
+		except Exception as err:
+			_LOGGER.error(f"Unexpected error setting school time: {err}")
+			return False
+
 	async def async_get_time_limit(self, account_id: str | None = None) -> dict[str, Any]:
 		"""Get time limit rules and schedules (bedtime/schooltime).
 

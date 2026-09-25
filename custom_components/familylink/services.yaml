@@ -321,6 +321,79 @@ disable_school_time:
       selector:
         text:
 
+set_school_time:
+  name: Set School Time
+  description: >-
+    Set the School Time start and finish for a day. By default this edits the
+    recurring WEEKLY school time slot of that day (the day must already have a
+    school time window in Family Link). Use scope "today" for a one-off
+    override of today's school time that leaves the weekly schedule unchanged.
+    If no day is specified, applies to today.
+  fields:
+    start_time:
+      name: Start Time
+      description: School time start (e.g., 08:00)
+      required: true
+      example: "08:00"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: School time end, same day and after the start (e.g., 13:15)
+      required: true
+      example: "13:15"
+      selector:
+        time:
+    day:
+      name: Day
+      description: Day of the week. If not specified, applies to today.
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Monday"
+              value: "1"
+            - label: "Tuesday"
+              value: "2"
+            - label: "Wednesday"
+              value: "3"
+            - label: "Thursday"
+              value: "4"
+            - label: "Friday"
+              value: "5"
+            - label: "Saturday"
+              value: "6"
+            - label: "Sunday"
+              value: "7"
+    scope:
+      name: Scope
+      description: >-
+        "weekly" (default) edits the recurring weekly school time slot of the
+        day. "today" posts a one-off school time window for today only.
+      required: false
+      default: weekly
+      selector:
+        select:
+          options:
+            - label: "Weekly schedule"
+              value: "weekly"
+            - label: "Today only"
+              value: "today"
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
 enable_daily_limit:
   name: Enable Daily Limit
   description: Enable daily time limit for a child. You can either select an entity OR provide child_id manually.

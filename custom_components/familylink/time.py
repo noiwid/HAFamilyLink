@@ -49,6 +49,8 @@ async def async_setup_entry(
 		for day in range(1, 8):
 			entities.append(FamilyLinkBedtimeTime(coordinator, child_id, child_name, day, BOUND_START))
 			entities.append(FamilyLinkBedtimeTime(coordinator, child_id, child_name, day, BOUND_END))
+			entities.append(FamilyLinkSchoolTimeTime(coordinator, child_id, child_name, day, BOUND_START))
+			entities.append(FamilyLinkSchoolTimeTime(coordinator, child_id, child_name, day, BOUND_END))
 	async_add_entities(entities)
 
 
@@ -159,4 +161,60 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 			)
 		else:
 			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} bedtime of {self._child_name}")
+		await self.coordinator.async_request_refresh()
+
+
+class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
+	"""Start or end of the weekly school time of one weekday.
+
+	Unavailable for weekdays without a school time window in Family Link
+	(Google does not create a slot from the weekly update call).
+	"""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		day: int,
+		bound: str,
+	) -> None:
+		"""Initialize the time entity."""
+		super().__init__(coordinator, child_id, child_name, day, bound)
+		label = "start" if bound == BOUND_START else "end"
+		self._attr_name = f"{DAY_NAMES[day]} school time {label}"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_schooltime_{day}_{bound}"
+		self._attr_icon = "mdi:school" if bound == BOUND_START else "mdi:school-outline"
+
+	def _slot(self) -> dict[str, Any] | None:
+		for child_data in (self.coordinator.data or {}).get("children_data", []):
+			if child_data.get("child_id") == self._child_id:
+				for slot in child_data.get("school_time_schedule") or []:
+					if slot.get("day") == self._day:
+						return slot
+		return None
+
+	async def async_set_value(self, value: time) -> None:
+		"""Rewrite the weekly school time slot of this weekday with the new bound."""
+		client = self.coordinator.client
+		if client is None:
+			_LOGGER.error("Cannot set the school time: client not connected")
+			return
+		slot = self._slot() or {}
+		start = self._as_time(slot.get("start"))
+		end = self._as_time(slot.get("end"))
+		if self._bound == BOUND_START:
+			start = value
+		else:
+			end = value
+		if start is None or end is None:
+			_LOGGER.error(f"Cannot set the {DAY_NAMES[self._day]} school time of {self._child_name}: the other bound is unknown")
+			return
+		start_text, end_text = start.strftime("%H:%M"), end.strftime("%H:%M")
+		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} school time of {self._child_name} to {start_text}-{end_text}")
+		success = await client.async_set_school_time(
+			start_text, end_text, day=self._day, account_id=self._child_id, scope="weekly"
+		)
+		if not success:
+			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} school time of {self._child_name}")
 		await self.coordinator.async_request_refresh()
