@@ -818,27 +818,34 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			results = {}
 			day = call.data.get("day")
 			today = dt_util.now().isoweekday()
+			# Declared to strict mode BEFORE the writes: the client verifies
+			# each override for several seconds, and a refresh in between must
+			# not find the old reference and put the old quota back
+			recorded: dict[int, int | None] = {}
 			if day is not None:
 				# A weekday: the weekly quota of that day, as the app's weekly
 				# screen writes it. Today also gets the override below so the
 				# change applies at once.
+				recorded[day] = coordinator.record_daily_limit_minutes(child_id, daily_minutes, day)
 				results["weekly"] = await coordinator.client.async_set_weekly_daily_limit(
 					day, daily_minutes, child_id
 				)
-				if results["weekly"]:
-					coordinator.record_daily_limit_minutes(child_id, daily_minutes, day)
 			if day is None or day == today:
+				if today not in recorded:
+					recorded[today] = coordinator.record_daily_limit_minutes(child_id, daily_minutes, today)
 				for target_device_id in device_ids:
 					results[target_device_id] = await coordinator.client.async_set_daily_limit(
 						daily_minutes=daily_minutes,
 						device_id=target_device_id,
 						account_id=child_id,
 					)
-					if results[target_device_id]:
-						coordinator.record_daily_limit_minutes(child_id, daily_minutes, today)
 			failed = [d for d, ok in results.items() if not ok]
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
+			if failed and len(failed) == len(results):
+				# Nothing was taken: the references go back to what they were
+				for ref_day, previous in recorded.items():
+					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
 			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "

@@ -55,6 +55,7 @@ def coordinator():
         # Strict mode hooks the service handlers call before hitting the API
         register_ha_bonus=MagicMock(),
         record_policy_intent=MagicMock(),
-        record_daily_limit_minutes=MagicMock(),
+        record_daily_limit_minutes=MagicMock(return_value=None),
+        restore_daily_limit_minutes=MagicMock(),
         record_bedtime_hours=MagicMock(),
     )
