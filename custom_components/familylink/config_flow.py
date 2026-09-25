@@ -28,8 +28,10 @@ from .const import (
 	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_STRICT_MODE,
 	CONF_STRICT_MODE_RULES,
+	CONF_LOCK_KEEPS_ALLOWED_APPS,
 	DEFAULT_STRICT_MODE,
 	DEFAULT_STRICT_MODE_RULES,
+	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
 	STRICT_MODE_RULES,
 	CONF_TIMEOUT,
 	CONF_UPDATE_INTERVAL,
@@ -284,6 +286,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			vol.Optional(CONF_ENABLE_LOCATION_TRACKING, default=False): bool,
 			vol.Optional(CONF_STRICT_MODE, default=DEFAULT_STRICT_MODE): bool,
 			vol.Optional(CONF_STRICT_MODE_RULES, default=list(DEFAULT_STRICT_MODE_RULES)): _strict_rules_selector(),
+			vol.Optional(CONF_LOCK_KEEPS_ALLOWED_APPS, default=DEFAULT_LOCK_KEEPS_ALLOWED_APPS): bool,
 		})
 
 		# Add description about detected source
@@ -491,5 +494,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 						current_data.get(CONF_STRICT_MODE_RULES, DEFAULT_STRICT_MODE_RULES)
 					)),
 				): _strict_rules_selector(),
+				vol.Optional(
+					CONF_LOCK_KEEPS_ALLOWED_APPS,
+					default=current_options.get(
+						CONF_LOCK_KEEPS_ALLOWED_APPS,
+						current_data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS)
+					),
+				): bool,
 			}),
 		)

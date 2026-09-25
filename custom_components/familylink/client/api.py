@@ -91,6 +91,10 @@ class FamilyLinkClient:
 		self._account_id: str | None = None  # Cached supervised child ID
 		# account_id -> (fetched_at, raw timeLimit response) for weekly slot ids
 		self._weekly_slot_cache: dict[str, tuple[float, Any]] = {}
+		# A lock from Home Assistant keeps the "always allowed" apps reachable
+		# from the lock screen (override code 7) unless the option says otherwise
+		# (issue #175). Set by the coordinator from the config entry options.
+		self.lock_keeps_allowed_apps: bool = True
 
 	@staticmethod
 	def _validate_id(value: str, name: str = "ID") -> str:
@@ -1166,10 +1170,14 @@ class FamilyLinkClient:
 			else:
 				account_id = child_id
 
-			# Action codes discovered from browser DevTools:
-			# Code 1 = LOCK (verrouiller)
-			# Code 4 = UNLOCK (déverrouiller)
-			action_code = 1 if action == DEVICE_LOCK_ACTION else 4
+			# Action codes: 1 = plain lock (emergency calls only), 7 = lock that
+			# keeps the "always allowed" apps reachable from the lock screen (what
+			# the app writes when its lock screen setting is on, issue #175; both
+			# verified on a supervised tablet), 4 = unlock
+			if action == DEVICE_LOCK_ACTION:
+				action_code = 7 if self.lock_keeps_allowed_apps else 1
+			else:
+				action_code = 4
 
 			# Payload format from browser: [null, account_id, [[null, null, action_code, device_id]], [1]]
 			payload = json.dumps([

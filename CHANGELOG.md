@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **A device lock from Home Assistant now keeps the always allowed apps reachable** (#175, thanks to @wojtulab) - The lock is written with Google's override code 7 instead of 1: the child still sees "Time for a break", but the lock screen offers an "Available apps" button to open the apps marked "always allowed" in Family Link, which is what the Family Link app itself does when its lock screen setting is on. Both codes were verified on a supervised tablet: with 1 the button is absent, with 7 it is there. A new option, *Device lock keeps the always allowed apps reachable*, on by default, brings back the plain lock (emergency calls only) when switched off. Strict mode relocks and the device switch follow the option.
+
 ---
 
 ## [2.2.0] - 2026-09-25
