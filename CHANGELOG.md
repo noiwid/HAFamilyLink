@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Strict mode fought a daily limit changed from Home Assistant** - Setting a weekday quota from the `number.<child>_<weekday>_limit` entity or the `set_daily_limit` action recorded the new value as the strict mode reference only once Google had confirmed it, and that confirmation takes several seconds per device. A refresh in between found the old reference, put the old quota back, the confirmation then failed, and the new value was never recorded: every attempt was undone within the same second, until strict mode happened to be in its cooldown. The value is now declared to strict mode before it is written, as a bonus already was, and put back to the previous reference only when Google took none of the writes.
+
 ---
 
 ## [2.2.1] - 2026-09-25

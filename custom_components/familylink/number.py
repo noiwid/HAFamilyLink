@@ -140,6 +140,11 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 			_LOGGER.error("Cannot set the daily limit: client not connected")
 			return
 		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} weekly daily limit of {self._child_name} to {minutes} min")
+		# Declared to strict mode BEFORE the writes: the client verifies each
+		# override for several seconds, and a refresh in between must not find
+		# the old reference and put the old quota back (which also made the
+		# verification fail, so the new value was never recorded)
+		previous = self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day)
 		ok = await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id)
 		if ok and self._day == today:
 			device_ids = [
@@ -154,9 +159,8 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 					daily_minutes=minutes, device_id=device_id, account_id=self._child_id
 				)
 				ok = ok and success
-		if ok:
-			# The value chosen in Home Assistant is the reference for strict mode
-			self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day)
-		else:
+		if not ok:
+			# Google did not take it: the reference goes back to what it was
+			self.coordinator.restore_daily_limit_minutes(self._child_id, self._day, previous)
 			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} daily limit of {self._child_name}")
 		await self.coordinator.async_request_refresh()

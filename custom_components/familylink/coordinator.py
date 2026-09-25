@@ -841,15 +841,36 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		values.setdefault("bedtime", {})[str(day)] = [list(start), list(end)]
 		self._save_strict_intents()
 
-	def record_daily_limit_minutes(self, child_id: str | None, minutes: int, day: int | None = None) -> None:
-		"""A weekday quota set from HA becomes the reference for that weekday (strict mode)."""
+	def record_daily_limit_minutes(self, child_id: str | None, minutes: int, day: int | None = None) -> int | None:
+		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
+
+		Call it BEFORE writing to Google: the write verifies the applied value
+		for several seconds, and a refresh in between must not find the old
+		reference and put the old quota back. Returns the previous reference
+		(None when there was none) so a failed write can restore it.
+		"""
 		child_id = self._resolve_child_id(child_id)
 		if not child_id:
-			return
+			return None
 		if not (isinstance(day, int) and 1 <= day <= 7):
 			day = dt_util.now().isoweekday()
 		values = self._intents_for(child_id).setdefault("values", {})
-		values.setdefault("weekly_limits", {})[str(day)] = int(minutes)
+		limits = values.setdefault("weekly_limits", {})
+		previous = limits.get(str(day))
+		limits[str(day)] = int(minutes)
+		self._save_strict_intents()
+		return previous
+
+	def restore_daily_limit_minutes(self, child_id: str | None, day: int, previous: int | None) -> None:
+		"""Put a weekday reference back after a failed write (the value before, or none)."""
+		child_id = self._resolve_child_id(child_id)
+		if not child_id:
+			return
+		limits = self._intents_for(child_id).setdefault("values", {}).setdefault("weekly_limits", {})
+		if previous is None:
+			limits.pop(str(day), None)
+		else:
+			limits[str(day)] = int(previous)
 		self._save_strict_intents()
 
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
