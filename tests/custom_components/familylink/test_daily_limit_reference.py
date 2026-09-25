@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from homeassistant.exceptions import HomeAssistantError
+
 from custom_components.familylink import async_setup_services
 from custom_components.familylink.const import DOMAIN
 from custom_components.familylink.number import FamilyLinkDailyLimitNumber
@@ -117,9 +119,11 @@ async def test_service_restores_the_reference_only_when_nothing_was_taken(hass, 
     calls: list = []
     _tracking(services, calls, today_ok=False)
 
-    await hass.services.async_call(
-        DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400}, blocking=True
-    )
+    # Nothing taken: the service raises for the automation, after the rollback
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400}, blocking=True
+        )
 
     assert calls[0] == ("record", 400, _today())
     assert calls[-1] == ("restore", _today(), 300)
