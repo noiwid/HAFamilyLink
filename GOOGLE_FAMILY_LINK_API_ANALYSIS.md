@@ -75,7 +75,7 @@
 ### timeLimitOverrides:batchCreate action codes
 - **1**: LOCK device / DISABLE school time today (when used with type 9 + schooltime rule)
 - **4**: UNLOCK device
-- **7**: LOCK device with the "apps without time limit" reachable from the lock screen. Reported in issue #175: when the parent turns on that lock screen setting in the app while the device is locked, the app rewrites the override with code 7 instead of 1, the record being otherwise identical, and the child gets the allowed-apps button. Meaning inferred from that behaviour, not captured by us yet; the integration reads it as locked and does not write it
+- **7**: LOCK device with the "always allowed" apps reachable from the lock screen. Reported in issue #175 and **verified live on 2026-09-25** on a supervised Android tablet: posting `[null, childId, [[null, null, 7, deviceId]], [1]]` returns the same record shape as a code 1 lock (`[uuid, createdMs, 7, deviceId, null, null, null, null, parentId]`), the device shows "Time for a break" with an **"Available apps"** button (plus "Ask for more time"); the same lock posted with code 1 shows no "Available apps" button. The Family Link app writes 7 when its lock screen setting "apps without time limit" is on, 1 otherwise. Since 2.2.1 the integration writes 7 by default (option `lock_keeps_allowed_apps`) and reads 1 and 7 as locked
 - **8**: SET daily limit duration (per device)
 - **9**: SET bedtime / school time schedule (per child)
 - **10**: ADD time bonus (per device, Android)

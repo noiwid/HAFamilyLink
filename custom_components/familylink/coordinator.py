@@ -18,8 +18,10 @@ from .client.api import FamilyLinkClient
 from .const import (
 	CONF_STRICT_MODE,
 	CONF_STRICT_MODE_RULES,
+	CONF_LOCK_KEEPS_ALLOWED_APPS,
 	DEFAULT_STRICT_MODE,
 	DEFAULT_STRICT_MODE_RULES,
+	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
 	EVENT_STRICT_MODE_ACTION,
 	STRICT_MODE_BONUS_GRACE,
 	STRICT_MODE_COOLDOWN,
@@ -589,6 +591,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				hass=self.hass,
 				config=self.entry.data,
 			)
+			self.client.lock_keeps_allowed_apps = bool(self.entry.options.get(
+				CONF_LOCK_KEEPS_ALLOWED_APPS,
+				self.entry.data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS),
+			))
 
 			await self.client.async_authenticate()
 			_LOGGER.debug("Successfully set up Family Link client")

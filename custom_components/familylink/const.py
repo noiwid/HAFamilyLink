@@ -18,6 +18,9 @@ CONF_CLEAR_API_KEY: Final = "clear_api_key"  # Reconfigure-only credential remov
 CONF_ENABLE_LOCATION_TRACKING: Final = "enable_location_tracking"
 CONF_STRICT_MODE: Final = "strict_mode"
 CONF_STRICT_MODE_RULES: Final = "strict_mode_rules"
+# A device lock from Home Assistant keeps the "always allowed" apps reachable
+# from the lock screen (Google override code 7) instead of a plain lock (code 1)
+CONF_LOCK_KEEPS_ALLOWED_APPS: Final = "lock_keeps_allowed_apps"
 
 AUTH_SOURCE_MANAGED: Final = "managed"
 AUTH_SOURCE_MANUAL: Final = "manual"
@@ -96,6 +99,7 @@ SERVICE_RING_DEVICE: Final = "ring_device"
 
 # Strict mode (Home Assistant reverts changes made from the Family Link side)
 DEFAULT_STRICT_MODE: Final = False
+DEFAULT_LOCK_KEEPS_ALLOWED_APPS: Final = True
 STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "school_time", "values")
 # Policies are not forced on: the state in force when strict mode starts is
 # the reference, so school_time is safe by default even when kept off.
