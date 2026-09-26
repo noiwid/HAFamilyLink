@@ -3530,16 +3530,12 @@ class FamilyLinkClient:
 					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
 					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
 				if response.status != 200:
-					return {
-						"bedtime_enabled": False,
-						"school_time_enabled": False,
-						"bedtime_enabled_today": None,
-						"school_time_enabled_today": None,
-						"bedtime_schedule": [],
-						"school_time_schedule": [],
-						"bedtime_rule_id": None,
-						"schooltime_rule_id": None
-					}
+					# Raise rather than return "everything off, no schedule": a
+					# default result looked like a real answer, the coordinator
+					# never fell back to its cache, and strict mode read it as
+					# bedtime switched off and seven bedtime slots missing (a
+					# single 503 on 2026-09-26 triggered nine corrections)
+					raise NetworkError(f"Failed to fetch time limit rules: HTTP {response.status}")
 
 				response_data = await response.json()
 				_LOGGER.debug(f"Time limit rules response: {response_data}")
@@ -3547,16 +3543,7 @@ class FamilyLinkClient:
 				# Unwrap the response: [[metadata], [real_data]] -> [real_data]
 				if not isinstance(response_data, list) or len(response_data) < 2:
 					_LOGGER.error(f"Unexpected response structure: {response_data}")
-					return {
-						"bedtime_enabled": False,
-						"school_time_enabled": False,
-						"bedtime_enabled_today": None,
-						"school_time_enabled_today": None,
-						"bedtime_schedule": [],
-						"school_time_schedule": [],
-						"bedtime_rule_id": None,
-						"schooltime_rule_id": None
-					}
+					raise NetworkError("Failed to fetch time limit rules: unexpected response structure")
 
 				data = response_data[1]  # Extract the real data array (index 1)
 				_LOGGER.debug(f"Unwrapped data from response_data[1], type: {type(data)}, len: {len(data) if isinstance(data, list) else 'N/A'}")

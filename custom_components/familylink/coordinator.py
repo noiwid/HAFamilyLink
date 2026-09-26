@@ -311,6 +311,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# by list order (issue #151).
 			bedtime_rule_id = None
 			schooltime_rule_id = None
+			# False when this refresh could not read the rules (cache or nothing):
+			# strict mode then skips the child, there is nothing to correct on that basis
+			time_limit_fresh = True
 
 			try:
 				time_limit_config = await self.client.async_get_time_limit(account_id=child_id)
@@ -333,6 +336,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+				time_limit_fresh = False
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -356,6 +360,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Google actually applies on the child device right now (issue #114).
 			bedtime_enabled_today = None
 			schooltime_enabled_today = None
+			applied_limits_fresh = True
 
 			try:
 				applied_limits_data = await self.client.async_get_applied_time_limits(
@@ -377,6 +382,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
+				applied_limits_fresh = False
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -546,6 +552,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"child_id": child_id,
 				"child_name": child_name,
 				"devices": devices,
+				"time_limit_fresh": time_limit_fresh,
+				"applied_limits_fresh": applied_limits_fresh,
 				"screen_time": screen_time,
 				"location": location,
 				"contact_restriction": contact_restriction,
@@ -953,6 +961,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		for child_data in data.get("children_data", []):
 			child_id = child_data.get("child_id")
 			if not child_id or not self.is_strict_mode_enabled(child_id):
+				continue
+			if child_data.get("time_limit_fresh") is False or child_data.get("applied_limits_fresh") is False:
+				# A refresh that could not read the rules or the applied limits:
+				# neither a reference to take from Google nor anything to correct
+				_LOGGER.debug(f"Strict mode: refresh incomplete for {child_id}, evaluation skipped")
 				continue
 			try:
 				intents = self._intents_for(child_id)
