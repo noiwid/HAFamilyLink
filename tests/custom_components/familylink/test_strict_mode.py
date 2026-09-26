@@ -110,3 +110,13 @@ def test_lock_with_allowed_apps_is_a_lock_for_strict_mode():
     # No HA decision and bedtime running: a lock is not a bypass, nothing to counter
     child = _child(locked=True, bedtime_active=True, lock_override=LOCK_OVERRIDE_LOCKED_ALLOWED_APPS)
     assert _actions(child, _intents(None)) == []
+
+
+def test_failed_refresh_plans_nothing():
+    """2026-09-26: one 503 on the rules read as bedtime off and seven slots missing."""
+    child = _child(locked=False, lock_override=LOCK_OVERRIDE_UNLOCKED, bedtime_active=True)
+    # Sanity: with fresh data this bypass is countered
+    assert _actions(child, _intents(None)) == [ACTION_LOCK_DEVICE]
+    for flag in ("time_limit_fresh", "applied_limits_fresh"):
+        stale = {**child, flag: False}
+        assert _actions(stale, _intents(None)) == []

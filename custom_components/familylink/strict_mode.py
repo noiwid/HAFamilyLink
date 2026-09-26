@@ -204,6 +204,12 @@ def plan_strict_actions(
 	"""
 	child_id = child_data.get("child_id")
 	actions: list[dict[str, Any]] = []
+	# A refresh where the time limit rules or the applied limits could not be
+	# fetched carries cached or empty data: nothing to correct on that basis.
+	# Google answered 503 once on 2026-09-26 and the rules were read as
+	# "bedtime off, seven slots missing": nine corrections for nothing.
+	if child_data.get("time_limit_fresh") is False or child_data.get("applied_limits_fresh") is False:
+		return actions
 	devices_time_data = child_data.get("devices_time_data") or {}
 	intents = intents or {}
 	wanted: dict[str, Any] = intents.get("policies") or {}
