@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.2.3] - 2026-09-26
+
+One robustness correction for strict mode, seen live the same evening.
+
 ### Fixed
 - **A single failed read of the time limit rules made strict mode "correct" everything** - When Google answered an error (a 503 on 2026-09-26) to the time limit rules request, the client returned a default result, bedtime off and no schedule at all, that looked like a real answer. The coordinator never fell back to its cache, and strict mode read it as bedtime switched off, school time switched on and seven bedtime slots missing: nine corrections in 25 seconds, seven notifications, for nothing. The client now raises on such an answer, the coordinator uses its cache as designed, and strict mode skips a child whose rules or applied limits could not be read on that refresh: there is nothing to correct on that basis.
 
