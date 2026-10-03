@@ -26,3 +26,6 @@ class FamilyLinkTimeoutError(FamilyLinkException):
 	"""Exception raised when operations timeout."""
 
 
+class FamilyLinkValidationError(ValueError):
+	"""Deliberate validation error safe to return to a service caller."""
+
