@@ -16,9 +16,6 @@ from custom_components.familylink.client.api import FamilyLinkClient
 ACCOUNT_ID = "115977971790729308369"
 PHONE = "aannnppawiuhqf4xa3v2huxcxko66oux4zpxabjfgldq"
 TABLET = "aannnppapwuzf2tgcvoq74hnz2chi4ln2hr27mcfxxba"
-# The client keeps the overrides created since local midnight of the real day
-TODAY_MS = int(dt_util.start_of_local_day().timestamp() * 1000)
-YESTERDAY_MS = TODAY_MS - 86_400_000
 
 
 def _override(uuid: str, created_ms: int, kind: int, device: str) -> list:
@@ -26,7 +23,14 @@ def _override(uuid: str, created_ms: int, kind: int, device: str) -> list:
 
 
 def _time_limit_data() -> list:
-    """Unwrapped timeLimit payload: the override block holds every override of the day."""
+    """Unwrapped timeLimit payload: the override block holds every override of the day.
+
+    Dates are taken at call time, around now, so they fall on the same side of
+    local midnight as the client's own reading whatever timezone the test
+    harness has set.
+    """
+    TODAY_MS = int(dt_util.utcnow().timestamp() * 1000) - 120_000
+    YESTERDAY_MS = TODAY_MS - 2 * 86_400_000
     return [
         [2, [["CAEQAQ", 1, 2, [22, 0], [7, 0], "1", "2"]], "1", "2", 1],
         [
@@ -40,14 +44,19 @@ def _time_limit_data() -> list:
     ]
 
 
+def _since_ms() -> int:
+    """One day back: keeps the fixture's recent overrides, drops the two-day-old one."""
+    return int(dt_util.utcnow().timestamp() * 1000) - 86_400_000
+
+
 def test_parser_keeps_the_bonuses_of_the_device_posted_today_most_recent_first() -> None:
-    matches = FamilyLinkClient._parse_bonus_overrides(_time_limit_data(), PHONE, TODAY_MS)
+    matches = FamilyLinkClient._parse_bonus_overrides(_time_limit_data(), PHONE, _since_ms())
 
     assert [uuid for uuid, _ in matches] == ["bonus-2", "bonus-1"]
 
 
 def test_parser_ignores_other_devices_and_other_override_kinds() -> None:
-    matches = FamilyLinkClient._parse_bonus_overrides(_time_limit_data(), TABLET, TODAY_MS)
+    matches = FamilyLinkClient._parse_bonus_overrides(_time_limit_data(), TABLET, _since_ms())
 
     assert [uuid for uuid, _ in matches] == ["bonus-tablet"]
 
