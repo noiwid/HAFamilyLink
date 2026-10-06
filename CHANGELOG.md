@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.5] - 2026-10-06
+
+Two fixes owed to reporters: the reconfigure step on Supervisor installs, and a reset bonus button that really resets.
+
+### Fixed
+- **Reconfigure: "Clear API key" could never validate on a Supervisor install** (#186, spotted by @jeallen2) - The reconfigure step forced the manual endpoint source and validated with the key typed in the form, none when clearing, so the add-on answered 403 and the form said "invalid API key"; the only way out of a stale key was to paste the new one by hand. An add-on (managed) entry now stays managed as long as its URL is unchanged and no key is typed, and the validation reads the key the add-on shares, as the integration does at runtime. A typed key or another URL still makes the endpoint manual.
+- **The reset bonus button cancels every bonus of the day** (discussion #142) - Bonuses stack on Google's side and the applied limits only report the most recent one, so cancelling that single id left the others running: four presses on +15 needed four presses on reset. The button now reads the override block, which keeps every override of the day, and cancels each bonus of the device; the single reported id remains the fallback when that block cannot be read.
+
+---
+
 ## [2.2.4] - 2026-10-01
 
 Two robustness corrections brought by reporters and contributors.
