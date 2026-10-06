@@ -368,9 +368,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 					errors["base"] = "api_key_required_for_new_url"
 					return self._show_reconfigure_form(entry, errors)
 				api_key = None if clear_api_key else submitted_key or existing_key
+				# An add-on (managed) entry stays managed as long as its endpoint
+				# does not change and no key is typed: validation then reads the
+				# key the add-on shares, which is what "Clear API key" is for on a
+				# Supervisor install (issue #186). A typed key, or another URL,
+				# makes the endpoint manual as before.
+				keep_managed = (
+					entry.data.get(CONF_AUTH_SOURCE) == AUTH_SOURCE_MANAGED
+					and auth_url == current_url
+					and not submitted_key
+				)
 				new_data = {
 					**entry.data,
-					CONF_AUTH_SOURCE: AUTH_SOURCE_MANUAL,
+					CONF_AUTH_SOURCE: AUTH_SOURCE_MANAGED if keep_managed else AUTH_SOURCE_MANUAL,
 					CONF_AUTH_URL: auth_url,
 				}
 				if api_key:

@@ -2559,6 +2559,61 @@ class FamilyLinkClient:
 
 		return matches
 
+	@staticmethod
+	def _parse_bonus_overrides(data: Any, device_id: str, since_ms: int) -> list[tuple[str, int]]:
+		"""Extract the bonus overrides of ``device_id`` created at or after ``since_ms``.
+
+		Bonuses stack on Google's side: every +15/+30/+60 posts its own
+		override (type 10 on Android, 6 on ChromeOS, see issue #141) and the
+		applied limits only report the most recent one, so a reset that
+		cancels that single id leaves the others running (discussion #142).
+		Returns ``(uuid, created_ms)`` tuples, most recent first.
+		"""
+		matches: list[tuple[str, int]] = []
+		if not isinstance(data, list):
+			return matches
+		for element in data:
+			if not isinstance(element, list):
+				continue
+			for item in element:
+				if not (isinstance(item, list) and len(item) >= 4 and isinstance(item[0], str)):
+					continue
+				if item[2] not in (6, 10) or item[3] != device_id:
+					continue
+				try:
+					created = int(item[1])
+				except (TypeError, ValueError):
+					continue
+				if created >= since_ms:
+					matches.append((item[0], created))
+		matches.sort(key=lambda m: m[1], reverse=True)
+		return matches
+
+	async def async_cancel_all_time_bonuses(self, device_id: str, account_id: str | None = None) -> int:
+		"""Cancel every bonus posted today on a device; returns how many were cancelled.
+
+		Reads the timeLimit override block, which keeps every override of the
+		day, and deletes each bonus override of the device one by one. A
+		failed read returns 0 so the caller can fall back to the single id the
+		applied limits report.
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+		self._validate_id(device_id, "device_id")
+		data = await self._async_fetch_time_limit_data(account_id)
+		if data is None:
+			return 0
+		since_ms = int(dt_util.start_of_local_day().timestamp() * 1000)
+		cancelled = 0
+		for override_id, _created in self._parse_bonus_overrides(data, device_id, since_ms):
+			if await self._async_delete_time_limit_override(account_id, override_id):
+				cancelled += 1
+		if cancelled:
+			_LOGGER.info(f"Cancelled {cancelled} time bonus override(s) of the day for device {device_id}")
+		return cancelled
+
 	async def _async_fetch_time_limit_data(self, account_id: str) -> Any | None:
 		"""Fetch and unwrap the raw timeLimit payload, or None on failure."""
 		try:

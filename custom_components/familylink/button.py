@@ -216,11 +216,16 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.error("Cannot cancel time bonus: client not connected")
 			return
 
-		_LOGGER.info(
-			f"Cancelling time bonus (override_id: {override_id}) for device {self._device_name}"
-		)
+		# Bonuses stack on Google's side and the applied limits only report
+		# the most recent one: cancel every bonus of the day, and fall back to
+		# the reported id when the override block could not be read (#142)
+		_LOGGER.info(f"Cancelling the time bonuses of the day for device {self._device_name}")
 
-		success = await self.coordinator.client.async_cancel_time_bonus(
+		cancelled = await self.coordinator.client.async_cancel_all_time_bonuses(
+			device_id=self._device_id,
+			account_id=self._child_id,
+		)
+		success = cancelled > 0 or await self.coordinator.client.async_cancel_time_bonus(
 			override_id=override_id,
 			account_id=self._child_id,
 		)
