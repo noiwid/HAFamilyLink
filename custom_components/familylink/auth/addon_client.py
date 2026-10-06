@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -14,8 +13,9 @@ from yarl import URL
 from homeassistant.core import HomeAssistant
 
 from ..const import AUTH_SOURCE_MANAGED, AUTH_SOURCE_MANUAL
+from ..privacy import get_privacy_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_privacy_logger(__name__)
 
 # Addon slug suffix (the hash prefix is derived from the repository URL)
 _ADDON_SLUG_SUFFIX = "familylink-playwright"
@@ -150,9 +150,7 @@ class AddonCookieClient:
                         ):
                             hostname = slug.replace("_", "-")
                             url = f"http://{hostname}:{_ADDON_PORT}"
-                            _LOGGER.debug(
-                                "Resolved addon URL via Supervisor: %s", url
-                            )
+                            _LOGGER.debug("Resolved add-on URL via Supervisor")
                             return url
         except Exception as err:
             _LOGGER.debug("Could not resolve addon URL via Supervisor: %s", err)
@@ -169,7 +167,7 @@ class AddonCookieClient:
             resolved = await self._resolve_addon_url()
             if resolved:
                 self._detected_url = resolved
-                _LOGGER.info("Addon URL resolved via Supervisor: %s", resolved)
+                _LOGGER.info("Add-on URL resolved via Supervisor")
         return self._detected_url
 
     async def _fetch_cookies_from_url(
@@ -207,10 +205,10 @@ class AddonCookieClient:
                             isinstance(cookie, dict) for cookie in cookies
                         ):
                             return None
-                        _LOGGER.info(f"Loaded {len(cookies)} cookies from API ({url})")
+                        _LOGGER.info("Loaded %d cookies from add-on API", len(cookies))
                         return cookies
                     elif response.status == 404:
-                        _LOGGER.debug(f"No cookies found at {api_url}")
+                        _LOGGER.debug("No cookies found at add-on API")
                         return None
                     elif response.status == 403:
                         _LOGGER.warning(
@@ -219,13 +217,13 @@ class AddonCookieClient:
                         )
                         return None
                     else:
-                        _LOGGER.debug(f"API returned status {response.status} from {api_url}")
+                        _LOGGER.debug("Add-on API returned HTTP %s", response.status)
                         return None
         except aiohttp.ClientError as err:
-            _LOGGER.debug(f"Failed to connect to {api_url}: {err}")
+            _LOGGER.debug("Failed to connect to add-on API: %s", err)
             return None
         except Exception as err:
-            _LOGGER.debug(f"Error fetching cookies from {api_url}: {err}")
+            _LOGGER.debug("Error fetching cookies from add-on API: %s", err)
             return None
 
     async def _check_url_available(self, url: str) -> bool:
@@ -293,7 +291,7 @@ class AddonCookieClient:
             return cookies
 
         except Exception as err:
-            _LOGGER.error(f"Failed to load cookies from file: {err}")
+            _LOGGER.error("Failed to load cookies from file: %s", err)
             return None
 
     async def _file_available(self) -> bool:
@@ -322,7 +320,7 @@ class AddonCookieClient:
         supervisor_url = await self._get_addon_url()
         if supervisor_url and await self._check_url_available(supervisor_url):
             self._detected_url = supervisor_url
-            _LOGGER.info("Addon detected via Supervisor at %s", supervisor_url)
+            _LOGGER.info("Add-on detected via Supervisor")
             return ("managed_addon", supervisor_url)
 
         # 3. Try default local URL (standalone / Docker Compose)

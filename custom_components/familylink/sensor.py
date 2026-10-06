@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
-import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -19,12 +18,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
+from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device, via_child
+from .privacy import get_privacy_logger
 from .schedules import WINDOW_BEDTIME, describe_time_until, next_scheduled_window
 
-_LOGGER = logging.getLogger(LOGGER_NAME)
+_LOGGER = get_privacy_logger(__name__)
 
 
 class ChildDataMixin:
@@ -124,6 +124,10 @@ async def async_setup_entry(
 
 class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
     """Sensor for individual device daily screen time."""
+
+    _unrecorded_attributes = frozenset(
+        {"child_id", "child_name", "device_id", "device_name", "apps"}
+    )
 
     _attr_icon = "mdi:cellphone-clock"
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
@@ -246,6 +250,10 @@ class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
 class ScreenTimeRemainingSensor(CoordinatorEntity, SensorEntity):
     """Sensor showing remaining screen time for a device."""
 
+    _unrecorded_attributes = frozenset(
+        {"child_id", "child_name", "device_id", "device_name"}
+    )
+
     def __init__(
         self,
         coordinator: FamilyLinkDataUpdateCoordinator,
@@ -355,6 +363,13 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
     """Sensor showing the next upcoming time restriction."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _unrecorded_attributes = frozenset(
+        {
+            "child_id", "child_name", "device_id", "device_name",
+            "next_scheduled_start", "next_scheduled_end", "bedtime_start",
+            "bedtime_end", "schooltime_start", "schooltime_end",
+        }
+    )
 
     def __init__(
         self,
@@ -539,6 +554,9 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 	_attr_state_class = SensorStateClass.TOTAL
 	_attr_native_unit_of_measurement = UnitOfTime.MINUTES
 	_attr_icon = "mdi:timer-outline"
+	_unrecorded_attributes = frozenset(
+		{"child_id", "child_name", "apps"}
+	)
 
 	def __init__(
 		self,
@@ -657,6 +675,7 @@ class FamilyLinkScreenTimeFormattedSensor(ChildDataMixin, CoordinatorEntity, Sen
 	"""Sensor for daily screen time in formatted HH:MM:SS."""
 
 	_attr_icon = "mdi:clock-time-eight-outline"
+	_unrecorded_attributes = frozenset({"child_id", "child_name"})
 
 	def __init__(
 		self,
@@ -722,6 +741,7 @@ class FamilyLinkAppCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 
 	_attr_icon = "mdi:apps"
 	_attr_state_class = SensorStateClass.MEASUREMENT
+	_unrecorded_attributes = frozenset({"child_id", "child_name"})
 
 	def __init__(
 		self,
@@ -804,6 +824,7 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 	"""Sensor for blocked/hidden apps."""
 
 	_attr_icon = "mdi:block-helper"
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "apps"})
 
 	def __init__(
 		self,
@@ -869,6 +890,7 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 	"""Sensor for apps with time limits."""
 
 	_attr_icon = "mdi:timer-sand"
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "apps"})
 
 	def __init__(
 		self,
@@ -937,6 +959,7 @@ class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, Senso
 	"""Sensor for apps that are neither blocked nor time-limited."""
 
 	_attr_icon = "mdi:lock-open-outline"
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "apps"})
 
 	def __init__(
 		self,
@@ -1009,6 +1032,7 @@ class FamilyLinkAlwaysAllowedAppsSensor(ChildDataMixin, CoordinatorEntity, Senso
 	"""Sensor for always-allowed apps (bypass all device limits)."""
 
 	_attr_icon = "mdi:shield-star-outline"
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "apps"})
 
 	def __init__(
 		self,
@@ -1078,6 +1102,9 @@ class FamilyLinkTopAppSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 	_attr_device_class = SensorDeviceClass.DURATION
 	_attr_native_unit_of_measurement = UnitOfTime.MINUTES
 	_attr_icon = "mdi:star"
+	_unrecorded_attributes = frozenset(
+		{"child_id", "child_name", "app_name", "package_name"}
+	)
 
 	def __init__(
 		self,
@@ -1184,6 +1211,7 @@ class FamilyLinkDeviceCountSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 
 	_attr_icon = "mdi:devices"
 	_attr_state_class = SensorStateClass.MEASUREMENT
+	_unrecorded_attributes = frozenset({"child_id", "child_name", "devices"})
 
 	def __init__(
 		self,
@@ -1243,6 +1271,12 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 	"""Sensor for supervised child information."""
 
 	_attr_icon = "mdi:account-child"
+	_unrecorded_attributes = frozenset(
+		{
+			"child_id", "child_name", "user_id", "role", "display_name",
+			"given_name", "family_name", "email", "birthday", "age_band",
+		}
+	)
 
 	def __init__(
 		self,
@@ -1315,6 +1349,10 @@ class FamilyLinkChildInfoSensor(ChildDataMixin, CoordinatorEntity, SensorEntity)
 
 class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
 	"""Sensor showing daily limit quota for a specific device."""
+
+	_unrecorded_attributes = frozenset(
+		{"child_id", "child_name", "device_id", "device_name"}
+	)
 
 	def __init__(
 		self,
@@ -1397,6 +1435,10 @@ class DailyLimitDeviceSensor(CoordinatorEntity, SensorEntity):
 
 class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 	"""Sensor showing active time bonus for a device."""
+
+	_unrecorded_attributes = frozenset(
+		{"child_id", "child_name", "device_id", "device_name"}
+	)
 
 	def __init__(
 		self,
@@ -1481,6 +1523,9 @@ class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEnti
 	_attr_state_class = SensorStateClass.MEASUREMENT
 	_attr_native_unit_of_measurement = PERCENTAGE
 	_attr_icon = "mdi:battery"
+	_unrecorded_attributes = frozenset(
+		{"child_id", "child_name", "source_device", "last_update"}
+	)
 
 	def __init__(
 		self,

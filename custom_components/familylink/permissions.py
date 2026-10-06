@@ -27,15 +27,15 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from functools import wraps
-import logging
-
 import voluptuous as vol
 
 from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import Unauthorized, UnknownUser
 
-_LOGGER = logging.getLogger(__name__)
+from .privacy import get_privacy_logger
+
+_LOGGER = get_privacy_logger(__name__)
 
 # Fields whose presence turns a call into a raw-identifier call.
 RAW_TARGET_FIELDS = ("child_id", "device_id")
@@ -61,8 +61,8 @@ async def async_verify_service_call(hass: HomeAssistant, call: ServiceCall) -> N
 		if user.permissions.check_entity(entity_id, POLICY_CONTROL):
 			return
 		_LOGGER.warning(
-			"Service %s.%s refused: user %s may not control %s",
-			call.domain, call.service, user.name, entity_id,
+			"Service %s.%s refused: non-admin user may not control target entity",
+			call.domain, call.service,
 		)
 		raise Unauthorized(
 			context=call.context, entity_id=entity_id, permission=POLICY_CONTROL
@@ -73,8 +73,8 @@ async def async_verify_service_call(hass: HomeAssistant, call: ServiceCall) -> N
 	else:
 		reason = "has no entity target"
 	_LOGGER.warning(
-		"Service %s.%s refused: user %s is not an administrator and the call %s",
-		call.domain, call.service, user.name, reason,
+		"Service %s.%s refused: user is not an administrator and the call %s",
+		call.domain, call.service, reason,
 	)
 	raise Unauthorized(context=call.context, permission=POLICY_CONTROL)
 
