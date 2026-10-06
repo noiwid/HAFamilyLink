@@ -9,12 +9,15 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.familylink.client.api import FamilyLinkClient
 
 ACCOUNT_ID = "115977971790729308369"
 PHONE = "aannnppawiuhqf4xa3v2huxcxko66oux4zpxabjfgldq"
 TABLET = "aannnppapwuzf2tgcvoq74hnz2chi4ln2hr27mcfxxba"
-TODAY_MS = 1_790_000_000_000
+# The client keeps the overrides created since local midnight of the real day
+TODAY_MS = int(dt_util.start_of_local_day().timestamp() * 1000)
 YESTERDAY_MS = TODAY_MS - 86_400_000
 
 
