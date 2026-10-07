@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A Google TV / Chromecast no longer gets a row of permanently unavailable entities and a lock switch that does nothing** (#173) - The integration created the full phone/tablet entity set for every supervised device, but Google only backs the time-limit entities (lock switch, ring and bonus buttons, bedtime/school-time/daily-limit sensors, screen-time remaining/next-restriction) for devices that enforce screen-time rules. A Google TV or Chromecast has no bedtime, daily limit or on-demand lock of its own — those are set and enforced on the TV itself — so on such a device every one of those entities stayed `unknown`/`unavailable` and its lock switch, ring and bonus buttons posted commands the device ignored. Each per-device entity is now created only when the device advertises the matching capability in Google's own per-device `capabilityInfo` (already fetched, previously unused); the daily-screen-time sensor, backed by app-activity reporting, is kept for any device. Existing installs have the now-unsupported entities removed from the registry on setup. When Google returns no capability list for a device (older cached data, or a response without it), every entity is created as before, so nothing is dropped on incomplete data. The device's capability list is exposed as an attribute of its daily-screen-time sensor so it is visible why an entity is or is not present.
+
 ---
 
 ## [2.2.5] - 2026-10-06

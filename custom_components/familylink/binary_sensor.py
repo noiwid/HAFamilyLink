@@ -16,11 +16,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+	CAP_BEDTIME,
+	CAP_SCHOOL_TIME,
+	CAPS_TIME_LIMIT,
 	DOMAIN,
 	LOGGER_NAME,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import ensure_child_device, via_child
+from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -34,6 +37,7 @@ async def async_setup_entry(
 	coordinator = hass.data[DOMAIN][entry.entry_id]
 
 	entities = []
+	prune: list[str] = []
 
 	# Check if data is available (should be after async_config_entry_first_refresh)
 	if not coordinator.data or "children_data" not in coordinator.data:
@@ -55,47 +59,41 @@ async def async_setup_entry(
 		# Ensure parent device (child account) exists in device registry
 		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
-		# Create binary sensors for each device
+		# Create binary sensors for each device, but only the ones the device
+		# can actually back with data. A Google TV / Chromecast advertises no
+		# bedtime, school-time or daily-limit capability, so these sensors would
+		# be permanently unavailable for it (#173).
 		for device in child_data.get("devices", []):
 			device_id = device["id"]
 			device_name = device.get("name", f"Device {device_id}")
 
-			# Bedtime active sensor
-			entities.append(
-				BedtimeActiveBinarySensor(
-					coordinator,
-					device_id,
-					device_name,
-					device,
-					child_id,
-					child_name,
-				)
+			candidates = (
+				(
+					BedtimeActiveBinarySensor(
+						coordinator, device_id, device_name, device, child_id, child_name
+					),
+					(CAP_BEDTIME,),
+				),
+				(
+					SchoolTimeActiveBinarySensor(
+						coordinator, device_id, device_name, device, child_id, child_name
+					),
+					(CAP_SCHOOL_TIME,),
+				),
+				(
+					DailyLimitReachedBinarySensor(
+						coordinator, device_id, device_name, device, child_id, child_name
+					),
+					CAPS_TIME_LIMIT,
+				),
 			)
+			for entity, caps in candidates:
+				if device_supports(device, *caps):
+					entities.append(entity)
+				else:
+					prune.append(entity.unique_id)
 
-			# School time active sensor
-			entities.append(
-				SchoolTimeActiveBinarySensor(
-					coordinator,
-					device_id,
-					device_name,
-					device,
-					child_id,
-					child_name,
-				)
-			)
-
-			# Daily limit reached sensor
-			entities.append(
-				DailyLimitReachedBinarySensor(
-					coordinator,
-					device_id,
-					device_name,
-					device,
-					child_id,
-					child_name,
-				)
-			)
-
+	async_prune_entities(hass, "binary_sensor", prune)
 	_LOGGER.debug(f"Created {len(entities)} binary sensor entities")
 	async_add_entities(entities, update_before_add=True)
 

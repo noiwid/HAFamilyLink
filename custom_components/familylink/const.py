@@ -25,6 +25,27 @@ CONF_LOCK_KEEPS_ALLOWED_APPS: Final = "lock_keeps_allowed_apps"
 AUTH_SOURCE_MANAGED: Final = "managed"
 AUTH_SOURCE_MANUAL: Final = "manual"
 
+# --- Device capabilities -----------------------------------------------------
+# Names as they appear in appsandusage deviceInfo[].capabilityInfo.capabilities,
+# already stored per device as device["capabilities"] by the coordinator. They
+# are the authoritative statement of what a device can do: a phone/tablet lists
+# the full screen-time set, while a Google TV / Chromecast lists only app and
+# account management and advertises none of the time-limit features (#173).
+CAP_ON_DEMAND_LOCK: Final = "capabilityOnDemandLockDevice"
+CAP_RING: Final = "capabilityRing"
+CAP_UNLOCK_FOR: Final = "capabilityUnlockFor"
+CAP_UNLOCK_UNTIL_DEADLINE: Final = "capabilityTimeLimitUnlockUntilLockDeadline"
+CAP_BEDTIME: Final = "capabilityBedtime"
+CAP_SCHOOL_TIME: Final = "capabilitySchoolTimeMode"
+CAP_LOCK_WITH_DEADLINE: Final = "capabilityLockWithDeadline"
+CAP_APP_ACTIVITY: Final = "capabilityAppActivity"
+
+# A device enforces screen-time rules (daily limit, bedtime, remaining time,
+# next restriction) only if it advertises one of these.
+CAPS_TIME_LIMIT: Final = (CAP_BEDTIME, CAP_LOCK_WITH_DEADLINE)
+# Bonus / unlock time overrides depend on one of these.
+CAPS_BONUS: Final = (CAP_UNLOCK_FOR, CAP_UNLOCK_UNTIL_DEADLINE)
+
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
 MIN_UPDATE_INTERVAL: Final = 30  # seconds
