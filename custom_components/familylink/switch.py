@@ -21,6 +21,7 @@ from .const import (
 	ATTR_DEVICE_TYPE,
 	ATTR_LAST_SEEN,
 	ATTR_LOCKED,
+	CAP_ON_DEMAND_LOCK,
 	DEVICE_LOCK_ACTION,
 	DEVICE_UNLOCK_ACTION,
 	DOMAIN,
@@ -28,7 +29,7 @@ from .const import (
 	LOGGER_NAME,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import ensure_child_device, via_child
+from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -42,6 +43,7 @@ async def async_setup_entry(
 	coordinator = hass.data[DOMAIN][entry.entry_id]
 
 	entities = []
+	prune: list[str] = []
 
 	# Create switch entities for each child and their devices
 	for child_data in coordinator.data.get("children_data", []) if coordinator.data else []:
@@ -57,10 +59,17 @@ async def async_setup_entry(
 		entities.append(FamilyLinkDailyLimitSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkStrictModeSwitch(coordinator, child_id, child_name))
 
-		# Create device lock/unlock switches for each device
+		# Create a device lock switch only for devices that can be locked on
+		# demand. A Google TV / Chromecast has no such capability, so its lock
+		# switch previously posted a command the device just ignored (#173).
 		for device in child_data.get("devices", []):
-			entities.append(FamilyLinkDeviceSwitch(coordinator, device, child_id, child_name))
+			switch = FamilyLinkDeviceSwitch(coordinator, device, child_id, child_name)
+			if device_supports(device, CAP_ON_DEMAND_LOCK):
+				entities.append(switch)
+			else:
+				prune.append(switch.unique_id)
 
+	async_prune_entities(hass, "switch", prune)
 	_LOGGER.debug(f"Created {len(entities)} total switch entities")
 	async_add_entities(entities, update_before_add=True)
 

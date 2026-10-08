@@ -19,9 +19,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_ENABLE_LOCATION_TRACKING, DOMAIN, LOGGER_NAME
+from .const import (
+    CAP_APP_ACTIVITY,
+    CAPS_BONUS,
+    CAPS_TIME_LIMIT,
+    CONF_ENABLE_LOCATION_TRACKING,
+    DOMAIN,
+    LOGGER_NAME,
+)
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import ensure_child_device, via_child
+from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 from .schedules import WINDOW_BEDTIME, describe_time_until, next_scheduled_window
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -67,6 +74,7 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities = []
+    prune: list[str] = []
 
     # Check if data is available (should be after async_config_entry_first_refresh)
     if not coordinator.data or "children_data" not in coordinator.data:
@@ -107,17 +115,29 @@ async def async_setup_entry(
         if entry.options.get(CONF_ENABLE_LOCATION_TRACKING, entry.data.get(CONF_ENABLE_LOCATION_TRACKING, False)):
             entities.append(FamilyLinkBatteryLevelSensor(coordinator, child_id, child_name))
 
-        # Create device sensors for each device (4 sensors per device)
+        # Create device sensors for each device. The screen-time sensors are
+        # fed by the per-device time-limit block, which Google only fills in
+        # for devices that enforce screen-time rules; a Google TV / Chromecast
+        # has none, so those sensors stayed unknown for it (#173). Daily screen
+        # time comes from app-activity reporting and is kept for any device.
         for device in child_data.get("devices", []):
             device_id = device["id"]
             device_name = device.get("name", "Unknown Device")
 
-            entities.append(ScreenTimeRemainingSensor(coordinator, child_id, child_name, device_id, device_name))
-            entities.append(NextRestrictionSensor(coordinator, child_id, child_name, device_id, device_name))
-            entities.append(DailyLimitDeviceSensor(coordinator, child_id, child_name, device_id, device_name))
-            entities.append(ActiveBonusSensor(coordinator, child_id, child_name, device_id, device_name))
-            entities.append(FamilyLinkDeviceDailyScreenTimeSensor(coordinator, child_id, child_name, device_id, device_name))
+            candidates = (
+                (ScreenTimeRemainingSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_TIME_LIMIT),
+                (NextRestrictionSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_TIME_LIMIT),
+                (DailyLimitDeviceSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_TIME_LIMIT),
+                (ActiveBonusSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_BONUS),
+                (FamilyLinkDeviceDailyScreenTimeSensor(coordinator, child_id, child_name, device_id, device_name), (CAP_APP_ACTIVITY,)),
+            )
+            for entity, caps in candidates:
+                if device_supports(device, *caps):
+                    entities.append(entity)
+                else:
+                    prune.append(entity.unique_id)
 
+    async_prune_entities(hass, "sensor", prune)
     _LOGGER.debug(f"Created {len(entities)} total sensor entities")
     async_add_entities(entities, update_before_add=True)
 
@@ -192,6 +212,18 @@ class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
             "device_id": self._device_id,
             "device_name": self._device_name,
         }
+
+        # Surface Google's per-device capability list so it is visible why the
+        # time-limit sensors, lock switch, ring and bonus buttons exist on some
+        # devices but not others (e.g. a Google TV / Chromecast — #173).
+        if self.coordinator.data and "children_data" in self.coordinator.data:
+            for c in self.coordinator.data["children_data"]:
+                if c.get("child_id") == self._child_id:
+                    for dev in c.get("devices", []):
+                        if dev.get("id") == self._device_id:
+                            attributes["capabilities"] = dev.get("capabilities", [])
+                            break
+                    break
 
         dev_data = self._get_device_screen_time_data()
         if dev_data is None:

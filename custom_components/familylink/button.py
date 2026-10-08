@@ -11,9 +11,9 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOGGER_NAME
+from .const import CAP_RING, CAPS_BONUS, DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import ensure_child_device
+from .devices import async_prune_entities, device_supports, ensure_child_device
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -27,6 +27,7 @@ async def async_setup_entry(
 	coordinator = hass.data[DOMAIN][entry.entry_id]
 
 	entities = []
+	prune: list[str] = []
 
 	# Check if data is available (should be after async_config_entry_first_refresh)
 	if not coordinator.data or "children_data" not in coordinator.data:
@@ -50,14 +51,28 @@ async def async_setup_entry(
 		ensure_child_device(hass, coordinator, entry.entry_id, child_id, child_name)
 
 		for device in child_data.get("devices", []):
-			# Create 4 time bonus buttons per device (15min, 30min, 60min, cancel)
-			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 15))
-			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 30))
-			entities.append(FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 60))
-			entities.append(CancelTimeBonusButton(coordinator, device, child_id, child_name))
-			# Ring button (make the device sound to help locate it)
-			entities.append(RingDeviceButton(coordinator, device, child_id, child_name))
+			# Bonus/ring buttons only make sense where the device supports the
+			# underlying override. A Google TV / Chromecast grants no bonus time
+			# and cannot be rung, so these buttons did nothing on it (#173).
+			bonus_buttons = (
+				FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 15),
+				FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 30),
+				FamilyLinkTimeBonusButton(coordinator, device, child_id, child_name, 60),
+				CancelTimeBonusButton(coordinator, device, child_id, child_name),
+			)
+			if device_supports(device, *CAPS_BONUS):
+				entities.extend(bonus_buttons)
+			else:
+				prune.extend(button.unique_id for button in bonus_buttons)
 
+			# Ring button (make the device sound to help locate it)
+			ring = RingDeviceButton(coordinator, device, child_id, child_name)
+			if device_supports(device, CAP_RING):
+				entities.append(ring)
+			else:
+				prune.append(ring.unique_id)
+
+	async_prune_entities(hass, "button", prune)
 	_LOGGER.debug(f"Created {len(entities)} time bonus button entities")
 	async_add_entities(entities, update_before_add=True)
 
