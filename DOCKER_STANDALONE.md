@@ -142,6 +142,18 @@ To re-authenticate after the session expires, repeat the same steps; the integra
 
 Install the integration and run the configuration flow as described in [INSTALL.md, Route B](INSTALL.md#route-b-home-assistant-container-or-core), entering the container URL from the [API key](#api-key-securing-the-cookie-endpoint) section above.
 
+With a URL, the integration asks the container for the session at every Home Assistant start, so **the container has to keep running**. It costs little: Chromium only starts during a login.
+
+### Running the container only to log in
+
+If you would rather start the container only when Google asks you to log in again, let Home Assistant read the session file directly, as it does on Home Assistant OS:
+
+1. Mount the same `./data` directory into your Home Assistant container at `/share/familylink`, read-only is enough (`- ./data:/share/familylink:ro`, or `-v $(pwd)/data:/share/familylink:ro`).
+2. Log in once through the auth container, then **stop it**.
+3. Add the integration and choose **Auto-detect**. With the container stopped, the detection finds the session file and the entry reads it directly at every start. (If the container is running, the detection picks its URL instead and you are back to the first mode.)
+
+When the session expires, start the container, log in again, stop it: the file is rewritten and the integration picks it up at the next refresh.
+
 ## Updating
 
 ### Docker Compose
