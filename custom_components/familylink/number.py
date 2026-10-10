@@ -22,7 +22,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOGGER_NAME
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import ensure_child_device
+from .devices import ensure_child_device, time_limit_device_ids
 from .schedules import DAY_NAMES
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -147,14 +147,9 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		previous = self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day)
 		ok = await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id)
 		if ok and self._day == today:
-			device_ids = [
-				device["id"]
-				for child_data in (self.coordinator.data or {}).get("children_data", [])
-				if child_data.get("child_id") == self._child_id
-				for device in child_data.get("devices", [])
-				if device.get("id")
-			]
-			for device_id in device_ids:
+			# Not on a Google TV: it takes no time limits and never confirms
+			# the override, which made the whole write fail (#173)
+			for device_id in time_limit_device_ids(self.coordinator.data, self._child_id):
 				success = await client.async_set_daily_limit(
 					daily_minutes=minutes, device_id=device_id, account_id=self._child_id
 				)

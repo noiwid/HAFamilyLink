@@ -161,7 +161,7 @@ The override references today's slot of the weekly daily-limit schedule. That sl
 | `daily_minutes` | int, 0 to 1440 | yes | - (form prefills 120) | Minutes allowed per day. `0` disables the device for the day without fully locking it |
 | `entity_id` | entity id | no | - | The device switch (`switch.<device>`) |
 | `device_id` | string | no | - | Device token, if not using the entity |
-| `child_id` | string | no | - | Child user ID. With a device target, defaults to the first supervised child. Given alone, targets every device of that child |
+| `child_id` | string | no | - | Child user ID. With a device target, defaults to the first supervised child. Given alone, targets every device of that child that takes time limits (a Google TV is skipped) |
 | `day` | int, 1 to 7 | no | - | Weekday (1 = Monday, 7 = Sunday) whose weekly quota is written, see above. Without it, today's override only |
 
 ```yaml

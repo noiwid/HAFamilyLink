@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A daily limit set for a child no longer fails because of the child's Google TV** (#173) - `familylink.set_daily_limit` with only a `child_id`, and today's weekday daily-limit number, post the quota as a per-device override on every device of the child, the TV included. A Google TV / Chromecast takes no time limits, so Google never applied the override there and the readback reported it as not applied: the service raised although the phone and tablet had taken the new quota, and the number put strict mode's previous reference back. Both now skip devices that advertise no time-limit capability (the same check as the entities since 2.2.6; a device without a capability list is still included). A `device_id` given explicitly is still targeted as before.
+
 ---
 
 ## [2.2.6] - 2026-10-08
