@@ -3,7 +3,8 @@
 Home Assistant evaluates a user's entity permissions only on service calls
 that go through the entity platform machinery (toggling a switch, pressing a
 button). The services registered by this integration take a raw ``child_id``
-or ``device_id``, or no target at all (meaning every supervised child), so
+or ``device_id``, or no target at all (``all_children: true`` on the app
+services, the first child or every child on others, see SERVICES.md), so
 without a check of our own any authenticated user, administrator or not,
 could grant a bonus, lift a bedtime or unlock a device through the API. That
 is the wrong default for a household where the supervised child may well have

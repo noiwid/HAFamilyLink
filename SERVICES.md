@@ -14,13 +14,14 @@ Most services accept three optional targeting fields:
 | `child_id` | The child's Google user ID | `child_id` attribute of any per-child sensor, or `user_id` on `sensor.<child>_child_info` |
 | `device_id` | The device token | `device_id` attribute of the device switch (the simplest source) or of any per-device sensor or binary sensor |
 
-Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that has no `child_id` attribute and belongs to no Family Link device is treated as no target at all.
+Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that has no `child_id` attribute and belongs to no Family Link device is treated as no target at all (the app services `block_app`, `unblock_app`, `set_app_daily_limit`, `block_device_for_school` and `unblock_all_apps` raise an error instead).
 
 What happens with **no target** differs per service, which matters in multi-child families:
 
 | No target given | Services |
 |---|---|
-| Applies to **ALL** supervised children | [`block_device_for_school`](#familylinkblock_device_for_school), [`unblock_all_apps`](#familylinkunblock_all_apps), [`block_app`](#familylinkblock_app--familylinkunblock_app), [`unblock_app`](#familylinkblock_app--familylinkunblock_app), [`set_app_daily_limit`](#familylinkset_app_daily_limit), [`refresh_location`](#familylinkrefresh_location) |
+| Applies to **ALL** supervised children | [`refresh_location`](#familylinkrefresh_location) |
+| Fails unless `all_children: true` is passed (then: every supervised child) | [`block_device_for_school`](#familylinkblock_device_for_school), [`unblock_all_apps`](#familylinkunblock_all_apps), [`block_app`](#familylinkblock_app--familylinkunblock_app), [`unblock_app`](#familylinkblock_app--familylinkunblock_app), [`set_app_daily_limit`](#familylinkset_app_daily_limit) |
 | Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`set_school_time`](#familylinkset_school_time), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
 | Fails (a device target is mandatory) | [`add_time_bonus`](#familylinkadd_time_bonus), [`ring_device`](#familylinkring_device) |
 | Fails without a device or a child | [`set_daily_limit`](#familylinkset_daily_limit) |
@@ -52,7 +53,8 @@ Blocks all apps except a whitelist of essentials, simulating a device lock (scho
 |---|---|---|---|---|
 | `whitelist` | list of package names | no | - | Extra packages to keep allowed, merged with the built-in list below |
 | `entity_id` | entity id | no | - | Entity carrying a `child_id` attribute |
-| `child_id` | string | no | - | Child user ID. No target: ALL children |
+| `child_id` | string | no | - | Child user ID |
+| `all_children` | boolean | no | `false` | Apply to every supervised child. Required when no child is given |
 
 Built-in whitelist (always allowed): `com.android.dialer`, `com.android.contacts`, `com.android.mms`, `com.google.android.apps.messaging`, `com.android.settings`, `com.android.deskclock`, `com.google.android.apps.maps`, `com.android.emergency`, `com.android.systemui`, `com.android.launcher3`, `com.google.android.gms`.
 
@@ -73,7 +75,8 @@ Unblocks every blocked app, ending school mode. Per-app calls are spaced 0.1 s a
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `entity_id` | entity id | no | - | Entity carrying a `child_id` attribute |
-| `child_id` | string | no | - | Child user ID. No target: ALL children |
+| `child_id` | string | no | - | Child user ID |
+| `all_children` | boolean | no | `false` | Apply to every supervised child. Required when no child is given |
 
 ```yaml
 action: familylink.unblock_all_apps
@@ -89,13 +92,15 @@ Blocks or unblocks a single app by package name.
 |---|---|---|---|---|
 | `package_name` | string | yes | - | Android package name, e.g. `com.google.android.youtube` |
 | `entity_id` | entity id | no | - | Entity carrying a `child_id` attribute |
-| `child_id` | string | no | - | Child user ID. No target: ALL children |
+| `child_id` | string | no | - | Child user ID |
+| `all_children` | boolean | no | `false` | Apply to every supervised child. Required when no child is given |
 
 ```yaml
 # Block YouTube for every supervised child
 action: familylink.block_app
 data:
   package_name: com.google.android.youtube
+  all_children: true
 
 # Unblock it for one child only
 action: familylink.unblock_app
@@ -120,7 +125,8 @@ Sets the per-app time policy. Family Link has four app states, selected by the `
 | `package_name` | string | yes | - | Android package name |
 | `minutes` | int, -2 to 1440 | yes | - (form prefills 60) | See the state table above |
 | `entity_id` | entity id | no | - | Entity carrying a `child_id` attribute |
-| `child_id` | string | no | - | Child user ID. No target: ALL children |
+| `child_id` | string | no | - | Child user ID |
+| `all_children` | boolean | no | `false` | Apply to every supervised child. Required when no child is given |
 
 ```yaml
 action: familylink.set_app_daily_limit
