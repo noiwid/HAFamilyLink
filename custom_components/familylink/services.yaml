@@ -434,7 +434,7 @@ disable_daily_limit:
 
 set_daily_limit:
   name: Set Daily Limit
-  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours). Select a device entity, provide a device_id, or provide only a child_id to apply the limit to every device of that child.
+  description: Set daily time limit duration for a device (e.g., 120 minutes for 2 hours). Select a device entity, provide a device_id, or provide only a child_id to apply the limit to every device of that child that takes time limits (not a Google TV).
   fields:
     day:
       name: Day of week

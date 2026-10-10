@@ -24,7 +24,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import DOMAIN, LOGGER_NAME
+from .const import CAPS_TIME_LIMIT, DOMAIN, LOGGER_NAME
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -44,6 +44,24 @@ def device_supports(device: dict[str, Any], *capabilities: str) -> bool:
 	if not caps:
 		return True
 	return any(capability in caps for capability in capabilities)
+
+
+def time_limit_device_ids(data: dict[str, Any] | None, child_id: str) -> list[str]:
+	"""Ids of the child's devices that enforce a daily limit.
+
+	A daily limit for a child is a per-device override on Google's side, so it
+	is fanned out to the child's devices. A Google TV / Chromecast takes no
+	time limits (#173): Google never applies the override there, the readback
+	reports it as not applied and the whole call failed, although the phone
+	and tablet had taken it.
+	"""
+	return [
+		device["id"]
+		for child in (data or {}).get("children_data", [])
+		if child.get("child_id") == child_id
+		for device in child.get("devices", [])
+		if device.get("id") and device_supports(device, *CAPS_TIME_LIMIT)
+	]
 
 
 def async_prune_entities(
