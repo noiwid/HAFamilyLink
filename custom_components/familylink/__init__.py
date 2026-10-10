@@ -857,9 +857,25 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				# instead of a silent log line: since #157 the client reads
 				# the value back, so a False here means Google accepted the
 				# request but did not apply it, or rejected it outright.
+				# A device without time-limit data yet (newly supervised) cannot
+				# take an override; say so rather than send the user to the log.
+				timed = {
+					timed_device_id
+					for child in (coordinator.data or {}).get("children_data", [])
+					if child.get("child_id") == child_id
+					for timed_device_id in child.get("devices_time_data") or {}
+				}
+				untimed = [d for d in failed if d != "weekly" and d not in timed]
+				hint = (
+					f" Google has no time limits for device(s) {', '.join(untimed)} yet: "
+					"a newly supervised device is only listed after a while (about 30 "
+					"minutes seen), try again later."
+					if untimed
+					else ""
+				)
 				raise HomeAssistantError(
 					f"Daily limit of {daily_minutes} minutes was not applied for "
-					f"device(s): {', '.join(failed)}. See the Family Link log for "
+					f"device(s): {', '.join(failed)}.{hint} See the Family Link log for "
 					"the slot used and the value observed."
 				)
 		except Exception as err:
