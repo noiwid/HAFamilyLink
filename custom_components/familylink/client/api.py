@@ -2931,11 +2931,13 @@ class FamilyLinkClient:
 		"""
 		observed: list[Any] = []
 		try:
+			listed = False
 			for delay in (3, 5):
 				await asyncio.sleep(delay)
 				applied = await self.async_get_applied_time_limits(account_id)
-				device_data = (applied or {}).get("devices", {}).get(device_id, {})
-				actual = device_data.get("daily_limit_minutes")
+				devices = (applied or {}).get("devices", {})
+				listed = listed or device_id in devices
+				actual = devices.get(device_id, {}).get("daily_limit_minutes")
 				observed.append(actual)
 				if actual == expected_minutes:
 					_LOGGER.info(
@@ -2943,6 +2945,17 @@ class FamilyLinkClient:
 						f"visible in applied time limits"
 					)
 					return True
+			if not listed:
+				# A device Google does not list in its applied time limits takes
+				# no override yet: seen live for a tablet supervised minutes
+				# earlier, which was listed (and took the same write) about 30
+				# minutes later
+				_LOGGER.warning(
+					f"Daily limit for device {device_id} not applied: Google lists no "
+					f"time limits for this device yet. A newly supervised device is "
+					f"only listed after a while (about 30 minutes seen); try again later"
+				)
+				return False
 			_LOGGER.warning(
 				f"Daily limit for device {device_id} is still not {expected_minutes} "
 				f"minutes after two checks (observed={observed}): Google accepted "
