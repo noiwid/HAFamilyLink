@@ -8,7 +8,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 from homeassistant.util import dt as dt_util
@@ -130,23 +130,27 @@ SCHEMA_BLOCK_DEVICE_FOR_SCHOOL = vol.Schema({
 	vol.Optional("whitelist"): vol.All(cv.ensure_list, [cv.string]),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
+	vol.Optional("all_children", default=False): cv.boolean,
 })
 
 SCHEMA_UNBLOCK_ALL_APPS = vol.Schema({
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
+	vol.Optional("all_children", default=False): cv.boolean,
 })
 
 SCHEMA_BLOCK_APP = vol.Schema({
 	vol.Required("package_name"): cv.string,
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
+	vol.Optional("all_children", default=False): cv.boolean,
 })
 
 SCHEMA_UNBLOCK_APP = vol.Schema({
 	vol.Required("package_name"): cv.string,
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
+	vol.Optional("all_children", default=False): cv.boolean,
 })
 
 SCHEMA_SET_APP_DAILY_LIMIT = vol.Schema({
@@ -154,6 +158,7 @@ SCHEMA_SET_APP_DAILY_LIMIT = vol.Schema({
 	vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=-2, max=1440)),
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
+	vol.Optional("all_children", default=False): cv.boolean,
 })
 
 # Time management service schemas
@@ -355,6 +360,34 @@ def extract_ids_from_entity(hass: HomeAssistant, entity_id: str | None, require_
 	return device_id, child_id
 
 
+def resolve_app_service_child(hass: HomeAssistant, call: ServiceCall) -> str | None:
+	"""Child targeted by an app service: its id, or None for every child.
+
+	Every child is only targeted on an explicit ``all_children: true``. A call
+	without a child used to change every supervised child, which an automation
+	could do by mistake (an empty templated ``child_id``, or an entity without a
+	child as in #73); it now raises instead.
+	"""
+	entity_id = call.data.get("entity_id")
+	child_id = call.data.get("child_id")
+	all_children = call.data.get("all_children", False)
+	if entity_id and not child_id:
+		_, child_id = extract_ids_from_entity(hass, entity_id)
+		if not child_id:
+			raise ServiceValidationError(
+				f"Entity {entity_id} does not belong to a Family Link child. Select an "
+				"entity of the child, or pass child_id."
+			)
+	if child_id and all_children:
+		raise ServiceValidationError("Pass either a child (entity_id or child_id) or all_children: true, not both.")
+	if not child_id and not all_children:
+		raise ServiceValidationError(
+			"No child given. Pass child_id, a Family Link entity of the child, or "
+			"all_children: true to apply it to every supervised child."
+		)
+	return child_id
+
+
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
 	"""Set up services for Family Link."""
 
@@ -367,13 +400,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		"""Handle block_device_for_school service call."""
 		_require_client()
 		whitelist = call.data.get("whitelist")
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		# A child, or every child on an explicit all_children: true
+		child_id = resolve_app_service_child(hass, call)
 
 		try:
 			if child_id:
@@ -409,13 +437,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_unblock_all_apps(call: ServiceCall) -> None:
 		"""Handle unblock_all_apps service call."""
 		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		# A child, or every child on an explicit all_children: true
+		child_id = resolve_app_service_child(hass, call)
 
 		try:
 			if child_id:
@@ -445,13 +468,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		"""Handle block_app service call."""
 		_require_client()
 		package_name = call.data["package_name"]
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		# A child, or every child on an explicit all_children: true
+		child_id = resolve_app_service_child(hass, call)
 
 		try:
 			if child_id:
@@ -491,13 +509,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		"""Handle unblock_app service call."""
 		_require_client()
 		package_name = call.data["package_name"]
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		# A child, or every child on an explicit all_children: true
+		child_id = resolve_app_service_child(hass, call)
 
 		try:
 			if child_id:
@@ -538,13 +551,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		_require_client()
 		package_name = call.data["package_name"]
 		minutes = call.data["minutes"]
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		# A child, or every child on an explicit all_children: true
+		child_id = resolve_app_service_child(hass, call)
 
 		try:
 			if child_id:

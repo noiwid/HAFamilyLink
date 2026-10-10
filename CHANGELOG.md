@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### ⚠️ Breaking change
+- **App services no longer change every child when no child is given** - `familylink.block_app`, `unblock_app`, `set_app_daily_limit`, `block_device_for_school` and `unblock_all_apps` used to apply to **all** supervised children when called without `entity_id` or `child_id`, and also when the entity given had no child (#73). An automation could change every child by mistake, for example through a templated `child_id` that came out empty. They now raise an error unless they get a child, or the new field `all_children: true`.
+
+  **To migrate**, add `all_children: true` to calls that are meant for every child:
+  ```yaml
+  # Before
+  action: familylink.block_app
+  data:
+    package_name: com.google.android.youtube
+  # After
+  action: familylink.block_app
+  data:
+    package_name: com.google.android.youtube
+    all_children: true
+  ```
+  Calls with an entity or a `child_id` are unchanged. `refresh_location` and the time-limit services keep their current defaults.
+
 ---
 
 ## [2.2.6] - 2026-10-08
