@@ -14,7 +14,7 @@ Most services accept three optional targeting fields:
 | `child_id` | The child's Google user ID | `child_id` attribute of any per-child sensor, or `user_id` on `sensor.<child>_child_info` |
 | `device_id` | The device token | `device_id` attribute of the device switch (the simplest source) or of any per-device sensor or binary sensor |
 
-Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that has no `child_id` attribute and belongs to no Family Link device is treated as no target at all.
+Manual `child_id` / `device_id` values take precedence over IDs extracted from `entity_id`. An entity that has no `child_id` attribute and belongs to no Family Link device is treated as no target at all (the app services `block_app`, `unblock_app`, `set_app_daily_limit`, `block_device_for_school` and `unblock_all_apps` raise an error instead).
 
 What happens with **no target** differs per service, which matters in multi-child families:
 
@@ -292,8 +292,7 @@ Requests a fresh GPS fix from the child's device instead of the cached position 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `entity_id` | entity id | no | - | Entity carrying a `child_id` attribute |
-| `child_id` | string | no | - | Child user ID |
-| `all_children` | boolean | no | `false` | Apply to every supervised child. Required when no child is given |
+| `child_id` | string | no | - | Child user ID. No target: ALL children |
 
 ```yaml
 action: familylink.refresh_location

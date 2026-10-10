@@ -369,10 +369,16 @@ def resolve_app_service_child(hass: HomeAssistant, call: ServiceCall) -> str | N
 	child as in #73); it now raises instead.
 	"""
 	entity_id = call.data.get("entity_id")
-	child_id = call.data.get("child_id")
+	child_id = (call.data.get("child_id") or "").strip()
+	# A template that rendered nothing gives "" or "None": no child, not an id
+	if child_id.lower() == "none":
+		child_id = ""
 	all_children = call.data.get("all_children", False)
 	if entity_id and not child_id:
-		_, child_id = extract_ids_from_entity(hass, entity_id)
+		try:
+			_, child_id = extract_ids_from_entity(hass, entity_id)
+		except ValueError as err:
+			raise ServiceValidationError(str(err)) from err
 		if not child_id:
 			raise ServiceValidationError(
 				f"Entity {entity_id} does not belong to a Family Link child. Select an "
@@ -385,7 +391,7 @@ def resolve_app_service_child(hass: HomeAssistant, call: ServiceCall) -> str | N
 			"No child given. Pass child_id, a Family Link entity of the child, or "
 			"all_children: true to apply it to every supervised child."
 		)
-	return child_id
+	return child_id or None
 
 
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:

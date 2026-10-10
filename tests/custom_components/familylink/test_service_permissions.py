@@ -167,3 +167,22 @@ async def test_non_admin_cannot_pair_entity_with_another_raw_identifier(hass, se
         )
 
     assert services.client.mock_calls == []
+
+
+async def test_non_admin_with_all_children_only_is_refused(hass, services) -> None:
+    """all_children names no entity, so a non-administrator is refused like an untargeted call."""
+    user = _user(hass, policy={"entities": True})
+
+    with pytest.raises(Unauthorized):
+        await _call(hass, "block_app", {"package_name": "com.example.app", "all_children": True}, user)
+
+    assert services.client.mock_calls == []
+
+
+async def test_non_admin_may_target_a_child_entity_on_an_app_service(hass, services) -> None:
+    """An app service that now needs a child still works from an entity the user controls."""
+    user = _user(hass, policy={"entities": {"entity_ids": {PHONE: True}}})
+
+    await _call(hass, "block_app", {"package_name": "com.example.app", "entity_id": PHONE}, user)
+
+    assert services.client.async_block_app.await_args.kwargs["account_id"] == CHILD_ID

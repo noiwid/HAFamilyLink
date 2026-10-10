@@ -90,3 +90,22 @@ async def test_a_child_and_all_children_together_raise(hass, services) -> None:
         )
 
     services.client.async_block_app.assert_not_called()
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "None"])
+async def test_a_templated_child_id_that_rendered_nothing_is_no_child(hass, services, blank) -> None:
+    with pytest.raises(ServiceValidationError, match="No child given"):
+        await hass.services.async_call(
+            DOMAIN, "block_app", {"package_name": "com.example.game", "child_id": blank}, blocking=True
+        )
+
+    services.client.async_block_app.assert_not_called()
+
+
+async def test_an_unknown_entity_raises_a_validation_error(hass, services) -> None:
+    with pytest.raises(ServiceValidationError, match="not found"):
+        await hass.services.async_call(
+            DOMAIN, "block_app", {"package_name": "com.example.game", "entity_id": "sensor.does_not_exist"}, blocking=True
+        )
+
+    services.client.async_block_app.assert_not_called()
