@@ -1,8 +1,8 @@
 """Website patterns for Family Link's Chrome site lists.
 
-Google stores patterns verbatim and does not validate them (a middle ``*`` or
-a 254-character host are accepted, checked live 2026-10-10), so they are
-checked here. Accepted forms, as the Family Link app documents them:
+Google stores patterns verbatim and does not validate them (it accepts a
+``*`` in the middle or a 254-character host), so they are checked here.
+Accepted forms, as the Family Link app documents them:
 
 - a website (host): ``www.example.com``
 - a domain wildcard: ``*.example.com``, ``*.example.*`` (``*.`` prefix and
@@ -45,11 +45,9 @@ def normalize_site(value: str) -> str:
 
 
 def domain_patterns(domain: str) -> list[str]:
-	"""Patterns covering a list domain and its subdomains: ``example.com`` -> ``*.example.com``, ``example.com``.
+	"""Patterns blocking a domain and its subdomains: ``example.com`` -> ``*.example.com``, ``example.com``.
 
-	Whether ``*.example.com`` also covers the bare ``example.com`` isn't
-	documented, so both are sent. Google keeps both when they arrive in one
-	call, and reports a later duplicate as covered instead of storing it.
+	Google doesn't say whether ``*.example.com`` covers ``example.com``, so both are sent.
 	"""
 	host = normalize_site(domain)
 	if "*" in host or "/" in host:

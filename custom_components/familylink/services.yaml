@@ -666,14 +666,14 @@ sync_site_list:
         text:
     url:
       name: List URL
-      description: "Raw URL of the domain list, e.g. https://raw.githubusercontent.com/theSiegs/kid-web-gaps/main/gaps.txt"
+      description: "Raw URL of the domain list, one domain per line"
       required: true
-      example: "https://raw.githubusercontent.com/theSiegs/kid-web-gaps/main/gaps.txt"
+      example: "https://example.org/blocklist.txt"
       selector:
         text:
           type: url
     max_domains:
-      name: Maximum domains
+      name: Maximum Domains
       description: Refuse a list longer than this (safety cap).
       required: false
       default: 2000
@@ -683,7 +683,7 @@ sync_site_list:
           max: 2000
           mode: box
     stop:
-      name: Stop syncing
+      name: Stop Syncing
       description: Remove everything this list added for the child and stop tracking it.
       required: false
       default: false

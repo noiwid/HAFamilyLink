@@ -1,7 +1,7 @@
-"""Chrome site lists: patterns, the client's parsing of live responses, and the site services.
+"""Chrome site lists: patterns, the client's parsing of responses, the site services and sensors.
 
-Response shapes below are the ones captured live on 2026-10-10 from
-websites:listRestrictions / websites:updateRestrictions.
+The response shapes below are real websites:listRestrictions /
+websites:updateRestrictions answers.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from custom_components.familylink.websites import domain_patterns, normalize_sit
 CHILD = "child-1"
 LIST_URL = "https://lists.example.org/gaps.txt"
 
-LIVE_LIST = {
+LIST_RESPONSE = {
     "filterLevel": "safeSites",
     "explicitWebsiteExceptions": [
         {"pattern": "*.example.*", "exceptionType": "block", "iconUrl": "https://encrypted-tbn2.gstatic.com/x"},
@@ -32,7 +32,7 @@ LIVE_LIST = {
         {"pattern": "*.wikipedia.*", "exceptionType": "allow"},
     ],
 }
-LIVE_COVERED = {
+UPDATE_RESPONSE = {
     "filterLevel": "safeSites",
     "explicitWebsiteExceptions": [{"pattern": "*.example.*", "exceptionType": "block"}],
     "filteredExceptions": [
@@ -81,11 +81,11 @@ def test_parse_site_list_reads_comments_hosts_lines_and_skips_junk() -> None:
     assert parse_site_list(text) == ["example.com", "tracker.example.net"]
 
 
-# --- client parsing of live shapes ------------------------------------------------
+# --- client parsing -----------------------------------------------------------
 
 
 def test_client_reads_the_lists_and_lowercase_types() -> None:
-    lists = FamilyLinkClient._website_lists(LIVE_LIST)
+    lists = FamilyLinkClient._website_lists(LIST_RESPONSE)
 
     assert lists == {
         "filter_level": "safeSites",
@@ -104,7 +104,7 @@ def test_client_reads_an_empty_list() -> None:
 
 async def test_client_update_reports_covered_entries_without_listing_them() -> None:
     client = object.__new__(FamilyLinkClient)
-    client._website_request = AsyncMock(return_value=LIVE_COVERED)
+    client._website_request = AsyncMock(return_value=UPDATE_RESPONSE)
 
     result = await client.async_update_website_restrictions(CHILD, insert=[("example.net", "BLOCK")])
 
@@ -165,6 +165,21 @@ async def test_an_invalid_site_raises_before_any_write(hass, site_services) -> N
 async def test_a_site_service_needs_a_child(hass, site_services) -> None:
     with pytest.raises(ServiceValidationError, match="No child given"):
         await _call(hass, "block_site", {"sites": ["example.com"]})
+
+
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        ("get_sites", {}),
+        ("remove_site", {"sites": ["example.com"]}),
+        ("sync_site_list", {"url": LIST_URL, "stop": True}),
+    ],
+)
+async def test_a_failed_read_gives_the_same_error_everywhere(hass, site_services, service, data) -> None:
+    site_services.client.async_get_website_restrictions.side_effect = RuntimeError("HTTP 503")
+
+    with pytest.raises(HomeAssistantError, match="Reading the site lists failed: HTTP 503"):
+        await _call(hass, service, {"child_id": CHILD, **data})
 
 
 async def test_remove_site_removes_manual_entries_with_their_type(hass, site_services) -> None:

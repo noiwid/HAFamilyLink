@@ -22,6 +22,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 
+from .client.api import FamilyLinkClient
 from .const import DOMAIN, LOGGER_NAME
 from .permissions import async_register_guarded_service
 from .websites import domain_patterns, normalize_site, parse_site_list
@@ -35,7 +36,7 @@ SERVICE_REMOVE_SITE = "remove_site"
 SERVICE_SYNC_SITE_LIST = "sync_site_list"
 WEBSITE_SERVICES = (SERVICE_GET_SITES, SERVICE_BLOCK_SITE, SERVICE_ALLOW_SITE, SERVICE_REMOVE_SITE, SERVICE_SYNC_SITE_LIST)
 
-# One sync must not push an unbounded list: 2,500 entries in one call worked live
+# One sync must not push an unbounded list (one update call can carry 2,500 entries)
 MAX_SYNC_DOMAINS = 2000
 
 _TARGET = {
@@ -52,6 +53,8 @@ SCHEMA_SYNC_SITE_LIST = vol.Schema({
 })
 # Responses list at most this many patterns; counts are always complete
 RESPONSE_SAMPLE = 20
+ALLOW = FamilyLinkClient.WEBSITE_ALLOW
+BLOCK = FamilyLinkClient.WEBSITE_BLOCK
 
 
 def _resolve_child(hass: HomeAssistant, call: ServiceCall) -> str:
@@ -102,14 +105,17 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		await coordinator.async_request_refresh()
 		return result
 
-	async def handle_get_sites(call: ServiceCall) -> ServiceResponse:
-		child_id = _resolve_child(hass, call)
+	async def _read(child_id: str) -> dict[str, Any]:
 		try:
-			lists = await _client().async_get_website_restrictions(child_id)
+			return await _client().async_get_website_restrictions(child_id)
 		except HomeAssistantError:
 			raise
 		except Exception as err:
 			raise HomeAssistantError(f"Reading the site lists failed: {err}") from err
+
+	async def handle_get_sites(call: ServiceCall) -> ServiceResponse:
+		child_id = _resolve_child(hass, call)
+		lists = await _read(child_id)
 		coordinator.store_websites(child_id, lists)
 		return {"child_id": child_id, **lists}
 
@@ -120,17 +126,17 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		return {"child_id": child_id, "covered": result.get("covered") or {}}
 
 	async def handle_block_site(call: ServiceCall) -> ServiceResponse:
-		return await _edit(call, "BLOCK")
+		return await _edit(call, BLOCK)
 
 	async def handle_allow_site(call: ServiceCall) -> ServiceResponse:
-		return await _edit(call, "ALLOW")
+		return await _edit(call, ALLOW)
 
 	async def handle_remove_site(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
 		patterns = _patterns(call.data["sites"])
-		current = await _client().async_get_website_restrictions(child_id)
-		remove = [(p, "BLOCK") for p in patterns if p in current["blocked"]]
-		remove += [(p, "ALLOW") for p in patterns if p in current["approved"]]
+		current = await _read(child_id)
+		remove = [(p, BLOCK) for p in patterns if p in current["blocked"]]
+		remove += [(p, ALLOW) for p in patterns if p in current["approved"]]
 		missing = [p for p in patterns if p not in current["blocked"] and p not in current["approved"]]
 		if remove:
 			await _apply(child_id, [], remove)
@@ -154,7 +160,7 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 			)
 		data = await store.async_load() or {}
 		pushed = set(data.get(child_id, {}).get(url, []))
-		current = await _client().async_get_website_restrictions(child_id)
+		current = await _read(child_id)
 		blocked, approved = set(current["blocked"]), set(current["approved"])
 		# A domain the parent approved in any form is skipped whole: Chrome lets
 		# a block win over an allow, so blocking example.com while *.example.com
@@ -167,9 +173,9 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 				skipped.append(domain)
 				continue
 			wanted.extend(p for p in patterns if p not in wanted)
-		insert = [(p, "BLOCK") for p in wanted if p not in blocked]
+		insert = [(p, BLOCK) for p in wanted if p not in blocked]
 		# Remove only what this list pushed before and no longer contains
-		remove = [(p, "BLOCK") for p in sorted(pushed - set(wanted)) if p in blocked]
+		remove = [(p, BLOCK) for p in sorted(pushed - set(wanted)) if p in blocked]
 		result: dict[str, Any] = {"covered": {}}
 		if insert or remove:
 			result = await _apply(child_id, insert, remove)
@@ -180,7 +186,8 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		added = [p for p, _ in insert if p not in (result.get("covered") or {})]
 		removed = [p for p, _ in remove]
 		_LOGGER.info(
-			f"Site list sync for {child_id} from {url}: +{len(added)} -{len(removed)}, {len(skipped)} left approved"
+			f"Site list sync for {child_id} from {url}: added {len(added)}, removed {len(removed)}, "
+			f"skipped {len(skipped)} approved"
 		)
 		return {
 			"child_id": child_id,
@@ -197,8 +204,8 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		"""Take out everything a list pushed for the child, and forget the list."""
 		data = await store.async_load() or {}
 		pushed = set(data.get(child_id, {}).pop(url, []))
-		current = await _client().async_get_website_restrictions(child_id)
-		remove = [(p, "BLOCK") for p in sorted(pushed) if p in set(current["blocked"])]
+		current = await _read(child_id)
+		remove = [(p, BLOCK) for p in sorted(pushed) if p in set(current["blocked"])]
 		if remove:
 			await _apply(child_id, [], remove)
 		await store.async_save(data)

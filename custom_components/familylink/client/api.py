@@ -4054,10 +4054,10 @@ class FamilyLinkClient:
 	) -> dict[str, Any]:
 		"""Add and/or remove website exceptions in one call.
 
-		``insert`` / ``remove`` are (pattern, "ALLOW" | "BLOCK") pairs; one call
-		took 2,500 entries live. Returns the resulting lists plus ``covered``:
-		{pattern: covering pattern} for inserts Google skipped because an
-		existing entry already covers them.
+		``insert`` / ``remove`` are (pattern, WEBSITE_ALLOW | WEBSITE_BLOCK)
+		pairs; one call can carry 2,500 entries. Returns the resulting lists
+		plus ``covered``: {pattern: covering pattern} for inserts Google
+		skipped because an existing entry already covers them.
 		"""
 		body = {
 			"insertedWebsiteExceptions": [{"pattern": p, "exceptionType": t} for p, t in insert or []],
@@ -4071,7 +4071,7 @@ class FamilyLinkClient:
 			if isinstance(item, dict) and isinstance(item.get("exception"), dict) and item["exception"].get("pattern")
 		}
 		_LOGGER.info(
-			f"Website restrictions updated for {account_id}: +{len(body['insertedWebsiteExceptions'])} "
-			f"-{len(body['removedWebsiteExceptions'])}, covered {list(result['covered'])}"
+			f"Website restrictions updated for {account_id}: added {len(body['insertedWebsiteExceptions'])}, "
+			f"removed {len(body['removedWebsiteExceptions'])}, {len(result['covered'])} already covered"
 		)
 		return result
