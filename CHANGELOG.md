@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Chrome site lists: `blocked_sites` / `approved_sites` sensors and `get_sites`, `block_site`, `allow_site`, `remove_site`, `sync_site_list` services** - Read and edit a child's "Google Chrome and Web" approved and blocked sites, which apply to every Chrome the child is signed in to. The sensors give the count, the sites and the Chrome filter level, refreshed every 15 minutes and right after a change made from Home Assistant. `remove_site` also removes entries added in the Family Link app. `sync_site_list` keeps the blocked list in step with a published list of domains: it removes only what that list added, skips domains you approved, and `stop: true` takes the list's entries back out. Patterns are checked before they are sent, since Google stores them unchecked. A child is always required.
+
 ---
 
 ## [2.2.6] - 2026-10-08

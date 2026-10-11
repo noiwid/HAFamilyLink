@@ -14,7 +14,10 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.familylink.client.api import FamilyLinkClient
-from custom_components.familylink.const import DOMAIN
+from custom_components.familylink.const import DOMAIN, WEBSITES_REFRESH
+from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
+from custom_components.familylink.exceptions import SessionExpiredError
+from custom_components.familylink.sensor import FamilyLinkWebsitesSensor
 from custom_components.familylink.website_services import async_setup_website_services
 from custom_components.familylink.websites import domain_patterns, normalize_site, parse_site_list
 
@@ -230,3 +233,115 @@ async def test_sync_stop_removes_what_the_list_added_and_forgets_it(hass, site_s
     assert again["removed_count"] == 0
     assert update.await_count == calls
 
+
+# --- sensors ------------------------------------------------------------------
+
+
+def _sensor_coordinator(websites) -> SimpleNamespace:
+    return SimpleNamespace(
+        data={"children_data": [{"child_id": CHILD, "websites": websites}]},
+        child_device_ids={},
+        last_update_success=True,
+    )
+
+
+def test_sensors_show_count_sorted_sites_and_filter_level() -> None:
+    coordinator = _sensor_coordinator(
+        {"filter_level": "safeSites", "approved": ["*.wikipedia.*"], "blocked": ["b.example", "*.a.example"]}
+    )
+    blocked = FamilyLinkWebsitesSensor(coordinator, CHILD, "Alex", "blocked")
+    approved = FamilyLinkWebsitesSensor(coordinator, CHILD, "Alex", "approved")
+
+    assert blocked.unique_id == f"{DOMAIN}_{CHILD}_blocked_sites"
+    assert blocked.name == "Alex Blocked Sites"
+    assert blocked.available
+    assert blocked.native_value == 2
+    assert blocked.extra_state_attributes == {
+        "child_id": CHILD,
+        "child_name": "Alex",
+        "filter_level": "safeSites",
+        "count": 2,
+        "sites": ["*.a.example", "b.example"],
+    }
+    assert approved.native_value == 1
+    assert approved.extra_state_attributes["sites"] == ["*.wikipedia.*"]
+
+
+def test_sensors_are_unavailable_until_the_lists_are_read() -> None:
+    sensor = FamilyLinkWebsitesSensor(_sensor_coordinator(None), CHILD, "Alex", "blocked")
+    assert not sensor.available
+    assert sensor.native_value is None
+
+    other_child = FamilyLinkWebsitesSensor(_sensor_coordinator({"blocked": []}), "child-2", "Sam", "blocked")
+    assert not other_child.available
+
+
+def test_an_empty_list_counts_zero() -> None:
+    sensor = FamilyLinkWebsitesSensor(_sensor_coordinator({"filter_level": "safeSites"}), CHILD, "Alex", "approved")
+    assert sensor.available
+    assert sensor.native_value == 0
+    assert sensor.extra_state_attributes["sites"] == []
+
+
+def test_a_long_list_is_truncated_in_the_attributes_but_counted_in_full() -> None:
+    sites = [f"*.site-{i:04d}.example" for i in range(2000)]
+    sensor = FamilyLinkWebsitesSensor(_sensor_coordinator({"blocked": sites}), CHILD, "Alex", "blocked")
+
+    attrs = sensor.extra_state_attributes
+    assert sensor.native_value == 2000
+    assert attrs["count"] == 2000
+    assert attrs["truncated"] is True
+    assert 0 < len(attrs["sites"]) < 2000
+    assert attrs["sites"] == sorted(sites)[: len(attrs["sites"])]
+
+
+# --- coordinator --------------------------------------------------------------
+
+
+def _websites_coordinator(read) -> FamilyLinkDataUpdateCoordinator:
+    coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
+    coordinator._websites = {}
+    coordinator.client = SimpleNamespace(async_get_website_restrictions=AsyncMock(side_effect=read))
+    return coordinator
+
+
+async def test_coordinator_reads_the_lists_at_most_every_refresh_interval(monkeypatch) -> None:
+    clock = [1000.0]
+    monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(monotonic=lambda: clock[0]))
+    lists = {"filter_level": "safeSites", "approved": [], "blocked": ["a.example"]}
+    coordinator = _websites_coordinator([lists, {**lists, "blocked": ["b.example"]}])
+
+    assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    clock[0] += WEBSITES_REFRESH - 1
+    assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    assert coordinator.client.async_get_website_restrictions.await_count == 1
+
+    clock[0] += 2
+    assert (await coordinator._async_child_websites(CHILD, "Alex"))["blocked"] == ["b.example"]
+    assert coordinator.client.async_get_website_restrictions.await_count == 2
+
+
+async def test_coordinator_keeps_the_last_lists_when_a_read_fails(monkeypatch) -> None:
+    clock = [1000.0]
+    monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(monotonic=lambda: clock[0]))
+    lists = {"filter_level": "safeSites", "approved": [], "blocked": ["a.example"]}
+    coordinator = _websites_coordinator([HomeAssistantError("HTTP 503"), lists, HomeAssistantError("HTTP 503")])
+
+    # No lists yet: the sensors stay unavailable
+    assert await coordinator._async_child_websites(CHILD, "Alex") is None
+    assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    clock[0] += WEBSITES_REFRESH + 1
+    assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+
+
+async def test_coordinator_passes_on_an_expired_session() -> None:
+    coordinator = _websites_coordinator([SessionExpiredError("expired")])
+    with pytest.raises(SessionExpiredError):
+        await coordinator._async_child_websites(CHILD, "Alex")
+
+
+def test_a_change_made_from_home_assistant_updates_the_sensors_without_a_read() -> None:
+    coordinator = _websites_coordinator([])
+    coordinator.store_websites(CHILD, {"filter_level": "safeSites", "approved": [], "blocked": ["a.example"], "covered": {}})
+    assert coordinator._websites[CHILD][1] == {"filter_level": "safeSites", "approved": [], "blocked": ["a.example"]}
+    coordinator.client.async_get_website_restrictions.assert_not_awaited()
