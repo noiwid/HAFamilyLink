@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -18,6 +19,7 @@ from custom_components.familylink.app_pause import (
 from custom_components.familylink.const import DOMAIN
 
 CHILD = "child-1"
+OTHER_CHILD = "child-2"
 MESSAGES = "com.google.android.apps.messaging"
 CHROME = "com.android.chrome"
 YOUTUBE = "com.google.android.youtube"
@@ -141,3 +143,68 @@ async def test_a_pause_service_needs_a_child(hass, pause_services) -> None:
         await _call(hass, "pause_app", {"packages": [MESSAGES]})
 
     pause_services.client.async_set_app_daily_limit.assert_not_called()
+
+
+def _slow_writes(coordinator) -> None:
+    """Make every write yield to the event loop, as the network does."""
+
+    async def write(package, minutes, account_id=None):
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return True
+
+    coordinator.client.async_set_app_daily_limit = AsyncMock(side_effect=write)
+
+
+async def test_pauses_for_two_children_at_once_both_keep_their_saved_setting(hass, pause_services) -> None:
+    pause_services.data["children_data"].append({"child_id": OTHER_CHILD, "apps": APPS})
+    _slow_writes(pause_services)
+
+    await asyncio.gather(
+        _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]}),
+        _call(hass, "pause_app", {"child_id": OTHER_CHILD, "packages": [CHROME]}),
+    )
+
+    assert (await _call(hass, "resume_app", {"child_id": CHILD}))["resumed"] == {CHROME: 45}
+    assert (await _call(hass, "resume_app", {"child_id": OTHER_CHILD}))["resumed"] == {CHROME: 45}
+
+
+@pytest.mark.parametrize("first", ["pause_app", "resume_app"])
+async def test_a_pause_and_a_resume_of_one_app_never_leave_it_paused_with_nothing_saved(
+    hass, pause_services, first
+) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    _slow_writes(pause_services)
+
+    calls = {
+        "pause_app": _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]}),
+        "resume_app": _call(hass, "resume_app", {"child_id": CHILD, "packages": [CHROME]}),
+    }
+    await asyncio.gather(*(calls[name] for name in (first, "resume_app" if first == "pause_app" else "pause_app")))
+
+    last_write = _writes(pause_services)[-1]
+    left = (await _call(hass, "resume_app", {"child_id": CHILD}))["resumed"]
+    if last_write == (CHROME, 1):
+        assert left == {CHROME: 45}
+    else:
+        assert last_write == (CHROME, 45)
+        assert left == {}
+
+
+async def test_resume_leaves_a_blocked_app_blocked_and_keeps_its_saved_setting(hass, pause_services) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [MESSAGES, CHROME]})
+    # The parent blocks Chrome while it is paused
+    pause_services.data["children_data"][0]["apps"] = [_app(MESSAGES), _app(CHROME, hidden=True)]
+    pause_services.client.async_set_app_daily_limit.reset_mock()
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    assert result["resumed"] == {MESSAGES: NO_LIMIT}
+    assert result["skipped"] == {CHROME: "blocked"}
+    assert _writes(pause_services) == [(MESSAGES, NO_LIMIT)]
+
+    # Once it is unblocked, the setting from before the pause is still there
+    pause_services.data["children_data"][0]["apps"] = [_app(CHROME, usageLimit={"dailyUsageLimitMins": 1, "enabled": True})]
+    again = await _call(hass, "resume_app", {"child_id": CHILD})
+    assert again["resumed"] == {CHROME: 45}
+    assert again["skipped"] == {}

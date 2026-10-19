@@ -11,11 +11,17 @@ The setting in force before the first pause (a limit, unlimited time, or no
 limit) is stored and put back by ``resume_app``, also after a restart. Limits
 count per device, so a pause applies on every device of the child. Google TV
 ignores app limits; there, only ``block_app`` works. A limit changed in the
-Family Link app while an app is paused is overwritten by ``resume_app``.
+Family Link app while an app is paused is overwritten by ``resume_app``. An app
+blocked while it is paused is left blocked: ``resume_app`` skips it and keeps
+its saved setting for a later resume.
+
+The saved settings are one record shared by every child and changed across
+network writes, so the two services run one at a time.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -76,6 +82,10 @@ def _resolve_child(hass: HomeAssistant, call: ServiceCall) -> str:
 async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) -> None:
 	"""Register pause_app and resume_app."""
 	store: Store = Store(hass, 1, f"{DOMAIN}.app_pause")
+	# A pause and a resume of one app overlapping would let the pause see the
+	# setting the resume is about to put back, skip saving it, and leave the app
+	# at 1 minute with nothing to resume once the resume has dropped the record
+	lock = asyncio.Lock()
 
 	def _client():
 		if coordinator.client is None:
@@ -95,48 +105,60 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 
 	async def handle_pause_app(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
-		apps = _apps(child_id)
-		data = await store.async_load() or {}
-		saved: dict[str, int] = data.setdefault(child_id, {})
-		paused: list[str] = []
-		skipped: dict[str, str] = {}
-		for package in dict.fromkeys(call.data["packages"]):
-			app = apps.get(package)
-			current = app_limit_setting(app) if app is not None else NO_LIMIT
-			if current is None:
-				skipped[package] = "blocked"
-				continue
-			# Keep the setting from before the first pause; a second pause must
-			# not record the pause itself as the setting to come back to
-			if package not in saved:
-				saved[package] = current
-				# Saved before the write, so a failure part-way can still be resumed
-				await store.async_save(data)
-			await _set_limit(child_id, package, PAUSE_MINUTES)
-			paused.append(package)
-		await coordinator.async_request_refresh()
+		# The refresh stays inside the lock so the next call reads fresh settings
+		async with lock:
+			apps = _apps(child_id)
+			data = await store.async_load() or {}
+			saved: dict[str, int] = data.setdefault(child_id, {})
+			paused: list[str] = []
+			skipped: dict[str, str] = {}
+			for package in dict.fromkeys(call.data["packages"]):
+				app = apps.get(package)
+				current = app_limit_setting(app) if app is not None else NO_LIMIT
+				if current is None:
+					skipped[package] = "blocked"
+					continue
+				# Keep the setting from before the first pause; a second pause must
+				# not record the pause itself as the setting to come back to
+				if package not in saved:
+					saved[package] = current
+					# Saved before the write, so a failure part-way can still be resumed
+					await store.async_save(data)
+				await _set_limit(child_id, package, PAUSE_MINUTES)
+				paused.append(package)
+			await coordinator.async_request_refresh()
 		_LOGGER.info(f"Paused apps for {child_id}: {paused}, skipped {skipped}")
 		return {"child_id": child_id, "paused": paused, "skipped": skipped}
 
 	async def handle_resume_app(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
-		data = await store.async_load() or {}
-		saved: dict[str, int] = data.get(child_id, {})
-		packages = list(dict.fromkeys(call.data.get("packages") or saved))
-		resumed: dict[str, int] = {}
-		not_paused: list[str] = []
-		for package in packages:
-			if package not in saved:
-				not_paused.append(package)
-				continue
-			await _set_limit(child_id, package, saved[package])
-			resumed[package] = saved.pop(package)
-			if not saved:
-				data.pop(child_id, None)
-			await store.async_save(data)
-		await coordinator.async_request_refresh()
-		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}")
-		return {"child_id": child_id, "resumed": resumed, "not_paused": not_paused}
+		async with lock:
+			apps = _apps(child_id)
+			data = await store.async_load() or {}
+			saved: dict[str, int] = data.get(child_id, {})
+			packages = list(dict.fromkeys(call.data.get("packages") or saved))
+			resumed: dict[str, int] = {}
+			not_paused: list[str] = []
+			skipped: dict[str, str] = {}
+			for package in packages:
+				if package not in saved:
+					not_paused.append(package)
+					continue
+				app = apps.get(package)
+				if app is not None and app_limit_setting(app) is None:
+					# Blocked since the pause: writing its limit back can lift the
+					# block. The saved setting stays for when it is unblocked.
+					_LOGGER.warning(f"Not resuming {package} for {child_id}: it is blocked, its saved setting is kept")
+					skipped[package] = "blocked"
+					continue
+				await _set_limit(child_id, package, saved[package])
+				resumed[package] = saved.pop(package)
+				if not saved:
+					data.pop(child_id, None)
+				await store.async_save(data)
+			await coordinator.async_request_refresh()
+		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}, skipped {skipped}")
+		return {"child_id": child_id, "resumed": resumed, "not_paused": not_paused, "skipped": skipped}
 
 	async_register_guarded_service(
 		hass, DOMAIN, SERVICE_PAUSE_APP, handle_pause_app, schema=SCHEMA_PAUSE_APP, supports_response=SupportsResponse.OPTIONAL

@@ -138,7 +138,8 @@ data:
 - An app already used for a minute or more today pauses within seconds. An app not used yet today gets its 1 minute, then pauses.
 - App limits count per device, so the pause applies on every device of the child. Google TV ignores app limits; use `block_app` there.
 - The setting from before the first pause is stored, survives restarts, and is not replaced by a second pause. A limit changed in the Family Link app while the app is paused is overwritten on resume.
-- Blocked apps are skipped. Both services require a child and return what they did (`paused`/`skipped`, `resumed`/`not_paused`).
+- Blocked apps are skipped: `pause_app` leaves them as they are, and `resume_app` leaves an app blocked since the pause blocked (writing its limit back could unblock it) and keeps its saved setting for a later `resume_app`. Calls run one at a time, so a pause and a resume overlapping cannot leave an app paused with nothing saved.
+- Both services require a child and return what they did (`paused`/`skipped`, `resumed`/`not_paused`/`skipped`).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
