@@ -99,7 +99,8 @@ class FamilyLinkClient:
 	@staticmethod
 	def _validate_id(value: str, name: str = "ID") -> str:
 		"""Validate that an ID is safe for URL interpolation."""
-		if not value or not re.match(r'^[a-zA-Z0-9_\-]+$', value):
+		# fullmatch, not match with '$': '$' also matches before a trailing newline
+		if not value or not re.fullmatch(r'[a-zA-Z0-9_\-]+', value):
 			raise ValueError(f"Invalid {name}: contains disallowed characters")
 		return value
 
