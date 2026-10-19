@@ -10,15 +10,18 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import voluptuous as vol
+from pytest_homeassistant_custom_component.common import MockUser
 
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.core import Context
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
 
 from custom_components.familylink.client.api import FamilyLinkClient
 from custom_components.familylink.const import DOMAIN, WEBSITES_REFRESH
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
 from custom_components.familylink.exceptions import SessionExpiredError
 from custom_components.familylink.sensor import FamilyLinkWebsitesSensor
-from custom_components.familylink.website_services import async_setup_website_services
+from custom_components.familylink.website_services import MAX_LIST_BYTES, UPDATE_BATCH, async_setup_website_services
 from custom_components.familylink.websites import domain_patterns, normalize_site, parse_site_list
 
 CHILD = "child-1"
@@ -82,6 +85,28 @@ def test_parse_site_list_reads_comments_hosts_lines_and_skips_junk() -> None:
 
 
 # --- client parsing -----------------------------------------------------------
+
+
+def test_parse_site_list_leaves_out_what_a_third_party_list_may_not_ask_for() -> None:
+    ignored: list[str] = []
+    text = "\n".join(
+        [
+            "ok.example",
+            "*.google.*",
+            "*.co.uk",
+            "co.uk",
+            "com.au",
+            "https://example.org/path",
+            "192.168.0.1",
+            "0.0.0.0",
+            "0.0.0.0 hosts.example",
+            "ok.example",
+            "localhost",
+        ]
+    )
+
+    assert parse_site_list(text, ignored) == ["ok.example", "hosts.example"]
+    assert ignored == ["*.google.*", "*.co.uk", "co.uk", "com.au", "https://example.org/path", "192.168.0.1", "0.0.0.0", "localhost"]
 
 
 def test_client_reads_the_lists_and_lowercase_types() -> None:
@@ -247,6 +272,152 @@ async def test_sync_stop_removes_what_the_list_added_and_forgets_it(hass, site_s
     again = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL, "stop": True})
     assert again["removed_count"] == 0
     assert update.await_count == calls
+
+
+_SAFE = {"filter_level": "safeSites", "approved": [], "blocked": [], "covered": {}}
+
+
+def _list_of(count: int) -> str:
+    return "\n".join(f"d{i}.example" for i in range(count))
+
+
+async def test_sync_only_takes_an_https_url(hass, site_services) -> None:
+    with pytest.raises(vol.Invalid, match="https"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": "http://lists.example.org/gaps.txt"})
+
+    site_services.client.async_get_website_restrictions.assert_not_called()
+
+
+async def test_sync_refuses_a_download_over_the_size_cap(hass, site_services, aioclient_mock) -> None:
+    aioclient_mock.get(LIST_URL, text="a.example\n" * (MAX_LIST_BYTES // 10 + 1))
+
+    with pytest.raises(HomeAssistantError, match="larger than"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    site_services.client.async_update_website_restrictions.assert_not_called()
+
+
+async def test_sync_refuses_a_download_that_declares_a_size_over_the_cap(hass, site_services, aioclient_mock) -> None:
+    aioclient_mock.get(LIST_URL, text="a.example\n", headers={"Content-Length": str(MAX_LIST_BYTES + 1)})
+
+    with pytest.raises(HomeAssistantError, match="larger than"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    site_services.client.async_update_website_restrictions.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["", "# nothing here\n", "<html><body>Sign in to the network</body></html>", "*.google.*\n*.co.uk\n"],
+)
+async def test_sync_refuses_an_answer_with_no_usable_domains_and_keeps_what_it_added(
+    hass, site_services, aioclient_mock, body
+) -> None:
+    update = site_services.client.async_update_website_restrictions
+    lists = site_services.client.async_get_website_restrictions
+    aioclient_mock.get(LIST_URL, text="a.example\nb.example\n")
+    lists.return_value = {"filter_level": "safeSites", "approved": [], "blocked": []}
+    await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+    lists.return_value = {
+        "filter_level": "safeSites",
+        "approved": [],
+        "blocked": ["*.a.example", "a.example", "*.b.example", "b.example"],
+    }
+    calls = update.await_count
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(LIST_URL, text=body)
+    with pytest.raises(HomeAssistantError, match="no usable domains"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    assert update.await_count == calls
+
+
+async def test_sync_refuses_to_drop_most_of_what_it_added_and_stop_is_the_way_out(hass, site_services, aioclient_mock) -> None:
+    update = site_services.client.async_update_website_restrictions
+    lists = site_services.client.async_get_website_restrictions
+    domains = _list_of(100).splitlines()
+    aioclient_mock.get(LIST_URL, text="\n".join(domains))
+    lists.return_value = {"filter_level": "safeSites", "approved": [], "blocked": []}
+    await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+    pushed = [p for p, _ in update.await_args.kwargs["insert"]]
+    assert len(pushed) == 200
+    lists.return_value = {"filter_level": "safeSites", "approved": [], "blocked": pushed}
+    calls = update.await_count
+
+    # A list cut down to 10 domains would take back 180 of the 200 entries
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(LIST_URL, text="\n".join(domains[:10]))
+    with pytest.raises(HomeAssistantError, match="cut short"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+    assert update.await_count == calls
+
+    stopped = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL, "stop": True})
+    assert stopped["removed_count"] == 200
+
+
+async def test_sync_sends_at_most_the_tested_batch_per_call(hass, site_services, aioclient_mock) -> None:
+    update = site_services.client.async_update_website_restrictions
+    # 1,300 domains are 2,600 patterns: a call of 2,500 and a call of 100
+    aioclient_mock.get(LIST_URL, text=_list_of(1300))
+
+    result = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    assert [len(call.kwargs["insert"]) for call in update.await_args_list] == [UPDATE_BATCH, 100]
+    assert result["added_count"] == 2600
+
+
+async def test_a_batch_failing_part_way_leaves_no_added_entry_untracked(hass, site_services, aioclient_mock) -> None:
+    update = site_services.client.async_update_website_restrictions
+    lists = site_services.client.async_get_website_restrictions
+    update.side_effect = [_SAFE, HomeAssistantError("boom")]
+    aioclient_mock.get(LIST_URL, text=_list_of(1300))
+    with pytest.raises(HomeAssistantError, match="boom"):
+        await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+    first_call = [p for p, _ in update.await_args_list[0].kwargs["insert"]]
+
+    update.side_effect = None
+    update.return_value = _SAFE
+    lists.return_value = {"filter_level": "safeSites", "approved": [], "blocked": first_call}
+    stopped = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL, "stop": True})
+
+    assert stopped["removed_count"] == UPDATE_BATCH
+
+
+async def test_sync_reports_the_entries_it_ignored(hass, site_services, aioclient_mock) -> None:
+    update = site_services.client.async_update_website_restrictions
+    aioclient_mock.get(LIST_URL, text="ok.example\n*.google.*\n192.168.0.1\n")
+
+    result = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    assert [p for p, _ in update.await_args.kwargs["insert"]] == ["*.ok.example", "ok.example"]
+    assert result["ignored_count"] == 2
+    assert result["ignored"] == ["*.google.*", "192.168.0.1"]
+
+
+async def _call_as(hass, user, service, data):
+    context = Context(user_id=user.id)
+    return await hass.services.async_call(DOMAIN, service, data, blocking=True, return_response=True, context=context)
+
+
+@pytest.mark.parametrize("stop", [False, True])
+async def test_sync_is_for_administrators_whatever_entity_is_passed(hass, site_services, aioclient_mock, stop) -> None:
+    entity = "sensor.kid_screen_time"
+    hass.states.async_set(entity, "1", {"device_id": "device-phone", "child_id": CHILD})
+    aioclient_mock.get(LIST_URL, text="a.example\n")
+    controller = MockUser().add_to_hass(hass)
+    controller.mock_policy({"entities": {"entity_ids": {entity: True}}})
+    data = {"entity_id": entity, "url": LIST_URL, "stop": stop}
+
+    with pytest.raises(Unauthorized):
+        await _call_as(hass, controller, "sync_site_list", data)
+    site_services.client.async_get_website_restrictions.assert_not_called()
+
+    # The same user may still edit the child's lists through the entity, and an administrator may sync
+    await _call_as(hass, controller, "block_site", {"entity_id": entity, "sites": ["a.example"]})
+    admin = MockUser(is_owner=True).add_to_hass(hass)
+    result = await _call_as(hass, admin, "sync_site_list", data)
+    assert result["child_id"] == CHILD
 
 
 # --- sensors ------------------------------------------------------------------

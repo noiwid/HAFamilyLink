@@ -19,6 +19,10 @@ from urllib.parse import urlsplit
 _LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 _HOST = re.compile(rf"^(?=.{{1,253}}$){_LABEL}(?:\.{_LABEL})+$")
 _WILDCARD = re.compile(rf"^\*\.(?:{_LABEL}\.)*{_LABEL}(?:\.\*|\.[a-z]{{2,63}})$")
+_IPV4 = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
+# A second-level public suffix (co.uk, com.au, ...): blocking one blocks a whole
+# country's sites. Best effort, there is no public suffix list to check against.
+_SUFFIX = re.compile(r"^(?:ac|co|com|edu|gov|net|or|org)\.[a-z]{2}$")
 
 
 def normalize_site(value: str) -> str:
@@ -55,8 +59,23 @@ def domain_patterns(domain: str) -> list[str]:
 	return [f"*.{host}", host]
 
 
-def parse_site_list(text: str) -> list[str]:
-	"""Domains from a one-per-line list with ``#`` comments (hosts-file lines are tolerated)."""
+def _is_list_domain(token: str) -> bool:
+	"""Whether ``token`` is a plain domain a published list may ask us to block."""
+	if "*" in token or "/" in token or _IPV4.match(token) or _SUFFIX.match(token):
+		return False
+	try:
+		return normalize_site(token) == token
+	except ValueError:
+		return False
+
+
+def parse_site_list(text: str, ignored: list[str] | None = None) -> list[str]:
+	"""Domains from a one-per-line list with ``#`` comments (hosts-file lines are tolerated).
+
+	A list comes from a third party, so it is held to plain domains: wildcards,
+	web addresses, IP addresses and bare public suffixes such as ``co.uk`` are
+	left out, and appended to ``ignored`` when it is given.
+	"""
 	domains: list[str] = []
 	seen: set[str] = set()
 	for line in text.splitlines():
@@ -66,10 +85,9 @@ def parse_site_list(text: str) -> list[str]:
 		token = body.split()[-1].lower()  # "0.0.0.0 example.com" -> example.com
 		if token in seen:
 			continue
-		try:
-			normalize_site(token)
-		except ValueError:
-			continue
 		seen.add(token)
-		domains.append(token)
+		if _is_list_domain(token):
+			domains.append(token)
+		elif ignored is not None:
+			ignored.append(token)
 	return domains

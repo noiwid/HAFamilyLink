@@ -648,7 +648,7 @@ remove_site:
 
 sync_site_list:
   name: Sync Site List
-  description: "Keep the child's blocked sites in step with a published list of domains (one per line, '#' comments). Adds what the list gained, removes only what this list added before and has since dropped; entries made by hand and approved sites are left alone."
+  description: "Keep the child's blocked sites in step with a published list of domains (one per line, '#' comments). Adds what the list gained, removes only what this list added before and has since dropped; entries made by hand and approved sites are left alone. The list comes from a third party, so it must be served over https, is read up to 1 MiB, and only plain domains are taken (wildcards, web addresses, IP addresses and bare suffixes such as co.uk are ignored). An answer with no usable domain, or one that would remove most of what the list added, is refused; stop removes everything the list added. Administrators only."
   fields:
     entity_id:
       name: Child Entity
@@ -666,7 +666,7 @@ sync_site_list:
         text:
     url:
       name: List URL
-      description: "Raw URL of the domain list, one domain per line"
+      description: "Raw https URL of the domain list, one domain per line"
       required: true
       example: "https://example.org/blocklist.txt"
       selector:
