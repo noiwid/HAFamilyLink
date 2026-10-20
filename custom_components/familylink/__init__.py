@@ -45,7 +45,7 @@ from .const import (
 	SERVICE_UNBLOCK_APP,
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import time_limit_device_ids
+from .devices import devices_not_listed_yet, time_limit_device_ids
 from .permissions import async_register_guarded_service
 from .exceptions import FamilyLinkException
 from .schedules import parse_time_string
@@ -857,9 +857,21 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				# instead of a silent log line: since #157 the client reads
 				# the value back, so a False here means Google accepted the
 				# request but did not apply it, or rejected it outright.
+				# A device that takes time limits but has no time-limit data yet
+				# (newly supervised) cannot take an override; say so rather than
+				# send the user to the log. "weekly" and devices the coordinator
+				# does not know or that never take time limits get no hint.
+				untimed = devices_not_listed_yet(coordinator.data, failed)
+				hint = (
+					f" Google has no time limits for device(s) {', '.join(untimed)} yet: "
+					"a newly supervised device is only listed after a while (about 30 "
+					"minutes seen), try again later."
+					if untimed
+					else ""
+				)
 				raise HomeAssistantError(
 					f"Daily limit of {daily_minutes} minutes was not applied for "
-					f"device(s): {', '.join(failed)}. See the Family Link log for "
+					f"device(s): {', '.join(failed)}.{hint} See the Family Link log for "
 					"the slot used and the value observed."
 				)
 		except Exception as err:

@@ -64,6 +64,29 @@ def time_limit_device_ids(data: dict[str, Any] | None, child_id: str) -> list[st
 	]
 
 
+def devices_not_listed_yet(data: dict[str, Any] | None, device_ids: Iterable[str]) -> list[str]:
+	"""Ids among ``device_ids`` that take time limits but that Google lists none for yet.
+
+	A newly supervised device has no applied time limits for a while, so an
+	override sent to it is accepted and never applied. Only a device found in
+	the coordinator data is judged, under the child that owns it, so the answer
+	does not depend on a child_id having been passed with the device_id. A
+	device the coordinator does not know is left out, and so is a device with no
+	time-limit capability (a Google TV): it is never listed, and waiting does
+	not help it.
+	"""
+	wanted = set(device_ids)
+	not_listed = {
+		device["id"]
+		for child in (data or {}).get("children_data", [])
+		for device in child.get("devices", [])
+		if device.get("id") in wanted
+		and device_supports(device, *CAPS_TIME_LIMIT)
+		and device["id"] not in (child.get("devices_time_data") or {})
+	}
+	return [device_id for device_id in device_ids if device_id in not_listed]
+
+
 def async_prune_entities(
 	hass: HomeAssistant, platform: str, unique_ids: Iterable[str]
 ) -> None:
