@@ -2,7 +2,7 @@
 
 block_device_for_school:
   name: Block Device for School
-  description: "Block all apps except essential ones to simulate device lock during school hours. If no child is specified, applies to ALL supervised children."
+  description: "Block all apps except essential ones to simulate device lock during school hours. Needs a child (entity or child_id), or all_children: true for every supervised child."
   fields:
     whitelist:
       name: Additional Whitelist
@@ -16,41 +16,55 @@ block_device_for_school:
           multiple: true
     entity_id:
       name: Child Entity
-      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      description: Select any Family Link entity of the child
       required: false
       selector:
         entity:
           integration: familylink
     child_id:
       name: Child ID (manual)
-      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      description: Child's user ID - only needed if not using the entity selector
       required: false
       example: "123456789012345678901"
       selector:
         text:
+    all_children:
+      name: All children
+      description: Apply to every supervised child. Required when no child is given (entity or child_id).
+      required: false
+      default: false
+      selector:
+        boolean:
 
 unblock_all_apps:
   name: Unblock All Apps
-  description: "Unblock all apps to end school mode and restore normal device usage. If no child is specified, applies to ALL supervised children."
+  description: "Unblock all apps to end school mode and restore normal device usage. Needs a child (entity or child_id), or all_children: true for every supervised child."
   fields:
     entity_id:
       name: Child Entity
-      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      description: Select any Family Link entity of the child
       required: false
       selector:
         entity:
           integration: familylink
     child_id:
       name: Child ID (manual)
-      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      description: Child's user ID - only needed if not using the entity selector
       required: false
       example: "123456789012345678901"
       selector:
         text:
+    all_children:
+      name: All children
+      description: Apply to every supervised child. Required when no child is given (entity or child_id).
+      required: false
+      default: false
+      selector:
+        boolean:
 
 block_app:
   name: Block App
-  description: Block a specific app by package name. If no child is specified, blocks the app for ALL supervised children.
+  description: "Block a specific app by package name. Needs a child (entity or child_id), or all_children: true for every supervised child."
   fields:
     package_name:
       name: Package Name
@@ -61,22 +75,29 @@ block_app:
         text:
     entity_id:
       name: Child Entity
-      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      description: Select any Family Link entity of the child
       required: false
       selector:
         entity:
           integration: familylink
     child_id:
       name: Child ID (manual)
-      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      description: Child's user ID - only needed if not using the entity selector
       required: false
       example: "123456789012345678901"
       selector:
         text:
+    all_children:
+      name: All children
+      description: Apply to every supervised child. Required when no child is given (entity or child_id).
+      required: false
+      default: false
+      selector:
+        boolean:
 
 unblock_app:
   name: Unblock App
-  description: Unblock a specific app by package name. If no child is specified, unblocks the app for ALL supervised children.
+  description: "Unblock a specific app by package name. Needs a child (entity or child_id), or all_children: true for every supervised child."
   fields:
     package_name:
       name: Package Name
@@ -87,22 +108,29 @@ unblock_app:
         text:
     entity_id:
       name: Child Entity
-      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      description: Select any Family Link entity of the child
       required: false
       selector:
         entity:
           integration: familylink
     child_id:
       name: Child ID (manual)
-      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      description: Child's user ID - only needed if not using the entity selector
       required: false
       example: "123456789012345678901"
       selector:
         text:
+    all_children:
+      name: All children
+      description: Apply to every supervised child. Required when no child is given (entity or child_id).
+      required: false
+      default: false
+      selector:
+        boolean:
 
 set_app_daily_limit:
   name: Set App Daily Limit
-  description: "Set a daily time limit for a specific app. Use -2 for unlimited time (ignores device limits). Use -1 to disable app limit (follows device limits). Use 0 for completely blocked. If no child is specified, applies to ALL supervised children."
+  description: "Set a daily time limit for a specific app. Use -2 for unlimited time (ignores device limits). Use -1 to disable app limit (follows device limits). Use 0 for completely blocked. Needs a child (entity or child_id), or all_children: true for every supervised child."
   fields:
     package_name:
       name: Package Name
@@ -125,18 +153,25 @@ set_app_daily_limit:
           unit_of_measurement: "minutes"
     entity_id:
       name: Child Entity
-      description: Select any Family Link entity for this child (optional - if not specified, applies to ALL children)
+      description: Select any Family Link entity of the child
       required: false
       selector:
         entity:
           integration: familylink
     child_id:
       name: Child ID (manual)
-      description: Child's user ID - only needed if not using entity selector. If not specified, applies to ALL children.
+      description: Child's user ID - only needed if not using the entity selector
       required: false
       example: "123456789012345678901"
       selector:
         text:
+    all_children:
+      name: All children
+      description: Apply to every supervised child. Required when no child is given (entity or child_id).
+      required: false
+      default: false
+      selector:
+        boolean:
 
 # Time management services
 
