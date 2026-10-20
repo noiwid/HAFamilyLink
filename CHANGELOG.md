@@ -8,9 +8,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
-- **`pause_app` / `resume_app` services** - Pause apps for one child with a 1-minute daily limit instead of blocking them, and put back each app's earlier setting (limit, unlimited or none) afterwards. A paused app stays installed; a blocked Google Messages loses the texts that arrive while it is blocked, a paused one keeps them. The earlier settings are stored and survive restarts. An app blocked while it is paused is left blocked by `resume_app`, which keeps its saved setting.
-
 ---
 
 ## [2.2.6] - 2026-10-08
