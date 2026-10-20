@@ -13,6 +13,7 @@ a refusal of an empty or cut-short answer.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 import logging
 from typing import Any
@@ -118,6 +119,9 @@ def _patterns(sites: list[str]) -> list[str]:
 async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) -> None:
 	"""Register the site list services."""
 	store: Store = Store(hass, 1, f"{DOMAIN}.site_sync")
+	# The store is one record for every child and list, read and saved around network
+	# calls: two syncs at once would each save their own copy and lose the other's
+	store_lock = asyncio.Lock()
 
 	def _client():
 		if coordinator.client is None:
@@ -177,7 +181,14 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		too_large = f"The site list {url} is larger than {MAX_LIST_BYTES // 1024} KiB."
 		body = bytearray()
 		try:
-			async with async_get_clientsession(hass).get(url, timeout=aiohttp.ClientTimeout(total=60)) as response:
+			# Redirects are not followed: an https address could send the download to http or to a host inside the network
+			async with async_get_clientsession(hass).get(
+				url, timeout=aiohttp.ClientTimeout(total=60), allow_redirects=False
+			) as response:
+				if 300 <= response.status < 400:
+					raise HomeAssistantError(
+						f"The site list {url} redirects to another address, which is not followed. Use the final https:// address."
+					)
 				response.raise_for_status()
 				declared = response.headers.get("Content-Length", "")
 				if declared.isdigit() and int(declared) > MAX_LIST_BYTES:
@@ -190,12 +201,17 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 			raise
 		except Exception as err:
 			raise HomeAssistantError(f"Could not download the site list {url}: {err}") from err
-		return body.decode("utf-8", errors="replace")
+		# utf-8-sig: a byte order mark would otherwise stick to the first domain
+		return body.decode("utf-8-sig", errors="replace")
 
 	async def handle_sync_site_list(call: ServiceCall) -> ServiceResponse:
 		# It downloads a URL from inside Home Assistant: no entity permission makes
 		# that safe for a non-administrator
 		await async_require_admin(hass, call)
+		async with store_lock:
+			return await _sync_site_list(call)
+
+	async def _sync_site_list(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
 		url = call.data["url"]
 		if call.data["stop"]:
@@ -274,8 +290,9 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		pushed = set(data.get(child_id, {}).pop(url, []))
 		current = await _read(child_id)
 		remove = [(p, BLOCK) for p in sorted(pushed) if p in set(current["blocked"])]
-		if remove:
-			await _apply(child_id, [], remove)
+		# Same batch size as a sync: a full list is about 4,000 patterns
+		for _, batch_remove in _batches([], remove):
+			await _apply(child_id, [], batch_remove)
 		await store.async_save(data)
 		_LOGGER.info(f"Site list sync for {child_id} from {url} stopped: removed {len(remove)}")
 		return {"child_id": child_id, "url": url, "stopped": True, "removed_count": len(remove), "removed": [p for p, _ in remove][:RESPONSE_SAMPLE]}
