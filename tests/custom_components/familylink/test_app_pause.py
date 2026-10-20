@@ -161,12 +161,12 @@ async def test_pauses_for_two_children_at_once_both_keep_their_saved_setting(has
     _slow_writes(pause_services)
 
     await asyncio.gather(
-        _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]}),
-        _call(hass, "pause_app", {"child_id": OTHER_CHILD, "packages": [CHROME]}),
+        _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME, YOUTUBE]}),
+        _call(hass, "pause_app", {"child_id": OTHER_CHILD, "packages": [CHROME, YOUTUBE]}),
     )
 
-    assert (await _call(hass, "resume_app", {"child_id": CHILD}))["resumed"] == {CHROME: 45}
-    assert (await _call(hass, "resume_app", {"child_id": OTHER_CHILD}))["resumed"] == {CHROME: 45}
+    for child in (CHILD, OTHER_CHILD):
+        assert (await _call(hass, "resume_app", {"child_id": child}))["resumed"] == {CHROME: 45, YOUTUBE: UNLIMITED}
 
 
 @pytest.mark.parametrize("first", ["pause_app", "resume_app"])

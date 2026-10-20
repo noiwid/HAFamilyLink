@@ -105,7 +105,9 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 
 	async def handle_pause_app(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
-		# The refresh stays inside the lock so the next call reads fresh settings
+		# The refresh is requested inside the lock, but the coordinator debounces it: a call
+		# right behind this one may still read the previous settings, so the blocked check
+		# in resume_app is best effort
 		async with lock:
 			apps = _apps(child_id)
 			data = await store.async_load() or {}
