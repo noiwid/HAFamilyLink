@@ -421,6 +421,6 @@ data:
 action: familylink.sync_site_list
 data:
   entity_id: sensor.alex_daily_screen_time
-  url: https://raw.githubusercontent.com/theSiegs/kid-web-gaps/main/gaps.txt
+  url: https://example.org/blocklist.txt
 ```
 

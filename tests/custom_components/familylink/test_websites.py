@@ -7,6 +7,7 @@ websites:updateRestrictions answers.
 from __future__ import annotations
 
 import asyncio
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -568,17 +569,32 @@ async def test_coordinator_reads_the_lists_at_most_every_refresh_interval(monkey
     assert coordinator.client.async_get_website_restrictions.await_count == 2
 
 
-async def test_coordinator_keeps_the_last_lists_when_a_read_fails(monkeypatch) -> None:
+async def test_coordinator_keeps_the_last_lists_when_a_read_fails(monkeypatch, caplog) -> None:
     clock = [1000.0]
     monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(monotonic=lambda: clock[0]))
     lists = {"filter_level": "safeSites", "approved": [], "blocked": ["a.example"]}
-    coordinator = _websites_coordinator([HomeAssistantError("HTTP 503"), lists, HomeAssistantError("HTTP 503")])
+    read = [HomeAssistantError("HTTP 503"), lists, HomeAssistantError("HTTP 503"), HomeAssistantError("HTTP 503")]
+    coordinator = _websites_coordinator(read)
 
-    # No lists yet: the sensors stay unavailable
-    assert await coordinator._async_child_websites(CHILD, "Alex") is None
+    # No lists yet: the sensors stay unavailable, and the failed read is not
+    # retried on the next refresh (an account without Chrome fails for good)
+    with caplog.at_level(logging.DEBUG):
+        assert await coordinator._async_child_websites(CHILD, "Alex") is None
+        assert await coordinator._async_child_websites(CHILD, "Alex") is None
+    assert coordinator.client.async_get_website_restrictions.await_count == 1
+    assert caplog.text.count("Failed to fetch website restrictions") == 1
+
+    clock[0] += WEBSITES_REFRESH + 1
     assert await coordinator._async_child_websites(CHILD, "Alex") == lists
     clock[0] += WEBSITES_REFRESH + 1
     assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    clock[0] += WEBSITES_REFRESH + 1
+    # A later failure is one warning again (the read had worked in between), then debug
+    with caplog.at_level(logging.DEBUG):
+        assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    assert caplog.text.count("Failed to fetch website restrictions") == 2
+    assert "again" not in caplog.text
+    assert caplog.records[-1].levelno == logging.WARNING
 
 
 async def test_coordinator_passes_on_an_expired_session() -> None:

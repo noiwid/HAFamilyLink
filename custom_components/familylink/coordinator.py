@@ -104,7 +104,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
 		# Chrome site lists change rarely: read every WEBSITES_REFRESH seconds,
 		# and taken from the answer of a change made from Home Assistant (store_websites).
-		self._websites: dict[str, tuple[float, dict[str, Any]]] = {}  # child_id -> (read at, lists)
+		self._websites: dict[str, tuple[float, dict[str, Any] | None]] = {}  # child_id -> (read at, lists)
+		self._websites_warned: set[str] = set()  # children whose last site list read failed (warned once)
 
 		# Strict mode: Home Assistant reverts restriction changes made from the
 		# Family Link side (see strict_mode.py). The default and the rule set
@@ -876,6 +877,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""The child's Chrome site lists, read at most every WEBSITES_REFRESH seconds.
 
 		On an error the last lists read are kept; None until a first read works.
+		A failed read is retried after WEBSITES_REFRESH too, not on every refresh:
+		an account without "Google Chrome and Web" fails for good, and would
+		otherwise cost a call and a log line per refresh. Warned once per child.
 		"""
 		cached = self._websites.get(child_id)
 		if cached and time.monotonic() - cached[0] < WEBSITES_REFRESH:
@@ -885,8 +889,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		except SessionExpiredError:
 			raise
 		except Exception as err:
-			_LOGGER.warning(f"Failed to fetch website restrictions for {child_name}: {err}")
-			return cached[1] if cached else None
+			previous = cached[1] if cached else None
+			self._websites[child_id] = (time.monotonic(), previous)
+			if child_id in self._websites_warned:
+				_LOGGER.debug(f"Failed to fetch website restrictions for {child_name} again: {err}")
+			else:
+				self._websites_warned.add(child_id)
+				_LOGGER.warning(
+					f"Failed to fetch website restrictions for {child_name}: {err}. "
+					f"Retried every {WEBSITES_REFRESH // 60} minutes, logged at debug level from now on"
+				)
+			return previous
+		self._websites_warned.discard(child_id)
 		self._websites[child_id] = (time.monotonic(), lists)
 		return lists
 
