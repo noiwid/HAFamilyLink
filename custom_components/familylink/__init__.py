@@ -222,8 +222,14 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 })
 
 SCHEMA_SET_SCHOOL_TIME = vol.Schema({
-	vol.Required("start_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
-	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
+	vol.Optional("start_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
+	vol.Optional("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
+	# Every window of a school day with a break, "HH:MM-HH:MM" each, in order
+	vol.Optional("windows"): vol.All(
+		cv.ensure_list,
+		[vol.Match(r"^\s*\d{1,2}:\d{2}(:\d{2})?\s*-\s*\d{1,2}:\d{2}(:\d{2})?\s*$")],
+		vol.Length(min=1),
+	),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
 	vol.Optional("entity_id"): cv.entity_id,
@@ -956,13 +962,25 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async def handle_set_school_time(call: ServiceCall) -> None:
 		"""Handle set_school_time service call (school time start and finish)."""
 		_require_client()
-		# The UI time selector sends HH:MM:SS; the API wants HH:MM.
-		start_time = ":".join(str(call.data["start_time"]).split(":")[:2])
-		end_time = ":".join(str(call.data["end_time"]).split(":")[:2])
+
+		def _hhmm(value: Any) -> str:
+			# The UI time selector sends HH:MM:SS; the API wants HH:MM.
+			return ":".join(str(value).strip().split(":")[:2])
+
+		start_time = _hhmm(call.data["start_time"]) if call.data.get("start_time") else None
+		end_time = _hhmm(call.data["end_time"]) if call.data.get("end_time") else None
+		windows = call.data.get("windows")
 		day = call.data.get("day")
 		scope = call.data.get("scope", "weekly")
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		if windows and (start_time or end_time):
+			raise ServiceValidationError("Pass either start_time and end_time, or windows, not both.")
+		if not windows and not (start_time and end_time):
+			raise ServiceValidationError("Pass start_time and end_time, or windows (every window of the day).")
+		if windows and scope != "weekly":
+			raise ServiceValidationError("windows edits the weekly schedule only: use scope weekly.")
 
 		if entity_id and not child_id:
 			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
@@ -970,6 +988,23 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		if day is not None:
 			day = int(day)
+
+		if windows:
+			# "08:00-12:00" -> ("08:00", "12:00"); the schema already checked the shape
+			pairs = [tuple(_hhmm(part) for part in window.split("-", 1)) for window in windows]
+			shown = ", ".join(f"{s}-{e}" for s, e in pairs)
+			_LOGGER.info(f"Service called: set_school_time windows {shown} for day={day or 'today'}")
+			success = await coordinator.client.async_set_school_time_windows(
+				windows=pairs,
+				day=day,
+				account_id=child_id,
+			)
+			if not success:
+				raise HomeAssistantError(
+					f"Family Link rejected the school time windows {shown} (see the log for details)"
+				)
+			await coordinator.async_request_refresh()
+			return
 
 		_LOGGER.info(f"Service called: set_school_time ({start_time}-{end_time}) for day={day or 'today'} scope={scope}")
 

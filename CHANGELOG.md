@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **`set_school_time` takes every window of a school day with a break (`windows`)** - A day with a break is stored by Google as several windows; the start and end fields move the first and the last one, which keeps the break but cannot set its hours. `windows: ["08:00-12:00", "13:30-15:00"]` now sets each window of the day in order, as many as the day has in Family Link (the `windows` attribute of the school time entities lists them). Adding or removing a break is still done once in the app: the call that creates a window has not been captured yet.
+
+---
+
 ## [2.3.0] - 2026-10-21
 
 Seven pull requests, four of them contributed: the app services now need a child, apps can be paused instead of blocked, the child's Chrome site lists are read and edited from Home Assistant, and the "unlimited apps during downtime" setting has a switch and a service.
