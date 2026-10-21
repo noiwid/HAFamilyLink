@@ -122,7 +122,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.enable_bedtime` / `familylink.disable_bedtime` | Toggle bedtime, effective tonight (weekly toggle plus a same-day override) |
 | `familylink.set_bedtime` | Edit the recurring weekly bedtime for a day, or post a today-only override (`scope: today`) |
 | `familylink.set_downtime_unlimited_apps` | Allow or block the apps with unlimited time during downtime (`allow: true` / `false`), like the child's switch |
-| `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, or post a today-only window (`scope: today`) |
+| `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, every window of a day with a break (`windows`), or post a today-only window (`scope: today`) |
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.get_sites`, `familylink.block_site`, `familylink.allow_site`, `familylink.remove_site` | Read and edit the child's Chrome site lists (approved and blocked sites, wildcards allowed) |
 | `familylink.sync_site_list` | Keep the blocked sites in step with a published list of domains (https, administrators only); removes only what the list added, `stop: true` takes it all back |

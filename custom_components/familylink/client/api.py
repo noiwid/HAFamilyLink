@@ -3444,6 +3444,166 @@ class FamilyLinkClient:
 
 		return _walk(data)
 
+	@classmethod
+	def _find_weekly_school_time_rows(cls, data: Any, day: int) -> list[list]:
+		"""Every live weekly school time row of `day`, earliest start first.
+
+		A day with a break has several rows (#190); a day without school time
+		has none.
+		"""
+		bedtime_rule_id = cls._find_revision_rule_id(data, 1)
+		schooltime_rule_id = cls._find_revision_rule_id(data, 2)
+		rows: list[list] = []
+
+		def _walk(value: Any) -> None:
+			if isinstance(value, list):
+				if cls._is_school_time_slot_row(value, day, bedtime_rule_id, schooltime_rule_id):
+					rows.append(value)
+					return
+				for item in value:
+					_walk(item)
+			elif isinstance(value, dict):
+				for item in value.values():
+					_walk(item)
+
+		_walk(data)
+		return sorted(rows, key=lambda row: (row[3][0], row[3][1]))
+
+	async def _async_put_weekly_school_time_slot(
+		self,
+		session: aiohttp.ClientSession,
+		cookie_header: str,
+		account_id: str,
+		slot_id: str,
+		start: list[int],
+		end: list[int],
+	) -> bool:
+		"""Rewrite one weekly school time slot (timeLimit:update), the call the app uses."""
+		payload = json.dumps([
+			None,
+			account_id,
+			[
+				[None, None, None, [[slot_id, start, end]]],
+				None, None, None, [],
+			],
+			None,
+			[1],
+		])
+		async with session.post(
+			self._people_url(account_id, "timeLimit:update"),
+			headers={
+				"Content-Type": "application/json+protobuf",
+				"Cookie": cookie_header,
+			},
+			data=payload,
+			params={"$httpMethod": "PUT"},
+		) as response:
+			if response.status != 200:
+				_LOGGER.error(
+					"Failed to set weekly school time slot %s (HTTP %s): %s",
+					slot_id, response.status, await response.text(),
+				)
+				return False
+		return True
+
+	async def async_set_school_time_windows(
+		self,
+		windows: list[tuple[str, str]],
+		day: int | None = None,
+		account_id: str | None = None,
+	) -> bool:
+		"""Set every weekly school time window of `day` at once (a school day with a break).
+
+		Google stores a school day with a break as several slots on the same
+		day (#190). `windows` lists the day's windows in order, as many as the
+		day has slots: each slot is rewritten with the window at its rank,
+		earliest slot first, one timeLimit:update per slot. Adding or removing
+		a break is not done here: the call that creates a slot has not been
+		captured, so the number of windows must match the number of slots.
+
+		Returns:
+			True when Google took every window, False otherwise (a write that
+			failed part-way leaves the earlier slots changed).
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		parsed: list[tuple[list[int], list[int]]] = []
+		for start_time, end_time in windows:
+			try:
+				start = list(parse_time_string(start_time))
+				end = list(parse_time_string(end_time))
+			except ValueError as err:
+				_LOGGER.error(f"Invalid school time window: {err}")
+				return False
+			if end <= start:
+				_LOGGER.error(
+					f"Invalid school time window {start_time}-{end_time}: the end must be after the start"
+				)
+				return False
+			if parsed and start <= parsed[-1][1]:
+				_LOGGER.error(
+					f"Invalid school time windows: {start_time}-{end_time} must start after the previous "
+					f"window ends (windows go in order and do not overlap)"
+				)
+				return False
+			parsed.append((start, end))
+		if not parsed:
+			_LOGGER.error("No school time window given")
+			return False
+
+		if day is None:
+			day = dt_util.now().isoweekday()
+		if not (type(day) is int and 1 <= day <= 7):
+			_LOGGER.error(f"Invalid day {day}: expected 1 (Monday) to 7 (Sunday)")
+			return False
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			self._weekly_slot_cache.pop(account_id, None)
+			data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
+			rows = self._find_weekly_school_time_rows(data, day) if data is not None else []
+			if not rows:
+				_LOGGER.error(
+					f"No weekly school time slot found for day {day}. Create a school time "
+					f"window for that day once in the Family Link app, then it can be "
+					f"changed from Home Assistant."
+				)
+				return False
+			if len(rows) != len(parsed):
+				_LOGGER.error(
+					f"Day {day} has {len(rows)} school time slot(s) in Family Link and {len(parsed)} "
+					f"window(s) were given. Adding or removing a break is not supported from Home "
+					f"Assistant yet: change the number of windows once in the Family Link app, then "
+					f"set their hours from here."
+				)
+				return False
+			for row, (start, end) in zip(rows, parsed):
+				_LOGGER.debug(
+					"Setting WEEKLY school time window %s-%s for day=%s (slot=%s, was %s-%s)",
+					start, end, day, row[0], row[3], row[4],
+				)
+				if not await self._async_put_weekly_school_time_slot(
+					session, cookie_header, account_id, row[0], start, end
+				):
+					self._weekly_slot_cache.pop(account_id, None)
+					return False
+			self._weekly_slot_cache.pop(account_id, None)
+			_LOGGER.info(
+				f"Successfully set {len(parsed)} weekly school time window(s) for day {day}: "
+				+ ", ".join(f"{s}-{e}" for s, e in windows)
+			)
+			return True
+		except SessionExpiredError:
+			raise
+		except Exception as err:
+			_LOGGER.error(f"Error setting school time windows for day {day}: {err}")
+			return False
+
 	async def async_set_school_time(
 		self,
 		start_time: str,
@@ -3520,35 +3680,14 @@ class FamilyLinkClient:
 					)
 					return False
 				slot_id = row[0]
-				payload = json.dumps([
-					None,
-					account_id,
-					[
-						[None, None, None, [[slot_id, [start_hour, start_min], [end_hour, end_min]]]],
-						None, None, None, [],
-					],
-					None,
-					[1],
-				])
 				_LOGGER.debug(
 					"Setting WEEKLY school time %s-%s for day=%s (slot=%s, was %s-%s)",
 					start_time, end_time, day, slot_id, row[3], row[4],
 				)
-				async with session.post(
-					self._people_url(account_id, "timeLimit:update"),
-					headers={
-						"Content-Type": "application/json+protobuf",
-						"Cookie": cookie_header,
-					},
-					data=payload,
-					params={"$httpMethod": "PUT"},
-				) as response:
-					if response.status != 200:
-						_LOGGER.error(
-							"Failed to set weekly school time (HTTP %s): %s",
-							response.status, await response.text(),
-						)
-						return False
+				if not await self._async_put_weekly_school_time_slot(
+					session, cookie_header, account_id, slot_id, [start_hour, start_min], [end_hour, end_min]
+				):
+					return False
 				self._weekly_slot_cache.pop(account_id, None)
 				_LOGGER.info(f"Successfully set weekly school time {start_time}-{end_time} for day {day}")
 				return True
