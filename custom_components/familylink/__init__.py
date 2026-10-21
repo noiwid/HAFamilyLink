@@ -215,6 +215,7 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
+	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
 
@@ -906,7 +907,22 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		end_time = call.data["end_time"]
 		day = call.data.get("day")  # Optional, defaults to today
 		scope = call.data.get("scope", "weekly")
+		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
+
+		# If entity_id provided, extract child_id from entity attributes
+		if entity_id and not child_id:
+			try:
+				_, child_id = extract_ids_from_entity(hass, entity_id)
+			except ValueError as err:
+				raise ServiceValidationError(str(err)) from err
+			# An entity that names no child (another integration's) must not
+			# fall back to the first child
+			if not child_id:
+				raise ServiceValidationError(
+					f"Entity {entity_id} does not belong to a Family Link child. Select an "
+					"entity of the child, or pass child_id."
+				)
 
 		# Convert day to int if provided as string (from UI selector)
 		if day is not None:

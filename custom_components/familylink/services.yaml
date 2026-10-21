@@ -310,9 +310,16 @@ set_bedtime:
               value: "weekly"
             - label: "Today only"
               value: "today"
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
     child_id:
-      name: Child ID
-      description: Child's user ID (optional if only one child)
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
       required: false
       example: "123456789012345678901"
       selector:

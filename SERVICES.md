@@ -214,12 +214,14 @@ Sets bedtime start and end times. By default this edits the recurring **weekly**
 | `end_time` | string, `H:MM` or `HH:MM` (24 h) | yes | - | Bedtime end, usually next morning, e.g. `07:30` |
 | `day` | int, 1 to 7 (1 = Monday) | no | today | Day of the week to change |
 | `scope` | `weekly` or `today` | no | `weekly` | `weekly` edits the recurring schedule; `today` posts a one-off override |
-| `child_id` | string | no | - | Child user ID. No target: FIRST supervised child. There is no `entity_id` field |
+| `entity_id` | entity id | no | - | Any entity of the child |
+| `child_id` | string | no | - | Child user ID. No target: FIRST supervised child |
 
 ```yaml
 # Later bedtime every Friday, permanently
 action: familylink.set_bedtime
 data:
+  entity_id: switch.emma_bedtime
   start_time: "22:00"
   end_time: "09:00"
   day: 5
