@@ -66,6 +66,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `device_tracker.<child>_family_link` | Child (GPS opt-in) | GPS location: zone, saved place, address, battery |
 | `switch.<child>_bedtime`, `_school_time`, `_daily_limit` | Child | Toggle restrictions. State reflects today's effective setting (weekly rule merged with same-day overrides); the school time switch also exposes `school_time_enabled_weekly` and `school_time_scheduled_today` attributes |
 | `switch.<child>_unlimited_apps_during_downtime` | Child | Family Link's "Allow apps with unlimited time during downtime": ON keeps the apps set to unlimited time usable during downtime, OFF blocks them too. Applies to all of the child's devices. Unknown until the setting is first changed, in the app or here: Google reports nothing for a child where it was never touched |
+| `sensor.<child>_blocked_sites`, `_approved_sites` | Child | Chrome site lists (Family Link "Google Chrome and Web"): count, the sites and the Chrome filter level in attributes; read every 15 minutes and right after a change made from Home Assistant |
 | `select.<child>_allowed_calls_texts` | Child | Choose who can call and text the child: anyone, only contacts you add, or contacts you add and limited groups |
 | `switch.<child>_strict_mode` | Child | Strict mode on or off for this child (see below). Attributes: rules in force, last corrective action, count |
 | `number.<child>_<weekday>_limit` | Child | Screen time quota of that weekday in minutes, as the weekly limits screen of the app shows it (the weekly value, or today's override when Google applies one; see the `source` and `applied_override` attributes). Setting it writes the weekly quota of that weekday, as the weekly limits screen of the app does; today's entity also posts today's override on every device so the change applies at once |
@@ -112,6 +113,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 |---------|---------|
 | `familylink.block_app` / `familylink.unblock_app` | Block or unblock a single app by package name |
 | `familylink.set_app_daily_limit` | Per-app daily limit: minutes, blocked, limit off, or unlimited time |
+| `familylink.pause_app` / `familylink.resume_app` | Pause apps with a 1-minute daily limit instead of blocking them (a paused Google Messages keeps the texts that arrive), then put each app's earlier setting back |
 | `familylink.block_device_for_school` | Block every app except an essentials whitelist (dialer, messages, settings, maps, ...) plus your own additions |
 | `familylink.unblock_all_apps` | Unblock every hidden app |
 | `familylink.add_time_bonus` | Add 1 to 1440 bonus minutes to a device |
@@ -122,11 +124,13 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.set_downtime_unlimited_apps` | Allow or block the apps with unlimited time during downtime (`allow: true` / `false`), like the child's switch |
 | `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, or post a today-only window (`scope: today`) |
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
+| `familylink.get_sites`, `familylink.block_site`, `familylink.allow_site`, `familylink.remove_site` | Read and edit the child's Chrome site lists (approved and blocked sites, wildcards allowed) |
+| `familylink.sync_site_list` | Keep the blocked sites in step with a published list of domains (https, administrators only); removes only what the list added, `stop: true` takes it all back |
 | `familylink.refresh_location` | Force a fresh GPS fix (uses more battery than the regular polling) |
 | `familylink.ring_device` | Make a device ring so it can be found |
 | `familylink.set_update_interval` | Change the polling interval until the next restart (e.g. slower at night) |
 
-Targeting: every service accepts an optional `entity_id` or explicit `child_id` / `device_id`. Without a target, the app and location services apply to **all** supervised children, while the time services fall back to the **first** supervised child. Full field reference, defaults and examples: **[SERVICES.md](SERVICES.md)**.
+Targeting: every service accepts an optional `entity_id` or explicit `child_id` / `device_id`. Without a target, `refresh_location` applies to **all** supervised children; the app services (`block_app`, `unblock_app`, `set_app_daily_limit`, `block_device_for_school`, `unblock_all_apps`) fail unless `all_children: true` is passed. Full field reference, defaults and examples: **[SERVICES.md](SERVICES.md)**.
 
 ## Troubleshooting
 

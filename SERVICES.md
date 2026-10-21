@@ -1,6 +1,6 @@
 # Service Reference
 
-The integration registers 19 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
+The integration registers 26 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
 
 For installation see [INSTALL.md](INSTALL.md). For the entity catalog see the [README](README.md).
 

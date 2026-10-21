@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.0] - 2026-10-21
+
+Seven pull requests, four of them contributed: the app services now need a child, apps can be paused instead of blocked, the child's Chrome site lists are read and edited from Home Assistant, and the "unlimited apps during downtime" setting has a switch and a service.
+
+### Breaking
+- **`block_app`, `unblock_app`, `set_app_daily_limit`, `block_device_for_school` and `unblock_all_apps` without a child now fail; add `all_children: true` to keep the old behaviour** (#194, thanks to @theSiegs) - A call without a child target used to change every supervised child, which an automation could do by mistake: a templated `child_id` that rendered empty, or an entity that carries no child (#73). Every child is now only targeted on an explicit `all_children: true`; a call with neither raises a clear error, and so does an entity that belongs to no Family Link child. `refresh_location` keeps applying to every child without a target.
+
+### Added
+- **`pause_app` / `resume_app` services** (#196, thanks to @theSiegs) - Pause apps for one child with a 1-minute daily limit instead of blocking them, and put back each app's earlier setting (limit, unlimited or none) afterwards. A paused app stays installed and keeps receiving: a blocked Google Messages loses the texts that arrive while it is blocked, a paused one keeps them. The earlier settings are stored and survive restarts; the two services run one at a time, and `resume_app` leaves an app blocked since the pause blocked and keeps its saved setting for later.
+- **Chrome site lists: `sensor.<child>_blocked_sites` / `_approved_sites` and the `get_sites`, `block_site`, `allow_site`, `remove_site`, `sync_site_list` services** (#195, thanks to @theSiegs) - Read and edit a child's "Google Chrome and Web" approved and blocked sites, which apply to every Chrome the child is signed in to. The sensors give the count, the sites and the Chrome filter level, read every 15 minutes and right after a change made from Home Assistant. `remove_site` also removes entries added in the Family Link app. `sync_site_list` keeps the blocked list in step with a published list of domains: it removes only what that list added, skips domains you approved, and `stop: true` takes the list's entries back out. Because the list is a third party's, the service is for administrators only, takes https addresses without redirects, reads at most 1 MiB, keeps plain domains only (no wildcards, addresses, IPs or bare suffixes such as `co.uk`) and refuses an empty or cut-short list rather than unblocking what it had added. A failed read of the lists is retried after the same 15 minutes, not on every refresh, and logged once.
+- **`switch.<child>_unlimited_apps_during_downtime` and `familylink.set_downtime_unlimited_apps`** (#200, thanks to @modert) - Family Link's "Allow apps with unlimited time during downtime": ON keeps the apps set to unlimited time usable during downtime, OFF blocks them too. Per child, every device. The switch stays unknown for a child where the setting was never touched, in the app or here, since Google reports nothing for it.
+- **`set_bedtime` accepts an `entity_id`** like the other child services (#198, thanks to @modert) - It was the only child-targeted service with `child_id` alone, so a non-administrator, who may only target an entity, could not call it. An entity that belongs to no Family Link child is refused instead of falling back to the first child.
+
+### Fixed
+- **A daily limit sent to a device Google lists no time limits for yet says so** (#193, thanks to @theSiegs) - A newly supervised device has no applied time limits for a while (about 30 minutes seen): Google accepts the override and never applies it. The service error and the log now say the device is not listed yet and to try again later, instead of the generic "accepted but not applied" message; a device that takes no time limits (a Google TV) gets no such hint.
+- **An ID ending with a newline is rejected before it reaches a URL** (#206, thanks to @theSiegs) - `_validate_id` used `re.match` with `$`, which also matches before a trailing newline.
+
+---
+
 ## [2.2.8] - 2026-10-19
 
 One fix: a school day with a break, reported in #190.
