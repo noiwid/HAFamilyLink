@@ -25,6 +25,7 @@ What happens with **no target** differs per service, which matters in multi-chil
 | Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`set_school_time`](#familylinkset_school_time), [`set_downtime_unlimited_apps`](#familylinkset_downtime_unlimited_apps), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
 | Fails (a device target is mandatory) | [`add_time_bonus`](#familylinkadd_time_bonus), [`ring_device`](#familylinkring_device) |
 | Fails without a device or a child | [`set_daily_limit`](#familylinkset_daily_limit) |
+| Fails without a child | [`pause_app`](#familylinkpause_app--familylinkresume_app), [`resume_app`](#familylinkpause_app--familylinkresume_app) |
 
 The device-scoped services (`add_time_bonus`, `ring_device`) raise an error unless a `device_id` is resolved, from the entity's attributes or the manual field. If they get a `device_id` but no `child_id`, the child resolves to the first supervised child. `set_daily_limit` also accepts a `child_id` alone, in which case it applies the limit to every device of that child.
 
@@ -133,6 +134,34 @@ action: familylink.set_app_daily_limit
 data:
   package_name: com.zhiliaoapp.musically
   minutes: 45
+  entity_id: sensor.emma_daily_screen_time
+```
+
+### familylink.pause_app / familylink.resume_app
+
+`pause_app` pauses apps for one child by setting their daily limit to 1 minute; `resume_app` puts back the setting each app had before (a daily limit, unlimited time, or no limit). Unlike `block_app`, a paused app stays installed and shows as paused. That matters for the default SMS app: a blocked Google Messages loses texts that arrive while blocked, a paused one keeps them.
+
+- An app already used for a minute or more today pauses within seconds. An app not used yet today gets its 1 minute, then pauses.
+- App limits count per device, so the pause applies on every device of the child. Google TV ignores app limits; use `block_app` there.
+- The setting from before the first pause is stored, survives restarts, and is not replaced by a second pause. A limit changed in the Family Link app while the app is paused is overwritten on resume.
+- Blocked apps are skipped: `pause_app` leaves them as they are, and `resume_app` leaves an app blocked since the pause blocked (writing its limit back could unblock it) and keeps its saved setting for a later `resume_app`. Calls run one at a time, so a pause and a resume overlapping cannot leave an app paused with nothing saved.
+- Both services require a child and return what they did (`paused`/`skipped`, `resumed`/`not_paused`/`skipped`).
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `packages` | list of strings | yes for `pause_app` | - | Android package names. `resume_app` without it resumes every paused app of the child |
+| `entity_id` | entity id | one of these | - | Entity carrying a `child_id` attribute |
+| `child_id` | string | one of these | - | Child user ID |
+
+```yaml
+# Pause Messages during school hours, then put it back
+action: familylink.pause_app
+data:
+  packages: com.google.android.apps.messaging
+  entity_id: sensor.emma_daily_screen_time
+---
+action: familylink.resume_app
+data:
   entity_id: sensor.emma_daily_screen_time
 ```
 

@@ -173,6 +173,60 @@ set_app_daily_limit:
       selector:
         boolean:
 
+pause_app:
+  name: Pause App
+  description: "Pause apps for one child by setting their daily limit to 1 minute. The app stays installed (blocking hides it, and a blocked Google Messages loses incoming texts). An app already used today pauses at once; an app not used yet gets its 1 minute first. The previous setting is saved and resume_app puts it back. Does nothing on Google TV, which ignores app limits. A child is required."
+  fields:
+    packages:
+      name: Packages
+      description: Android package names to pause
+      required: true
+      example: "com.google.android.apps.messaging"
+      selector:
+        text:
+          multiple: true
+    entity_id:
+      name: Child Entity
+      description: Any Family Link entity of the child
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using the entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
+resume_app:
+  name: Resume App
+  description: "Put back the daily limit setting that apps had before pause_app (a limit, unlimited time, or no limit). Apps that pause_app did not pause are left alone, and so is an app blocked since the pause (its saved setting is kept for when it is unblocked). A child is required."
+  fields:
+    packages:
+      name: Packages
+      description: Android package names to resume. Leave empty to resume every app paused for the child.
+      required: false
+      example: "com.google.android.apps.messaging"
+      selector:
+        text:
+          multiple: true
+    entity_id:
+      name: Child Entity
+      description: Any Family Link entity of the child
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using the entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
 # Time management services
 
 add_time_bonus:

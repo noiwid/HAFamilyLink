@@ -30,11 +30,12 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from functools import wraps
 import logging
+from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.auth.permissions.const import POLICY_CONTROL
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import Unauthorized, UnknownUser
 from homeassistant.helpers import entity_registry as er
 
@@ -100,14 +101,15 @@ def async_register_guarded_service(
 	hass: HomeAssistant,
 	domain: str,
 	service: str,
-	handler: Callable[[ServiceCall], Awaitable[None]],
+	handler: Callable[[ServiceCall], Awaitable[Any]],
 	schema: vol.Schema,
+	supports_response: SupportsResponse = SupportsResponse.NONE,
 ) -> None:
 	"""Register a service whose handler only runs for an authorized caller."""
 
 	@wraps(handler)
-	async def guarded(call: ServiceCall) -> None:
+	async def guarded(call: ServiceCall) -> Any:
 		await async_verify_service_call(hass, call)
-		await handler(call)
+		return await handler(call)
 
-	hass.services.async_register(domain, service, guarded, schema=schema)
+	hass.services.async_register(domain, service, guarded, schema=schema, supports_response=supports_response)
