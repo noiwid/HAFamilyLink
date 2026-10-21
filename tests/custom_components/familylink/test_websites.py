@@ -549,6 +549,7 @@ def test_a_long_list_is_truncated_in_the_attributes_but_counted_in_full() -> Non
 def _websites_coordinator(read) -> FamilyLinkDataUpdateCoordinator:
     coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
     coordinator._websites = {}
+    coordinator._websites_warned = set()
     coordinator.client = SimpleNamespace(async_get_website_restrictions=AsyncMock(side_effect=read))
     return coordinator
 
