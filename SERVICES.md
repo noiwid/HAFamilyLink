@@ -394,3 +394,33 @@ data:
 | Google Play Store | The `id` parameter in the app's store URL, e.g. `play.google.com/store/apps/details?id=com.google.android.youtube` |
 
 If a call fails, check the Home Assistant logs for `familylink` entries, and see [INSTALL.md](INSTALL.md) for authentication troubleshooting.
+
+## Websites (Chrome site lists)
+
+Family Link's "Google Chrome and Web" lists apply to the **child's Google account**, so to every Chrome the child is signed in to (phone, tablet, Chromebook, desktop). Other browsers are not filtered (block them with `block_app`), and a Google TV has no Chrome.
+
+Patterns: a website `www.example.com`, a domain wildcard `*.example.com` or `*.example.*` (only a leading `*.` or trailing `.*`), or a web address `https://example.com/page` (matched exactly). Google stores patterns as given and does not validate them, so the integration does. A pattern is either approved or blocked; adding it as the other type replaces it. A block wins over an approval.
+
+| Service | Fields | Notes |
+|---|---|---|
+| `familylink.get_sites` | `entity_id` or `child_id` | Response only: `filter_level`, `approved`, `blocked` (every entry, including ones added in the app) |
+| `familylink.block_site` / `familylink.allow_site` | `entity_id` or `child_id`, `sites` (list) | Optional response: `covered`, inserts Google skipped because an existing entry already covers them |
+| `familylink.remove_site` | `entity_id` or `child_id`, `sites` (list) | Removes from either list, whoever added the entry. Response: `removed`, `not_listed` |
+| `familylink.sync_site_list` | `entity_id` or `child_id`, `url`, `max_domains` (default 2000), `stop` | Downloads a domain list (one per line, `#` comments, hosts-file lines tolerated), blocks `*.domain` and `domain` for each, and removes only what the same URL added before and has since dropped. Domains you approved are skipped. `stop: true` removes everything that list added and forgets it. The list is a third party's, so: **administrators only**, the `url` must be `https` and redirects are not followed (give the final address), the download is read up to 1 MiB, and only plain domains are taken (wildcards, web addresses, IP addresses and bare suffixes such as `co.uk` are ignored and counted). A list with no usable domain, or one that would remove more than half of what it added (20 entries at least), is refused and nothing changes; if the list really shrank that much, run `stop: true` and sync again. Changes go out in calls of at most 2,500 entries. Response: `added_count`, `removed_count` and up to 20 of each, `skipped_approved`, `ignored_count` and up to 20 `ignored` |
+
+Sensors per child: `sensor.<child>_blocked_sites` and `sensor.<child>_approved_sites` (count; `sites` and `filter_level` attributes), read every 15 minutes and right after a change made from Home Assistant.
+
+```yaml
+# Block a site during homework, from a script
+action: familylink.block_site
+data:
+  entity_id: sensor.alex_daily_screen_time
+  sites: ["*.roblox.com", "www.example.com"]
+
+# Keep the blocked list in step with a published list, daily
+action: familylink.sync_site_list
+data:
+  entity_id: sensor.alex_daily_screen_time
+  url: https://raw.githubusercontent.com/theSiegs/kid-web-gaps/main/gaps.txt
+```
+

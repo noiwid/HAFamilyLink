@@ -99,6 +99,8 @@ async def async_setup_entry(
         entities.append(FamilyLinkScreenTimeFormattedSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppCountSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkBlockedAppsSensor(coordinator, child_id, child_name))
+        entities.append(FamilyLinkWebsitesSensor(coordinator, child_id, child_name, "blocked"))
+        entities.append(FamilyLinkWebsitesSensor(coordinator, child_id, child_name, "approved"))
         entities.append(FamilyLinkAppsWithLimitsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppsWithoutLimitsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAlwaysAllowedAppsSensor(coordinator, child_id, child_name))
@@ -895,6 +897,56 @@ class FamilyLinkBlockedAppsSensor(ChildDataMixin, CoordinatorEntity, SensorEntit
 		if was_truncated:
 			base_attrs["truncated"] = True
 		return base_attrs
+
+
+class FamilyLinkWebsitesSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Blocked or approved sites in the child's Chrome site lists (Family Link "Google Chrome and Web")."""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		kind: str,
+	) -> None:
+		"""Initialize the sensor; ``kind`` is "blocked" or "approved"."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._kind = kind
+		self._attr_name = f"{child_name} {kind.capitalize()} Sites"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{kind}_sites"
+		self._attr_icon = "mdi:web-cancel" if kind == "blocked" else "mdi:web-check"
+
+	def _websites(self) -> dict[str, Any] | None:
+		child_data = self._get_child_data()
+		return child_data.get("websites") if child_data else None
+
+	@property
+	def available(self) -> bool:
+		"""Available once the site lists have been read."""
+		return self.coordinator.last_update_success and self._websites() is not None
+
+	@property
+	def native_value(self) -> int | None:
+		"""Number of sites in the list."""
+		websites = self._websites()
+		return len(websites.get(self._kind) or []) if websites else None
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""The sites and the Chrome filter level."""
+		websites = self._websites() or {}
+		sites = sorted(websites.get(self._kind) or [])
+		attrs: dict[str, Any] = {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"filter_level": websites.get("filter_level"),
+			"count": len(sites),
+		}
+		shown, truncated = _truncate_app_list(sites, attrs)
+		attrs["sites"] = shown
+		if truncated:
+			attrs["truncated"] = True
+		return attrs
 
 
 class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):

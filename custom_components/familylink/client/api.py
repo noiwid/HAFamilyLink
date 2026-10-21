@@ -4057,3 +4057,93 @@ class FamilyLinkClient:
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error setting contact restriction: {err}")
 			return False
+
+	# Website restrictions ("Google Chrome and Web" in the Family Link app),
+	# confirmed live 2026-10-10 as named JSON:
+	#   GET  people/{id}/websites:listRestrictions ->
+	#        {"filterLevel": "safeSites", "explicitWebsiteExceptions": [
+	#          {"pattern": "www.example.com", "exceptionType": "block", "iconUrl": ...}]}
+	#        (the list is omitted when empty)
+	#   POST people/{id}/websites:updateRestrictions with
+	#        {"insertedWebsiteExceptions": [{"pattern", "exceptionType": "BLOCK"}],
+	#         "removedWebsiteExceptions": [...]} -> the resulting list, plus
+	#        "removedExceptions" and "filteredExceptions" ([{"exception": {...},
+	#        "coveredByException": {...}}] for entries already covered).
+	# Patterns are stored verbatim and not validated by Google; a pattern is
+	# either allowed or blocked (inserting the other type replaces it).
+	WEBSITE_ALLOW = "ALLOW"
+	WEBSITE_BLOCK = "BLOCK"
+
+	@staticmethod
+	def _website_lists(data: Any) -> dict[str, Any]:
+		"""{"filter_level", "approved", "blocked"} from a list or update response."""
+		lists: dict[str, Any] = {"filter_level": None, "approved": [], "blocked": []}
+		if not isinstance(data, dict):
+			return lists
+		lists["filter_level"] = data.get("filterLevel")
+		for item in data.get("explicitWebsiteExceptions") or []:
+			if not isinstance(item, dict) or not isinstance(item.get("pattern"), str):
+				continue
+			kind = str(item.get("exceptionType", "")).lower()
+			if kind == "allow":
+				lists["approved"].append(item["pattern"])
+			elif kind == "block":
+				lists["blocked"].append(item["pattern"])
+		return lists
+
+	async def _website_request(self, method: str, account_id: str, suffix: str, body: dict | None = None) -> Any:
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+		session = await self._get_session()
+		url = self._people_url(account_id, suffix)
+		async with session.request(
+			method,
+			url,
+			headers={"Content-Type": "application/json", "Cookie": self._get_cookie_header()},
+			data=json.dumps(body) if body is not None else None,
+		) as response:
+			if response.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate")
+			text = await response.text()
+			if response.status != 200:
+				_LOGGER.error(f"Website restrictions {suffix} failed {response.status}: {text[:300]}")
+				raise NetworkError(f"Website restrictions {suffix} failed: HTTP {response.status}")
+		try:
+			return json.loads(text) if text.strip() else {}
+		except ValueError as err:
+			raise NetworkError(f"Unexpected website restrictions response: {text[:200]}") from err
+
+	async def async_get_website_restrictions(self, account_id: str) -> dict[str, Any]:
+		"""The child's Chrome filter level and approved / blocked sites."""
+		data = await self._website_request("GET", account_id, "websites:listRestrictions")
+		return self._website_lists(data)
+
+	async def async_update_website_restrictions(
+		self,
+		account_id: str,
+		insert: list[tuple[str, str]] | None = None,
+		remove: list[tuple[str, str]] | None = None,
+	) -> dict[str, Any]:
+		"""Add and/or remove website exceptions in one call.
+
+		``insert`` / ``remove`` are (pattern, WEBSITE_ALLOW | WEBSITE_BLOCK)
+		pairs; one call can carry 2,500 entries. Returns the resulting lists
+		plus ``covered``: {pattern: covering pattern} for inserts Google
+		skipped because an existing entry already covers them.
+		"""
+		body = {
+			"insertedWebsiteExceptions": [{"pattern": p, "exceptionType": t} for p, t in insert or []],
+			"removedWebsiteExceptions": [{"pattern": p, "exceptionType": t} for p, t in remove or []],
+		}
+		data = await self._website_request("POST", account_id, "websites:updateRestrictions", body)
+		result = self._website_lists(data)
+		result["covered"] = {
+			item["exception"]["pattern"]: (item.get("coveredByException") or {}).get("pattern")
+			for item in (data.get("filteredExceptions") or [] if isinstance(data, dict) else [])
+			if isinstance(item, dict) and isinstance(item.get("exception"), dict) and item["exception"].get("pattern")
+		}
+		_LOGGER.info(
+			f"Website restrictions updated for {account_id}: added {len(body['insertedWebsiteExceptions'])}, "
+			f"removed {len(body['removedWebsiteExceptions'])}, {len(result['covered'])} already covered"
+		)
+		return result

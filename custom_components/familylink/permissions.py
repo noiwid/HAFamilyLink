@@ -97,6 +97,28 @@ async def async_verify_service_call(hass: HomeAssistant, call: ServiceCall) -> N
 	raise Unauthorized(context=call.context, permission=POLICY_CONTROL)
 
 
+async def async_require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
+	"""Raise Unauthorized unless the caller is an administrator.
+
+	For a service that no entity permission can make safe for a non-administrator,
+	one that fetches a URL from inside Home Assistant for instance. As above, a
+	call without a user is trusted.
+	"""
+	user_id = call.context.user_id
+	if not user_id:
+		return
+	user = await hass.auth.async_get_user(user_id)
+	if user is None:
+		raise UnknownUser(context=call.context, permission=POLICY_CONTROL)
+	if user.is_admin:
+		return
+	_LOGGER.warning(
+		"Service %s.%s refused: user %s is not an administrator",
+		call.domain, call.service, user.name,
+	)
+	raise Unauthorized(context=call.context, permission=POLICY_CONTROL)
+
+
 def async_register_guarded_service(
 	hass: HomeAssistant,
 	domain: str,

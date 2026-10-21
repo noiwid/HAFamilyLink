@@ -48,6 +48,8 @@ CAPS_BONUS: Final = (CAP_UNLOCK_FOR, CAP_UNLOCK_UNTIL_DEADLINE)
 
 # Default values
 DEFAULT_UPDATE_INTERVAL: Final = 60  # seconds
+# Chrome site lists (websites:listRestrictions) change rarely: re-read every 15 min
+WEBSITES_REFRESH: Final = 900  # seconds
 MIN_UPDATE_INTERVAL: Final = 30  # seconds
 MAX_UPDATE_INTERVAL: Final = 3600  # seconds
 DEFAULT_TIMEOUT: Final = 30  # seconds

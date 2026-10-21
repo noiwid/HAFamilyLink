@@ -32,6 +32,7 @@ from .const import (
 	DEVICE_UNLOCK_ACTION,
 	DOMAIN,
 	LOGGER_NAME,
+	WEBSITES_REFRESH,
 )
 from .exceptions import FamilyLinkException, SessionExpiredError
 from .strict_mode import (
@@ -101,6 +102,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
 		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
+		# Chrome site lists change rarely: read every WEBSITES_REFRESH seconds,
+		# and taken from the answer of a change made from Home Assistant (store_websites).
+		self._websites: dict[str, tuple[float, dict[str, Any]]] = {}  # child_id -> (read at, lists)
 
 		# Strict mode: Home Assistant reverts restriction changes made from the
 		# Family Link side (see strict_mode.py). The default and the rule set
@@ -561,6 +565,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							_LOGGER.debug(f"Using cached contact restriction for {child_name}")
 							break
 
+			websites = await self._async_child_websites(child_id, child_name)
+
 			# Store data for this child
 			child_data = {
 				"child": child,
@@ -572,6 +578,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"screen_time": screen_time,
 				"location": location,
 				"contact_restriction": contact_restriction,
+				"websites": websites,
 				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
@@ -864,6 +871,28 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		values = self._intents_for(child_id).setdefault("values", {})
 		values.setdefault("bedtime", {})[str(day)] = [list(start), list(end)]
 		self._save_strict_intents()
+
+	async def _async_child_websites(self, child_id: str, child_name: str) -> dict[str, Any] | None:
+		"""The child's Chrome site lists, read at most every WEBSITES_REFRESH seconds.
+
+		On an error the last lists read are kept; None until a first read works.
+		"""
+		cached = self._websites.get(child_id)
+		if cached and time.monotonic() - cached[0] < WEBSITES_REFRESH:
+			return cached[1]
+		try:
+			lists = await self.client.async_get_website_restrictions(child_id)
+		except SessionExpiredError:
+			raise
+		except Exception as err:
+			_LOGGER.warning(f"Failed to fetch website restrictions for {child_name}: {err}")
+			return cached[1] if cached else None
+		self._websites[child_id] = (time.monotonic(), lists)
+		return lists
+
+	def store_websites(self, child_id: str, lists: dict[str, Any]) -> None:
+		"""Keep the lists an update returned, so entities show them without a new read."""
+		self._websites[child_id] = (time.monotonic(), {k: lists.get(k) for k in ("filter_level", "approved", "blocked")})
 
 	def record_daily_limit_minutes(self, child_id: str | None, minutes: int, day: int | None = None) -> int | None:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
