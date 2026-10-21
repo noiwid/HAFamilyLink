@@ -31,6 +31,7 @@ def coordinator():
         "async_set_app_daily_limit",
         "async_set_bedtime",
         "async_set_daily_limit",
+        "async_set_downtime_unlimited_apps",
         "async_set_school_time",
         "async_unblock_app",
     ):

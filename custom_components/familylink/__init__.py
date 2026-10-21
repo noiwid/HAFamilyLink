@@ -38,6 +38,7 @@ from .const import (
 	SERVICE_SET_BEDTIME,
 	SERVICE_SET_SCHOOL_TIME,
 	SERVICE_SET_DAILY_LIMIT,
+	SERVICE_SET_DOWNTIME_UNLIMITED_APPS,
 	SERVICE_SET_UPDATE_INTERVAL,
 	SERVICE_REFRESH_LOCATION,
 	SERVICE_RING_DEVICE,
@@ -222,6 +223,12 @@ SCHEMA_SET_SCHOOL_TIME = vol.Schema({
 	vol.Required("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
+	vol.Optional("entity_id"): cv.entity_id,
+	vol.Optional("child_id"): cv.string,
+})
+
+SCHEMA_SET_DOWNTIME_UNLIMITED_APPS = vol.Schema({
+	vol.Required("allow"): cv.boolean,
 	vol.Optional("entity_id"): cv.entity_id,
 	vol.Optional("child_id"): cv.string,
 })
@@ -959,6 +966,35 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			)
 		await coordinator.async_request_refresh()
 
+	async def handle_set_downtime_unlimited_apps(call: ServiceCall) -> None:
+		"""Handle set_downtime_unlimited_apps service call (apps with unlimited time during downtime)."""
+		_require_client()
+		allow = call.data["allow"]
+		entity_id = call.data.get("entity_id")
+		child_id = call.data.get("child_id")
+
+		if entity_id and not child_id:
+			try:
+				_, child_id = extract_ids_from_entity(hass, entity_id)
+			except ValueError as err:
+				raise ServiceValidationError(str(err)) from err
+			# An entity that names no child (another integration's) must not
+			# fall back to the first child
+			if not child_id:
+				raise ServiceValidationError(
+					f"Entity {entity_id} does not belong to a Family Link child. Select an "
+					"entity of the child, or pass child_id."
+				)
+
+		_LOGGER.info(f"Service called: set_downtime_unlimited_apps (allow={allow})")
+
+		success = await coordinator.client.async_set_downtime_unlimited_apps(allow=allow, account_id=child_id)
+		if not success:
+			raise HomeAssistantError(
+				"Family Link rejected the unlimited apps during downtime setting (see the log for details)"
+			)
+		await coordinator.async_request_refresh()
+
 	async def handle_refresh_location(call: ServiceCall) -> None:
 		"""Handle refresh_location service call - request fresh location from device."""
 		_require_client()
@@ -1176,6 +1212,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 	async_register_guarded_service(
 		hass,
 		DOMAIN,
+		SERVICE_SET_DOWNTIME_UNLIMITED_APPS,
+		handle_set_downtime_unlimited_apps,
+		schema=SCHEMA_SET_DOWNTIME_UNLIMITED_APPS,
+	)
+
+	async_register_guarded_service(
+		hass,
+		DOMAIN,
 		SERVICE_REFRESH_LOCATION,
 		handle_refresh_location,
 		schema=SCHEMA_REFRESH_LOCATION,
@@ -1232,6 +1276,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			hass.services.async_remove(DOMAIN, SERVICE_SET_DAILY_LIMIT)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_BEDTIME)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_SCHOOL_TIME)
+			hass.services.async_remove(DOMAIN, SERVICE_SET_DOWNTIME_UNLIMITED_APPS)
 			hass.services.async_remove(DOMAIN, SERVICE_REFRESH_LOCATION)
 			hass.services.async_remove(DOMAIN, SERVICE_RING_DEVICE)
 			hass.services.async_remove(DOMAIN, SERVICE_SET_UPDATE_INTERVAL)

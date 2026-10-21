@@ -1,6 +1,6 @@
 # Service Reference
 
-The integration registers 17 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
+The integration registers 19 services under the `familylink` domain. They call unofficial, reverse engineered Google endpoints, so any service can stop working without notice if Google changes something.
 
 For installation see [INSTALL.md](INSTALL.md). For the entity catalog see the [README](README.md).
 
@@ -22,7 +22,7 @@ What happens with **no target** differs per service, which matters in multi-chil
 |---|---|
 | Applies to **ALL** supervised children | [`refresh_location`](#familylinkrefresh_location) |
 | Fails unless `all_children: true` is passed (then: every supervised child) | [`block_device_for_school`](#familylinkblock_device_for_school), [`unblock_all_apps`](#familylinkunblock_all_apps), [`block_app`](#familylinkblock_app--familylinkunblock_app), [`unblock_app`](#familylinkblock_app--familylinkunblock_app), [`set_app_daily_limit`](#familylinkset_app_daily_limit) |
-| Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`set_school_time`](#familylinkset_school_time), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
+| Applies to the **first** supervised child only | [`enable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`disable_bedtime`](#familylinkenable_bedtime--familylinkdisable_bedtime), [`set_bedtime`](#familylinkset_bedtime), [`set_school_time`](#familylinkset_school_time), [`set_downtime_unlimited_apps`](#familylinkset_downtime_unlimited_apps), [`enable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`disable_school_time`](#familylinkenable_school_time--familylinkdisable_school_time), [`enable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit), [`disable_daily_limit`](#familylinkenable_daily_limit--familylinkdisable_daily_limit) |
 | Fails (a device target is mandatory) | [`add_time_bonus`](#familylinkadd_time_bonus), [`ring_device`](#familylinkring_device) |
 | Fails without a device or a child | [`set_daily_limit`](#familylinkset_daily_limit) |
 
@@ -281,6 +281,26 @@ Turns school time restrictions on or off.
 action: familylink.enable_school_time
 data:
   entity_id: sensor.emma_daily_screen_time
+```
+
+### familylink.set_downtime_unlimited_apps
+
+Allows or blocks the apps with unlimited time during downtime, the *Allow apps with unlimited time during downtime* setting of Family Link. With `allow: false`, the apps set to unlimited time are blocked during downtime too. The setting belongs to the child, so it applies to all of the child's devices. `switch.<child>_unlimited_apps_during_downtime` shows and changes the same setting.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `allow` | boolean | yes | - | `true` keeps the apps with unlimited time usable during downtime, `false` blocks them |
+| `entity_id` | entity id | no | - | Any entity of the child |
+| `child_id` | string | no | - | Child user ID. No target: FIRST supervised child |
+
+The call raises an error when Google rejects the change, so an automation can tell.
+
+```yaml
+# Block the apps with unlimited time during downtime too
+action: familylink.set_downtime_unlimited_apps
+data:
+  entity_id: switch.emma_unlimited_apps_during_downtime
+  allow: false
 ```
 
 ## Location and device actions

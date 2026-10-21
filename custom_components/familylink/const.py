@@ -111,6 +111,7 @@ SERVICE_DISABLE_DAILY_LIMIT: Final = "disable_daily_limit"
 SERVICE_SET_DAILY_LIMIT: Final = "set_daily_limit"
 SERVICE_SET_BEDTIME: Final = "set_bedtime"
 SERVICE_SET_SCHOOL_TIME: Final = "set_school_time"
+SERVICE_SET_DOWNTIME_UNLIMITED_APPS: Final = "set_downtime_unlimited_apps"
 
 # Location services
 SERVICE_REFRESH_LOCATION: Final = "refresh_location"

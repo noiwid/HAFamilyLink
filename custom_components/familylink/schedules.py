@@ -411,6 +411,35 @@ def find_daily_limit_slot_id(data: Any, day: int) -> str | None:
 			return found
 	return _search(data)
 
+
+# Downtime settings: the last element of the unwrapped timeLimit response is a
+# list of [flag, setting] pairs, e.g. [[1, 1], [0, 2]]. Setting 1 is "Allow
+# apps with unlimited time during downtime" (flag 1 = allowed, 0 = blocked).
+# Other settings in that list are not identified and are left alone.
+DOWNTIME_SETTING_UNLIMITED_APPS = 1
+
+
+def parse_downtime_unlimited_apps(data: Any) -> bool | None:
+	"""Whether the apps with unlimited time stay usable during downtime.
+
+	Read from the [flag, setting] pairs at the end of the unwrapped timeLimit
+	response. Returns None when the list or the pair is missing or malformed,
+	so the state is reported unknown rather than guessed.
+	"""
+	if not isinstance(data, list) or not data or not isinstance(data[-1], list):
+		return None
+	for pair in data[-1]:
+		if (
+			isinstance(pair, list)
+			and len(pair) >= 2
+			and _is_int(pair[0])
+			and _is_int(pair[1])
+			and pair[1] == DOWNTIME_SETTING_UNLIMITED_APPS
+		):
+			return pair[0] == 1 if pair[0] in (0, 1) else None
+	return None
+
+
 def describe_time_until(target: datetime, now: datetime) -> str:
 	"""Human-readable delay until `target`: "Active now", "in 25min", "in 3h05", "in 1d 14h"."""
 	diff_seconds = int((target - now).total_seconds())

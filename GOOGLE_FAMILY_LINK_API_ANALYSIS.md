@@ -65,6 +65,7 @@
 | **Toggle bedtime weekly policy** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["487088e7-38b4-4f18-a5fb-4aab64ba9d2f", state]]]], null, [1]]` | UUID `487088e7-...` = bedtime policy.<br>state: 2=ON, 1=OFF. ⚠️ **Like school time, this only flips the weekly switch.** The bedtime slot already running tonight is not cancelled. The web app pairs this PUT with **Apply bedtime today** (above) when the user confirms "Apply changes to today as well?". |
 | **Toggle school time weekly policy** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [[null, null, null, null], null, null, null, [null, [["579e5e01-8dfd-42f3-be6b-d77984842202", state]]]], null, [1]]` | UUID `579e5e01-...` = school time policy.<br>state: 2=ON, 1=OFF. ⚠️ **This only flips the weekly switch — it does NOT apply a change to the current day.** If today has no weekly slot, nothing happens on the child device. To actually lock/unlock today, use **Apply school time today** (above). |
 | **Enable/Disable daily limit** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [null, [[state, null, null, null]]], null, [1]]` | state: 2=ON, 1=OFF |
+| **Allow apps with unlimited time during downtime** | PUT | `/kidsmanagement/v1/people/{childId}/timeLimit:update?$httpMethod=PUT` | `[null, childId, [null, null, null, null, [null, null, [[flag, 1]]]], null, [1]]` | flag: 1=allowed, 0=blocked (the apps with unlimited time are blocked during downtime too). Per child, every device. Setting 1 of the downtime settings read back at the end of `timeLimit` (1.4); only that pair is sent |
 | **Read contact restriction** | GET | `/kidsmanagement/v1/people/{childId}/trustedcontacts` | No body | Response (captured live 2026-08-26): `[[null, "<ts>"], <contacts or null>, <level>, "<country>", "<n>"]`. Level at index `[2]`; `0` on an account where the setting was never touched (behaves like `1`). |
 | **Set contact restriction** | POST | `/kidsmanagement/v1/people/{childId}/trustedcontacts:update` | `[null, childId, null, null, restriction_level]` | Observed levels: `1` = Anyone, `3` = Only contacts I add, `4` = Contacts I add & limited groups. |
 
@@ -174,7 +175,8 @@ The same id is used by two different writes, with different semantics (verified 
     - ⚠️ `data[0][0]` is the **integer** global stateFlag (`2`=ON / `1`=OFF), **not** a nested list — do **not** guard on `isinstance(data[0][0], list)`.
     - `data[0][1]` is **one flat list** holding **both** Bedtime (`CAEQ*`) **and** School time (`CAMQ*`) window tuples, intermixed. Split them by the code prefix, not by position.
   - `data[1]` = **daily-limit (minutes) config**: `[[stateFlag, [6,0], [<weekly rows>], createdMs, updatedMs]]`. Each weekly row is `[slot_id, day, stateFlag, minutes, createdMs, updatedMs]` and carries **minutes**, **not** `CAMQ*` time windows — school time windows are **not** here (a previous implementation read `data[1][0][2]` for school time and always found nothing). These rows are the values of the app's "weekly limits" screen and of the `number.<child>_<weekday>_limit` entities; `updatedMs` moves when the app or `timeLimit:update` rewrites a day.
-  - Last element (`data[-1]`): Revisions (exactly 4 elements: `[policyId, type_flag, state_flag, [sec, nanos]]`)
+  - Near the end: Revisions (exactly 4 elements: `[policyId, type_flag, state_flag, [sec, nanos]]`), found by searching backwards from the last element
+  - Last element (`data[-1]`) on current responses: downtime settings, `[[flag, setting], ...]` (1.4)
 - Two families of window tuples, both inside `data[0][1]`:
   - **Bedtime**: **`CAEQ*`** entries (per day)
   - **Schooltime**: **`CAMQ*`** entries (per day)
@@ -204,6 +206,15 @@ At the end of response, a block of tuples indicates the global state of switches
 - `policyId`: corresponds to the `policyId` seen in `CAEQ*/CAMQ*` tuples
 
 > The **very first integer** of the 1st large block **often** reflects the global Bedtime state (`2` when ON, `1` when OFF). Don't rely on it alone: use **revisions** as the source of truth.
+
+#### 1.4. Downtime settings (last element)
+The last element of `data` is a list of `[flag, setting]` pairs, e.g. `[[1, 1], [0, 2]]`, after the revisions:
+```
+[..., [<revisions>], null, [[1, 1], [0, 2]]]
+```
+- Setting **1** = "Allow apps with unlimited time during downtime": flag **1 = allowed**, **0 = blocked**. Per child, applies to every device. Verified on a live account 2026-10-17 by toggling it in the Family Link app and reading `timeLimit` back.
+- The other pair is not identified; the integration neither reads nor writes it.
+- Locate the pair by its setting number, not by position, and treat a missing or malformed list as unknown.
 
 ---
 

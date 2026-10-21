@@ -65,6 +65,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `sensor.<child>_battery_level` | Child (GPS opt-in) | Battery of the device providing the location |
 | `device_tracker.<child>_family_link` | Child (GPS opt-in) | GPS location: zone, saved place, address, battery |
 | `switch.<child>_bedtime`, `_school_time`, `_daily_limit` | Child | Toggle restrictions. State reflects today's effective setting (weekly rule merged with same-day overrides); the school time switch also exposes `school_time_enabled_weekly` and `school_time_scheduled_today` attributes |
+| `switch.<child>_unlimited_apps_during_downtime` | Child | Family Link's "Allow apps with unlimited time during downtime": ON keeps the apps set to unlimited time usable during downtime, OFF blocks them too. Applies to all of the child's devices. Unknown until the setting is first changed, in the app or here: Google reports nothing for a child where it was never touched |
 | `select.<child>_allowed_calls_texts` | Child | Choose who can call and text the child: anyone, only contacts you add, or contacts you add and limited groups |
 | `switch.<child>_strict_mode` | Child | Strict mode on or off for this child (see below). Attributes: rules in force, last corrective action, count |
 | `number.<child>_<weekday>_limit` | Child | Screen time quota of that weekday in minutes, as the weekly limits screen of the app shows it (the weekly value, or today's override when Google applies one; see the `source` and `applied_override` attributes). Setting it writes the weekly quota of that weekday, as the weekly limits screen of the app does; today's entity also posts today's override on every device so the change applies at once |
@@ -118,6 +119,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.enable_daily_limit` / `familylink.disable_daily_limit` | Toggle the daily screen time limit |
 | `familylink.enable_bedtime` / `familylink.disable_bedtime` | Toggle bedtime, effective tonight (weekly toggle plus a same-day override) |
 | `familylink.set_bedtime` | Edit the recurring weekly bedtime for a day, or post a today-only override (`scope: today`) |
+| `familylink.set_downtime_unlimited_apps` | Allow or block the apps with unlimited time during downtime (`allow: true` / `false`), like the child's switch |
 | `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, or post a today-only window (`scope: today`) |
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.refresh_location` | Force a fresh GPS fix (uses more battery than the regular polling) |

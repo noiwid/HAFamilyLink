@@ -57,6 +57,7 @@ async def async_setup_entry(
 		entities.append(FamilyLinkBedtimeSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkSchoolTimeSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkDailyLimitSwitch(coordinator, child_id, child_name))
+		entities.append(FamilyLinkDowntimeUnlimitedAppsSwitch(coordinator, child_id, child_name))
 		entities.append(FamilyLinkStrictModeSwitch(coordinator, child_id, child_name))
 
 		# Create a device lock switch only for devices that can be locked on
@@ -633,6 +634,98 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 			_LOGGER.info("Successfully disabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
 
+
+class FamilyLinkDowntimeUnlimitedAppsSwitch(CoordinatorEntity, SwitchEntity):
+	"""The "Allow apps with unlimited time during downtime" setting of a child.
+
+	ON: the apps set to unlimited time in Family Link stay usable during
+	downtime. OFF: they are blocked during downtime too. The setting belongs to
+	the child, so it applies to every device of that child. The state is
+	unknown when Google does not report the setting.
+	"""
+
+	_attr_has_entity_name = True
+	_attr_entity_category = EntityCategory.CONFIG
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+	) -> None:
+		"""Initialize the switch."""
+		super().__init__(coordinator)
+		self._child_id = child_id
+		self._child_name = child_name
+		self._attr_name = "Unlimited apps during downtime"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_downtime_unlimited_apps"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Return device information."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, self._child_id)},
+			name=f"{self._child_name} (Family Link)",
+			manufacturer="Google",
+			model="Family Link Account",
+		)
+
+	@property
+	def is_on(self) -> bool | None:
+		"""Return True when the apps with unlimited time stay usable during downtime."""
+		pending_state = self.coordinator.get_pending_time_limit_state(self._child_id, "downtime_unlimited_apps")
+		if pending_state is not None:
+			return pending_state
+
+		for child_data in (self.coordinator.data or {}).get("children_data", []):
+			if child_data.get("child_id") == self._child_id:
+				return child_data.get("downtime_unlimited_apps")
+		return None
+
+	@property
+	def available(self) -> bool:
+		"""Return True if entity is available."""
+		return self.coordinator.last_update_success
+
+	@property
+	def icon(self) -> str:
+		"""Return the icon for the switch."""
+		return "mdi:cellphone-off" if self.is_on is False else "mdi:apps"
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Child the setting belongs to."""
+		return {"child_id": self._child_id, "child_name": self._child_name}
+
+	async def _async_set(self, allow: bool) -> None:
+		"""Write the setting, showing the new state until the next refresh."""
+		if self.coordinator.client is None:
+			_LOGGER.error("Cannot change unlimited apps during downtime: client not connected")
+			return
+
+		self.coordinator.set_pending_time_limit_state(self._child_id, "downtime_unlimited_apps", allow)
+		self.async_write_ha_state()
+
+		success = await self.coordinator.client.async_set_downtime_unlimited_apps(
+			allow=allow, account_id=self._child_id
+		)
+		if not success:
+			_LOGGER.error("Failed to change unlimited apps during downtime for %s", self._child_name)
+			self.coordinator.set_pending_time_limit_state(self._child_id, "downtime_unlimited_apps", None)
+			self.async_write_ha_state()
+		else:
+			_LOGGER.info(
+				"Unlimited apps during downtime %s for %s", "allowed" if allow else "blocked", self._child_name
+			)
+			await self.coordinator.async_request_refresh()
+
+	async def async_turn_on(self) -> None:
+		"""Allow the apps with unlimited time during downtime."""
+		await self._async_set(True)
+
+	async def async_turn_off(self) -> None:
+		"""Block the apps with unlimited time during downtime."""
+		await self._async_set(False)
 
 
 class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity):

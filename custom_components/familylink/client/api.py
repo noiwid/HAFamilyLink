@@ -33,6 +33,7 @@ from ..exceptions import (
 	SessionExpiredError,
 )
 from ..schedules import (
+	DOWNTIME_SETTING_UNLIMITED_APPS,
 	WINDOW_BEDTIME,
 	WINDOW_SCHOOL_TIME,
 	classify_window_row,
@@ -40,6 +41,7 @@ from ..schedules import (
 	daily_limit_week,
 	parse_daily_limit_overrides,
 	parse_daily_limit_schedule,
+	parse_downtime_unlimited_apps,
 	find_daily_limit_slot_id,
 	parse_time_string,
 	parse_window_schedule_items,
@@ -2400,6 +2402,51 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Error setting the weekly daily limit for day {day}: {err}")
 			return False
 
+	async def async_set_downtime_unlimited_apps(self, allow: bool, account_id: str | None = None) -> bool:
+		"""Allow or block the apps with unlimited time during downtime.
+
+		The "Allow apps with unlimited time during downtime" setting of the
+		Family Link app. It belongs to the child, so it applies to every device
+		of that child. PUT timeLimit:update with
+		``[null, childId, [null, null, null, null, [null, null, [[flag, 1]]]], null, [1]]``,
+		flag 1 = allowed, 0 = blocked. The pair is the one read back from the
+		last element of the timeLimit response (parse_downtime_unlimited_apps);
+		only this setting's pair is sent.
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			payload = json.dumps([
+				None,
+				account_id,
+				[None, None, None, None, [None, None, [[1 if allow else 0, DOWNTIME_SETTING_UNLIMITED_APPS]]]],
+				None,
+				[1],
+			])
+			async with session.put(
+				self._people_url(account_id, "timeLimit:update"),
+				headers={"Content-Type": "application/json+protobuf", "Cookie": cookie_header},
+				data=payload,
+				params={"$httpMethod": "PUT"},
+			) as response:
+				if response.status != 200:
+					_LOGGER.error(
+						"Failed to set unlimited apps during downtime to %s (HTTP %s): %s",
+						"allowed" if allow else "blocked", response.status, await response.text(),
+					)
+					return False
+			_LOGGER.info(f"Unlimited apps during downtime {'allowed' if allow else 'blocked'} for account {account_id}")
+			return True
+		except Exception as err:
+			_LOGGER.error(f"Error setting unlimited apps during downtime: {err}")
+			return False
+
 	async def _async_apply_school_time_today(
 		self,
 		enable: bool,
@@ -3574,6 +3621,7 @@ class FamilyLinkClient:
 			- school_time_enabled: Boolean
 			- bedtime_schedule: List of {day, start, end} dicts
 			- school_time_schedule: List of {day, start, end} dicts
+			- downtime_unlimited_apps: Boolean, None when not reported
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -3886,7 +3934,9 @@ class FamilyLinkClient:
 					"school_time_schedule": school_time_schedule,
 					"daily_limit_week": daily_limit_week_rows,
 					"bedtime_rule_id": bedtime_rule_id,
-					"schooltime_rule_id": schooltime_rule_id
+					"schooltime_rule_id": schooltime_rule_id,
+					# "Allow apps with unlimited time during downtime" (per child)
+					"downtime_unlimited_apps": parse_downtime_unlimited_apps(data),
 				}
 
 		except SessionExpiredError:

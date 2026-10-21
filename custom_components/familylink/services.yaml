@@ -318,6 +318,38 @@ set_bedtime:
       selector:
         text:
 
+set_downtime_unlimited_apps:
+  name: Set Unlimited Apps During Downtime
+  description: >-
+    Allow or block the apps with unlimited time during downtime (bedtime), the
+    "Allow apps with unlimited time during downtime" setting of Family Link.
+    The setting belongs to the child and applies to all of the child's
+    devices. You can either select an entity OR provide child_id manually.
+  fields:
+    allow:
+      name: Allow
+      description: >-
+        On: the apps with unlimited time stay usable during downtime. Off: they
+        are blocked during downtime too.
+      required: true
+      example: false
+      selector:
+        boolean:
+    entity_id:
+      name: Child Entity
+      description: Select any Family Link entity for this child (recommended - automatically extracts child_id)
+      required: false
+      selector:
+        entity:
+          integration: familylink
+    child_id:
+      name: Child ID (manual)
+      description: Child's user ID - only needed if not using entity selector
+      required: false
+      example: "123456789012345678901"
+      selector:
+        text:
+
 enable_school_time:
   name: Enable School Time
   description: Enable school time (evening limit) restrictions for a child. You can either select an entity OR provide child_id manually.
