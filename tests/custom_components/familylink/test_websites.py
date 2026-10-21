@@ -587,15 +587,20 @@ async def test_coordinator_keeps_the_last_lists_when_a_read_fails(monkeypatch, c
 
     clock[0] += WEBSITES_REFRESH + 1
     assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+
+    # A later failure keeps the last lists and is one warning again (the read
+    # had worked in between), then debug
     clock[0] += WEBSITES_REFRESH + 1
-    assert await coordinator._async_child_websites(CHILD, "Alex") == lists
-    clock[0] += WEBSITES_REFRESH + 1
-    # A later failure is one warning again (the read had worked in between), then debug
     with caplog.at_level(logging.DEBUG):
         assert await coordinator._async_child_websites(CHILD, "Alex") == lists
     assert caplog.text.count("Failed to fetch website restrictions") == 2
-    assert "again" not in caplog.text
     assert caplog.records[-1].levelno == logging.WARNING
+    clock[0] += WEBSITES_REFRESH + 1
+    with caplog.at_level(logging.DEBUG):
+        assert await coordinator._async_child_websites(CHILD, "Alex") == lists
+    assert caplog.text.count("Failed to fetch website restrictions") == 3
+    assert caplog.records[-1].levelno == logging.DEBUG
+    assert "again" in caplog.records[-1].getMessage()
 
 
 async def test_coordinator_passes_on_an_expired_session() -> None:
