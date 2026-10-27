@@ -11,8 +11,6 @@ RUN apt-get update \
         python3-pip \
         python3-dev \
         curl \
-        nodejs \
-        npm \
         ca-certificates \
         fonts-liberation \
         libnss3 \
