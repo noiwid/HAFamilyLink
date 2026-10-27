@@ -4369,7 +4369,7 @@ class FamilyLinkClient:
 	# #211. The app switches it with one POST to settingResources:performAction
 	# (no personId in the path, the child is in the body); setting resource
 	# "124" is the Chrome web filter, the trailing [[1, 3, 4, 5, 6], 1] block is
-	# constant. Values as the app sends them: "2" = only approved sites (the
+	# constant and is the third field, not a second action. Values as the app sends them: "2" = only approved sites (the
 	# allow list), "3" = all sites with Google's explicit-content filter.
 	# websites:listRestrictions reads the mode back under its own names
 	# (WEBSITE_FILTER_READ_NAMES).
@@ -4441,12 +4441,13 @@ class FamilyLinkClient:
 			raise AuthenticationError("Not authenticated")
 		self._validate_id(account_id, "account_id")
 		session = await self._get_session()
+		# [unused, action_data (repeated: [1, resource_id, value]), constant block].
+		# The body in #211 had one more pair of brackets; Google read the
+		# constant block as a second action and answered 400 (live 2026-10-27).
 		payload = json.dumps([
 			None,
-			[
-				[[1, [self.WEBSITE_FILTER_RESOURCE, None, [account_id]], self.WEBSITE_FILTER_VALUES[level]]],
-				[[1, 3, 4, 5, 6], 1],
-			],
+			[[1, [self.WEBSITE_FILTER_RESOURCE, None, [account_id]], self.WEBSITE_FILTER_VALUES[level]]],
+			[[1, 3, 4, 5, 6], 1],
 		])
 		async with session.post(
 			f"{self.BASE_URL}/people/settingResources:performAction",

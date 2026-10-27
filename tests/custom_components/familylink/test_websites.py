@@ -88,7 +88,7 @@ async def test_filter_level_posts_the_setting_action_and_reads_back() -> None:
     url = session.post.call_args.args[0]
     body = json.loads(session.post.call_args.kwargs["data"])
     assert url.endswith("/kidsmanagement/v1/people/settingResources:performAction")
-    assert body == [None, [[[1, ["124", None, ["123"]], "2"]], [[1, 3, 4, 5, 6], 1]]]
+    assert body == [None, [[1, ["124", None, ["123"]], "2"]], [[1, 3, 4, 5, 6], 1]]
     assert session.post.call_args.kwargs["headers"]["Content-Type"] == "application/json+protobuf"
     assert lists["filter_level"] == "allowedSitesOnly"
     client.async_get_website_restrictions.assert_awaited_once_with("123")
@@ -99,7 +99,7 @@ async def test_filter_level_filtered_sends_three() -> None:
 
     await client.async_set_website_filter_level("123", FamilyLinkClient.WEBSITE_FILTER_FILTERED)
 
-    assert json.loads(session.post.call_args.kwargs["data"])[1][0][0][2] == "3"
+    assert json.loads(session.post.call_args.kwargs["data"])[1][0][2] == "3"
 
 
 async def test_filter_level_refuses_an_unknown_level_before_any_request() -> None:
