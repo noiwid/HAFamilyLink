@@ -335,65 +335,65 @@ async def test_windows_write_sets_a_single_window_day_too() -> None:
     assert json.loads(session.post.call_args.kwargs["data"])[2][0][3] == [[SCHOOL_FRIDAY, [8, 0], [12, 10]]]
 
 
-async def test_windows_write_adds_a_break_in_one_call() -> None:
-    """Friday has one slot; two windows cut it in two, as the app does (captured 2026-10-27)."""
+def _blocks(session) -> list:
+    return [json.loads(call.kwargs["data"])[2][0] for call in session.post.call_args_list]
+
+
+async def test_windows_write_adds_a_break_as_a_rewrite_then_a_creation() -> None:
+    """Friday has one slot; two windows cut it in two (shapes captured 2026-10-27)."""
     client, session = _client(_time_limit_data())
 
     assert await client.async_set_school_time_windows(
         [("08:00", "12:00"), ("13:00", "15:00")], day=5, account_id=ACCOUNT_ID
     )
 
-    session.post.assert_called_once()
-    block = json.loads(session.post.call_args.kwargs["data"])[2][0]
-    assert block == [
-        None,
-        [[None, 5, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE]],
-        None,
-        [[SCHOOL_FRIDAY, [8, 0], [12, 0]]],
-        None,
-        None,
+    assert _blocks(session) == [
+        [None, None, None, [[SCHOOL_FRIDAY, [8, 0], [12, 0]]]],
+        [
+            None,
+            [[None, 5, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE]],
+            None,
+            [[SCHOOL_FRIDAY, [8, 0], [12, 0]]],
+            None,
+            None,
+        ],
     ]
 
 
-async def test_windows_write_removes_a_break_in_one_call() -> None:
+async def test_windows_write_removes_a_break_as_a_rewrite_then_a_deletion() -> None:
     """Tuesday has two slots; one window keeps the first and deletes the second."""
     client, session = _client(_time_limit_data_with_break())
 
     assert await client.async_set_school_time_windows([("08:00", "15:00")], day=2, account_id=ACCOUNT_ID)
 
-    session.post.assert_called_once()
-    block = json.loads(session.post.call_args.kwargs["data"])[2][0]
-    assert block == [None, None, None, [[SCHOOL_TUESDAY_MORNING, [8, 0], [15, 0]]], None, [SCHOOL_TUESDAY_AFTERNOON]]
+    assert _blocks(session) == [
+        [None, None, None, [[SCHOOL_TUESDAY_MORNING, [8, 0], [15, 0]]]],
+        [None, None, None, [[SCHOOL_TUESDAY_MORNING, [8, 0], [15, 0]]], None, [SCHOOL_TUESDAY_AFTERNOON]],
+    ]
 
 
-async def test_windows_write_creates_the_slots_of_a_day_without_school_time() -> None:
+async def test_windows_write_creates_the_slots_of_a_day_without_school_time_one_by_one() -> None:
     client, session = _client(_time_limit_data())
 
     assert await client.async_set_school_time_windows(
         [("08:00", "12:00"), ("13:00", "15:00")], day=3, account_id=ACCOUNT_ID
     )
 
-    block = json.loads(session.post.call_args.kwargs["data"])[2][0]
-    assert block == [
-        None,
-        [
-            [None, 3, 2, [8, 0], [12, 0], None, None, SCHOOL_RULE],
-            [None, 3, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE],
-        ],
-        None,
-        None,
-        None,
-        None,
+    assert _blocks(session) == [
+        [None, [[None, 3, 2, [8, 0], [12, 0], None, None, SCHOOL_RULE]], None, None, None, None],
+        [None, [[None, 3, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE]], None, None, None, None],
     ]
 
 
-async def test_empty_windows_remove_every_slot_of_the_day() -> None:
+async def test_empty_windows_remove_every_slot_of_the_day_one_by_one() -> None:
     client, session = _client(_time_limit_data_with_break())
 
     assert await client.async_set_school_time_windows([], day=2, account_id=ACCOUNT_ID)
 
-    block = json.loads(session.post.call_args.kwargs["data"])[2][0]
-    assert block == [None, None, None, None, None, [SCHOOL_TUESDAY_MORNING, SCHOOL_TUESDAY_AFTERNOON]]
+    assert _blocks(session) == [
+        [None, None, None, None, None, [SCHOOL_TUESDAY_MORNING]],
+        [None, None, None, None, None, [SCHOOL_TUESDAY_AFTERNOON]],
+    ]
 
 
 async def test_empty_windows_on_a_day_without_school_time_send_nothing() -> None:
@@ -415,13 +415,15 @@ async def test_windows_write_fails_without_a_rule_id_to_create_a_slot() -> None:
     session.post.assert_not_called()
 
 
-async def test_windows_write_fails_when_google_refuses_the_break_change() -> None:
+async def test_windows_write_stops_when_google_refuses_the_break_change() -> None:
     client, session = _client(_time_limit_data())
-    session.post = MagicMock(return_value=_Response(400))
+    session.post = MagicMock(side_effect=[_Response(200), _Response(400), _Response(200)])
 
     assert not await client.async_set_school_time_windows(
-        [("08:00", "12:00"), ("13:00", "15:00")], day=5, account_id=ACCOUNT_ID
+        [("08:00", "12:00"), ("13:00", "14:00"), ("14:15", "15:00")], day=5, account_id=ACCOUNT_ID
     )
+
+    assert session.post.call_count == 2
 
 
 @pytest.mark.parametrize(

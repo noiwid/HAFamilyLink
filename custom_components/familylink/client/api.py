@@ -3498,9 +3498,11 @@ class FamilyLinkClient:
 		The school time block sits at [2][0]: index [1] lists the slots to
 		create (`[None, weekday, 2, start, end, None, None, rule_id]`, Google
 		assigns the id), index [3] the slots to rewrite (`[slot_id, start,
-		end]`) and index [5] the ids to delete. The web app sends an add or a
-		removal of a break as one such call (captured 2026-10-27); a plain
-		rewrite keeps the four-element block it always sent.
+		end]`) and index [5] the ids to delete. The web app adds a break as
+		one rewrite plus one creation, and removes one as one rewrite plus one
+		deletion (captured 2026-10-27); Google answers 400 to two rewrites in
+		one call, so callers keep to those shapes. A plain rewrite keeps the
+		four-element block it always sent.
 		"""
 		update_rows = [[slot_id, start, end] for slot_id, start, end in updated]
 		if created or deleted:
@@ -3546,12 +3548,14 @@ class FamilyLinkClient:
 		are rewritten with the window at their rank, earliest slot first. More
 		windows than slots adds slots (a break appears), fewer removes the
 		spare ones (a break goes away), and an empty list removes every slot
-		of the day. A plain rewrite is one timeLimit:update per slot; a change
-		in the number of slots goes in one call, the way the app sends it.
+		of the day. Every write is one timeLimit:update in a shape the app
+		sends: one rewrite per kept slot, then one call per added slot (the
+		new row with the last kept slot restated) and one per removed slot
+		(its id with the last kept slot restated).
 
 		Returns:
-			True when Google took every window, False otherwise (a per-slot
-			write that failed part-way leaves the earlier slots changed).
+			True when Google took every window, False otherwise (a write that
+			failed part-way leaves the earlier slots changed).
 		"""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
@@ -3615,20 +3619,26 @@ class FamilyLinkClient:
 				day, [(s, e) for _, s, e in updated], [(s, e) for _, s, e, _ in created], deleted,
 				[(row[0], row[3], row[4]) for row in rows],
 			)
-			if created or deleted:
-				ok = await self._async_put_weekly_school_time_slots(
-					session, cookie_header, account_id, updated=updated, created=created, deleted=deleted
-				)
-				self._weekly_slot_cache.pop(account_id, None)
-				if not ok:
-					return False
-			else:
+			try:
 				for slot_id, start, end in updated:
 					if not await self._async_put_weekly_school_time_slot(
 						session, cookie_header, account_id, slot_id, start, end
 					):
-						self._weekly_slot_cache.pop(account_id, None)
 						return False
+				# The app restates the neighbouring slot in the call that adds or
+				# removes one; the last kept slot plays that part here.
+				anchor = updated[-1:] if updated else []
+				for row in created:
+					if not await self._async_put_weekly_school_time_slots(
+						session, cookie_header, account_id, updated=anchor, created=[row]
+					):
+						return False
+				for slot_id in deleted:
+					if not await self._async_put_weekly_school_time_slots(
+						session, cookie_header, account_id, updated=anchor, deleted=[slot_id]
+					):
+						return False
+			finally:
 				self._weekly_slot_cache.pop(account_id, None)
 			_LOGGER.info(
 				f"Successfully set {len(parsed)} weekly school time window(s) for day {day}"
