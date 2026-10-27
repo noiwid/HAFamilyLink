@@ -3545,13 +3545,17 @@ class FamilyLinkClient:
 
 		Google stores a school day with a break as several slots on the same
 		day (#190). `windows` lists the day's windows in order; the day's slots
-		are rewritten with the window at their rank, earliest slot first. More
-		windows than slots adds slots (a break appears), fewer removes the
-		spare ones (a break goes away), and an empty list removes every slot
-		of the day. Every write is one timeLimit:update in a shape the app
-		sends: one rewrite per kept slot, then one call per added slot (the
-		new row with the last kept slot restated) and one per removed slot
-		(its id with the last kept slot restated).
+		are rewritten with the window at their rank, earliest slot first. Two
+		windows on a one-slot day add a slot (a break appears), one window on
+		a two-slot day removes the second (the break goes away). Google keeps
+		a day to two slots at most (a third one is refused with 400) and a day
+		always keeps one slot, so the list holds one or two windows and a day
+		without any slot cannot be given one (a day switched off in the app
+		keeps its slot, disabled). Every write is one timeLimit:update in a
+		shape the app sends: one rewrite per kept slot, then one call per
+		added slot (the new row with the kept slot restated) and one per
+		removed slot (its id with the kept slot restated); a lone creation or
+		deletion is refused by Google.
 
 		Returns:
 			True when Google took every window, False otherwise (a write that
@@ -3583,6 +3587,15 @@ class FamilyLinkClient:
 				)
 				return False
 			parsed.append((start, end))
+		if not parsed:
+			_LOGGER.error("No school time window given")
+			return False
+		if len(parsed) > 2:
+			_LOGGER.error(
+				f"{len(parsed)} school time windows given for day {day}: Family Link allows "
+				f"one break per day, so at most two windows"
+			)
+			return False
 
 		if day is None:
 			day = dt_util.now().isoweekday()
@@ -3596,9 +3609,13 @@ class FamilyLinkClient:
 			self._weekly_slot_cache.pop(account_id, None)
 			data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
 			rows = self._find_weekly_school_time_rows(data, day) if data is not None else []
-			if not rows and not parsed:
-				_LOGGER.info(f"Day {day} already has no school time window")
-				return True
+			if not rows:
+				_LOGGER.error(
+					f"No weekly school time slot found for day {day}. Create a school time "
+					f"window for that day once in the Family Link app, then it can be "
+					f"changed from Home Assistant."
+				)
+				return False
 			kept = min(len(rows), len(parsed))
 			updated = [(row[0], start, end) for row, (start, end) in zip(rows, parsed)]
 			deleted = [row[0] for row in rows[kept:]]
@@ -3626,8 +3643,9 @@ class FamilyLinkClient:
 					):
 						return False
 				# The app restates the neighbouring slot in the call that adds or
-				# removes one; the last kept slot plays that part here.
-				anchor = updated[-1:] if updated else []
+				# removes one, and Google refuses the call without it; the last
+				# kept slot plays that part here.
+				anchor = updated[-1:]
 				for row in created:
 					if not await self._async_put_weekly_school_time_slots(
 						session, cookie_header, account_id, updated=anchor, created=[row]
@@ -3641,8 +3659,8 @@ class FamilyLinkClient:
 			finally:
 				self._weekly_slot_cache.pop(account_id, None)
 			_LOGGER.info(
-				f"Successfully set {len(parsed)} weekly school time window(s) for day {day}"
-				+ (": " + ", ".join(f"{s}-{e}" for s, e in windows) if windows else " (none)")
+				f"Successfully set {len(parsed)} weekly school time window(s) for day {day}: "
+				+ ", ".join(f"{s}-{e}" for s, e in windows)
 			)
 			return True
 		except SessionExpiredError:

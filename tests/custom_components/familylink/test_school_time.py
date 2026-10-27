@@ -372,34 +372,21 @@ async def test_windows_write_removes_a_break_as_a_rewrite_then_a_deletion() -> N
     ]
 
 
-async def test_windows_write_creates_the_slots_of_a_day_without_school_time_one_by_one() -> None:
+async def test_windows_write_fails_without_a_slot_for_the_day() -> None:
+    """Google keeps a day to its slots: a lone creation is refused (live 2026-10-27)."""
     client, session = _client(_time_limit_data())
 
-    assert await client.async_set_school_time_windows(
-        [("08:00", "12:00"), ("13:00", "15:00")], day=3, account_id=ACCOUNT_ID
-    )
+    assert not await client.async_set_school_time_windows([("08:00", "12:00")], day=3, account_id=ACCOUNT_ID)
 
-    assert _blocks(session) == [
-        [None, [[None, 3, 2, [8, 0], [12, 0], None, None, SCHOOL_RULE]], None, None, None, None],
-        [None, [[None, 3, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE]], None, None, None, None],
-    ]
+    session.post.assert_not_called()
 
 
-async def test_empty_windows_remove_every_slot_of_the_day_one_by_one() -> None:
+@pytest.mark.parametrize("windows", [[], [("08:00", "10:00"), ("10:30", "12:00"), ("13:00", "15:00")]])
+async def test_windows_write_refuses_none_or_more_than_two(windows) -> None:
+    """Family Link allows one break per day (a third slot answers 400, live 2026-10-27)."""
     client, session = _client(_time_limit_data_with_break())
 
-    assert await client.async_set_school_time_windows([], day=2, account_id=ACCOUNT_ID)
-
-    assert _blocks(session) == [
-        [None, None, None, None, None, [SCHOOL_TUESDAY_MORNING]],
-        [None, None, None, None, None, [SCHOOL_TUESDAY_AFTERNOON]],
-    ]
-
-
-async def test_empty_windows_on_a_day_without_school_time_send_nothing() -> None:
-    client, session = _client(_time_limit_data())
-
-    assert await client.async_set_school_time_windows([], day=3, account_id=ACCOUNT_ID)
+    assert not await client.async_set_school_time_windows(windows, day=2, account_id=ACCOUNT_ID)
 
     session.post.assert_not_called()
 
@@ -410,17 +397,19 @@ async def test_windows_write_fails_without_a_rule_id_to_create_a_slot() -> None:
     client, session = _client(data)
     client.async_get_time_limit = AsyncMock(return_value={})
 
-    assert not await client.async_set_school_time_windows([("08:00", "12:00")], day=3, account_id=ACCOUNT_ID)
+    assert not await client.async_set_school_time_windows(
+        [("08:00", "12:00"), ("13:00", "15:00")], day=5, account_id=ACCOUNT_ID
+    )
 
     session.post.assert_not_called()
 
 
 async def test_windows_write_stops_when_google_refuses_the_break_change() -> None:
     client, session = _client(_time_limit_data())
-    session.post = MagicMock(side_effect=[_Response(200), _Response(400), _Response(200)])
+    session.post = MagicMock(side_effect=[_Response(200), _Response(400)])
 
     assert not await client.async_set_school_time_windows(
-        [("08:00", "12:00"), ("13:00", "14:00"), ("14:15", "15:00")], day=5, account_id=ACCOUNT_ID
+        [("08:00", "12:00"), ("13:00", "15:00")], day=5, account_id=ACCOUNT_ID
     )
 
     assert session.post.call_count == 2
@@ -470,15 +459,6 @@ async def test_service_passes_the_windows_of_the_day_to_the_client(hass, service
     assert services.async_request_refresh.await_count == 1
 
 
-async def test_service_passes_an_empty_window_list_to_remove_the_days_school_time(hass, services) -> None:
-    await hass.services.async_call(
-        DOMAIN, "set_school_time", {"child_id": ACCOUNT_ID, "day": 3, "windows": []}, blocking=True
-    )
-
-    services.client.async_set_school_time_windows.assert_awaited_once_with(windows=[], day=3, account_id=ACCOUNT_ID)
-    services.client.async_set_school_time.assert_not_awaited()
-
-
 async def test_service_raises_when_google_rejects_the_windows(hass, services) -> None:
     services.client.async_set_school_time_windows.return_value = False
 
@@ -503,6 +483,16 @@ async def test_service_refuses_windows_mixed_with_the_bounds_or_an_incomplete_ca
         await hass.services.async_call(DOMAIN, "set_school_time", {"child_id": ACCOUNT_ID, **data}, blocking=True)
 
     services.client.async_set_school_time.assert_not_awaited()
+    services.client.async_set_school_time_windows.assert_not_awaited()
+
+
+@pytest.mark.parametrize("windows", [[], ["08:00-10:00", "10:30-12:00", "13:00-15:00"]])
+async def test_service_rejects_none_or_more_than_two_windows(hass, services, windows) -> None:
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN, "set_school_time", {"child_id": ACCOUNT_ID, "windows": windows}, blocking=True
+        )
+
     services.client.async_set_school_time_windows.assert_not_awaited()
 
 

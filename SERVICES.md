@@ -261,15 +261,15 @@ data:
 
 Sets the school time start and finish for a day. By default this edits the recurring **weekly** school time slot of that day, the same way `set_bedtime` edits bedtime. Use `scope: today` for a one-off window today only, which leaves the weekly schedule untouched and replaces any school time override already posted for today.
 
-With `start_time` and `end_time`, the weekly scope only changes an existing slot: the day must already have a school time window in Family Link (create it once in the app, or use `windows`). School time is a same-day window, so the end must be after the start.
+The weekly scope only changes an existing slot: the day must already have a school time window in Family Link (create it once in the app; a day switched off in the app keeps its window and can still be edited, but stays off until it is switched on in the app). School time is a same-day window, so the end must be after the start.
 
-A school day with a break is stored by Google as several windows on the same day. `start_time` and `end_time` then move the first window's start and the last window's end, and the break stays. To set every window of such a day, pass `windows` instead: the list of the day's windows in order (the `windows` attribute of the `time.<child>_<weekday>_school_time_start|end` entities shows the current ones). The count may differ from the day's: more windows add a break, fewer remove one, and an empty list removes the day's school time altogether, so a day without school time can be given one from here.
+A school day with a break is stored by Google as two windows on the same day. `start_time` and `end_time` then move the first window's start and the second window's end, and the break stays. To set both windows, pass `windows` instead: the day's windows in order (the `windows` attribute of the `time.<child>_<weekday>_school_time_start|end` entities shows the current ones). Two windows on a day that has one add the break, one window on a day that has two removes it. Family Link allows one break per day, so a third window is refused.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `start_time` | string, `H:MM`, `HH:MM` or `HH:MM:SS` (24 h) | with `end_time` | - | School time start, e.g. `08:00`. Not with `windows` |
 | `end_time` | string, `H:MM`, `HH:MM` or `HH:MM:SS` (24 h) | with `start_time` | - | School time end, same day, e.g. `13:15`. Not with `windows` |
-| `windows` | list of `HH:MM-HH:MM` | instead of start and end | - | Every window of the day in order, e.g. `["08:00-12:00", "13:30-15:00"]`; more or fewer than the day has adds or removes a break, `[]` removes the day's school time. Weekly scope only |
+| `windows` | list of one or two `HH:MM-HH:MM` | instead of start and end | - | The day's windows in order, e.g. `["08:00-12:00", "13:30-15:00"]`; two windows on a one-window day add the break, one window on a two-window day removes it. Weekly scope only |
 | `day` | int, 1 to 7 (1 = Monday) | no | today | Day of the week to change. With `scope: today` it must be today |
 | `scope` | `weekly` or `today` | no | `weekly` | `weekly` edits the recurring schedule; `today` posts a one-off window for today |
 | `entity_id` | entity id | no | - | Any entity of the child |
@@ -296,12 +296,13 @@ data:
     - "08:00-12:00"
     - "13:30-15:00"
 
-# No school on Wednesday
+# Back to one window on Tuesday (removes the break)
 action: familylink.set_school_time
 data:
   entity_id: switch.emma_school_time
-  day: 3
-  windows: []
+  day: 2
+  windows:
+    - "08:00-15:00"
 ```
 
 ### familylink.enable_bedtime / familylink.disable_bedtime

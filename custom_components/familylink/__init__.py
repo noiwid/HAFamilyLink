@@ -224,11 +224,12 @@ SCHEMA_SET_BEDTIME = vol.Schema({
 SCHEMA_SET_SCHOOL_TIME = vol.Schema({
 	vol.Optional("start_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
 	vol.Optional("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
-	# Every window of a school day with a break, "HH:MM-HH:MM" each, in order;
-	# an empty list removes the day's school time
+	# Every window of a school day with a break, "HH:MM-HH:MM" each, in order
+	# (one or two: Family Link allows one break per day)
 	vol.Optional("windows"): vol.All(
 		cv.ensure_list,
 		[vol.Match(r"^\s*\d{1,2}:\d{2}(:\d{2})?\s*-\s*\d{1,2}:\d{2}(:\d{2})?\s*$")],
+		vol.Length(min=1, max=2),
 	),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
@@ -992,7 +993,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		if windows is not None:
 			# "08:00-12:00" -> ("08:00", "12:00"); the schema already checked the shape
 			pairs = [tuple(_hhmm(part) for part in window.split("-", 1)) for window in windows]
-			shown = ", ".join(f"{s}-{e}" for s, e in pairs) or "none"
+			shown = ", ".join(f"{s}-{e}" for s, e in pairs)
 			_LOGGER.info(f"Service called: set_school_time windows {shown} for day={day or 'today'}")
 			success = await coordinator.client.async_set_school_time_windows(
 				windows=pairs,
