@@ -339,8 +339,8 @@ def _blocks(session) -> list:
     return [json.loads(call.kwargs["data"])[2][0] for call in session.post.call_args_list]
 
 
-async def test_windows_write_adds_a_break_as_a_rewrite_then_a_creation() -> None:
-    """Friday has one slot; two windows cut it in two (shapes captured 2026-10-27)."""
+async def test_windows_write_adds_a_break_in_one_call_with_the_kept_slot() -> None:
+    """Friday has one slot; two windows cut it in two (shape captured 2026-10-27)."""
     client, session = _client(_time_limit_data())
 
     assert await client.async_set_school_time_windows(
@@ -348,7 +348,6 @@ async def test_windows_write_adds_a_break_as_a_rewrite_then_a_creation() -> None
     )
 
     assert _blocks(session) == [
-        [None, None, None, [[SCHOOL_FRIDAY, [8, 0], [12, 0]]]],
         [
             None,
             [[None, 5, 2, [13, 0], [15, 0], None, None, SCHOOL_RULE]],
@@ -360,14 +359,17 @@ async def test_windows_write_adds_a_break_as_a_rewrite_then_a_creation() -> None
     ]
 
 
-async def test_windows_write_removes_a_break_as_a_rewrite_then_a_deletion() -> None:
-    """Tuesday has two slots; one window keeps the first and deletes the second."""
+async def test_windows_write_removes_a_break_in_one_call_with_the_kept_slot() -> None:
+    """Tuesday has two slots; one window keeps the first, re-extended, and deletes the second.
+
+    The rewrite must travel with the deletion: sent first, 08:00-15:00 overlaps
+    the afternoon slot and Google answers 400 (live 2026-10-27).
+    """
     client, session = _client(_time_limit_data_with_break())
 
     assert await client.async_set_school_time_windows([("08:00", "15:00")], day=2, account_id=ACCOUNT_ID)
 
     assert _blocks(session) == [
-        [None, None, None, [[SCHOOL_TUESDAY_MORNING, [8, 0], [15, 0]]]],
         [None, None, None, [[SCHOOL_TUESDAY_MORNING, [8, 0], [15, 0]]], None, [SCHOOL_TUESDAY_AFTERNOON]],
     ]
 
@@ -404,15 +406,15 @@ async def test_windows_write_fails_without_a_rule_id_to_create_a_slot() -> None:
     session.post.assert_not_called()
 
 
-async def test_windows_write_stops_when_google_refuses_the_break_change() -> None:
+async def test_windows_write_fails_when_google_refuses_the_break_change() -> None:
     client, session = _client(_time_limit_data())
-    session.post = MagicMock(side_effect=[_Response(200), _Response(400)])
+    session.post = MagicMock(return_value=_Response(400))
 
     assert not await client.async_set_school_time_windows(
         [("08:00", "12:00"), ("13:00", "15:00")], day=5, account_id=ACCOUNT_ID
     )
 
-    assert session.post.call_count == 2
+    assert session.post.call_count == 1
 
 
 @pytest.mark.parametrize(

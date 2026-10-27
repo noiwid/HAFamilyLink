@@ -3552,10 +3552,11 @@ class FamilyLinkClient:
 		always keeps one slot, so the list holds one or two windows and a day
 		without any slot cannot be given one (a day switched off in the app
 		keeps its slot, disabled). Every write is one timeLimit:update in a
-		shape the app sends: one rewrite per kept slot, then one call per
-		added slot (the new row with the kept slot restated) and one per
-		removed slot (its id with the kept slot restated); a lone creation or
-		deletion is refused by Google.
+		shape the app sends: a change in the number of slots is one call with
+		the new row or the removed id and the kept slot rewritten alongside
+		(a lone creation or deletion is refused, and so is a rewrite that
+		overlaps a slot still to be removed); a plain change of hours is one
+		rewrite per slot.
 
 		Returns:
 			True when Google took every window, False otherwise (a write that
@@ -3637,15 +3638,12 @@ class FamilyLinkClient:
 				[(row[0], row[3], row[4]) for row in rows],
 			)
 			try:
-				for slot_id, start, end in updated:
-					if not await self._async_put_weekly_school_time_slot(
-						session, cookie_header, account_id, slot_id, start, end
-					):
-						return False
-				# The app restates the neighbouring slot in the call that adds or
-				# removes one, and Google refuses the call without it; the last
-				# kept slot plays that part here.
-				anchor = updated[-1:]
+				# The app rewrites the kept slot in the same call that adds or
+				# removes its neighbour, and Google refuses the call without it
+				# (and refuses a rewrite that overlaps a slot still to be
+				# removed), so the first kept slot travels with each change and
+				# the other kept slots are rewritten on their own afterwards.
+				anchor = updated[:1]
 				for row in created:
 					if not await self._async_put_weekly_school_time_slots(
 						session, cookie_header, account_id, updated=anchor, created=[row]
@@ -3654,6 +3652,12 @@ class FamilyLinkClient:
 				for slot_id in deleted:
 					if not await self._async_put_weekly_school_time_slots(
 						session, cookie_header, account_id, updated=anchor, deleted=[slot_id]
+					):
+						return False
+				rest = updated if not (created or deleted) else updated[1:]
+				for slot_id, start, end in rest:
+					if not await self._async_put_weekly_school_time_slot(
+						session, cookie_header, account_id, slot_id, start, end
 					):
 						return False
 			finally:
