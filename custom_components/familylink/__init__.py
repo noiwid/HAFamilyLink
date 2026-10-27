@@ -225,10 +225,11 @@ SCHEMA_SET_SCHOOL_TIME = vol.Schema({
 	vol.Optional("start_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
 	vol.Optional("end_time"): vol.Match(r"^\d{1,2}:\d{2}(:\d{2})?$"),
 	# Every window of a school day with a break, "HH:MM-HH:MM" each, in order
+	# (one or two: Family Link allows one break per day)
 	vol.Optional("windows"): vol.All(
 		cv.ensure_list,
 		[vol.Match(r"^\s*\d{1,2}:\d{2}(:\d{2})?\s*-\s*\d{1,2}:\d{2}(:\d{2})?\s*$")],
-		vol.Length(min=1),
+		vol.Length(min=1, max=2),
 	),
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
@@ -975,11 +976,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
-		if windows and (start_time or end_time):
+		if windows is not None and (start_time or end_time):
 			raise ServiceValidationError("Pass either start_time and end_time, or windows, not both.")
-		if not windows and not (start_time and end_time):
+		if windows is None and not (start_time and end_time):
 			raise ServiceValidationError("Pass start_time and end_time, or windows (every window of the day).")
-		if windows and scope != "weekly":
+		if windows is not None and scope != "weekly":
 			raise ServiceValidationError("windows edits the weekly schedule only: use scope weekly.")
 
 		if entity_id and not child_id:
@@ -989,7 +990,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		if day is not None:
 			day = int(day)
 
-		if windows:
+		if windows is not None:
 			# "08:00-12:00" -> ("08:00", "12:00"); the schema already checked the shape
 			pairs = [tuple(_hhmm(part) for part in window.split("-", 1)) for window in windows]
 			shown = ", ".join(f"{s}-{e}" for s, e in pairs)

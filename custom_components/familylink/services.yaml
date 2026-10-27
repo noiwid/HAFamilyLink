@@ -477,10 +477,11 @@ set_school_time:
       name: Windows
       description: >-
         Every window of the day in order, "HH:MM-HH:MM" each, for a school day
-        with a break (e.g. 08:00-12:00 and 13:30-15:00): as many as the day has
-        in Family Link, the same list as the windows attribute of the school
-        time entities. Replaces start and end. Weekly scope only; adding or
-        removing a break is not supported, do it once in the Family Link app.
+        with a break (e.g. 08:00-12:00 and 13:30-15:00), the same list as the
+        windows attribute of the school time entities. Two windows on a day
+        that has one add the break, one window on a day that has two removes
+        it (Family Link allows one break per day). Replaces start and end.
+        Weekly scope only; the day must have school time in Family Link.
       required: false
       example: "08:00-12:00"
       selector:

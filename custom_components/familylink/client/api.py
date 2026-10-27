@@ -3479,16 +3479,44 @@ class FamilyLinkClient:
 		end: list[int],
 	) -> bool:
 		"""Rewrite one weekly school time slot (timeLimit:update), the call the app uses."""
-		payload = json.dumps([
-			None,
-			account_id,
-			[
-				[None, None, None, [[slot_id, start, end]]],
-				None, None, None, [],
-			],
-			None,
-			[1],
-		])
+		return await self._async_put_weekly_school_time_slots(
+			session, cookie_header, account_id, updated=[(slot_id, start, end)]
+		)
+
+	async def _async_put_weekly_school_time_slots(
+		self,
+		session: aiohttp.ClientSession,
+		cookie_header: str,
+		account_id: str,
+		*,
+		updated: list[tuple[str, list[int], list[int]]],
+		created: list[tuple[int, list[int], list[int], str]] = (),
+		deleted: list[str] = (),
+	) -> bool:
+		"""Rewrite, create and delete weekly school time slots in one timeLimit:update.
+
+		The school time block sits at [2][0]: index [1] lists the slots to
+		create (`[None, weekday, 2, start, end, None, None, rule_id]`, Google
+		assigns the id), index [3] the slots to rewrite (`[slot_id, start,
+		end]`) and index [5] the ids to delete. The web app adds a break as
+		one rewrite plus one creation, and removes one as one rewrite plus one
+		deletion (captured 2026-10-27); Google answers 400 to two rewrites in
+		one call, so callers keep to those shapes. A plain rewrite keeps the
+		four-element block it always sent.
+		"""
+		update_rows = [[slot_id, start, end] for slot_id, start, end in updated]
+		if created or deleted:
+			block = [
+				None,
+				[[None, day, 2, start, end, None, None, rule_id] for day, start, end, rule_id in created] or None,
+				None,
+				update_rows or None,
+				None,
+				list(deleted) or None,
+			]
+		else:
+			block = [None, None, None, update_rows]
+		payload = json.dumps([None, account_id, [block, None, None, None, []], None, [1]])
 		async with session.post(
 			self._people_url(account_id, "timeLimit:update"),
 			headers={
@@ -3500,8 +3528,9 @@ class FamilyLinkClient:
 		) as response:
 			if response.status != 200:
 				_LOGGER.error(
-					"Failed to set weekly school time slot %s (HTTP %s): %s",
-					slot_id, response.status, await response.text(),
+					"Failed to write weekly school time slots (rewrite %s, create %s, delete %s) (HTTP %s): %s",
+					[row[0] for row in update_rows], len(created), list(deleted),
+					response.status, await response.text(),
 				)
 				return False
 		return True
@@ -3515,11 +3544,19 @@ class FamilyLinkClient:
 		"""Set every weekly school time window of `day` at once (a school day with a break).
 
 		Google stores a school day with a break as several slots on the same
-		day (#190). `windows` lists the day's windows in order, as many as the
-		day has slots: each slot is rewritten with the window at its rank,
-		earliest slot first, one timeLimit:update per slot. Adding or removing
-		a break is not done here: the call that creates a slot has not been
-		captured, so the number of windows must match the number of slots.
+		day (#190). `windows` lists the day's windows in order; the day's slots
+		are rewritten with the window at their rank, earliest slot first. Two
+		windows on a one-slot day add a slot (a break appears), one window on
+		a two-slot day removes the second (the break goes away). Google keeps
+		a day to two slots at most (a third one is refused with 400) and a day
+		always keeps one slot, so the list holds one or two windows and a day
+		without any slot cannot be given one (a day switched off in the app
+		keeps its slot, disabled). Every write is one timeLimit:update in a
+		shape the app sends: a change in the number of slots is one call with
+		the new row or the removed id and the kept slot rewritten alongside
+		(a lone creation or deletion is refused, and so is a rewrite that
+		overlaps a slot still to be removed); a plain change of hours is one
+		rewrite per slot.
 
 		Returns:
 			True when Google took every window, False otherwise (a write that
@@ -3554,6 +3591,12 @@ class FamilyLinkClient:
 		if not parsed:
 			_LOGGER.error("No school time window given")
 			return False
+		if len(parsed) > 2:
+			_LOGGER.error(
+				f"{len(parsed)} school time windows given for day {day}: Family Link allows "
+				f"one break per day, so at most two windows"
+			)
+			return False
 
 		if day is None:
 			day = dt_util.now().isoweekday()
@@ -3574,25 +3617,51 @@ class FamilyLinkClient:
 					f"changed from Home Assistant."
 				)
 				return False
-			if len(rows) != len(parsed):
-				_LOGGER.error(
-					f"Day {day} has {len(rows)} school time slot(s) in Family Link and {len(parsed)} "
-					f"window(s) were given. Adding or removing a break is not supported from Home "
-					f"Assistant yet: change the number of windows once in the Family Link app, then "
-					f"set their hours from here."
-				)
-				return False
-			for row, (start, end) in zip(rows, parsed):
-				_LOGGER.debug(
-					"Setting WEEKLY school time window %s-%s for day=%s (slot=%s, was %s-%s)",
-					start, end, day, row[0], row[3], row[4],
-				)
-				if not await self._async_put_weekly_school_time_slot(
-					session, cookie_header, account_id, row[0], start, end
-				):
-					self._weekly_slot_cache.pop(account_id, None)
+			kept = min(len(rows), len(parsed))
+			updated = [(row[0], start, end) for row, (start, end) in zip(rows, parsed)]
+			deleted = [row[0] for row in rows[kept:]]
+			created: list[tuple[int, list[int], list[int], str]] = []
+			if len(parsed) > kept:
+				rule_id = self._find_revision_rule_id(data, 2) if data is not None else None
+				if not rule_id:
+					rule_id = (await self.async_get_time_limit(account_id)).get("schooltime_rule_id")
+				if not rule_id:
+					_LOGGER.error(
+						f"Cannot add a school time window to day {day}: the school time rule id "
+						f"of this account was not found"
+					)
 					return False
-			self._weekly_slot_cache.pop(account_id, None)
+				created = [(day, start, end, rule_id) for start, end in parsed[kept:]]
+			_LOGGER.debug(
+				"Setting WEEKLY school time windows for day=%s: rewrite %s, create %s, delete %s (had %s)",
+				day, [(s, e) for _, s, e in updated], [(s, e) for _, s, e, _ in created], deleted,
+				[(row[0], row[3], row[4]) for row in rows],
+			)
+			try:
+				# The app rewrites the kept slot in the same call that adds or
+				# removes its neighbour, and Google refuses the call without it
+				# (and refuses a rewrite that overlaps a slot still to be
+				# removed), so the first kept slot travels with each change and
+				# the other kept slots are rewritten on their own afterwards.
+				anchor = updated[:1]
+				for row in created:
+					if not await self._async_put_weekly_school_time_slots(
+						session, cookie_header, account_id, updated=anchor, created=[row]
+					):
+						return False
+				for slot_id in deleted:
+					if not await self._async_put_weekly_school_time_slots(
+						session, cookie_header, account_id, updated=anchor, deleted=[slot_id]
+					):
+						return False
+				rest = updated if not (created or deleted) else updated[1:]
+				for slot_id, start, end in rest:
+					if not await self._async_put_weekly_school_time_slot(
+						session, cookie_header, account_id, slot_id, start, end
+					):
+						return False
+			finally:
+				self._weekly_slot_cache.pop(account_id, None)
 			_LOGGER.info(
 				f"Successfully set {len(parsed)} weekly school time window(s) for day {day}: "
 				+ ", ".join(f"{s}-{e}" for s, e in windows)
