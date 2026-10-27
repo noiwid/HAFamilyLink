@@ -4372,12 +4372,12 @@ class FamilyLinkClient:
 	# constant and is the third field, not a second action. Values as the app sends them: "2" = only approved sites (the
 	# allow list), "3" = all sites with Google's explicit-content filter.
 	# websites:listRestrictions reads the mode back under its own names
-	# (WEBSITE_FILTER_READ_NAMES).
+	# (WEBSITE_FILTER_READ_NAMES: "blockByDefault" and "safeSites", live 2026-10-27).
 	WEBSITE_FILTER_RESOURCE = "124"
 	WEBSITE_FILTER_APPROVED_ONLY = "approved_only"
 	WEBSITE_FILTER_FILTERED = "filtered"
 	WEBSITE_FILTER_VALUES = {WEBSITE_FILTER_APPROVED_ONLY: "2", WEBSITE_FILTER_FILTERED: "3"}
-	WEBSITE_FILTER_READ_NAMES = {"safeSites": WEBSITE_FILTER_FILTERED, "allowedSitesOnly": WEBSITE_FILTER_APPROVED_ONLY}
+	WEBSITE_FILTER_READ_NAMES = {"safeSites": WEBSITE_FILTER_FILTERED, "blockByDefault": WEBSITE_FILTER_APPROVED_ONLY}
 
 	@classmethod
 	def website_filter_level(cls, read_name: Any) -> str | None:

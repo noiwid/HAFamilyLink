@@ -76,7 +76,7 @@ def _filter_client(status: int = 200, read: dict | None = None) -> tuple[FamilyL
 
     session.post = MagicMock(return_value=_Resp(status))
     client._get_session = AsyncMock(return_value=session)
-    client.async_get_website_restrictions = AsyncMock(return_value=read or {"filter_level": "allowedSitesOnly", "approved": [], "blocked": []})
+    client.async_get_website_restrictions = AsyncMock(return_value=read or {"filter_level": "blockByDefault", "approved": [], "blocked": []})
     return client, session
 
 
@@ -90,7 +90,7 @@ async def test_filter_level_posts_the_setting_action_and_reads_back() -> None:
     assert url.endswith("/kidsmanagement/v1/people/settingResources:performAction")
     assert body == [None, [[1, ["124", None, ["123"]], "2"]], [[1, 3, 4, 5, 6], 1]]
     assert session.post.call_args.kwargs["headers"]["Content-Type"] == "application/json+protobuf"
-    assert lists["filter_level"] == "allowedSitesOnly"
+    assert lists["filter_level"] == "blockByDefault"
     client.async_get_website_restrictions.assert_awaited_once_with("123")
 
 
@@ -117,7 +117,7 @@ async def test_filter_level_refusal_is_an_error() -> None:
         await client.async_set_website_filter_level("123", FamilyLinkClient.WEBSITE_FILTER_FILTERED)
 
 
-@pytest.mark.parametrize(("read", "level"), [("safeSites", "filtered"), ("allowedSitesOnly", "approved_only"), ("something", None), (None, None)])
+@pytest.mark.parametrize(("read", "level"), [("safeSites", "filtered"), ("blockByDefault", "approved_only"), ("something", None), (None, None)])
 def test_filter_level_read_names(read, level) -> None:
     assert FamilyLinkClient.website_filter_level(read) == level
 
