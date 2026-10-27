@@ -487,6 +487,21 @@ set_school_time:
       selector:
         text:
           multiple: true
+    enabled:
+      name: Enabled
+      description: >-
+        Switch the day's school time on or off in the weekly schedule, keeping
+        its hours (the checkbox of the day in the Family Link weekly editor).
+        On its own, without start, end or windows. Weekly scope only.
+      required: false
+      example: false
+      selector:
+        boolean:
+      required: false
+      example: "08:00-12:00"
+      selector:
+        text:
+          multiple: true
     day:
       name: Day
       description: Day of the week. If not specified, applies to today.

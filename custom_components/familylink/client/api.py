@@ -3535,6 +3535,89 @@ class FamilyLinkClient:
 				return False
 		return True
 
+	async def async_set_school_time_day_enabled(
+		self,
+		enabled: bool,
+		day: int | None = None,
+		account_id: str | None = None,
+	) -> bool:
+		"""Switch the weekly school time of `day` on or off, keeping its hours.
+
+		The app's weekly editor unchecks a day by setting the state of each
+		of its slots (`[[slot_id, 1]]` at index [2] of the school time block,
+		2 = on, 1 = off; captured 2026-10-27), the slot stays with its hours.
+		One timeLimit:update per slot of the day, in the captured shape.
+
+		Returns:
+			True when Google took the change, False otherwise.
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+
+		if day is None:
+			day = dt_util.now().isoweekday()
+		if not (type(day) is int and 1 <= day <= 7):
+			_LOGGER.error(f"Invalid day {day}: expected 1 (Monday) to 7 (Sunday)")
+			return False
+
+		try:
+			session = await self._get_session()
+			cookie_header = self._get_cookie_header()
+			self._weekly_slot_cache.pop(account_id, None)
+			data = await self._async_get_weekly_schedule_data(account_id, session, cookie_header)
+			rows = self._find_weekly_school_time_rows(data, day) if data is not None else []
+			if not rows:
+				_LOGGER.error(
+					f"No weekly school time slot found for day {day}. Create a school time "
+					f"window for that day once in the Family Link app, then it can be "
+					f"switched from Home Assistant."
+				)
+				return False
+			state = 2 if enabled else 1
+			try:
+				for row in rows:
+					_LOGGER.debug(
+						"Setting WEEKLY school time slot %s of day=%s to state %s (was %s)",
+						row[0], day, state, row[2],
+					)
+					payload = json.dumps([
+						None,
+						account_id,
+						[[None, None, [[row[0], state]], None, None, None], None, None, None, []],
+						None,
+						[1],
+					])
+					async with session.post(
+						self._people_url(account_id, "timeLimit:update"),
+						headers={
+							"Content-Type": "application/json+protobuf",
+							"Cookie": cookie_header,
+						},
+						data=payload,
+						params={"$httpMethod": "PUT"},
+					) as response:
+						if response.status != 200:
+							_LOGGER.error(
+								"Failed to switch weekly school time slot %s of day %s %s (HTTP %s): %s",
+								row[0], day, "on" if enabled else "off",
+								response.status, await response.text(),
+							)
+							return False
+			finally:
+				self._weekly_slot_cache.pop(account_id, None)
+			_LOGGER.info(
+				f"Successfully switched weekly school time of day {day} {'on' if enabled else 'off'}"
+			)
+			return True
+		except SessionExpiredError:
+			raise
+		except Exception as err:
+			_LOGGER.error(f"Error switching school time of day {day}: {err}")
+			return False
+
 	async def async_set_school_time_windows(
 		self,
 		windows: list[tuple[str, str]],

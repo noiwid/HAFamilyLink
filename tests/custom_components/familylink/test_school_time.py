@@ -488,6 +488,65 @@ async def test_service_refuses_windows_mixed_with_the_bounds_or_an_incomplete_ca
     services.client.async_set_school_time_windows.assert_not_awaited()
 
 
+async def test_day_switch_off_sends_the_state_of_each_slot_of_the_day() -> None:
+    """The day's checkbox in the weekly editor (captured 2026-10-27): [[slot_id, 1]] at [2]."""
+    client, session = _client(_time_limit_data_with_break())
+
+    assert await client.async_set_school_time_day_enabled(False, day=2, account_id=ACCOUNT_ID)
+
+    assert _blocks(session) == [
+        [None, None, [[SCHOOL_TUESDAY_MORNING, 1]], None, None, None],
+        [None, None, [[SCHOOL_TUESDAY_AFTERNOON, 1]], None, None, None],
+    ]
+    assert all(call.kwargs["params"] == {"$httpMethod": "PUT"} for call in session.post.call_args_list)
+
+
+async def test_day_switch_on_sends_state_two() -> None:
+    client, session = _client(_time_limit_data())
+
+    assert await client.async_set_school_time_day_enabled(True, day=5, account_id=ACCOUNT_ID)
+
+    assert _blocks(session) == [[None, None, [[SCHOOL_FRIDAY, 2]], None, None, None]]
+
+
+async def test_day_switch_fails_without_a_slot_for_the_day() -> None:
+    client, session = _client(_time_limit_data())
+
+    assert not await client.async_set_school_time_day_enabled(False, day=3, account_id=ACCOUNT_ID)
+
+    session.post.assert_not_called()
+
+
+async def test_service_passes_enabled_to_the_client(hass, services) -> None:
+    services.client.async_set_school_time_day_enabled.return_value = True
+
+    await hass.services.async_call(
+        DOMAIN, "set_school_time", {"child_id": ACCOUNT_ID, "day": 7, "enabled": False}, blocking=True
+    )
+
+    services.client.async_set_school_time_day_enabled.assert_awaited_once_with(
+        enabled=False, day=7, account_id=ACCOUNT_ID
+    )
+    services.client.async_set_school_time.assert_not_awaited()
+    services.client.async_set_school_time_windows.assert_not_awaited()
+    assert services.async_request_refresh.await_count == 1
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"enabled": False, "windows": ["08:00-12:00"]},
+        {"enabled": True, "start_time": "08:00", "end_time": "12:00"},
+        {"enabled": False, "scope": "today"},
+    ],
+)
+async def test_service_refuses_enabled_mixed_with_hours_or_today(hass, services, data) -> None:
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "set_school_time", {"child_id": ACCOUNT_ID, **data}, blocking=True)
+
+    services.client.async_set_school_time_day_enabled.assert_not_awaited()
+
+
 @pytest.mark.parametrize("windows", [[], ["08:00-10:00", "10:30-12:00", "13:00-15:00"]])
 async def test_service_rejects_none_or_more_than_two_windows(hass, services, windows) -> None:
     with pytest.raises(vol.Invalid):

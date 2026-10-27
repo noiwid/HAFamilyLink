@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **`set_school_time` switches a day's school time on or off (`enabled`)** - `enabled: false` unchecks the day in the weekly schedule as the Family Link app does, keeping its hours, `enabled: true` checks it again. The call was captured on the web app.
+
 ---
 
 ## [2.3.1] - 2026-10-27

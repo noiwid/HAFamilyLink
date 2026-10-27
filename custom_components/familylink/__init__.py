@@ -231,6 +231,8 @@ SCHEMA_SET_SCHOOL_TIME = vol.Schema({
 		[vol.Match(r"^\s*\d{1,2}:\d{2}(:\d{2})?\s*-\s*\d{1,2}:\d{2}(:\d{2})?\s*$")],
 		vol.Length(min=1, max=2),
 	),
+	# Switch the day's school time on or off in the weekly schedule (hours kept)
+	vol.Optional("enabled"): cv.boolean,
 	vol.Optional("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
 	vol.Optional("scope", default="weekly"): vol.In(["weekly", "today"]),
 	vol.Optional("entity_id"): cv.entity_id,
@@ -971,17 +973,20 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		start_time = _hhmm(call.data["start_time"]) if call.data.get("start_time") else None
 		end_time = _hhmm(call.data["end_time"]) if call.data.get("end_time") else None
 		windows = call.data.get("windows")
+		enabled = call.data.get("enabled")
 		day = call.data.get("day")
 		scope = call.data.get("scope", "weekly")
 		entity_id = call.data.get("entity_id")
 		child_id = call.data.get("child_id")
 
+		if enabled is not None and (windows is not None or start_time or end_time):
+			raise ServiceValidationError("enabled switches the day on or off on its own: no start_time, end_time or windows with it.")
 		if windows is not None and (start_time or end_time):
 			raise ServiceValidationError("Pass either start_time and end_time, or windows, not both.")
-		if windows is None and not (start_time and end_time):
-			raise ServiceValidationError("Pass start_time and end_time, or windows (every window of the day).")
-		if windows is not None and scope != "weekly":
-			raise ServiceValidationError("windows edits the weekly schedule only: use scope weekly.")
+		if enabled is None and windows is None and not (start_time and end_time):
+			raise ServiceValidationError("Pass start_time and end_time, windows (every window of the day), or enabled.")
+		if (windows is not None or enabled is not None) and scope != "weekly":
+			raise ServiceValidationError("windows and enabled edit the weekly schedule only: use scope weekly.")
 
 		if entity_id and not child_id:
 			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
@@ -989,6 +994,21 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		if day is not None:
 			day = int(day)
+
+		if enabled is not None:
+			_LOGGER.info(f"Service called: set_school_time enabled={enabled} for day={day or 'today'}")
+			success = await coordinator.client.async_set_school_time_day_enabled(
+				enabled=enabled,
+				day=day,
+				account_id=child_id,
+			)
+			if not success:
+				raise HomeAssistantError(
+					f"Family Link rejected switching the school time of day {day or 'today'} "
+					f"{'on' if enabled else 'off'} (see the log for details)"
+				)
+			await coordinator.async_request_refresh()
+			return
 
 		if windows is not None:
 			# "08:00-12:00" -> ("08:00", "12:00"); the schema already checked the shape
