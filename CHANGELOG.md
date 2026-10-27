@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
-- **`set_school_time` takes every window of a school day with a break (`windows`)** - A day with a break is stored by Google as several windows; the start and end fields move the first and the last one, which keeps the break but cannot set its hours. `windows: ["08:00-12:00", "13:30-15:00"]` now sets each window of the day in order, as many as the day has in Family Link (the `windows` attribute of the school time entities lists them). Adding or removing a break is still done once in the app: the call that creates a window has not been captured yet.
+- **`set_school_time` takes every window of a school day with a break (`windows`)** - A day with a break is stored by Google as several windows; the start and end fields move the first and the last one, which keeps the break but cannot set its hours. `windows: ["08:00-12:00", "13:30-15:00"]` now sets each window of the day in order (the `windows` attribute of the school time entities lists the current ones). More windows than the day has adds a break, fewer removes one, and `windows: []` removes the day's school time, so a day without school time can be given one from Home Assistant; the window creation and removal calls were captured on the web app. Asked by Watapana.
 
 ---
 
