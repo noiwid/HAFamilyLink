@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.3.2] - 2026-10-27
+
+The child's Chrome web filter can be switched from Home Assistant, and a day's school time can be switched off and on again.
+
 ### Added
 - **Chrome web filter mode: `set_filter_level` service and `select.<child>_web_filter` (#211)** - The "Filters" choice of "Google Chrome and Web" can be switched from Home Assistant between the approved sites only (`approved_only`, the allow list) and every site with Google's explicit-content filter (`filtered`), so an automation can open the web during school time and go back to the allow list after. The call was captured by @Me-xx on the web app; it is one POST to `settingResources:performAction` and the lists are read back at once. Asked by @Me-xx.
 - **`set_school_time` switches a day's school time on or off (`enabled`)** - `enabled: false` unchecks the day in the weekly schedule as the Family Link app does, keeping its hours, `enabled: true` checks it again. The call was captured on the web app.
