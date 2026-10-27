@@ -2,6 +2,12 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.1] - 2026-10-27
+
+### Security
+- **Images rebuilt on Playwright 1.64.1, which bundles Node.js 24.22.1** (the 2026-10-21 Node.js security release: TLS hostname verification, Brotli). The browser driver is the only Node.js runtime the container uses. Reported by @Sawtaytoes (#210).
+- **Debian's `nodejs` and `npm` are no longer installed.** They put an end-of-life Node.js 18 in both images without anything using it; dropping them removes it from vulnerability scans and shrinks the images.
+
 ## [1.9.0] - 2026-09-04
 
 ### Security
