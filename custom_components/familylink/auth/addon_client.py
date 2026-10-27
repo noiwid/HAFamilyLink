@@ -46,6 +46,28 @@ def normalize_auth_url(value: str, *, allow_legacy_query: bool = False) -> str:
     return str(url.with_query(None).with_fragment(None)).rstrip("/")
 
 
+def is_managed_addon_url(value: str | None) -> bool:
+    """True for the Docker hostname URL of the Supervisor-managed add-on.
+
+    Auto-detected entries created before the ``auth_source`` marker stored that
+    URL (``http://<slug>-familylink-playwright:8099``) like a manual one; the
+    shape alone tells it apart from a user-typed server (#214).
+    """
+    if not value:
+        return False
+    try:
+        url = URL(value)
+    except (TypeError, ValueError):
+        return False
+    return (
+        url.scheme == "http"
+        and bool(url.host)
+        and url.host.endswith(f"-{_ADDON_SLUG_SUFFIX}")
+        and url.port == _ADDON_PORT
+        and url.path in ("", "/")
+    )
+
+
 def split_legacy_auth_url(value: str) -> tuple[str, str | None]:
     """Split a version-1 URL into a safe base URL and optional API key."""
     value = value.strip()
@@ -165,9 +187,11 @@ class AddonCookieClient:
         cannot be discovered via the Supervisor (non-HAOS setups).
         """
         if not self._supervisor_url_resolved:
-            self._supervisor_url_resolved = True
             resolved = await self._resolve_addon_url()
             if resolved:
+                # Only a successful lookup is kept: the add-on may simply not be
+                # started yet (HA boot, or left stopped on purpose, #214).
+                self._supervisor_url_resolved = True
                 self._detected_url = resolved
                 _LOGGER.info("Addon URL resolved via Supervisor: %s", resolved)
         return self._detected_url
@@ -379,10 +403,15 @@ class AddonCookieClient:
                 return cookies
 
             # Older auto-detected entries stored the Supervisor URL without an
-            # origin marker. Resolve it again and use the shared key only when
-            # both canonical endpoints match exactly.
+            # origin marker. Resolve it again and use the shared key when both
+            # canonical endpoints match exactly, or when the stored URL has the
+            # add-on's own hostname shape and the add-on is not running (the
+            # Supervisor lists no started add-on, #214): the shared file then
+            # serves the cookies, as it does for a marked managed entry.
             resolved_url = await self._get_addon_url()
-            if resolved_url and normalize_auth_url(resolved_url) == self.auth_url:
+            if (resolved_url and normalize_auth_url(resolved_url) == self.auth_url) or (
+                resolved_url is None and is_managed_addon_url(self.auth_url)
+            ):
                 cookies = await self._fetch_cookies_from_url(
                     self.auth_url,
                     api_key=await self._get_shared_api_key(),
