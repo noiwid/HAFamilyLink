@@ -126,6 +126,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.get_sites`, `familylink.block_site`, `familylink.allow_site`, `familylink.remove_site` | Read and edit the child's Chrome site lists (approved and blocked sites, wildcards allowed) |
 | `familylink.sync_site_list` | Keep the blocked sites in step with a published list of domains (https, administrators only); removes only what the list added, `stop: true` takes it all back |
+| `familylink.set_filter_level` | Switch the Chrome web filter between the approved sites only and every site with Google's filter (`approved_only` / `filtered`); also `select.<child>_web_filter` |
 | `familylink.refresh_location` | Force a fresh GPS fix (uses more battery than the regular polling) |
 | `familylink.ring_device` | Make a device ring so it can be found |
 | `familylink.set_update_interval` | Change the polling interval until the next restart (e.g. slower at night) |

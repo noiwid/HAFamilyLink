@@ -40,7 +40,11 @@ SERVICE_BLOCK_SITE = "block_site"
 SERVICE_ALLOW_SITE = "allow_site"
 SERVICE_REMOVE_SITE = "remove_site"
 SERVICE_SYNC_SITE_LIST = "sync_site_list"
-WEBSITE_SERVICES = (SERVICE_GET_SITES, SERVICE_BLOCK_SITE, SERVICE_ALLOW_SITE, SERVICE_REMOVE_SITE, SERVICE_SYNC_SITE_LIST)
+SERVICE_SET_FILTER_LEVEL = "set_filter_level"
+WEBSITE_SERVICES = (
+	SERVICE_GET_SITES, SERVICE_BLOCK_SITE, SERVICE_ALLOW_SITE, SERVICE_REMOVE_SITE, SERVICE_SYNC_SITE_LIST,
+	SERVICE_SET_FILTER_LEVEL,
+)
 
 # One sync must not push an unbounded list
 MAX_SYNC_DOMAINS = 2000
@@ -71,6 +75,10 @@ SCHEMA_SYNC_SITE_LIST = vol.Schema({
 	vol.Required("url"): _https_url,
 	vol.Optional("max_domains", default=MAX_SYNC_DOMAINS): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_SYNC_DOMAINS)),
 	vol.Optional("stop", default=False): cv.boolean,
+})
+SCHEMA_SET_FILTER_LEVEL = vol.Schema({
+	**_TARGET,
+	vol.Required("filter_level"): vol.In(list(FamilyLinkClient.WEBSITE_FILTER_VALUES)),
 })
 # Responses list at most this many patterns; counts are always complete
 RESPONSE_SAMPLE = 20
@@ -152,6 +160,24 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		lists = await _read(child_id)
 		coordinator.store_websites(child_id, lists)
 		return {"child_id": child_id, **lists}
+
+	async def handle_set_filter_level(call: ServiceCall) -> ServiceResponse:
+		child_id = _resolve_child(hass, call)
+		level = call.data["filter_level"]
+		try:
+			lists = await _client().async_set_website_filter_level(child_id, level)
+		except HomeAssistantError:
+			raise
+		except Exception as err:
+			raise HomeAssistantError(f"Changing the web filter failed: {err}") from err
+		coordinator.store_websites(child_id, lists)
+		await coordinator.async_request_refresh()
+		read_back = FamilyLinkClient.website_filter_level(lists.get("filter_level"))
+		if read_back != level:
+			raise HomeAssistantError(
+				f"Google accepted the web filter change to {level} but reads back {lists.get('filter_level')!r}"
+			)
+		return {"child_id": child_id, "filter_level": level}
 
 	async def _edit(call: ServiceCall, kind: str) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
@@ -303,6 +329,7 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		(SERVICE_ALLOW_SITE, handle_allow_site, SCHEMA_EDIT_SITES, SupportsResponse.OPTIONAL),
 		(SERVICE_REMOVE_SITE, handle_remove_site, SCHEMA_EDIT_SITES, SupportsResponse.OPTIONAL),
 		(SERVICE_SYNC_SITE_LIST, handle_sync_site_list, SCHEMA_SYNC_SITE_LIST, SupportsResponse.OPTIONAL),
+		(SERVICE_SET_FILTER_LEVEL, handle_set_filter_level, SCHEMA_SET_FILTER_LEVEL, SupportsResponse.OPTIONAL),
 	):
 		async_register_guarded_service(hass, DOMAIN, service, handler, schema=schema, supports_response=response)
 

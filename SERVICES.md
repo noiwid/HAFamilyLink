@@ -435,6 +435,7 @@ Patterns: a website `www.example.com`, a domain wildcard `*.example.com` or `*.e
 | `familylink.get_sites` | `entity_id` or `child_id` | Response only: `filter_level`, `approved`, `blocked` (every entry, including ones added in the app) |
 | `familylink.block_site` / `familylink.allow_site` | `entity_id` or `child_id`, `sites` (list) | Optional response: `covered`, inserts Google skipped because an existing entry already covers them |
 | `familylink.remove_site` | `entity_id` or `child_id`, `sites` (list) | Removes from either list, whoever added the entry. Response: `removed`, `not_listed` |
+| `familylink.set_filter_level` | `entity_id` or `child_id`, `filter_level` (`approved_only` or `filtered`) | Switches the Chrome web filter between the approved sites only (the allow list) and every site with Google's explicit-content filter, the "Filters" choice of the app. Also a `select.<child>_web_filter` entity. Response: `filter_level` |
 | `familylink.sync_site_list` | `entity_id` or `child_id`, `url`, `max_domains` (default 2000), `stop` | Downloads a domain list (one per line, `#` comments, hosts-file lines tolerated), blocks `*.domain` and `domain` for each, and removes only what the same URL added before and has since dropped. Domains you approved are skipped. `stop: true` removes everything that list added and forgets it. The list is a third party's, so: **administrators only**, the `url` must be `https` and redirects are not followed (give the final address), the download is read up to 1 MiB, and only plain domains are taken (wildcards, web addresses, IP addresses and bare suffixes such as `co.uk` are ignored and counted). A list with no usable domain, or one that would remove more than half of what it added (20 entries at least), is refused and nothing changes; if the list really shrank that much, run `stop: true` and sync again. Changes go out in calls of at most 2,500 entries. Response: `added_count`, `removed_count` and up to 20 of each, `skipped_approved`, `ignored_count` and up to 20 `ignored` |
 
 Sensors per child: `sensor.<child>_blocked_sites` and `sensor.<child>_approved_sites` (count; `sites` and `filter_level` attributes), read every 15 minutes and right after a change made from Home Assistant.
@@ -451,5 +452,11 @@ action: familylink.sync_site_list
 data:
   entity_id: sensor.alex_daily_screen_time
   url: https://example.org/blocklist.txt
+
+# Open the web during school time, back to the allow list after
+action: familylink.set_filter_level
+data:
+  entity_id: sensor.alex_daily_screen_time
+  filter_level: "{{ 'filtered' if is_state('binary_sensor.alex_phone_school_time_active', 'on') else 'approved_only' }}"
 ```
 

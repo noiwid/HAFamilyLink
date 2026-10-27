@@ -4365,6 +4365,25 @@ class FamilyLinkClient:
 	WEBSITE_ALLOW = "ALLOW"
 	WEBSITE_BLOCK = "BLOCK"
 
+	# The Chrome web filter mode ("Google Chrome and Web" > "Filters"), issue
+	# #211. The app switches it with one POST to settingResources:performAction
+	# (no personId in the path, the child is in the body); setting resource
+	# "124" is the Chrome web filter, the trailing [[1, 3, 4, 5, 6], 1] block is
+	# constant. Values as the app sends them: "2" = only approved sites (the
+	# allow list), "3" = all sites with Google's explicit-content filter.
+	# websites:listRestrictions reads the mode back under its own names
+	# (WEBSITE_FILTER_READ_NAMES).
+	WEBSITE_FILTER_RESOURCE = "124"
+	WEBSITE_FILTER_APPROVED_ONLY = "approved_only"
+	WEBSITE_FILTER_FILTERED = "filtered"
+	WEBSITE_FILTER_VALUES = {WEBSITE_FILTER_APPROVED_ONLY: "2", WEBSITE_FILTER_FILTERED: "3"}
+	WEBSITE_FILTER_READ_NAMES = {"safeSites": WEBSITE_FILTER_FILTERED, "allowedSitesOnly": WEBSITE_FILTER_APPROVED_ONLY}
+
+	@classmethod
+	def website_filter_level(cls, read_name: Any) -> str | None:
+		"""The service-level name of a filterLevel read from Google (None if unknown)."""
+		return cls.WEBSITE_FILTER_READ_NAMES.get(read_name) if isinstance(read_name, str) else None
+
 	@staticmethod
 	def _website_lists(data: Any) -> dict[str, Any]:
 		"""{"filter_level", "approved", "blocked"} from a list or update response."""
@@ -4408,6 +4427,41 @@ class FamilyLinkClient:
 		"""The child's Chrome filter level and approved / blocked sites."""
 		data = await self._website_request("GET", account_id, "websites:listRestrictions")
 		return self._website_lists(data)
+
+	async def async_set_website_filter_level(self, account_id: str, level: str) -> dict[str, Any]:
+		"""Switch the child's Chrome web filter mode (issue #211), then read the lists back.
+
+		``level`` is WEBSITE_FILTER_APPROVED_ONLY or WEBSITE_FILTER_FILTERED.
+		Returns the lists as async_get_website_restrictions does, read after
+		the change so ``filter_level`` is what Google now holds.
+		"""
+		if level not in self.WEBSITE_FILTER_VALUES:
+			raise ValueError(f"Unknown web filter level {level!r}")
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+		self._validate_id(account_id, "account_id")
+		session = await self._get_session()
+		payload = json.dumps([
+			None,
+			[
+				[[1, [self.WEBSITE_FILTER_RESOURCE, None, [account_id]], self.WEBSITE_FILTER_VALUES[level]]],
+				[[1, 3, 4, 5, 6], 1],
+			],
+		])
+		async with session.post(
+			f"{self.BASE_URL}/people/settingResources:performAction",
+			headers={"Content-Type": "application/json+protobuf", "Cookie": self._get_cookie_header()},
+			data=payload,
+		) as response:
+			if response.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate")
+			text = await response.text()
+			if response.status != 200:
+				_LOGGER.error(f"Web filter level change to {level} failed {response.status}: {text[:300]}")
+				raise NetworkError(f"Web filter level change failed: HTTP {response.status}")
+		lists = await self.async_get_website_restrictions(account_id)
+		_LOGGER.info(f"Web filter level set to {level} for {account_id} (Google reads {lists.get('filter_level')!r})")
+		return lists
 
 	async def async_update_website_restrictions(
 		self,
