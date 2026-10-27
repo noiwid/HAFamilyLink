@@ -57,6 +57,7 @@ ALL_SERVICES = [
     ("allow_site", {"sites": ["www.example.com"]}),
     ("remove_site", {"sites": ["www.example.com"]}),
     ("sync_site_list", {"url": "https://example.com/list.txt"}),
+    ("set_filter_level", {"filter_level": "filtered"}),
 ]
 
 
