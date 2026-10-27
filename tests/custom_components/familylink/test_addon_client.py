@@ -466,6 +466,95 @@ async def test_managed_source_ignores_stale_manual_credentials(
     assert requests == [(FAKE_AUTH_URL, FAKE_API_KEY)]
 
 
+STOPPED_ADDON_URL = "http://92c20130-familylink-playwright:8099"
+
+
+async def test_stopped_addon_entry_without_marker_reads_the_shared_file(hass, monkeypatch) -> None:
+    """Issue #214: the add-on hostname stored before the marker, add-on stopped."""
+    client = addon_client.AddonCookieClient(hass, auth_url=STOPPED_ADDON_URL)
+    requests: list[tuple[str, str | None]] = []
+
+    async def _fetch(url, *, api_key=None):
+        requests.append((url, api_key))
+        return None
+
+    file_fallback = AsyncMock(return_value=[{"name": "TEST_SESSION", "value": "fake-value"}])
+    monkeypatch.setattr(client, "_get_addon_url", AsyncMock(return_value=None))
+    monkeypatch.setattr(client, "_get_shared_api_key", AsyncMock(return_value=FAKE_API_KEY))
+    monkeypatch.setattr(client, "_fetch_cookies_from_url", _fetch)
+    monkeypatch.setattr(client, "_load_cookies_from_file", file_fallback)
+
+    assert await client.load_cookies()
+    assert requests == [(STOPPED_ADDON_URL, FAKE_API_KEY)]
+    file_fallback.assert_awaited_once()
+
+
+async def test_stopped_addon_entry_rejected_key_fails_closed(hass, monkeypatch) -> None:
+    client = addon_client.AddonCookieClient(hass, auth_url=STOPPED_ADDON_URL)
+
+    async def _rejected(_url, *, api_key=None):
+        client.last_fetch_status = 403
+        return None
+
+    file_fallback = AsyncMock()
+    monkeypatch.setattr(client, "_get_addon_url", AsyncMock(return_value=None))
+    monkeypatch.setattr(client, "_get_shared_api_key", AsyncMock(return_value=FAKE_API_KEY))
+    monkeypatch.setattr(client, "_fetch_cookies_from_url", _rejected)
+    monkeypatch.setattr(client, "_load_cookies_from_file", file_fallback)
+
+    assert await client.load_cookies() is None
+    file_fallback.assert_not_awaited()
+
+
+async def test_user_typed_url_without_marker_still_gets_no_shared_key(hass, monkeypatch) -> None:
+    """A manual server that merely cannot be reached is not mistaken for the add-on."""
+    client = addon_client.AddonCookieClient(hass, auth_url=FAKE_AUTH_URL)
+    requests: list[tuple[str, str | None]] = []
+
+    async def _fetch(url, *, api_key=None):
+        requests.append((url, api_key))
+        return None
+
+    file_fallback = AsyncMock()
+    monkeypatch.setattr(client, "_get_addon_url", AsyncMock(return_value=None))
+    monkeypatch.setattr(client, "_get_shared_api_key", AsyncMock(return_value=FAKE_API_KEY))
+    monkeypatch.setattr(client, "_fetch_cookies_from_url", _fetch)
+    monkeypatch.setattr(client, "_load_cookies_from_file", file_fallback)
+
+    assert await client.load_cookies() is None
+    assert requests == [(FAKE_AUTH_URL, None)]
+    file_fallback.assert_not_awaited()
+
+
+async def test_failed_supervisor_lookup_is_retried(hass, monkeypatch) -> None:
+    """An add-on not started at boot must be found once it runs (#214)."""
+    client = addon_client.AddonCookieClient(hass)
+    resolve = AsyncMock(side_effect=[None, STOPPED_ADDON_URL, "http://other:8099"])
+    monkeypatch.setattr(client, "_resolve_addon_url", resolve)
+
+    assert await client._get_addon_url() is None
+    assert await client._get_addon_url() == STOPPED_ADDON_URL
+    assert await client._get_addon_url() == STOPPED_ADDON_URL
+    assert resolve.await_count == 2
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (STOPPED_ADDON_URL, True),
+        ("http://92c20130-familylink-playwright:8099/", True),
+        ("http://familylink-playwright:8099", False),
+        ("https://92c20130-familylink-playwright:8099", False),
+        ("http://92c20130-familylink-playwright:8098", False),
+        ("http://92c20130-familylink-playwright:8099/proxy", False),
+        (FAKE_AUTH_URL, False),
+        (None, False),
+    ],
+)
+def test_managed_addon_url_shape(url, expected) -> None:
+    assert addon_client.is_managed_addon_url(url) is expected
+
+
 def test_unknown_auth_source_is_rejected(hass) -> None:
     """Unexpected persisted source markers fail before any request."""
     with pytest.raises(ValueError, match="Unknown authentication source"):
