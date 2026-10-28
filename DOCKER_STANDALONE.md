@@ -32,7 +32,8 @@ services:
       - LOG_LEVEL=info
       - AUTH_TIMEOUT=300
       - SESSION_DURATION=86400
-      - VNC_PASSWORD=familylink
+      # Optional, up to 8 characters; unset: a random one is printed in the log
+      # - VNC_PASSWORD=choose-one
       - LANGUAGE=en-US
       - TIMEZONE=Europe/Paris
       # Recommended: protect /api/cookies (see "API key" below)
@@ -67,7 +68,6 @@ docker run -d \
   -e LOG_LEVEL=info \
   -e AUTH_TIMEOUT=300 \
   -e SESSION_DURATION=86400 \
-  -e VNC_PASSWORD=familylink \
   -e LANGUAGE=en-US \
   -e TIMEZONE=Europe/Paris \
   --dns 8.8.8.8 \
@@ -89,7 +89,7 @@ Both `linux/amd64` and `linux/arm64` are supported; Docker pulls the right image
 | `LOG_LEVEL` | `info` | Logging level (`debug`, `info`, `warning`, `error`) |
 | `AUTH_TIMEOUT` | `300` | Seconds you have to finish the Google login before the session times out |
 | `SESSION_DURATION` | `86400` | No effect, kept for backward compatibility (cookie lifetime is decided by Google) |
-| `VNC_PASSWORD` | `familylink` | Password for the noVNC web interface. VNC authentication uses at most 8 characters: longer values are truncated to the first 8, with a warning in the log. Empty disables the password |
+| `VNC_PASSWORD` | unset | Password for the noVNC web interface. Unset, empty or the old default `familylink`: a random password is generated at every start and printed in the container log. VNC authentication uses at most 8 characters: longer values are truncated to the first 8, with a warning in the log. The password is always required (image 1.9.2 or later; 1.9.0 and 1.9.1 printed it without enforcing it) |
 | `LANGUAGE` | `en-US` | Browser locale for the Google login pages |
 | `TIMEZONE` | `Europe/Paris` | Container and browser timezone |
 | `API_KEY` | unset | Key protecting `GET /api/cookies`. When unset, the endpoint is **open** in standalone mode (a warning is logged at startup). See [API key](#api-key-securing-the-cookie-endpoint) |

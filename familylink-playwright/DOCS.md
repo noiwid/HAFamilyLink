@@ -37,7 +37,7 @@ log_level: info
 auth_timeout: 300
 language: ""
 timezone: ""
-vnc_password: familylink
+vnc_password: ""
 ```
 
 | Option | Type | Default | Description |
@@ -61,7 +61,7 @@ vnc_password: familylink
 
 The browser view behind noVNC shows a live Google session of the parent account. Whoever can open it can lift every restriction on the child's device. Keep this in mind:
 
-- **The VNC password is the only protection of port 6080.** Until version 1.9.0 the add-on shipped with a documented default password, so anyone on the home network could open the view; since 1.9.0 a random password is generated at every start when none is configured, and the web UI never carries it.
+- **The VNC password is the only protection of port 6080.** Update to 1.9.2 or later. Until 1.9.0 the add-on shipped with a documented default password; 1.9.0 and 1.9.1 generated and printed a password but did not enforce it (the image lacked the tool that applies it), so in those versions anyone who could reach port 6080 opened the view. Since 1.9.2 the password is required: a random one is generated at every start when none is configured, and the web UI never carries it. If you exposed port 6080 while running an older version, sign out of that Google session on other devices (Google Account > Security > Your devices) and log in again through the add-on.
 - **Unmap port 6080** (and 8099 if the integration runs on the same Home Assistant) in **Configuration > Network** when you are not authenticating. You only need them during a login.
 - **Stop the add-on after the login.** The integration reads the encrypted cookie file from `/share/familylink` on its own, so the add-on can stay stopped until the session expires. Disable **Start on boot** if you prefer.
 - **Never expose ports 8099 or 6080 to the internet**, through a reverse proxy, Nabu Casa or a port forward: `/api/cookies` hands out a Google session.

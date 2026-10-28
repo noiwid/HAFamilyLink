@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- **Auth add-on 1.9.2: the VNC password is actually required** - Since 1.9.0 the add-on and the standalone image generated a VNC password and printed it in the log, but neither image included the tool that applies it, so the start scripts silently ran the VNC server with no authentication: anyone who could reach port 6080 opened the browser holding the parent's Google session. The tool is now installed and the scripts never start the VNC server without a password. Update the add-on (or pull the standalone image); if port 6080 was reachable by others, sign out of that Google session on other devices and log in again. Found while looking into #209.
+
 ---
 
 ## [2.3.2] - 2026-10-27

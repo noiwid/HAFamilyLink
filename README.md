@@ -23,7 +23,8 @@ The endpoints and payload shapes the integration relies on are documented in [GO
 | Area | What you can do |
 |------|-----------------|
 | Device control | Lock and unlock devices, ring a device to locate it, see exactly why a device is currently blocked |
-| Time management | Toggle bedtime, school time and daily limits, edit the weekly bedtime schedule or post a today-only override, add 15/30/60 minute bonuses |
+| Time management | Toggle bedtime, school time and daily limits, edit the weekly bedtime and school time schedules (school day breaks included) or post a today-only override, add 15/30/60 minute bonuses |
+| Web | Read and edit the child's Chrome site lists, sync the blocked list with a published list, switch the web filter between the approved sites only and Google's filter |
 | Screen time monitoring | Daily screen time per child, remaining time per device (bonuses included), top 10 apps, per-app usage breakdown |
 | App management | Block or unblock apps, per-app daily limits (blocked, limited, unrestricted or "unlimited time"), one-call school mode that blocks everything except an essentials whitelist |
 | Location (opt-in) | GPS device tracker with saved places and address, battery level of the source device, on-demand refresh |
@@ -68,6 +69,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `switch.<child>_unlimited_apps_during_downtime` | Child | Family Link's "Allow apps with unlimited time during downtime": ON keeps the apps set to unlimited time usable during downtime, OFF blocks them too. Applies to all of the child's devices. Unknown until the setting is first changed, in the app or here: Google reports nothing for a child where it was never touched |
 | `sensor.<child>_blocked_sites`, `_approved_sites` | Child | Chrome site lists (Family Link "Google Chrome and Web"): count, the sites and the Chrome filter level in attributes; read every 15 minutes and right after a change made from Home Assistant |
 | `select.<child>_allowed_calls_texts` | Child | Choose who can call and text the child: anyone, only contacts you add, or contacts you add and limited groups |
+| `select.<child>_web_filter` | Child | Chrome web filter mode: only the approved sites, or every site with Google's explicit-content filter |
 | `switch.<child>_strict_mode` | Child | Strict mode on or off for this child (see below). Attributes: rules in force, last corrective action, count |
 | `number.<child>_<weekday>_limit` | Child | Screen time quota of that weekday in minutes, as the weekly limits screen of the app shows it (the weekly value, or today's override when Google applies one; see the `source` and `applied_override` attributes). Setting it writes the weekly quota of that weekday, as the weekly limits screen of the app does; today's entity also posts today's override on every device so the change applies at once |
 | `time.<child>_<weekday>_bedtime_start`, `_bedtime_end` | Child | Start and end of that weekday's bedtime in the weekly schedule. Setting one rewrites the slot (the other bound is kept) |
@@ -122,7 +124,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 | `familylink.enable_bedtime` / `familylink.disable_bedtime` | Toggle bedtime, effective tonight (weekly toggle plus a same-day override) |
 | `familylink.set_bedtime` | Edit the recurring weekly bedtime for a day, or post a today-only override (`scope: today`) |
 | `familylink.set_downtime_unlimited_apps` | Allow or block the apps with unlimited time during downtime (`allow: true` / `false`), like the child's switch |
-| `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, every window of a day with a break (`windows`), or post a today-only window (`scope: today`) |
+| `familylink.set_school_time` | Edit the recurring weekly school time (start and finish) for a day, set, add or remove the break of a day (`windows`, one or two), switch a day off or on (`enabled`), or post a today-only window (`scope: today`) |
 | `familylink.enable_school_time` / `familylink.disable_school_time` | Toggle school time |
 | `familylink.get_sites`, `familylink.block_site`, `familylink.allow_site`, `familylink.remove_site` | Read and edit the child's Chrome site lists (approved and blocked sites, wildcards allowed) |
 | `familylink.sync_site_list` | Keep the blocked sites in step with a published list of domains (https, administrators only); removes only what the list added, `stop: true` takes it all back |
