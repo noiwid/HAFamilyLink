@@ -26,6 +26,7 @@ RUN apt-get update \
         xvfb \
         x11vnc \
         tigervnc-standalone-server \
+        tigervnc-tools \
         novnc \
         python3-websockify \
         fluxbox \

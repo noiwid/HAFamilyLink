@@ -2,6 +2,11 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.2] - 2026-10-28
+
+### Security
+- **The VNC password is now actually required.** Since 1.9.0 the add-on generates a VNC password and prints it in the log, but the image did not include `vncpasswd` (Debian package `tigervnc-tools`), so the start script silently started TigerVNC with no authentication: anyone who could reach port 6080 opened the browser holding the parent's Google session. The tool is now installed in both images, and the scripts no longer start TigerVNC without a password: if it cannot be set, they fall back to x11vnc, which takes the password directly. Found while looking into #209. If you exposed port 6080 while running 1.9.0 or 1.9.1, sign out of the Google session used for Family Link on other devices (Google Account > Security > Your devices) and log in again through the add-on.
+
 ## [1.9.1] - 2026-10-27
 
 ### Security

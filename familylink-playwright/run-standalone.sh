@@ -106,24 +106,27 @@ DISPLAY_STARTED=""
 start_tigervnc() {
     command -v Xvnc >/dev/null 2>&1 || { echo "  Xvnc not installed"; return 1; }
 
-    # Build a TigerVNC password file (VNC-auth) unless empty -> no auth.
-    # vncpasswd -f is filter mode: it reads the plaintext password from stdin
-    # and writes the encrypted file to stdout, which is deterministic and needs
-    # no interactive prompts.
-    local sec_args
-    if [ -n "${VNC_PASSWORD}" ] && command -v vncpasswd >/dev/null 2>&1; then
-        mkdir -p /root/.vnc
-        if printf '%s' "${VNC_PASSWORD}" | vncpasswd -f >/root/.vnc/passwd 2>>"${LOG_DIR}/xvnc.log" \
-            && [ -s /root/.vnc/passwd ]; then
-            chmod 600 /root/.vnc/passwd 2>/dev/null || true
-            sec_args=(-SecurityTypes VncAuth -rfbauth /root/.vnc/passwd)
-        else
-            echo "⚠ vncpasswd failed; starting TigerVNC without a password (localhost only)."
-            sec_args=(-SecurityTypes None)
-        fi
-    else
-        sec_args=(-SecurityTypes None)
+    # The browser view holds a live Google session: Xvnc never starts without
+    # the password. vncpasswd (Debian package tigervnc-tools, also installed as
+    # tigervncpasswd) -f is filter mode: it reads the plaintext password from
+    # stdin and writes the encrypted file to stdout, no prompt. Without the
+    # tool, or if it fails, TigerVNC is not used and the x11vnc fallback takes
+    # the password directly. Until 1.9.2 the tool was missing from the image
+    # and Xvnc silently started with no authentication.
+    local passwd_tool sec_args
+    passwd_tool=$(command -v vncpasswd || command -v tigervncpasswd || true)
+    if [ -z "${passwd_tool}" ]; then
+        echo "✗ vncpasswd is not installed: TigerVNC is not started without a password, using x11vnc instead."
+        return 1
     fi
+    mkdir -p /root/.vnc
+    if ! printf '%s' "${VNC_PASSWORD}" | "${passwd_tool}" -f >/root/.vnc/passwd 2>>"${LOG_DIR}/xvnc.log" \
+        || [ ! -s /root/.vnc/passwd ]; then
+        echo "✗ vncpasswd failed: TigerVNC is not started without a password, using x11vnc instead."
+        return 1
+    fi
+    chmod 600 /root/.vnc/passwd 2>/dev/null || true
+    sec_args=(-SecurityTypes VncAuth -rfbauth /root/.vnc/passwd)
 
     echo "Starting display server (TigerVNC Xvnc on :99)..."
     Xvnc :99 -geometry 1280x1024 -depth 24 -rfbport 5900 -localhost \
