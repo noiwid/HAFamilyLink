@@ -2,6 +2,11 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.3] - 2026-10-29
+
+### Added
+- **The log says why a Google login page does not respond.** During a login the add-on now logs, once each, the requests of the login pages that fail or are refused, their script errors and console errors (URL host and path and the error only, no page content). A sign-in page whose scripts did not load still shows the form and its plain links, but its buttons, Enter and the typed address do nothing; these lines show which Google host was blocked, for example by a DNS filter, a VPN or a proxy (#209).
+
 ## [1.9.2] - 2026-10-28
 
 ### Security

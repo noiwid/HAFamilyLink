@@ -110,6 +110,7 @@ class BrowserAuthManager:
 
             # Create page
             page = await context.new_page()
+            self._watch_page(page)
 
             # Store session
             self._sessions[session_id] = {
@@ -125,6 +126,7 @@ class BrowserAuthManager:
             # Listen for new tabs/popups
             def on_page(new_page):
                 _LOGGER.info(f"New tab detected, switching monitoring to new page")
+                self._watch_page(new_page)
                 self._sessions[session_id]['page'] = new_page
 
             context.on("page", on_page)
@@ -155,6 +157,47 @@ class BrowserAuthManager:
             except Exception as cleanup_err:
                 _LOGGER.warning(f"Cleanup after failed session start: {cleanup_err}")
             raise
+
+    @staticmethod
+    def _watch_page(page: Page) -> None:
+        """Log what breaks a login page: failed requests, script errors, console errors.
+
+        A sign-in page whose scripts did not load still shows its form and its
+        plain links, but its buttons, Enter and the typed address do nothing
+        (issue #209). These lines say which request failed (a DNS filter, a VPN
+        or a proxy blocking a Google host) without logging any page content:
+        only the URL host and path, and the error text. Each is logged once.
+        """
+        seen: set[str] = set()
+
+        def _once(key: str, message: str) -> None:
+            if key not in seen and len(seen) < 50:
+                seen.add(key)
+                _LOGGER.warning(message)
+
+        def on_request_failed(request) -> None:
+            url = request.url.split('?', 1)[0]
+            failure = request.failure or 'unknown error'
+            _once(f"req:{url}", f"Login page request failed: {request.resource_type} {url} ({failure})")
+
+        def on_response(response) -> None:
+            if response.status >= 400 and response.request.resource_type in ('script', 'xhr', 'fetch', 'document'):
+                url = response.url.split('?', 1)[0]
+                _once(f"resp:{url}", f"Login page request answered {response.status}: {response.request.resource_type} {url}")
+
+        def on_page_error(error) -> None:
+            text = str(error).splitlines()[0][:200]
+            _once(f"err:{text}", f"Login page script error: {text}")
+
+        def on_console(message) -> None:
+            if message.type == 'error':
+                text = message.text.splitlines()[0][:200] if message.text else ''
+                _once(f"con:{text}", f"Login page console error: {text}")
+
+        page.on('requestfailed', on_request_failed)
+        page.on('response', on_response)
+        page.on('pageerror', on_page_error)
+        page.on('console', on_console)
 
     async def _monitor_authentication(self, session_id: str):
         """Monitor authentication progress."""
