@@ -386,8 +386,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 					return self._show_reconfigure_form(entry, errors)
 				current_url = entry.data.get(CONF_AUTH_URL)
 				existing_key = entry.data.get(CONF_API_KEY)
+				# An entry made by the add-on setup stores no URL and the form then
+				# shows the default one: submitting that default changes nothing
+				url_changed = auth_url != (
+					current_url if current_url is not None else normalize_auth_url(RECONFIGURE_DEFAULT_URL)
+				)
 				if (
-					auth_url != current_url
+					url_changed
 					and existing_key
 					and not submitted_key
 					and not clear_api_key
@@ -402,21 +407,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				# makes the endpoint manual as before.
 				keep_managed = (
 					entry.data.get(CONF_AUTH_SOURCE) == AUTH_SOURCE_MANAGED
-					and auth_url == current_url
+					and not url_changed
 					and not submitted_key
 				)
 				new_data = {
 					**entry.data,
 					CONF_AUTH_SOURCE: AUTH_SOURCE_MANAGED if keep_managed else AUTH_SOURCE_MANUAL,
-					CONF_AUTH_URL: auth_url,
 				}
+				# A managed entry without a URL keeps finding the add-on by itself
+				if not (keep_managed and current_url is None):
+					new_data[CONF_AUTH_URL] = auth_url
+				unique_id = entry.unique_id if keep_managed else auth_url
 				if api_key:
 					new_data[CONF_API_KEY] = api_key
 				else:
 					new_data.pop(CONF_API_KEY, None)
 				if any(
 					other_entry.entry_id != entry.entry_id
-					and other_entry.unique_id == auth_url
+					and other_entry.unique_id == unique_id
 					for other_entry in self.hass.config_entries.async_entries(DOMAIN)
 				):
 					return self.async_abort(reason="already_configured")
@@ -432,7 +440,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 					return self.async_update_reload_and_abort(
 						entry,
 						data=new_data,
-						unique_id=auth_url,
+						unique_id=unique_id,
 						reason="reconfigure_successful",
 					)
 
@@ -449,7 +457,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			data_schema=vol.Schema({
 				vol.Required(
 					CONF_AUTH_URL,
-					default=entry.data.get(CONF_AUTH_URL, "http://localhost:8099"),
+					default=entry.data.get(CONF_AUTH_URL, RECONFIGURE_DEFAULT_URL),
 				): TextSelector(
 					TextSelectorConfig(
 						type=TextSelectorType.URL,
@@ -464,6 +472,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			}),
 			errors=errors,
 		)
+
+
+RECONFIGURE_DEFAULT_URL = "http://localhost:8099"
 
 
 class CannotConnect(HomeAssistantError):

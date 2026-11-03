@@ -50,9 +50,9 @@ app.add_middleware(
 # API key for protecting the auth-flow endpoints (optional, env-provided)
 _API_KEY = os.getenv("API_KEY", "")
 # Supervisor add-on (HA OS/Supervised) injects SUPERVISOR_TOKEN; run.sh also
-# sets ADDON_MODE=1. In that mode the integration shares /share/familylink so
-# the cookie key is enforced with zero config. In Docker standalone there is no
-# shared volume, so an auto-generated key would break the integration.
+# sets ADDON_MODE=1. In that mode the integration reads the generated cookie key
+# from /share/familylink with zero config; in Docker standalone the user copies
+# it from the container log into the integration's API-key field.
 _ADDON_MODE = bool(os.getenv("SUPERVISOR_TOKEN") or os.getenv("ADDON_MODE"))
 
 # Global instances
@@ -60,37 +60,35 @@ storage = SharedStorage(config.share_dir)
 browser_manager = None
 
 
-def _load_or_create_cookie_api_key() -> "str | None":
-    """Return the cookie-endpoint key, or None when intentionally left open.
+def _load_or_create_cookie_api_key() -> str:
+    """Return the cookie-endpoint key, generating and persisting one if needed.
 
     /api/cookies hands out full Google session cookies — left open, anyone
     on the LAN (e.g. the supervised child) could grab a parent session and
     bypass Family Link entirely. The API_KEY environment variable takes
     precedence; otherwise a key is generated once and persisted in the
-    shared directory, where the Home Assistant integration (add-on setup)
-    picks it up automatically via /share/familylink/api_key.
+    shared directory. The add-on integration reads it from
+    /share/familylink/api_key; a standalone user copies it from the log.
     """
     if _API_KEY:
         return _API_KEY
-    if not _ADDON_MODE:
-        _LOGGER.warning(
-            "Cookie endpoint /api/cookies is UNPROTECTED: standalone mode "
-            "without API_KEY. Anyone able to reach port 8099 can read the "
-            "stored Google cookies. Set API_KEY and enter it in the integration's "
-            "separate API-key field to protect the endpoint."
-        )
-        return None
     key_path = Path(config.share_dir) / "api_key"
+    key = ""
     try:
-        existing = key_path.read_text().strip()
-        if existing:
-            return existing
+        key = key_path.read_text().strip()
     except OSError:
         pass
-    key = secrets.token_urlsafe(32)
-    key_path.write_text(key)
-    os.chmod(key_path, 0o600)
-    _LOGGER.info(f"Generated cookie API key at {key_path}")
+    if not key:
+        key = secrets.token_urlsafe(32)
+        key_path.write_text(key)
+        os.chmod(key_path, 0o600)
+        _LOGGER.info(f"Generated cookie API key at {key_path}")
+    if not _ADDON_MODE:
+        # The container log is only readable by whoever runs Docker on the host
+        _LOGGER.warning(
+            f"Cookie API key (no API_KEY set, generated and kept in {key_path}): {key} "
+            "- enter it in the Home Assistant integration's API-key field."
+        )
     return key
 
 
@@ -100,7 +98,8 @@ _COOKIE_API_KEY = _load_or_create_cookie_api_key()
 def _check_key(request: Request, expected: str):
     """Validate the request key against the expected one (constant-time)."""
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key") or ""
-    if not secrets.compare_digest(key, expected):
+    # Bytes: compare_digest raises TypeError (a 500) on non-ASCII str
+    if not secrets.compare_digest(key.encode(), expected.encode()):
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
@@ -112,9 +111,7 @@ def _verify_api_key(request: Request):
 
 
 def _verify_cookie_api_key(request: Request):
-    """Protect cookie endpoints when a key exists; open in standalone w/o API_KEY."""
-    if _COOKIE_API_KEY is None:
-        return
+    """Protect the cookie endpoints, in every mode."""
     _check_key(request, _COOKIE_API_KEY)
 
 

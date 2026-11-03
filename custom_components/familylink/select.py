@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -222,9 +223,6 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
             level, account_id=self._child_id
         )
         if not success:
-            _LOGGER.error(
-                f"Failed to set allowed calls and texts to '{option}' for {self._child_name}"
-            )
-            return
+            raise HomeAssistantError(f"Failed to set allowed calls and texts to '{option}' for {self._child_name}")
         _LOGGER.info(f"Set allowed calls and texts to '{option}' for {self._child_name}")
         await self.coordinator.async_request_refresh()

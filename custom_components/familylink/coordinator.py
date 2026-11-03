@@ -48,6 +48,7 @@ from .strict_mode import (
 	ACTION_SET_DAILY_LIMIT,
 	ACTION_SET_WEEKLY_LIMIT,
 	ACTION_UNLOCK_DEVICE,
+	DEVICE_INTENT_AUTO_LOCK,
 	plan_strict_actions,
 	snapshot_policies,
 	snapshot_values,
@@ -408,6 +409,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					for cached_child in self._last_known_data.get("children_data", []):
 						if cached_child.get("child_id") == child_id:
 							devices_time_data = cached_child.get("devices_time_data", {})
+							# Without it every device would read unlocked for this poll
+							device_lock_states = {
+								device["id"]: device.get("locked", False)
+								for device in cached_child.get("devices") or []
+								if device.get("id")
+							}
 							bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
 							schooltime_enabled_today = cached_child.get("school_time_enabled_today")
 							_LOGGER.debug(f"Using cached applied time limits for {child_name}")
@@ -549,6 +556,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					raise  # Re-raise to trigger auth notification
 				except Exception as err:
 					_LOGGER.warning(f"Failed to fetch location data for {child_name}: {err}")
+					# Keep the last position: a cleared one sends the tracker to
+					# unknown and fires zone automations on a Google hiccup
+					for cached_child in (self._last_known_data or {}).get("children_data", []):
+						if cached_child.get("child_id") == child_id:
+							location = cached_child.get("location")
+							break
 
 			# Who can call and text the child (select entity). One call per
 			# child; on a transient error keep the last known level.
@@ -822,16 +835,29 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		reset at midnight would let a weekly change made on Google's side
 		become the reference the next morning. A lock or unlock done from HA
 		is a decision for the day: it expires at midnight, and the bypass
-		protection of the lock rule resumes.
+		protection of the lock rule resumes. A lock strict mode placed itself
+		is carried over one midnight, no more: it is lifted when the
+		restriction it protects ends, and a bedtime crossing midnight ends the
+		next morning, but a lock rule switched off meanwhile must not lift a
+		lock days later. "carried" lists the locks already carried once.
 		"""
-		today = dt_util.now().date().isoformat()
+		now = dt_util.now().date()
+		today = now.isoformat()
+		yesterday = (now - timedelta(days=1)).isoformat()
 		entry = self._strict_intents.get(child_id)
 		if not entry:
 			entry = {"date": today, "policies": {}, "devices": {}, "values": {}}
 			self._strict_intents[child_id] = entry
 		elif entry.get("date") != today:
+			kept = entry.get("date") == yesterday
+			carried = set(entry.get("carried") or [])
 			entry["date"] = today
-			entry["devices"] = {}
+			entry["devices"] = {
+				device_id: intent
+				for device_id, intent in (entry.get("devices") or {}).items()
+				if kept and intent == DEVICE_INTENT_AUTO_LOCK and device_id not in carried
+			}
+			entry["carried"] = list(entry["devices"])
 		entry.setdefault("policies", {})
 		entry.setdefault("values", {})
 		return entry
@@ -858,7 +884,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		child_id = self._resolve_child_id(child_id)
 		if not child_id or not device_id:
 			return
-		self._intents_for(child_id)["devices"][device_id] = action
+		entry = self._intents_for(child_id)
+		entry["devices"][device_id] = action
+		# Recorded today: no longer a lock carried over from yesterday
+		if device_id in (entry.get("carried") or []):
+			entry["carried"].remove(device_id)
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: device {device_id} {action}ed from HA for child {child_id} (kept for today)")
 
@@ -961,17 +991,28 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			"values": copy.deepcopy(entry.get("values", {})),
 		}
 
-	def register_ha_bonus(self, device_id: str, minutes: int) -> None:
+	def restore_ha_bonus(self, device_id: str, previous: float | None) -> None:
+		"""Undo register_ha_bonus after a bonus Google did not take."""
+		if previous is None:
+			self._ha_bonus_until.pop(device_id, None)
+		else:
+			self._ha_bonus_until[device_id] = previous
+		self._save_strict_intents()
+
+	def register_ha_bonus(self, device_id: str, minutes: int) -> float | None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
 
 		Strict mode reverts what is done from the Family Link side; a bonus the
 		parent gives through the buttons or the add_time_bonus action is the
 		parent's decision and must survive. The allowance lasts the bonus
-		duration plus a short grace period.
+		duration plus a short grace period. Returns the previous allowance, for
+		restore_ha_bonus.
 		"""
+		previous = self._ha_bonus_until.get(device_id)
 		self._ha_bonus_until[device_id] = time.time() + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
+		return previous
 
 	def _ha_bonus_devices(self) -> frozenset[str]:
 		"""Devices whose HA-granted bonus is still running (expired entries pruned)."""

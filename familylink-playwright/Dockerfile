@@ -52,6 +52,14 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages playwright && \
     playwright install --with-deps chromium
 
+# The login browser must not reach local files: through noVNC, file:///share/familylink
+# or a file upload dialog would expose the stored session (cookies.enc, .key, api_key).
+# Written for both Chromium and Chrome branded builds, whichever Playwright ships.
+RUN for dir in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed; do \
+        mkdir -p "$dir" && \
+        echo '{"URLBlocklist": ["file://*"], "AllowFileSelectionDialogs": false}' > "$dir/familylink.json"; \
+    done
+
 # Copy application code
 COPY app/ /app/app/
 COPY rootfs/ /

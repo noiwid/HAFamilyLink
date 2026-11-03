@@ -739,6 +739,10 @@ class FamilyLinkClient:
 				if response.status != 200:
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to fetch location (HTTP {response.status}): {response_text}")
+					if response.status == 429 or response.status >= 500:
+						# Transient: the caller keeps the last position
+						raise NetworkError(f"Location request failed with HTTP {response.status}")
+					# Lasting (sharing turned off, access refused): no position, not a frozen one
 					return None
 
 				data = await response.json()
@@ -832,10 +836,14 @@ class FamilyLinkClient:
 
 				return result
 
-		except SessionExpiredError:
-			raise  # Re-raise to trigger auth notification
-		except Exception as err:
+		except (SessionExpiredError, NetworkError):
+			raise  # Session refresh / the caller keeps the last position
+		except (aiohttp.ClientError, asyncio.TimeoutError) as err:
 			_LOGGER.error(f"Failed to fetch location for child {account_id}: {err}")
+			raise NetworkError(f"Failed to fetch location: {err}") from err
+		except Exception as err:
+			# An answer that no longer parses is lasting: no position rather than a frozen one
+			_LOGGER.error(f"Failed to read the location of child {account_id}: {err}")
 			return None
 
 	async def async_block_app(self, package_name: str, account_id: str | None = None) -> bool:

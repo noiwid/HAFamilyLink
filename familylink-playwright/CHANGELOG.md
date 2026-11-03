@@ -2,6 +2,17 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.5] - Unreleased
+
+### Security
+- **The standalone image no longer hands out the Google session without a key.** Without `API_KEY`, `/api/cookies` was open to anyone who could reach port 8099, the supervised child included. A key is now generated at first start, kept in `/share/familylink/api_key` (`./data/api_key` with the compose file) and printed in the container log at every start: `docker logs familylink-auth | grep "Cookie API key"`. **Standalone users:** after the update the integration reports an invalid API key until you open its *Reconfigure* and enter that key (or set `API_KEY` yourself). Home Assistant OS add-on installs are not affected: the key there was already generated and shared.
+- **The login browser no longer reaches local files.** Anyone watching a login through noVNC could type `file:///share/familylink/` in Chromium, or pick those files in a website's upload dialog, and get the stored session; a browser policy now blocks `file://` addresses and file dialogs in both images.
+- **One login at a time, really.** Several "Start Authentication" requests sent together (the endpoint needs no key in add-on mode) each passed the single-session check and launched their own Chromium, enough to run a Raspberry Pi out of memory.
+
+### Fixed
+- **A failed start no longer blocks every later login.** When the Google page did not load in time at the start of a login (a DNS hiccup, a slow Pi), the dead session still counted as running and every later "Start Authentication" failed until the add-on was restarted.
+- A key with non-ASCII characters is refused with 403 instead of an internal error.
+
 ## [1.9.4] - 2026-11-03
 
 ### Fixed

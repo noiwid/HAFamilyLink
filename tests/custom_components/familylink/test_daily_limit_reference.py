@@ -79,7 +79,8 @@ async def test_number_puts_the_previous_reference_back_when_google_refuses() -> 
     calls: list = []
     number = _number(calls, _today(), weekly_ok=False)
 
-    await number.async_set_native_value(400)
+    with pytest.raises(HomeAssistantError):
+        await number.async_set_native_value(400)
 
     assert calls[0] == ("record", 400, _today())
     assert calls[-1] == ("restore", _today(), 300)
@@ -90,7 +91,9 @@ async def test_number_keeps_the_new_reference_when_the_write_was_taken_in_part()
     calls: list = []
     number = _number(calls, _today(), today_ok=False)
 
-    await number.async_set_native_value(400)
+    # Taken in part: the caller is told, the new reference stays
+    with pytest.raises(HomeAssistantError, match="in part"):
+        await number.async_set_native_value(400)
 
     assert calls[1] == ("weekly", _today(), 400)
     assert not [c for c in calls if c[0] == "restore"]

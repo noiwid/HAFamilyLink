@@ -278,7 +278,7 @@ def test_device_daily_screen_time_sensor():
     assert sensor.native_value == 30.0
     assert sensor.native_unit_of_measurement == UnitOfTime.MINUTES
     assert sensor.device_class == SensorDeviceClass.DURATION
-    assert sensor.state_class == SensorStateClass.TOTAL
+    assert sensor.state_class == SensorStateClass.TOTAL_INCREASING
 
     attrs = sensor.extra_state_attributes
     assert attrs["device_id"] == device_id

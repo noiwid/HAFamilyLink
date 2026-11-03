@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -250,7 +251,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		)
 
 		if not success:
-			_LOGGER.error("Failed to unlock device %s", self._device_id)
+			raise HomeAssistantError(f"Failed to unlock device {self._device_id}")
 		else:
 			_LOGGER.info("Successfully unlocked device %s", self._device_id)
 
@@ -258,8 +259,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		"""Lock device (cancel bonus if active, then lock)."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot lock device: client not connected")
-			return
+			raise HomeAssistantError("Cannot lock device: client not connected")
 		_LOGGER.info("Locking device %s for child %s", self._device_id, self._child_name)
 
 		# First, cancel any active bonus
@@ -285,7 +285,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 		)
 
 		if not success:
-			_LOGGER.error("Failed to lock device %s", self._device_id)
+			raise HomeAssistantError(f"Failed to lock device {self._device_id}")
 		else:
 			_LOGGER.info("Successfully locked device %s", self._device_id)
 
@@ -357,8 +357,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable bedtime."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot enable bedtime: client not connected")
-			return
+			raise HomeAssistantError("Cannot enable bedtime: client not connected")
 		_LOGGER.debug("Enabling bedtime for child %s", self._child_name)
 
 		# Set pending state immediately for instant UI feedback
@@ -371,9 +370,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "bedtime", True)
 
 		if not success:
-			_LOGGER.error("Failed to enable bedtime for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to enable bedtime for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully enabled bedtime for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -382,8 +381,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Disable bedtime."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot disable bedtime: client not connected")
-			return
+			raise HomeAssistantError("Cannot disable bedtime: client not connected")
 		_LOGGER.debug("Disabling bedtime for child %s", self._child_name)
 
 		# Set pending state immediately for instant UI feedback
@@ -396,9 +394,9 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "bedtime", False)
 
 		if not success:
-			_LOGGER.error("Failed to disable bedtime for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to disable bedtime for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully disabled bedtime for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -494,8 +492,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable school time."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot enable school time: client not connected")
-			return
+			raise HomeAssistantError("Cannot enable school time: client not connected")
 		_LOGGER.debug("Enabling school time for child %s", self._child_name)
 
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", True)
@@ -507,9 +504,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "school_time", True)
 
 		if not success:
-			_LOGGER.error("Failed to enable school time for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to enable school time for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully enabled school time for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -518,8 +515,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		"""Disable school time."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot disable school time: client not connected")
-			return
+			raise HomeAssistantError("Cannot disable school time: client not connected")
 		_LOGGER.debug("Disabling school time for child %s", self._child_name)
 
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", False)
@@ -531,9 +527,9 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "school_time", False)
 
 		if not success:
-			_LOGGER.error("Failed to disable school time for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to disable school time for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully disabled school time for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -599,8 +595,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		"""Enable daily limit."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot enable daily limit: client not connected")
-			return
+			raise HomeAssistantError("Cannot enable daily limit: client not connected")
 		_LOGGER.debug("Enabling daily limit for child %s", self._child_name)
 
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", True)
@@ -612,9 +607,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "daily_limit", True)
 
 		if not success:
-			_LOGGER.error("Failed to enable daily limit for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to enable daily limit for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully enabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -623,8 +618,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		"""Disable daily limit."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot disable daily limit: client not connected")
-			return
+			raise HomeAssistantError("Cannot disable daily limit: client not connected")
 		_LOGGER.debug("Disabling daily limit for child %s", self._child_name)
 
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", False)
@@ -636,9 +630,9 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 			self.coordinator.record_policy_intent(self._child_id, "daily_limit", False)
 
 		if not success:
-			_LOGGER.error("Failed to disable daily limit for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to disable daily limit for {self._child_name}")
 		else:
 			_LOGGER.info("Successfully disabled daily limit for %s", self._child_name)
 			await self.coordinator.async_request_refresh()
@@ -709,8 +703,7 @@ class FamilyLinkDowntimeUnlimitedAppsSwitch(CoordinatorEntity, SwitchEntity):
 	async def _async_set(self, allow: bool) -> None:
 		"""Write the setting, showing the new state until the next refresh."""
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot change unlimited apps during downtime: client not connected")
-			return
+			raise HomeAssistantError("Cannot change unlimited apps during downtime: client not connected")
 
 		self.coordinator.set_pending_time_limit_state(self._child_id, "downtime_unlimited_apps", allow)
 		self.async_write_ha_state()
@@ -719,9 +712,9 @@ class FamilyLinkDowntimeUnlimitedAppsSwitch(CoordinatorEntity, SwitchEntity):
 			allow=allow, account_id=self._child_id
 		)
 		if not success:
-			_LOGGER.error("Failed to change unlimited apps during downtime for %s", self._child_name)
 			self.coordinator.set_pending_time_limit_state(self._child_id, "downtime_unlimited_apps", None)
 			self.async_write_ha_state()
+			raise HomeAssistantError(f"Failed to change unlimited apps during downtime for {self._child_name}")
 		else:
 			_LOGGER.info(
 				"Unlimited apps during downtime %s for %s", "allowed" if allow else "blocked", self._child_name

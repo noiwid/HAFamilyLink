@@ -31,7 +31,7 @@ from homeassistant.helpers.storage import Store
 from .client.api import FamilyLinkClient
 from .const import DOMAIN, LOGGER_NAME
 from .permissions import async_register_guarded_service, async_require_admin
-from .websites import domain_patterns, normalize_site, parse_site_list
+from .websites import approval_overlaps, domain_patterns, normalize_site, parse_site_list
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -260,14 +260,15 @@ async def async_setup_website_services(hass: HomeAssistant, coordinator: Any) ->
 		pushed = set(data.get(child_id, {}).get(url, []))
 		current = await _read(child_id)
 		blocked, approved = set(current["blocked"]), set(current["approved"])
-		# A domain the parent approved in any form is skipped whole: Chrome lets
-		# a block win over an allow, so blocking example.com while *.example.com
-		# is approved would block the approved site.
+		# A domain sharing a site with any approval is skipped whole: Chrome lets
+		# a block win over an allow, so blocking example.com while
+		# www.example.com, *.example.com or *.example.* is approved would block
+		# the approved site.
 		wanted: list[str] = []
 		skipped: list[str] = []
 		for domain in domains:
 			patterns = domain_patterns(domain)
-			if approved & set(patterns):
+			if any(approval_overlaps(p, domain) for p in approved):
 				skipped.append(domain)
 				continue
 			wanted.extend(p for p in patterns if p not in wanted)
