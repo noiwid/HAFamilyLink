@@ -122,7 +122,12 @@ def _verify_cookie_api_key(request: Request):
 async def startup_event():
     """Initialize services on startup."""
     global browser_manager
-    _LOGGER.info("Starting Family Link Auth Service v1.6.0")
+    _LOGGER.info("Starting Family Link Auth Service")
+    if os.getenv("LANGUAGE", "") not in ("", config.language):
+        _LOGGER.warning(
+            f"Language '{os.getenv('LANGUAGE')}' is used as '{config.language}': the browser needs a "
+            f"hyphen, an underscore breaks the Google sign-in page (#209)"
+        )
     _LOGGER.info(f"Configuration: log_level={config.log_level}, auth_timeout={config.auth_timeout}s")
 
     try:

@@ -2,6 +2,11 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.4] - 2026-11-03
+
+### Fixed
+- **A language written with an underscore no longer breaks the Google login (#209).** With `language: en_EN` or `de_DE`, the browser sent that value in its Accept-Language header; Google's servers then refused the sign-in page's scripts and fonts (CORS), so the page showed its form but Enter, "Next" and every button did nothing. The language is now turned into the form browsers expect (`en_EN` becomes `en-EN`, `de_DE` becomes `de-DE`), and the log says so. Reported by @SgtSeppel.
+
 ## [1.9.3] - 2026-10-29
 
 ### Added
