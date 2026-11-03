@@ -2,7 +2,7 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
-## [1.9.5] - Unreleased
+## [1.9.5] - 2026-11-03
 
 ### Security
 - **The standalone image no longer hands out the Google session without a key.** Without `API_KEY`, `/api/cookies` was open to anyone who could reach port 8099, the supervised child included. A key is now generated at first start, kept in `/share/familylink/api_key` (`./data/api_key` with the compose file) and printed in the container log at every start: `docker logs familylink-auth | grep "Cookie API key"`. **Standalone users:** after the update the integration reports an invalid API key until you open its *Reconfigure* and enter that key (or set `API_KEY` yourself). Home Assistant OS add-on installs are not affected: the key there was already generated and shared.

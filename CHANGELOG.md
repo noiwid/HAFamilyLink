@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.4.1] - 2026-11-03
+
+Fixes from a full review: actions no longer guess the child, a change Google refuses is reported, strict mode and transient errors behave, and the auth add-on 1.9.5 closes its standalone cookie endpoint (#227).
+
 ### Fixed
 - **A call that names no child no longer changes the first child's settings.** `add_time_bonus`, `set_daily_limit` and `ring_device` with only a `device_id`, and the bedtime, school time and daily limit actions with no child (or a template that rendered an empty `child_id`), were sent to the first supervised child, and strict mode then enforced the change on that child. The child now comes from the device; a family with several children must name the child, and a family with one child still needs no target.
 - **A change Google refuses is reported as an error.** The lock switch, the bonus, cancel and ring buttons, the bedtime, school time, daily limit and downtime switches, the time, number and select entities, and the `block_app`, `unblock_app`, `set_app_daily_limit`, `add_time_bonus`, `ring_device`, `set_bedtime` and enable/disable actions only wrote a line in the log when Google refused: an automation that locked the phone showed success while the phone stayed unlocked. They now fail with an error, and a refused bonus no longer keeps strict mode from cancelling a bonus given on Google's side. **Behaviour change:** an automation now stops at the step Google refused; add `continue_on_error: true` to a step that may fail without stopping the rest.
