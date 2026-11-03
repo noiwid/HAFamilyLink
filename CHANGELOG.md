@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [2.4.0] - 2026-11-03
+
+The Family Link entities and actions can be kept to the parents' Home Assistant accounts, and the auth add-on gets two fixes (VNC password enforced, a language with an underscore no longer breaks the login).
+
 ### Added
 - **Users allowed to control Family Link (#224)** - Home Assistant lets every user press any button or flip any switch, so a child with a Home Assistant account could give themselves a bonus from the Family Link entities. A new option, *Users allowed to control Family Link* (Settings > Devices & services > Google Family Link > Configure), closes that: once users are ticked, only they and the administrators can use the Family Link buttons, switches, limits, times and selects, and the `familylink.*` actions; anyone else gets an "Unauthorized" error and the attempt is logged. Automations and scripts started by Home Assistant itself are not affected. Empty (the default) keeps the previous behaviour, and changing the option needs no reload. Asked by @artgru.
 - **Auth add-on 1.9.4: a language written with an underscore no longer breaks the Google login (#209)** - `language: en_EN` or `de_DE` made Google refuse the sign-in page's scripts (CORS on the Accept-Language header): the form showed but nothing on it worked. The add-on now turns the value into the form browsers expect (`en-EN`, `de-DE`) and says so in the log. Reported by @SgtSeppel.
