@@ -29,3 +29,6 @@ respx==0.21.0
 syrupy==4.6.1
 tqdm==4.66.2
 uv==0.1.24
+# The runner image no longer ships legacy zone links (US/Pacific) that this
+# harness uses; zoneinfo falls back to this package for them.
+tzdata==2025.2
