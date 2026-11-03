@@ -497,11 +497,6 @@ set_school_time:
       example: false
       selector:
         boolean:
-      required: false
-      example: "08:00-12:00"
-      selector:
-        text:
-          multiple: true
     day:
       name: Day
       description: Day of the week. If not specified, applies to today.

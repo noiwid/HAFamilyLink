@@ -23,16 +23,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -42,9 +42,23 @@ jobs:
         id: addon_version
         run: echo "version=$(jq -r .version familylink-playwright/config.json)" >> "$GITHUB_OUTPUT"
 
+      # Supervisor pulls the add-on by its version tag: once published, a later
+      # push that did not bump config.json must not swap the code behind it.
+      - name: Check whether this add-on version is already published
+        id: addon_published
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.addon_version.outputs.version }}
+        run: |
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$IMAGE already published, the version tag is left as is (bump config.json to publish a new one)"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract metadata for addon image (tags, labels)
         id: meta-addon
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -54,11 +68,11 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.addon_version.outputs.version }}
+            type=raw,value=${{ steps.addon_version.outputs.version }},enable=${{ steps.addon_published.outputs.exists != 'true' }}
 
       - name: Extract metadata for standalone image (tags, labels)
         id: meta-standalone
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -69,7 +83,7 @@ jobs:
             type=raw,value=standalone,enable={{is_default_branch}}
 
       - name: Build and push Home Assistant addon image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: ./familylink-playwright
           file: ./familylink-playwright/Dockerfile
@@ -81,7 +95,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=addon
 
       - name: Build and push standalone Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: ./familylink-playwright
           file: ./familylink-playwright/Dockerfile.standalone

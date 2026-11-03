@@ -97,3 +97,29 @@ async def test_a_typed_key_still_makes_the_endpoint_manual(hass, managed_only, m
     assert result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_AUTH_SOURCE] == AUTH_SOURCE_MANUAL
     assert entry.data[CONF_API_KEY] == "typed-key"
+
+
+async def test_clearing_the_key_on_an_entry_set_up_through_the_add_on(
+    hass, managed_only, monkeypatch
+) -> None:
+    """The add-on setup stores no URL: the form shows the default one, and
+    submitting it unchanged must keep the entry managed, not turn it into a
+    manual localhost entry that cannot connect."""
+    monkeypatch.setattr(hass.config_entries, "async_reload", AsyncMock(return_value=True))
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_AUTH_SOURCE: AUTH_SOURCE_MANAGED, CONF_API_KEY: "stale-key"},
+        unique_id="familylink_default",
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    result = await _reconfigure(
+        hass, entry, {CONF_AUTH_URL: "http://localhost:8099", CONF_CLEAR_API_KEY: True}
+    )
+
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_AUTH_SOURCE] == AUTH_SOURCE_MANAGED
+    assert CONF_AUTH_URL not in entry.data
+    assert CONF_API_KEY not in entry.data
+    assert entry.unique_id == "familylink_default"

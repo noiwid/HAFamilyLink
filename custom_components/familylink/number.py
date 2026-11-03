@@ -15,6 +15,7 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -139,8 +140,7 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		today = dt_util.now().isoweekday()
 		client = self.coordinator.client
 		if client is None:
-			_LOGGER.error("Cannot set the daily limit: client not connected")
-			return
+			raise HomeAssistantError("Cannot set the daily limit: client not connected")
 		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} weekly daily limit of {self._child_name} to {minutes} min")
 		# Declared to strict mode BEFORE the writes: the client verifies each
 		# override for several seconds, and a refresh in between must not find
@@ -160,7 +160,8 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 			# taken in part keeps the new one, as the service does: strict mode
 			# then brings the devices that refused it into line
 			self.coordinator.restore_daily_limit_minutes(self._child_id, self._day, previous)
-			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} daily limit of {self._child_name}")
-		elif not all(results):
-			_LOGGER.error(f"The {DAY_NAMES[self._day]} daily limit of {self._child_name} was taken in part only")
 		await self.coordinator.async_request_refresh()
+		if not any(results):
+			raise HomeAssistantError(f"Failed to set the {DAY_NAMES[self._day]} daily limit of {self._child_name}")
+		if not all(results):
+			raise HomeAssistantError(f"The {DAY_NAMES[self._day]} daily limit of {self._child_name} was taken in part only")

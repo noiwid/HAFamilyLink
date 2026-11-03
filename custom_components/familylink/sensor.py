@@ -150,7 +150,8 @@ class FamilyLinkDeviceDailyScreenTimeSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "mdi:cellphone-clock"
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.TOTAL
+    # Resets to 0 at midnight: TOTAL without last_reset read the reset as a negative change
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(
         self,
@@ -570,7 +571,8 @@ class FamilyLinkScreenTimeSensor(ChildDataMixin, CoordinatorEntity, SensorEntity
 	"""Sensor for daily screen time in minutes."""
 
 	_attr_device_class = SensorDeviceClass.DURATION
-	_attr_state_class = SensorStateClass.TOTAL
+	# Resets to 0 at midnight: TOTAL without last_reset read the reset as a negative change
+	_attr_state_class = SensorStateClass.TOTAL_INCREASING
 	_attr_native_unit_of_measurement = UnitOfTime.MINUTES
 	_attr_icon = "mdi:timer-outline"
 

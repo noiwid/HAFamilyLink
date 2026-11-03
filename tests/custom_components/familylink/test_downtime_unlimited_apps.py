@@ -207,7 +207,8 @@ async def test_failed_switch_write_drops_the_pending_state() -> None:
     coordinator = switch.coordinator
     coordinator.client.async_set_downtime_unlimited_apps.return_value = False
 
-    await switch.async_turn_off()
+    with pytest.raises(HomeAssistantError):
+        await switch.async_turn_off()
 
     assert coordinator.set_pending_time_limit_state.call_args_list[-1].args == (
         CHILD_ID, "downtime_unlimited_apps", None
@@ -239,8 +240,8 @@ async def services(hass, coordinator):
     [
         ({"entity_id": SWITCH}, CHILD_ID),
         ({"child_id": "child-2"}, "child-2"),
-        # No target: the client falls back to the first supervised child
-        ({}, None),
+        # No target: the only supervised child of the family
+        ({}, "child-1"),
     ],
 )
 async def test_service_targets_the_child(hass, services, target, account_id) -> None:

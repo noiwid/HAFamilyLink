@@ -75,7 +75,7 @@ A broader hardening of the add-on (authenticated browser view, service token in 
 - Cookies are stored Fernet-encrypted in `/share/familylink/cookies.enc`, with the key in `/share/familylink/.key` (both mode 0600).
 - On first start in add-on mode, an API key is generated and saved to `/share/familylink/api_key` (0600). The integration reads that file automatically and calls `GET /api/cookies` with it: nothing to configure.
 - If the API is unreachable, the integration falls back to reading the encrypted file directly from `/share`.
-- In the standalone container no key is auto-generated: set the `API_KEY` environment variable yourself, otherwise `/api/cookies` is unprotected. See [DOCKER_STANDALONE.md](https://github.com/noiwid/HAFamilyLink/blob/main/DOCKER_STANDALONE.md).
+- In the standalone container the generated key is printed in the container log at every start (or set the `API_KEY` environment variable yourself): enter it in the integration's API-key field. See [DOCKER_STANDALONE.md](https://github.com/noiwid/HAFamilyLink/blob/main/DOCKER_STANDALONE.md).
 
 ### API endpoints (port 8099)
 

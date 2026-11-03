@@ -32,15 +32,14 @@ mkdir -p /share/familylink
 chmod 700 /share/familylink
 echo "✓ Shared storage ready at /share/familylink"
 
-# In standalone mode /api/cookies is protected only when the API_KEY env
-# variable is set; no key is auto-generated (app/main.py logs a warning).
+# /api/cookies always needs a key: API_KEY if set, otherwise one generated once
+# in /share/familylink/api_key and printed by app/main.py at startup.
 if [ -n "${API_KEY:-}" ]; then
     echo "✓ Cookie API key: provided via API_KEY environment variable"
-    echo "  Configure the HA integration with URL http://<this-host>:8099 and enter this key in its separate API-key field"
 else
-    echo "⚠ Cookie API key: not set. /api/cookies is open; set API_KEY to protect it."
-    echo "  Configure the HA integration with: http://<this-host>:8099"
+    echo "✓ Cookie API key: generated in /share/familylink/api_key, printed below at startup"
 fi
+echo "  Configure the HA integration with URL http://<this-host>:8099 and enter the key in its separate API-key field"
 
 # Start D-Bus system bus if not available (fixes blank screen on RPi4/ARM64)
 if [ ! -S /run/dbus/system_bus_socket ]; then

@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A call that names no child no longer changes the first child's settings.** `add_time_bonus`, `set_daily_limit` and `ring_device` with only a `device_id`, and the bedtime, school time and daily limit actions with no child (or a template that rendered an empty `child_id`), were sent to the first supervised child, and strict mode then enforced the change on that child. The child now comes from the device; a family with several children must name the child, and a family with one child still needs no target.
+- **A change Google refuses is reported as an error.** The lock switch, the bonus, cancel and ring buttons, the bedtime, school time, daily limit and downtime switches, the time, number and select entities, and the `block_app`, `unblock_app`, `set_app_daily_limit`, `add_time_bonus`, `ring_device`, `set_bedtime` and enable/disable actions only wrote a line in the log when Google refused: an automation that locked the phone showed success while the phone stayed unlocked. They now fail with an error, and a refused bonus no longer keeps strict mode from cancelling a bonus given on Google's side. **Behaviour change:** an automation now stops at the step Google refused; add `continue_on_error: true` to a step that may fail without stopping the rest.
+- **Strict mode lifts its own lock after midnight.** A bypass countered before midnight left the phone locked the next morning: the day change also forgot that the lock was strict mode's to lift when bedtime ended.
+- **A transient Google error no longer shows every device unlocked or clears the position.** A failed read of the applied limits now keeps the last lock state, and a server error or timeout on the location read keeps the last position instead of sending the tracker to unknown (which fired zone automations). A lasting refusal (location sharing turned off) still clears it. `refresh_location` refreshes every child even when one fails, and no longer writes the coordinates in the log.
+- **Screen time statistics no longer drop at midnight.** The daily screen time sensors counted their reset to 0 as a negative change in the long-term statistics; they are now `total_increasing`.
+- **`sync_site_list` leaves alone a site approved in any form.** Only an approval written exactly `example.com` or `*.example.com` kept a list from blocking example.com; an approved `www.example.com`, `*.example.*` or web address on example.com was blocked anyway, since Chrome lets a block win over an allow. Every approval that shares a site with a listed domain now skips it (follow-up to #195).
+- **Reconfigure keeps an add-on entry on the add-on (#186).** An entry set up through the add-on stores no URL, so the form showed `http://localhost:8099` and submitting it turned the entry into a manual one that could not connect: "Clear API key" never worked on Home Assistant OS.
+
+### Security
+- **Auth add-on 1.9.5:** the standalone image protects `/api/cookies` with a generated key, a failed login start no longer blocks every later login, and parallel starts no longer launch a browser each (see the add-on changelog). **Standalone users:** enter the key printed in the container log in the integration's *Reconfigure*.
+
 ---
 
 ## [2.4.0] - 2026-11-03

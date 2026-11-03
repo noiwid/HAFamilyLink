@@ -27,7 +27,7 @@ from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordin
 from custom_components.familylink.exceptions import NetworkError, SessionExpiredError
 from custom_components.familylink.sensor import FamilyLinkWebsitesSensor
 from custom_components.familylink.website_services import MAX_LIST_BYTES, UPDATE_BATCH, async_setup_website_services
-from custom_components.familylink.websites import domain_patterns, normalize_site, parse_site_list
+from custom_components.familylink.websites import approval_overlaps, domain_patterns, normalize_site, parse_site_list
 
 CHILD = "child-1"
 LIST_URL = "https://lists.example.org/gaps.txt"
@@ -319,6 +319,53 @@ async def test_sync_adds_new_domains_and_removes_only_what_it_pushed(hass, site_
     assert sorted(p for p, _ in update.await_args.kwargs["remove"]) == ["*.b.example", "b.example"]
     assert second["removed"] == ["*.b.example", "b.example"]
     assert second["removed_count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("pattern", "domain", "overlaps"),
+    [
+        # The site, or a subdomain of the listed domain
+        ("example.com", "example.com", True),
+        ("www.example.com", "example.com", True),
+        ("www.example.com", "other.com", False),
+        ("example.com", "ads.example.com", False),
+        # Subdomain wildcard, inside or around the listed domain
+        ("*.example.com", "example.com", True),
+        ("*.example.com", "ads.example.com", True),
+        ("*.www.example.com", "example.com", True),
+        ("*.example.com", "example.org", False),
+        # Any-suffix wildcard
+        ("*.example.*", "example.com", True),
+        ("*.example.*", "www.example.co.uk", True),
+        ("*.www.example.*", "example.org", True),
+        ("*.example.*", "notexample.com", False),
+        ("*.example.*", "example-ads.com", False),
+        # A web address counts for its host
+        ("https://www.example.com/page", "example.com", True),
+        ("https://www.example.com/page", "other.com", False),
+        # Stored verbatim: a port, a trailing dot, a broken address
+        ("example.com:8080", "example.com", True),
+        ("www.example.com.", "example.com", True),
+        ("http://[", "example.com", False),
+        ("*", "example.com", False),
+    ],
+)
+def test_approval_overlaps(pattern, domain, overlaps) -> None:
+    assert approval_overlaps(pattern, domain) is overlaps
+
+
+async def test_sync_leaves_alone_a_domain_approved_in_another_form(hass, site_services, aioclient_mock) -> None:
+    """www.example.com or *.example.* approved: example.com is not blocked (issue #195 follow-up)."""
+    aioclient_mock.get(LIST_URL, text="example.com\nexample.org\nads.example\n")
+    site_services.client.async_get_website_restrictions.return_value = {
+        "filter_level": "safeSites", "approved": ["www.example.com", "*.example.*"], "blocked": [],
+    }
+
+    result = await _call(hass, "sync_site_list", {"child_id": CHILD, "url": LIST_URL})
+
+    inserted = [p for p, _ in site_services.client.async_update_website_restrictions.await_args.kwargs["insert"]]
+    assert inserted == ["*.ads.example", "ads.example"]
+    assert result["skipped_approved"] == ["example.com", "example.org"]
 
 
 async def test_sync_refuses_a_list_over_the_cap(hass, site_services, aioclient_mock) -> None:

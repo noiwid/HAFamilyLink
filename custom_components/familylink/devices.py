@@ -64,6 +64,14 @@ def time_limit_device_ids(data: dict[str, Any] | None, child_id: str) -> list[st
 	]
 
 
+def child_of_device(data: dict[str, Any] | None, device_id: str) -> str | None:
+	"""Id of the child that owns ``device_id`` in the coordinator data (None if unknown)."""
+	for child in (data or {}).get("children_data", []):
+		if any(device.get("id") == device_id for device in child.get("devices", [])):
+			return child.get("child_id")
+	return None
+
+
 def devices_not_listed_yet(data: dict[str, Any] | None, device_ids: Iterable[str]) -> list[str]:
 	"""Ids among ``device_ids`` that take time limits but that Google lists none for yet.
 

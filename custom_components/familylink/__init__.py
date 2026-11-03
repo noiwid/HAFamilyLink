@@ -48,10 +48,10 @@ from .const import (
 )
 from .app_pause import async_remove_app_pause_services, async_setup_app_pause_services
 from .coordinator import FamilyLinkDataUpdateCoordinator
-from .devices import devices_not_listed_yet, time_limit_device_ids
+from .devices import child_of_device, devices_not_listed_yet, time_limit_device_ids
 from .permissions import async_register_guarded_service
 from .website_services import async_remove_website_services, async_setup_website_services
-from .exceptions import FamilyLinkException
+from .exceptions import FamilyLinkException, NetworkError
 from .schedules import parse_time_string
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -418,6 +418,44 @@ def resolve_app_service_child(hass: HomeAssistant, call: ServiceCall) -> str | N
 	return child_id or None
 
 
+def resolve_service_child(hass: HomeAssistant, data: dict[str, Any] | None, call: ServiceCall, device_id: str | None = None) -> str:
+	"""Child targeted by a per-child service, never guessed among several.
+
+	Without a child the client used to fall back to the first supervised child,
+	so with two children a call naming only the second one's device (or an
+	empty templated child_id) changed the first one. The child comes from
+	child_id, else from the entity, else from the device; a family with a
+	single child still needs no target.
+	"""
+	entity_id = call.data.get("entity_id")
+	child_id = (call.data.get("child_id") or "").strip()
+	# A template that rendered nothing gives "" or "None": no child, not an id
+	if child_id.lower() == "none":
+		child_id = ""
+	if entity_id and not child_id:
+		try:
+			_, child_id = extract_ids_from_entity(hass, entity_id)
+		except ValueError as err:
+			raise ServiceValidationError(str(err)) from err
+		if not child_id:
+			raise ServiceValidationError(
+				f"Entity {entity_id} does not belong to a Family Link child. Select an "
+				"entity of the child, or pass child_id."
+			)
+	if not child_id and device_id:
+		child_id = child_of_device(data, device_id)
+	if not child_id:
+		children = [c.get("child_id") for c in (data or {}).get("children_data", []) if c.get("child_id")]
+		if len(children) != 1:
+			raise ServiceValidationError(
+				f"Device {device_id} is not a known device of a supervised child: pass child_id."
+				if device_id
+				else "No child given. Pass child_id or a Family Link entity of the child."
+			)
+		child_id = children[0]
+	return child_id
+
+
 async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataUpdateCoordinator) -> None:
 	"""Set up services for Family Link."""
 
@@ -494,129 +532,49 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_LOGGER.error(f"Failed to unblock all apps: {err}")
 			raise
 
+	async def _run_app_service(call: ServiceCall, label: str, write) -> None:
+		"""Apply ``write(account_id)`` to the child, or every child on all_children: true."""
+		_require_client()
+		child_id = resolve_app_service_child(hass, call)
+		if child_id:
+			targets = [(child_id, f"child {child_id}")]
+		else:
+			targets = [(c["id"], c["name"]) for c in await coordinator.client.async_get_all_supervised_children()]
+		_LOGGER.info(f"Service called: {label} ({'all children' if not child_id else f'child_id: {child_id}'})")
+		failed = []
+		for account_id, name in targets:
+			if await write(account_id):
+				_LOGGER.info(f"Successfully did {label} for {name}")
+			else:
+				failed.append(name)
+		await coordinator.async_request_refresh()
+		if failed:
+			raise HomeAssistantError(f"Family Link did not {label} for {', '.join(failed)} (see the log for details)")
+
 	async def handle_block_app(call: ServiceCall) -> None:
 		"""Handle block_app service call."""
-		_require_client()
 		package_name = call.data["package_name"]
-		# A child, or every child on an explicit all_children: true
-		child_id = resolve_app_service_child(hass, call)
-
-		try:
-			if child_id:
-				# Apply to specific child
-				_LOGGER.info(f"Service called: block_app for {package_name} (child_id: {child_id})")
-				success = await coordinator.client.async_block_app(package_name, account_id=child_id)
-				if success:
-					_LOGGER.info(f"Successfully blocked app: {package_name} for child {child_id}")
-				else:
-					_LOGGER.error(f"Failed to block app: {package_name} for child {child_id}")
-			else:
-				# Apply to ALL supervised children
-				_LOGGER.info(f"Service called: block_app for {package_name} (all children)")
-				children = await coordinator.client.async_get_all_supervised_children()
-				success_count = 0
-				fail_count = 0
-
-				for child in children:
-					child_account_id = child["id"]
-					child_name = child["name"]
-					result = await coordinator.client.async_block_app(package_name, account_id=child_account_id)
-					if result:
-						success_count += 1
-						_LOGGER.info(f"Successfully blocked app: {package_name} for {child_name}")
-					else:
-						fail_count += 1
-						_LOGGER.error(f"Failed to block app: {package_name} for {child_name}")
-
-				_LOGGER.info(f"Block app {package_name}: {success_count} succeeded, {fail_count} failed")
-
-			await coordinator.async_request_refresh()
-		except Exception as err:
-			_LOGGER.error(f"Error blocking app {package_name}: {err}")
-			raise
+		await _run_app_service(
+			call, f"block app {package_name}",
+			lambda account_id: coordinator.client.async_block_app(package_name, account_id=account_id),
+		)
 
 	async def handle_unblock_app(call: ServiceCall) -> None:
 		"""Handle unblock_app service call."""
-		_require_client()
 		package_name = call.data["package_name"]
-		# A child, or every child on an explicit all_children: true
-		child_id = resolve_app_service_child(hass, call)
-
-		try:
-			if child_id:
-				# Apply to specific child
-				_LOGGER.info(f"Service called: unblock_app for {package_name} (child_id: {child_id})")
-				success = await coordinator.client.async_unblock_app(package_name, account_id=child_id)
-				if success:
-					_LOGGER.info(f"Successfully unblocked app: {package_name} for child {child_id}")
-				else:
-					_LOGGER.error(f"Failed to unblock app: {package_name} for child {child_id}")
-			else:
-				# Apply to ALL supervised children
-				_LOGGER.info(f"Service called: unblock_app for {package_name} (all children)")
-				children = await coordinator.client.async_get_all_supervised_children()
-				success_count = 0
-				fail_count = 0
-
-				for child in children:
-					child_account_id = child["id"]
-					child_name = child["name"]
-					result = await coordinator.client.async_unblock_app(package_name, account_id=child_account_id)
-					if result:
-						success_count += 1
-						_LOGGER.info(f"Successfully unblocked app: {package_name} for {child_name}")
-					else:
-						fail_count += 1
-						_LOGGER.error(f"Failed to unblock app: {package_name} for {child_name}")
-
-				_LOGGER.info(f"Unblock app {package_name}: {success_count} succeeded, {fail_count} failed")
-
-			await coordinator.async_request_refresh()
-		except Exception as err:
-			_LOGGER.error(f"Error unblocking app {package_name}: {err}")
-			raise
+		await _run_app_service(
+			call, f"unblock app {package_name}",
+			lambda account_id: coordinator.client.async_unblock_app(package_name, account_id=account_id),
+		)
 
 	async def handle_set_app_daily_limit(call: ServiceCall) -> None:
 		"""Handle set_app_daily_limit service call."""
-		_require_client()
 		package_name = call.data["package_name"]
 		minutes = call.data["minutes"]
-		# A child, or every child on an explicit all_children: true
-		child_id = resolve_app_service_child(hass, call)
-
-		try:
-			if child_id:
-				# Apply to specific child
-				_LOGGER.info(f"Service called: set_app_daily_limit for {package_name} = {minutes} min (child_id: {child_id})")
-				success = await coordinator.client.async_set_app_daily_limit(package_name, minutes, account_id=child_id)
-				if success:
-					_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} min for child {child_id}")
-				else:
-					_LOGGER.error(f"Failed to set app daily limit: {package_name} for child {child_id}")
-			else:
-				# Apply to ALL supervised children
-				_LOGGER.info(f"Service called: set_app_daily_limit for {package_name} = {minutes} min (all children)")
-				children = await coordinator.client.async_get_all_supervised_children()
-				success_count = 0
-				fail_count = 0
-
-				for child in children:
-					child_account_id = child["id"]
-					child_name = child["name"]
-					result = await coordinator.client.async_set_app_daily_limit(package_name, minutes, account_id=child_account_id)
-					if result:
-						success_count += 1
-						_LOGGER.info(f"Successfully set app daily limit: {package_name} = {minutes} min for {child_name}")
-					else:
-						fail_count += 1
-						_LOGGER.error(f"Failed to set app daily limit: {package_name} for {child_name}")
-
-				_LOGGER.info(f"Set app daily limit {package_name}: {success_count} succeeded, {fail_count} failed")
-
-			await coordinator.async_request_refresh()
-		except Exception as err:
-			_LOGGER.error(f"Error setting app daily limit for {package_name}: {err}")
-			raise
+		await _run_app_service(
+			call, f"set the daily limit of {package_name} to {minutes} min",
+			lambda account_id: coordinator.client.async_set_app_daily_limit(package_name, minutes, account_id=account_id),
+		)
 
 	async def handle_add_time_bonus(call: ServiceCall) -> None:
 		"""Handle add_time_bonus service call."""
@@ -636,176 +594,53 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		if not device_id:
 			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+		if not child_id:
+			child_id = resolve_service_child(hass, coordinator.data, call, device_id)
 
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
 			# Declared to strict mode BEFORE the call (the client verifies the
 			# bonus for several seconds, a poll in between must not cancel it)
-			coordinator.register_ha_bonus(device_id, bonus_minutes)
+			previous_bonus = coordinator.register_ha_bonus(device_id, bonus_minutes)
 			success = await coordinator.client.async_add_time_bonus(
 				bonus_minutes=bonus_minutes,
 				device_id=device_id,
 				account_id=child_id
 			)
-			if success:
-				_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error(f"Failed to add time bonus to device {device_id}")
 		except Exception as err:
+			coordinator.restore_ha_bonus(device_id, previous_bonus)
 			_LOGGER.error(f"Error adding time bonus: {err}")
 			raise
+		if not success:
+			coordinator.restore_ha_bonus(device_id, previous_bonus)
+			raise HomeAssistantError(f"Family Link did not add the time bonus to device {device_id} (see the log for details)")
+		_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
+		await coordinator.async_request_refresh()
 
-	async def handle_enable_bedtime(call: ServiceCall) -> None:
-		"""Handle enable_bedtime service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
+	def _policy_toggle_handler(policy: str, label: str, enable: bool):
+		"""Handler of enable_/disable_ bedtime, school_time and daily_limit."""
+		method = f"async_{'enable' if enable else 'disable'}_{policy}"
+		action = f"{'enable' if enable else 'disable'} {label}"
 
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		async def handler(call: ServiceCall) -> None:
+			_require_client()
+			child_id = resolve_service_child(hass, coordinator.data, call)
+			_LOGGER.info(f"Service called: {method.removeprefix('async_')} (child_id: {child_id})")
+			if not await getattr(coordinator.client, method)(account_id=child_id):
+				raise HomeAssistantError(f"Family Link did not {action} (see the log for details)")
+			coordinator.record_policy_intent(child_id, policy, enable)
+			_LOGGER.info(f"Successfully did {action}")
+			await coordinator.async_request_refresh()
 
-		_LOGGER.info(f"Service called: enable_bedtime")
+		return handler
 
-		try:
-			success = await coordinator.client.async_enable_bedtime(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "bedtime", True)
-				_LOGGER.info("Successfully enabled bedtime")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to enable bedtime")
-		except Exception as err:
-			_LOGGER.error(f"Error enabling bedtime: {err}")
-			raise
-
-	async def handle_disable_bedtime(call: ServiceCall) -> None:
-		"""Handle disable_bedtime service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
-
-		_LOGGER.info(f"Service called: disable_bedtime")
-
-		try:
-			success = await coordinator.client.async_disable_bedtime(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "bedtime", False)
-				_LOGGER.info("Successfully disabled bedtime")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to disable bedtime")
-		except Exception as err:
-			_LOGGER.error(f"Error disabling bedtime: {err}")
-			raise
-
-	async def handle_enable_school_time(call: ServiceCall) -> None:
-		"""Handle enable_school_time service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
-
-		_LOGGER.info(f"Service called: enable_school_time")
-
-		try:
-			success = await coordinator.client.async_enable_school_time(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "school_time", True)
-				_LOGGER.info("Successfully enabled school time")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to enable school time")
-		except Exception as err:
-			_LOGGER.error(f"Error enabling school time: {err}")
-			raise
-
-	async def handle_disable_school_time(call: ServiceCall) -> None:
-		"""Handle disable_school_time service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
-
-		_LOGGER.info(f"Service called: disable_school_time")
-
-		try:
-			success = await coordinator.client.async_disable_school_time(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "school_time", False)
-				_LOGGER.info("Successfully disabled school time")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to disable school time")
-		except Exception as err:
-			_LOGGER.error(f"Error disabling school time: {err}")
-			raise
-
-	async def handle_enable_daily_limit(call: ServiceCall) -> None:
-		"""Handle enable_daily_limit service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
-
-		_LOGGER.info(f"Service called: enable_daily_limit")
-
-		try:
-			success = await coordinator.client.async_enable_daily_limit(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "daily_limit", True)
-				_LOGGER.info("Successfully enabled daily limit")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to enable daily limit")
-		except Exception as err:
-			_LOGGER.error(f"Error enabling daily limit: {err}")
-			raise
-
-	async def handle_disable_daily_limit(call: ServiceCall) -> None:
-		"""Handle disable_daily_limit service call."""
-		_require_client()
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
-
-		_LOGGER.info(f"Service called: disable_daily_limit")
-
-		try:
-			success = await coordinator.client.async_disable_daily_limit(account_id=child_id)
-			if success:
-				coordinator.record_policy_intent(child_id, "daily_limit", False)
-				_LOGGER.info("Successfully disabled daily limit")
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to disable daily limit")
-		except Exception as err:
-			_LOGGER.error(f"Error disabling daily limit: {err}")
-			raise
+	handle_enable_bedtime = _policy_toggle_handler("bedtime", "bedtime", True)
+	handle_disable_bedtime = _policy_toggle_handler("bedtime", "bedtime", False)
+	handle_enable_school_time = _policy_toggle_handler("school_time", "school time", True)
+	handle_disable_school_time = _policy_toggle_handler("school_time", "school time", False)
+	handle_enable_daily_limit = _policy_toggle_handler("daily_limit", "daily limit", True)
+	handle_disable_daily_limit = _policy_toggle_handler("daily_limit", "daily limit", False)
 
 	async def handle_set_daily_limit(call: ServiceCall) -> None:
 		"""Handle set_daily_limit service call."""
@@ -835,6 +670,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		# takes time limits (not a Google TV, #173).
 		if device_id:
 			device_ids = [device_id]
+			if not child_id:
+				child_id = resolve_service_child(hass, coordinator.data, call, device_id)
 		elif child_id:
 			device_ids = time_limit_device_ids(coordinator.data, child_id)
 			if not device_ids and posts_override:
@@ -922,22 +759,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		end_time = call.data["end_time"]
 		day = call.data.get("day")  # Optional, defaults to today
 		scope = call.data.get("scope", "weekly")
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		# If entity_id provided, extract child_id from entity attributes
-		if entity_id and not child_id:
-			try:
-				_, child_id = extract_ids_from_entity(hass, entity_id)
-			except ValueError as err:
-				raise ServiceValidationError(str(err)) from err
-			# An entity that names no child (another integration's) must not
-			# fall back to the first child
-			if not child_id:
-				raise ServiceValidationError(
-					f"Entity {entity_id} does not belong to a Family Link child. Select an "
-					"entity of the child, or pass child_id."
-				)
+		child_id = resolve_service_child(hass, coordinator.data, call)
 
 		# Convert day to int if provided as string (from UI selector)
 		if day is not None:
@@ -953,16 +775,15 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				account_id=child_id,
 				scope=scope,
 			)
-			if success:
-				_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
-				if scope == "weekly":
-					coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
-				await coordinator.async_request_refresh()
-			else:
-				_LOGGER.error("Failed to set bedtime")
 		except Exception as err:
 			_LOGGER.error(f"Error setting bedtime: {err}")
 			raise
+		if not success:
+			raise HomeAssistantError(f"Family Link rejected bedtime {start_time}-{end_time} (see the log for details)")
+		_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+		if scope == "weekly":
+			coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
+		await coordinator.async_request_refresh()
 
 	async def handle_set_school_time(call: ServiceCall) -> None:
 		"""Handle set_school_time service call (school time start and finish)."""
@@ -978,8 +799,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		enabled = call.data.get("enabled")
 		day = call.data.get("day")
 		scope = call.data.get("scope", "weekly")
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
 
 		if enabled is not None and (windows is not None or start_time or end_time):
 			raise ServiceValidationError("enabled switches the day on or off on its own: no start_time, end_time or windows with it.")
@@ -990,9 +809,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		if (windows is not None or enabled is not None) and scope != "weekly":
 			raise ServiceValidationError("windows and enabled edit the weekly schedule only: use scope weekly.")
 
-		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+		child_id = resolve_service_child(hass, coordinator.data, call)
 
 		if day is not None:
 			day = int(day)
@@ -1048,21 +865,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		"""Handle set_downtime_unlimited_apps service call (apps with unlimited time during downtime)."""
 		_require_client()
 		allow = call.data["allow"]
-		entity_id = call.data.get("entity_id")
-		child_id = call.data.get("child_id")
-
-		if entity_id and not child_id:
-			try:
-				_, child_id = extract_ids_from_entity(hass, entity_id)
-			except ValueError as err:
-				raise ServiceValidationError(str(err)) from err
-			# An entity that names no child (another integration's) must not
-			# fall back to the first child
-			if not child_id:
-				raise ServiceValidationError(
-					f"Entity {entity_id} does not belong to a Family Link child. Select an "
-					"entity of the child, or pass child_id."
-				)
+		child_id = resolve_service_child(hass, coordinator.data, call)
 
 		_LOGGER.info(f"Service called: set_downtime_unlimited_apps (allow={allow})")
 
@@ -1084,31 +887,28 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
 			child_id = extracted_child_id
 
-		try:
-			if child_id:
-				_LOGGER.info(f"Service called: refresh_location (child_id: {child_id})")
-				location = await coordinator.client.async_get_location(account_id=child_id, refresh=True)
-				if location:
-					_LOGGER.info(f"Successfully refreshed location for child {child_id}: ({location['latitude']}, {location['longitude']})")
-				else:
-					_LOGGER.warning(f"No location data returned for child {child_id}")
+		if child_id:
+			targets = [(child_id, f"child {child_id}")]
+		else:
+			targets = [(c["id"], c["name"]) for c in await coordinator.client.async_get_all_supervised_children()]
+		_LOGGER.info(f"Service called: refresh_location ({'all children' if not child_id else f'child_id: {child_id}'})")
+		failed = []
+		for account_id, name in targets:
+			# One child failing must not leave the next ones without a refresh
+			try:
+				location = await coordinator.client.async_get_location(account_id=account_id, refresh=True)
+			except NetworkError as err:
+				_LOGGER.warning(f"Failed to refresh the location of {name}: {err}")
+				failed.append(name)
+				continue
+			# No coordinates in the log: it ends up pasted in public issues
+			if location:
+				_LOGGER.info(f"Refreshed the location of {name}")
 			else:
-				# Refresh location for ALL supervised children
-				_LOGGER.info("Service called: refresh_location (all children)")
-				children = await coordinator.client.async_get_all_supervised_children()
-				for child in children:
-					child_account_id = child["id"]
-					child_name = child["name"]
-					location = await coordinator.client.async_get_location(account_id=child_account_id, refresh=True)
-					if location:
-						_LOGGER.info(f"Successfully refreshed location for {child_name}: ({location['latitude']}, {location['longitude']})")
-					else:
-						_LOGGER.warning(f"No location data returned for {child_name}")
-
-			await coordinator.async_request_refresh()
-		except Exception as err:
-			_LOGGER.error(f"Error refreshing location: {err}")
-			raise
+				_LOGGER.warning(f"No location data returned for {name}")
+		await coordinator.async_request_refresh()
+		if failed:
+			raise HomeAssistantError(f"Family Link did not refresh the location of {', '.join(failed)} (see the log for details)")
 
 	# Register services
 	async_register_guarded_service(
@@ -1190,6 +990,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		if not device_id:
 			raise ValueError("device_id is required. Either select an entity or provide device_id manually.")
+		if not child_id:
+			child_id = resolve_service_child(hass, coordinator.data, call, device_id)
 
 		_LOGGER.info(f"Service called: ring_device for device {device_id}")
 
@@ -1198,13 +1000,12 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				device_id=device_id,
 				child_id=child_id,
 			)
-			if success:
-				_LOGGER.info(f"Successfully rang device {device_id}")
-			else:
-				_LOGGER.error(f"Failed to ring device {device_id}")
 		except Exception as err:
 			_LOGGER.error(f"Error ringing device: {err}")
 			raise
+		if not success:
+			raise HomeAssistantError(f"Family Link did not ring device {device_id} (see the log for details)")
+		_LOGGER.info(f"Successfully rang device {device_id}")
 
 	# Register time management services
 	async_register_guarded_service(

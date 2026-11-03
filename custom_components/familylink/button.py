@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -125,8 +126,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		"""Handle the button press."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot add time bonus: client not connected")
-			return
+			raise HomeAssistantError("Cannot add time bonus: client not connected")
 		_LOGGER.info(
 			f"Adding {self._bonus_minutes} minutes bonus to device {self._device_name} for {self._child_name}"
 		)
@@ -134,17 +134,20 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		# Declare the bonus to strict mode BEFORE posting it: the client
 		# verifies the bonus for several seconds and a coordinator poll in
 		# that window would otherwise cancel it as a Google-side bonus.
-		self.coordinator.register_ha_bonus(self._device_id, self._bonus_minutes)
-		success = await self.coordinator.client.async_add_time_bonus(
-			bonus_minutes=self._bonus_minutes,
-			device_id=self._device_id,
-			account_id=self._child_id,
-		)
+		previous = self.coordinator.register_ha_bonus(self._device_id, self._bonus_minutes)
+		try:
+			success = await self.coordinator.client.async_add_time_bonus(
+				bonus_minutes=self._bonus_minutes,
+				device_id=self._device_id,
+				account_id=self._child_id,
+			)
+		except Exception:
+			self.coordinator.restore_ha_bonus(self._device_id, previous)
+			raise
 
 		if not success:
-			_LOGGER.error(
-				f"Failed to add {self._bonus_minutes} minutes bonus to device {self._device_name}"
-			)
+			self.coordinator.restore_ha_bonus(self._device_id, previous)
+			raise HomeAssistantError(f"Failed to add {self._bonus_minutes} minutes bonus to device {self._device_name}")
 		else:
 			_LOGGER.info(
 				f"Successfully added {self._bonus_minutes} minutes bonus to device {self._device_name}"
@@ -231,8 +234,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			return
 
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot cancel time bonus: client not connected")
-			return
+			raise HomeAssistantError("Cannot cancel time bonus: client not connected")
 
 		# Bonuses stack on Google's side and the applied limits only report
 		# the most recent one: cancel every bonus of the day, and fall back to
@@ -249,9 +251,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		)
 
 		if not success:
-			_LOGGER.error(
-				f"Failed to cancel time bonus for device {self._device_name}"
-			)
+			raise HomeAssistantError(f"Failed to cancel time bonus for device {self._device_name}")
 		else:
 			_LOGGER.info(
 				f"Successfully cancelled time bonus for device {self._device_name}"
@@ -305,8 +305,7 @@ class RingDeviceButton(CoordinatorEntity, ButtonEntity):
 		"""Handle the button press - ring the device."""
 		await async_check_entity_action(self)
 		if self.coordinator.client is None:
-			_LOGGER.error("Cannot ring device: client not connected")
-			return
+			raise HomeAssistantError("Cannot ring device: client not connected")
 
 		_LOGGER.info(
 			f"Ringing device {self._device_name} for {self._child_name}"
@@ -318,6 +317,6 @@ class RingDeviceButton(CoordinatorEntity, ButtonEntity):
 		)
 
 		if not success:
-			_LOGGER.error(f"Failed to ring device {self._device_name}")
+			raise HomeAssistantError(f"Failed to ring device {self._device_name}")
 		else:
 			_LOGGER.info(f"Successfully rang device {self._device_name}")

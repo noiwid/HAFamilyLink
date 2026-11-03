@@ -24,6 +24,7 @@ class BrowserAuthManager:
         self._language = language
         self._timezone = timezone
         self._storage = storage  # Injected SharedStorage instance
+        self._start_lock = asyncio.Lock()
 
     async def initialize(self):
         """Initialize Playwright."""
@@ -36,6 +37,13 @@ class BrowserAuthManager:
 
     async def start_auth_session(self) -> str:
         """Start a new authentication session."""
+        # One start at a time: several seconds of awaits separate the
+        # single-session check from the session being recorded, so parallel
+        # requests would each pass the check and launch a Chromium.
+        async with self._start_lock:
+            return await self._start_auth_session()
+
+    async def _start_auth_session(self) -> str:
         # Prune old completed sessions (prevent memory leak)
         self._prune_old_sessions()
 
@@ -146,6 +154,8 @@ class BrowserAuthManager:
 
         except Exception as e:
             _LOGGER.error(f"Failed to start auth session: {e}")
+            # A session left "authenticating" would block every later start
+            self._sessions.pop(session_id, None)
             # Cleanup browser resources on failure to prevent leaks
             try:
                 if page:

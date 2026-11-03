@@ -15,6 +15,7 @@ from homeassistant.components.time import TimeEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -139,8 +140,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 		await async_check_entity_action(self)
 		client = self.coordinator.client
 		if client is None:
-			_LOGGER.error("Cannot set the bedtime: client not connected")
-			return
+			raise HomeAssistantError("Cannot set the bedtime: client not connected")
 		slot = self._slot() or {}
 		start = self._as_time(slot.get("start"))
 		end = self._as_time(slot.get("end"))
@@ -161,9 +161,9 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 			self.coordinator.record_bedtime_hours(
 				self._child_id, self._day, [start.hour, start.minute], [end.hour, end.minute]
 			)
-		else:
-			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} bedtime of {self._child_name}")
 		await self.coordinator.async_request_refresh()
+		if not success:
+			raise HomeAssistantError(f"Failed to set the {DAY_NAMES[self._day]} bedtime of {self._child_name}")
 
 
 class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
@@ -258,8 +258,7 @@ class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
 		await async_check_entity_action(self)
 		client = self.coordinator.client
 		if client is None:
-			_LOGGER.error("Cannot set the school time: client not connected")
-			return
+			raise HomeAssistantError("Cannot set the school time: client not connected")
 		day = self._slot() or {}
 		target = day.get("first_slot" if self._bound == BOUND_START else "last_slot") or {}
 		start = self._as_time(target.get("start"))
@@ -277,6 +276,6 @@ class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
 			start_text, end_text, day=self._day, account_id=self._child_id, scope="weekly",
 			slot_id=target.get("slot_id"),
 		)
-		if not success:
-			_LOGGER.error(f"Failed to set the {DAY_NAMES[self._day]} school time of {self._child_name}")
 		await self.coordinator.async_request_refresh()
+		if not success:
+			raise HomeAssistantError(f"Failed to set the {DAY_NAMES[self._day]} school time of {self._child_name}")

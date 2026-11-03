@@ -38,7 +38,7 @@ Both routes then continue with the same [integration install](#install-the-integ
 
 1. Run the standalone auth container: [DOCKER_STANDALONE.md](DOCKER_STANDALONE.md) covers the Docker Compose file, environment variables, volumes, ports, and the `API_KEY` protection.
 2. Authenticate through its web UI (`http://<docker-host>:8099`), using the same two-port flow as the add-on (start the authentication on port 8099, finish the Google login via noVNC on port 6080).
-3. Note the URL you will give the integration: `http://<docker-host>:8099`. If you set the container's `API_KEY` environment variable, enter its value in the integration's separate masked API-key field.
+3. Note the URL you will give the integration: `http://<docker-host>:8099`. Enter the container's key in the integration's separate masked API-key field: the `API_KEY` environment variable if you set one, otherwise the key printed in the container log (`docker logs familylink-auth | grep "Cookie API key"`).
 4. Continue with [Install the integration](#install-the-integration). In the configuration flow, choose **Manual URL configuration (Docker standalone)** and enter that URL.
 
 ## Install the integration
@@ -75,7 +75,7 @@ If auto-detect finds nothing, the flow falls back to the manual URL form.
 
 ### Step 2 (manual URL only): authentication server URL and API key
 
-Enter the auth server URL, for example `http://192.168.1.100:8099`. If the standalone container has `API_KEY` configured, enter that value in the separate masked API-key field; otherwise leave the field empty.
+Enter the auth server URL, for example `http://192.168.1.100:8099`. Enter the standalone container's key in the separate masked API-key field: its `API_KEY` value, or the key printed in its log.
 
 Existing version-1 entries containing a query key are migrated automatically. The stored URL and unique ID become key-free, and diagnostics redact the separate key. Home Assistant config-entry storage and backups still contain the credential, so continue treating them as sensitive.
 
@@ -122,7 +122,7 @@ Auth-service issues (noVNC not connecting, black screen, login timeout, VNC pass
 
 ### "The server requires an API key" (HTTP 403)
 
-- Route B: enter the value of the container's `API_KEY` environment variable in the separate API-key field. Leave it blank only when `API_KEY` is not configured.
+- Route B: enter the container's key in the separate API-key field: its `API_KEY` value, or the key printed in its log (container image 1.9.5 or later always requires one).
 - Route A: the key is read automatically from `/share/familylink/api_key`; a 403 usually means the URL was entered manually without the key. Prefer auto-detect on Route A.
 
 ### "No cookies found"

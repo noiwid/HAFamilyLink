@@ -120,3 +120,52 @@ def test_failed_refresh_plans_nothing():
     for flag in ("time_limit_fresh", "applied_limits_fresh"):
         stale = {**child, flag: False}
         assert _actions(stale, _intents(None)) == []
+
+
+def test_a_strict_mode_lock_survives_midnight(monkeypatch) -> None:
+    """A lock placed by strict mode before midnight is still lifted when bedtime ends.
+
+    The day change wiped every device intent, so a bypass countered at 22:30
+    left the phone locked the next morning: nothing knew the lock was strict
+    mode's to lift. A lock or unlock decided from HA still expires.
+    """
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from custom_components.familylink import coordinator as coordinator_module
+    from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
+
+    fake = SimpleNamespace(_strict_intents={
+        CHILD: {
+            "date": "2026-11-03",
+            "policies": {},
+            "values": {},
+            "devices": {DEVICE: DEVICE_INTENT_AUTO_LOCK, "device-2": "lock"},
+        }
+    })
+    monkeypatch.setattr(coordinator_module.dt_util, "now", lambda: datetime(2026, 11, 4, 0, 5))
+
+    entry = FamilyLinkDataUpdateCoordinator._intents_for(fake, CHILD)
+
+    assert entry["date"] == "2026-11-04"
+    assert entry["devices"] == {DEVICE: DEVICE_INTENT_AUTO_LOCK}
+
+
+def test_a_strict_mode_lock_is_carried_over_one_night_only(monkeypatch) -> None:
+    """A lock rule switched off meanwhile must not lift a lock days later."""
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from custom_components.familylink import coordinator as coordinator_module
+    from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
+
+    fake = SimpleNamespace(_strict_intents={
+        CHILD: {"date": "2026-11-03", "policies": {}, "values": {}, "devices": {DEVICE: DEVICE_INTENT_AUTO_LOCK}}
+    })
+    for day, expected in ((4, {DEVICE: DEVICE_INTENT_AUTO_LOCK}), (5, {})):
+        monkeypatch.setattr(coordinator_module.dt_util, "now", lambda day=day: datetime(2026, 11, day, 9, 0))
+        assert FamilyLinkDataUpdateCoordinator._intents_for(fake, CHILD)["devices"] == expected
+
+    # Stored for days with the rule off: dropped, not carried
+    fake._strict_intents[CHILD].update(date="2026-11-01", devices={DEVICE: DEVICE_INTENT_AUTO_LOCK}, carried=[])
+    assert FamilyLinkDataUpdateCoordinator._intents_for(fake, CHILD)["devices"] == {}

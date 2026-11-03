@@ -59,6 +59,43 @@ def domain_patterns(domain: str) -> list[str]:
 	return [f"*.{host}", host]
 
 
+def _within(host: str, domain: str) -> bool:
+	return host == domain or host.endswith("." + domain)
+
+
+def approval_overlaps(pattern: str, domain: str) -> bool:
+	"""Whether blocking ``domain`` and its subdomains would hit sites ``pattern`` approves.
+
+	Chrome lets a block win over an allow, so a list must leave alone any domain
+	that shares a site with an approval, whatever its form: ``www.example.com``,
+	``*.example.com``, ``*.example.*`` or a web address on example.com.
+	"""
+	pattern = pattern.lower()
+	if "://" in pattern:
+		try:
+			pattern = urlsplit(pattern).hostname or ""
+		except ValueError:
+			return False  # Google stores what the parent typed: a broken address approves nothing
+	else:
+		pattern = pattern.split("/", 1)[0].rsplit(":", 1)[0]
+	pattern = pattern.rstrip(".")
+	if not pattern:
+		return False
+	if not pattern.startswith("*."):
+		return _within(pattern, domain)
+	core = pattern[2:]
+	if not core.endswith(".*"):
+		return _within(core, domain) or _within(domain, core)
+	# *.core.* approves core.<any suffix> and its subdomains
+	core = core[:-2]
+	labels = domain.split(".")
+	for cut in range(1, len(labels)):
+		head = ".".join(labels[:cut])  # domain = head.<suffix>
+		if _within(head, core) or _within(core, head):
+			return True
+	return False
+
+
 def _is_list_domain(token: str) -> bool:
 	"""Whether ``token`` is a plain domain a published list may ask us to block."""
 	if "*" in token or "/" in token or _IPV4.match(token) or _SUFFIX.match(token):
