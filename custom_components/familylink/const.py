@@ -21,6 +21,8 @@ CONF_STRICT_MODE_RULES: Final = "strict_mode_rules"
 # A device lock from Home Assistant keeps the "always allowed" apps reachable
 # from the lock screen (Google override code 7) instead of a plain lock (code 1)
 CONF_LOCK_KEEPS_ALLOWED_APPS: Final = "lock_keeps_allowed_apps"
+# Home Assistant user ids allowed to control Family Link by hand (empty: everyone, issue #224)
+CONF_ALLOWED_USERS: Final = "allowed_users"
 
 AUTH_SOURCE_MANAGED: Final = "managed"
 AUTH_SOURCE_MANUAL: Final = "manual"

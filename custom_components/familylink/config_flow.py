@@ -29,6 +29,7 @@ from .const import (
 	CONF_STRICT_MODE,
 	CONF_STRICT_MODE_RULES,
 	CONF_LOCK_KEEPS_ALLOWED_APPS,
+	CONF_ALLOWED_USERS,
 	DEFAULT_STRICT_MODE,
 	DEFAULT_STRICT_MODE_RULES,
 	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
@@ -56,6 +57,32 @@ def _strict_rules_selector() -> selector.SelectSelector:
 			translation_key="strict_mode_rules",
 		)
 	)
+
+
+async def _allowed_users_selector(hass: HomeAssistant) -> tuple[selector.SelectSelector, list[str]]:
+	"""Multi-select of the people of this Home Assistant, and their ids.
+
+	System users (Supervisor, add-ons, cloud) never press a button and are
+	left out, so are deactivated ones.
+	"""
+	users = [
+		user for user in await hass.auth.async_get_users()
+		if not user.system_generated and user.is_active
+	]
+	options = [
+		selector.SelectOptionDict(
+			value=user.id,
+			label=f"{user.name} (administrator)" if user.is_admin else (user.name or user.id),
+		)
+		for user in sorted(users, key=lambda u: (u.name or "").lower())
+	]
+	return selector.SelectSelector(
+		selector.SelectSelectorConfig(
+			options=options,
+			multiple=True,
+			mode=selector.SelectSelectorMode.LIST,
+		)
+	), [user.id for user in users]
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -465,6 +492,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 		# Get current values from config entry data (options first, then data)
 		current_options = self.config_entry.options
 		current_data = self.config_entry.data
+		users_selector, user_ids = await _allowed_users_selector(self.hass)
+		# A user deleted since keeps no place in the form (the selector would refuse it)
+		current_allowed = [
+			user_id for user_id in current_options.get(CONF_ALLOWED_USERS, []) if user_id in user_ids
+		]
 
 		return self.async_show_form(
 			step_id="init",
@@ -511,5 +543,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 						current_data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS)
 					),
 				): bool,
+				vol.Optional(CONF_ALLOWED_USERS, default=current_allowed): users_selector,
 			}),
 		)

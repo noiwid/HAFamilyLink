@@ -20,6 +20,7 @@ from .const import (
 	CONF_AUTH_SOURCE,
 	CONF_AUTH_URL,
 	CONF_STRICT_MODE,
+	CONF_ALLOWED_USERS,
 	DEFAULT_STRICT_MODE,
 	DOMAIN,
 	LOGGER_NAME,
@@ -307,8 +308,9 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
 	"""Handle options update.
 
 	The Strict mode flag drives the per-child switches live (it is also
-	written back when a switch is toggled); any other change reloads the
-	entry, which recreates the entities.
+	written back when a switch is toggled), and the allowed users are read
+	from the options at every action; any other change reloads the entry,
+	which recreates the entities.
 	"""
 	coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
 	if coordinator is not None:
@@ -317,7 +319,7 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
 		other_changed = any(
 			before.get(key) != after.get(key)
 			for key in set(before) | set(after)
-			if key != CONF_STRICT_MODE
+			if key not in (CONF_STRICT_MODE, CONF_ALLOWED_USERS)
 		)
 		if not other_changed:
 			wanted = bool(after.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)))

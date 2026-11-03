@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .client.api import FamilyLinkClient
 from .const import DOMAIN, LOGGER_NAME
+from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device
 
@@ -130,6 +131,7 @@ class FamilyLinkWebFilterSelect(CoordinatorEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change the web filter mode."""
+        await async_check_entity_action(self)
         level = WEB_FILTER_OPTIONS[option]
         try:
             lists = await self.coordinator.client.async_set_website_filter_level(self._child_id, level)
@@ -214,6 +216,7 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change who can call and text the child."""
+        await async_check_entity_action(self)
         level = OPTION_TO_LEVEL[option]
         success = await self.coordinator.client.async_set_contact_restriction(
             level, account_id=self._child_id

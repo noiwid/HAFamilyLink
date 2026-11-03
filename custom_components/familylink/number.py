@@ -21,6 +21,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOGGER_NAME
+from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device, time_limit_device_ids
 from .schedules import DAY_NAMES
@@ -133,6 +134,7 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		force, so today's entity also posts the override on every device, and
 		the value applies at once.
 		"""
+		await async_check_entity_action(self)
 		minutes = int(round(value))
 		today = dt_util.now().isoweekday()
 		client = self.coordinator.client

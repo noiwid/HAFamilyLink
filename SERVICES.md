@@ -44,6 +44,8 @@ Home Assistant checks a user's entity permissions on entity actions (toggling a 
 
 So a child with a non-admin Home Assistant account cannot grant themselves a bonus through the API, and an entity permission policy (for example one written with [ha-rbac](https://github.com/FezVrasta/ha-rbac)) applies to the services too. A dashboard used by a non-administrator should call services with the `entity_id` of the device or child, never with raw identifiers.
 
+The entities themselves (bonus buttons, switches, limits, times, selects) are open to every Home Assistant user by default, like any entity. The integration option **Users allowed to control Family Link** closes them: once users are ticked, a non-administrator who is not ticked is refused on every Family Link entity and every `familylink.*` action, whatever the rules above allow. Administrators and automations are never refused. Leave it empty to keep the default.
+
 ## App management
 
 ### familylink.block_device_for_school

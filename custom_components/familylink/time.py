@@ -20,6 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOGGER_NAME
+from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import ensure_child_device
 from .schedules import DAY_NAMES
@@ -135,6 +136,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 
 	async def async_set_value(self, value: time) -> None:
 		"""Rewrite the weekly bedtime slot of this weekday with the new bound."""
+		await async_check_entity_action(self)
 		client = self.coordinator.client
 		if client is None:
 			_LOGGER.error("Cannot set the bedtime: client not connected")
@@ -253,6 +255,7 @@ class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
 		With a break, the start belongs to the first slot and the end to the
 		last one; the slot in between is left alone, so the break survives.
 		"""
+		await async_check_entity_action(self)
 		client = self.coordinator.client
 		if client is None:
 			_LOGGER.error("Cannot set the school time: client not connected")

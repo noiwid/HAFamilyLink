@@ -28,6 +28,7 @@ from .const import (
 	INTEGRATION_NAME,
 	LOGGER_NAME,
 )
+from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 
@@ -240,6 +241,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Unlock device (bypass restrictions without disabling bedtime/daily_limit)."""
+		await async_check_entity_action(self)
 		_LOGGER.info("Unlocking device %s for child %s (bypass restrictions)", self._device_id, self._child_name)
 
 		# Note: coordinator.async_control_device already schedules a refresh on success
@@ -254,6 +256,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_off(self) -> None:
 		"""Lock device (cancel bonus if active, then lock)."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot lock device: client not connected")
 			return
@@ -352,6 +355,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable bedtime."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot enable bedtime: client not connected")
 			return
@@ -376,6 +380,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_off(self) -> None:
 		"""Disable bedtime."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot disable bedtime: client not connected")
 			return
@@ -487,6 +492,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable school time."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot enable school time: client not connected")
 			return
@@ -510,6 +516,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_off(self) -> None:
 		"""Disable school time."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot disable school time: client not connected")
 			return
@@ -590,6 +597,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Enable daily limit."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot enable daily limit: client not connected")
 			return
@@ -613,6 +621,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_off(self) -> None:
 		"""Disable daily limit."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot disable daily limit: client not connected")
 			return
@@ -721,10 +730,12 @@ class FamilyLinkDowntimeUnlimitedAppsSwitch(CoordinatorEntity, SwitchEntity):
 
 	async def async_turn_on(self) -> None:
 		"""Allow the apps with unlimited time during downtime."""
+		await async_check_entity_action(self)
 		await self._async_set(True)
 
 	async def async_turn_off(self) -> None:
 		"""Block the apps with unlimited time during downtime."""
+		await async_check_entity_action(self)
 		await self._async_set(False)
 
 
@@ -810,12 +821,14 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 
 	async def async_turn_on(self) -> None:
 		"""Enable strict mode: an enforcement pass runs immediately."""
+		await async_check_entity_action(self)
 		self.coordinator.set_strict_mode(self._child_id, True)
 		self.async_write_ha_state()
 		self._write_option()
 
 	async def async_turn_off(self) -> None:
 		"""Disable strict mode."""
+		await async_check_entity_action(self)
 		self.coordinator.set_strict_mode(self._child_id, False)
 		self.async_write_ha_state()
 		self._write_option()

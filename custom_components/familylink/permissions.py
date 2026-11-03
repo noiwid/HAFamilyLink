@@ -24,6 +24,15 @@ The rule mirrors what Home Assistant already does for the entities:
 A non-administrator may not combine an ``entity_id`` with a raw identifier:
 the handlers let the raw value win over the one read from the entity, which
 would otherwise turn a permitted entity into a key for any other device.
+
+On top of that, the "Users allowed to control Family Link" option (issue
+#224) closes the entities themselves: Home Assistant lets every user press
+any button or flip any switch unless an entity permission policy says
+otherwise, and core has no UI for such policies. When the option lists users,
+a person who is neither an administrator nor in the list is refused on every
+Family Link entity action (button, switch, number, time, select) and every
+``familylink.*`` service. An empty list keeps the previous behaviour. Calls
+without a user (automations, scripts run by the system) stay allowed.
 """
 from __future__ import annotations
 
@@ -39,12 +48,58 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import Unauthorized, UnknownUser
 from homeassistant.helpers import entity_registry as er
 
-from .const import DOMAIN
+from .const import CONF_ALLOWED_USERS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 # Fields whose presence turns a call into a raw-identifier call.
 RAW_TARGET_FIELDS = ("child_id", "device_id")
+
+
+def allowed_user_ids(hass: HomeAssistant) -> set[str] | None:
+	"""The users the option allows, across the Family Link entries; None when no entry restricts."""
+	allowed: set[str] = set()
+	restricted = False
+	for entry in hass.config_entries.async_entries(DOMAIN):
+		users = entry.options.get(CONF_ALLOWED_USERS) or []
+		if users:
+			restricted = True
+			allowed.update(users)
+	return allowed if restricted else None
+
+
+def _refuse_unlisted(hass: HomeAssistant, user: Any, context: Any, action: str) -> None:
+	"""Raise Unauthorized when the option lists users and this non-administrator is not one of them."""
+	allowed = allowed_user_ids(hass)
+	if allowed is None or user.id in allowed:
+		return
+	_LOGGER.warning(
+		"%s refused: user %s is not in the users allowed to control Family Link",
+		action, user.name,
+	)
+	raise Unauthorized(context=context, permission=POLICY_CONTROL)
+
+
+async def async_check_entity_action(entity: Any) -> None:
+	"""Raise Unauthorized unless the user behind this entity action may control Family Link.
+
+	Home Assistant sets the context of the service call on the entity right
+	before it calls the action method, so ``entity._context`` names the user
+	who pressed the button or flipped the switch.
+	"""
+	context = getattr(entity, "_context", None)
+	user_id = context.user_id if context else None
+	if not user_id:
+		# No user: an automation, a script run by the system
+		return
+	if allowed_user_ids(entity.hass) is None:
+		return
+	user = await entity.hass.auth.async_get_user(user_id)
+	if user is None:
+		raise UnknownUser(context=context, permission=POLICY_CONTROL)
+	if user.is_admin:
+		return
+	_refuse_unlisted(entity.hass, user, context, f"Action on {entity.entity_id}")
 
 
 async def async_verify_service_call(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -59,6 +114,7 @@ async def async_verify_service_call(hass: HomeAssistant, call: ServiceCall) -> N
 		raise UnknownUser(context=call.context, permission=POLICY_CONTROL)
 	if user.is_admin:
 		return
+	_refuse_unlisted(hass, user, call.context, f"Service {call.domain}.{call.service}")
 
 	entity_id = call.data.get("entity_id")
 	raw_fields = [field for field in RAW_TARGET_FIELDS if call.data.get(field)]

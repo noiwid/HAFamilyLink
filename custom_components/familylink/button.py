@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CAP_RING, CAPS_BONUS, DOMAIN, LOGGER_NAME
+from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import async_prune_entities, device_supports, ensure_child_device
 
@@ -122,6 +123,7 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 
 	async def async_press(self) -> None:
 		"""Handle the button press."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot add time bonus: client not connected")
 			return
@@ -208,6 +210,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 
 	async def async_press(self) -> None:
 		"""Handle the button press - cancel active bonus."""
+		await async_check_entity_action(self)
 		# Get the override_id from coordinator data
 		override_id = None
 
@@ -300,6 +303,7 @@ class RingDeviceButton(CoordinatorEntity, ButtonEntity):
 
 	async def async_press(self) -> None:
 		"""Handle the button press - ring the device."""
+		await async_check_entity_action(self)
 		if self.coordinator.client is None:
 			_LOGGER.error("Cannot ring device: client not connected")
 			return
