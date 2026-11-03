@@ -54,8 +54,8 @@ RUN pip3 install --no-cache-dir --break-system-packages playwright && \
 
 # The login browser must not reach local files: through noVNC, file:///share/familylink
 # or a file upload dialog would expose the stored session (cookies.enc, .key, api_key).
-# Written for both Chromium and Chrome branded builds, whichever Playwright ships.
-RUN for dir in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed; do \
+# Written for Chromium, Chrome and Chrome for Testing builds, whichever Playwright ships.
+RUN for dir in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed /etc/opt/chrome_for_testing/policies/managed; do \
         mkdir -p "$dir" && \
         echo '{"URLBlocklist": ["file://*"], "AllowFileSelectionDialogs": false}' > "$dir/familylink.json"; \
     done
