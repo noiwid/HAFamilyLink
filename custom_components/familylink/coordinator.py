@@ -249,7 +249,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		for child in supervised_children:
 			child_id = child.get("userId")
 			if not child_id:
-				_LOGGER.warning("Skipping child with missing userId: %s", child)
+				# Field names only: the member record holds the child's name, e-mail and photo,
+				# and logs end up pasted in public issues
+				_LOGGER.warning("Skipping child with missing userId (fields: %s)", sorted(child))
 				continue
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
