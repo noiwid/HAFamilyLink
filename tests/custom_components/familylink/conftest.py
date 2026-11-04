@@ -49,8 +49,17 @@ def coordinator():
         "latitude": 12.345678,
         "longitude": 98.765432,
     }
-    return SimpleNamespace(
+    async def async_set_policy(child_id, policy, enable):
+        # As the coordinator: the client call, then the intent on success
+        method = getattr(client, f"async_{'enable' if enable else 'disable'}_{policy}")
+        if not await method(account_id=child_id):
+            return False
+        fake.record_policy_intent(child_id, policy, enable)
+        return True
+
+    fake = SimpleNamespace(
         client=client,
+        async_set_policy=async_set_policy,
         # One supervised child: services without a child target resolve to it
         data={"children_data": [{"child_id": "child-1", "devices": []}]},
         async_request_refresh=AsyncMock(),
@@ -62,3 +71,4 @@ def coordinator():
         restore_daily_limit_minutes=MagicMock(),
         record_bedtime_hours=MagicMock(),
     )
+    return fake

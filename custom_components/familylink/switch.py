@@ -364,10 +364,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", True)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_enable_bedtime(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "bedtime", True)
+		success = await self.coordinator.async_set_policy(self._child_id, "bedtime", True)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
@@ -388,10 +385,7 @@ class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", False)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_disable_bedtime(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "bedtime", False)
+		success = await self.coordinator.async_set_policy(self._child_id, "bedtime", False)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "bedtime", None)
@@ -498,10 +492,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", True)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_enable_school_time(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "school_time", True)
+		success = await self.coordinator.async_set_policy(self._child_id, "school_time", True)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
@@ -521,10 +512,7 @@ class FamilyLinkSchoolTimeSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", False)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_disable_school_time(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "school_time", False)
+		success = await self.coordinator.async_set_policy(self._child_id, "school_time", False)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "school_time", None)
@@ -601,10 +589,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", True)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_enable_daily_limit(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "daily_limit", True)
+		success = await self.coordinator.async_set_policy(self._child_id, "daily_limit", True)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)
@@ -624,10 +609,7 @@ class FamilyLinkDailyLimitSwitch(CoordinatorEntity, SwitchEntity):
 		self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", False)
 		self.async_write_ha_state()
 
-		success = await self.coordinator.client.async_disable_daily_limit(account_id=self._child_id)
-		if success:
-			# A limit set from HA is the parent's decision for the day (strict mode)
-			self.coordinator.record_policy_intent(self._child_id, "daily_limit", False)
+		success = await self.coordinator.async_set_policy(self._child_id, "daily_limit", False)
 
 		if not success:
 			self.coordinator.set_pending_time_limit_state(self._child_id, "daily_limit", None)

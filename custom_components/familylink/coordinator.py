@@ -5,6 +5,7 @@ import asyncio
 import copy
 import logging
 import time
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Any
 
@@ -120,6 +121,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._strict_mode_children: dict[str, bool] = {}
 		self.strict_mode_status: dict[str, dict[str, Any]] = {}  # child_id -> last action info
 		self._strict_cooldown: dict[str, float] = {}  # action key -> last run timestamp
+		# Writes made from HA, keyed "child:policy" or device id: strict mode
+		# leaves a target alone while one runs and for a moment after (D-038)
+		self._ha_writes_running: dict[str, int] = {}
+		self._ha_write_ended: dict[str, float] = {}
 		self._ha_bonus_until: dict[str, float] = {}  # device_id -> until when an HA-granted bonus is legitimate
 		# Today's decisions made from Home Assistant, per child (persisted so a
 		# restart does not turn a bedtime the parent switched off back on):
@@ -690,7 +695,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.error(f"Could not determine child_id for device {device_id}")
 				return False
 
-			success = await self.client.async_control_device(device_id, action, child_id)
+			async with self._ha_write(device_id):
+				success = await self.client.async_control_device(device_id, action, child_id)
 
 			if success:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")
@@ -871,6 +877,29 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		for child_data in (self.data or {}).get("children_data", []):
 			return child_data.get("child_id")
 		return None
+
+	@asynccontextmanager
+	async def _ha_write(self, key: str):
+		"""Mark a write from HA as running on ``key`` (see _ha_write_recent)."""
+		self._ha_writes_running[key] = self._ha_writes_running.get(key, 0) + 1
+		try:
+			yield
+		finally:
+			self._ha_writes_running[key] -= 1
+			self._ha_write_ended[key] = time.time()
+
+	def _ha_write_recent(self, key: str) -> bool:
+		"""A write from HA on ``key`` runs, or ended too recently for Google to show it."""
+		return self._ha_writes_running.get(key, 0) > 0 or time.time() - self._ha_write_ended.get(key, 0.0) < 5.0
+
+	async def async_set_policy(self, child_id: str, policy: str, enable: bool) -> bool:
+		"""Switch bedtime, school time or the daily limit from HA, as the parent's decision of the day."""
+		method = getattr(self.client, f"async_{'enable' if enable else 'disable'}_{policy}")
+		async with self._ha_write(f"{child_id}:{policy}"):
+			success = await method(account_id=child_id)
+			if success:
+				self.record_policy_intent(child_id, policy, enable)
+		return success
 
 	def record_policy_intent(self, child_id: str | None, policy: str, enabled: bool) -> None:
 		"""Remember that bedtime / daily limit / school time was set from HA today."""
@@ -1091,13 +1120,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					child_data, self.strict_rules, self._ha_bonus_devices(), intents,
 					today=dt_util.now().isoweekday(),
 				)
+				planned = copy.deepcopy({"policies": intents["policies"], "devices": intents["devices"]})
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
 				continue
 			for action in actions:
-				await self._async_run_strict_action(child_data, action)
+				await self._async_run_strict_action(child_data, action, planned)
 
-	async def _async_run_strict_action(self, child_data: dict[str, Any], action: dict[str, Any]) -> None:
+	async def _async_run_strict_action(
+		self, child_data: dict[str, Any], action: dict[str, Any], planned: dict[str, Any] | None = None
+	) -> None:
 		"""Execute one corrective action, with the same guards as the switches."""
 		child_id = action["child_id"]
 		name = action["action"]
@@ -1114,6 +1146,22 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if policy and self.get_pending_time_limit_state(child_id, policy) is not None:
 			return
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
+			return
+		# The parent's own clicks: a write from HA still running or just
+		# done (the refresh may predate it), or a decision taken after this
+		# plan was made (earlier actions take seconds each)
+		if policy:
+			target, kind = policy, "policies"
+			if self._ha_write_recent(f"{child_id}:{policy}"):
+				return
+		elif name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE):
+			target, kind = device_id, "devices"
+			if self._ha_write_recent(device_id):
+				return
+		else:
+			kind = None
+		if kind and planned is not None and self._intents_for(child_id)[kind].get(target) != planned[kind].get(target):
+			_LOGGER.debug(f"Strict mode: {name} for {child_id} dropped, decided otherwise from HA since")
 			return
 
 		key = f"{child_id}:{name}:{device_id or ''}:{action.get('day') or ''}"

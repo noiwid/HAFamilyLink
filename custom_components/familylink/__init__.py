@@ -620,16 +620,14 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 	def _policy_toggle_handler(policy: str, label: str, enable: bool):
 		"""Handler of enable_/disable_ bedtime, school_time and daily_limit."""
-		method = f"async_{'enable' if enable else 'disable'}_{policy}"
 		action = f"{'enable' if enable else 'disable'} {label}"
 
 		async def handler(call: ServiceCall) -> None:
 			_require_client()
 			child_id = resolve_service_child(hass, coordinator.data, call)
-			_LOGGER.info(f"Service called: {method.removeprefix('async_')} (child_id: {child_id})")
-			if not await getattr(coordinator.client, method)(account_id=child_id):
+			_LOGGER.info(f"Service called: {action} (child_id: {child_id})")
+			if not await coordinator.async_set_policy(child_id, policy, enable):
 				raise HomeAssistantError(f"Family Link did not {action} (see the log for details)")
-			coordinator.record_policy_intent(child_id, policy, enable)
 			_LOGGER.info(f"Successfully did {action}")
 			await coordinator.async_request_refresh()
 
