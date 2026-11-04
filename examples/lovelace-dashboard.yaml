@@ -1167,35 +1167,35 @@ views:
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_1
           name: '{{ state_attr(''sensor.firstname_name_top_app_1'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_1'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_1'') | round(1, default=0) }} min'
           icon: mdi:numeric-1-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_2
           name: '{{ state_attr(''sensor.firstname_name_top_app_2'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_2'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_2'') | round(1, default=0) }} min'
           icon: mdi:numeric-2-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_3
           name: '{{ state_attr(''sensor.firstname_name_top_app_3'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_3'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_3'') | round(1, default=0) }} min'
           icon: mdi:numeric-3-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_4
           name: '{{ state_attr(''sensor.firstname_name_top_app_4'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_4'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_4'') | round(1, default=0) }} min'
           icon: mdi:numeric-4-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_5
           name: '{{ state_attr(''sensor.firstname_name_top_app_5'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_5'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_5'') | round(1, default=0) }} min'
           icon: mdi:numeric-5-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_6
           name: '{{ state_attr(''sensor.firstname_name_top_app_6'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_6'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_6'') | round(1, default=0) }} min'
           icon: mdi:numeric-6-circle
         - type: custom:template-entity-row
           entity: sensor.firstname_name_top_app_7
           name: '{{ state_attr(''sensor.firstname_name_top_app_7'', ''app_name'') | default(''Application'') }}'
-          state: '{{ states(''sensor.firstname_name_top_app_7'') | round(1) }} min'
+          state: '{{ states(''sensor.firstname_name_top_app_7'') | round(1, default=0) }} min'
           icon: mdi:numeric-7-circle
