@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [2.4.2] - 2026-11-04
 
 ### Fixed
 - **Strict mode no longer "corrects" the parent's own clicks.** Switching bedtime, school time, the daily limit or a device lock several times in a few seconds from Home Assistant could make strict mode revert one of them and send a "changed from Family Link" notification: each write takes seconds, they end out of order, and strict mode read a Google state that did not show the last click yet, or ran a correction planned before it. A target written from Home Assistant is now left alone while the write runs and for a few seconds after, and a correction is dropped when the parent decided otherwise since it was planned.
