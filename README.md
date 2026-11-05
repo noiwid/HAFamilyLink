@@ -1,7 +1,7 @@
 # <img src="https://brands.home-assistant.io/familylink/icon.png" alt="Google Family Link" width="30"> Google Family Link for Home Assistant
 
 [![GitHub Release][releases-shield]][releases]
-[![HACS][hacsbadge]][hacs]
+[![Marketplace][marketplacebadge]][marketplace]
 [![License][license-shield]][license]
 
 Monitor and control Google Family Link from Home Assistant: screen time, device lock, bedtime and school time schedules, daily limits, communication restrictions, app blocking, time bonuses, and optional GPS location. Multiple children and multiple devices are supported out of the box.
@@ -43,13 +43,13 @@ The auth service must be running before you configure the integration.
      [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
    - *Home Assistant Core / Container (no Supervisor):* run the standalone auth container instead. See [DOCKER_STANDALONE.md](DOCKER_STANDALONE.md).
 
-2. **Install the integration** via HACS (recommended) or manually.
+2. **Install the integration** from the Marketplace (recommended) or manually.
 
-   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration)
+   [![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration)
 
 3. **Add it:** Settings > Devices & Services > Add Integration > search for "Family Link". Auto-detect finds the add-on by itself; standalone users choose manual URL configuration and enter the container's URL.
 
-The full walkthrough (prerequisites, both auth routes, configuration options, re-authentication) is in **[INSTALL.md](INSTALL.md)**.
+The full walkthrough (prerequisites, both auth routes, configuration options, re-authentication) is in **[INSTALL.md](https://github.com/noiwid/HAFamilyLink/blob/main/INSTALL.md)**.
 
 ## Entities
 
@@ -176,5 +176,5 @@ This is an unofficial integration, not affiliated with, endorsed by, or connecte
 [releases]: https://github.com/noiwid/HAFamilyLink/releases
 [license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg?style=for-the-badge
 [license]: LICENSE
-[hacsbadge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge
-[hacs]: https://github.com/hacs/integration
+[marketplacebadge]: https://img.shields.io/badge/Marketplace-Listed-41BDF5.svg?style=for-the-badge
+[marketplace]: https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration

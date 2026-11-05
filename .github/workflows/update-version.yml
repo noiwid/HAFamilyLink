@@ -70,10 +70,12 @@ jobs:
 
       - name: Create integration ZIP with correct version
         run: |
-          # Create a ZIP of the integration folder with the correct version
-          cd custom_components
-          zip -r ../familylink.zip familylink
-          cd ..
+          # zip_release extracts this archive directly into
+          # custom_components/familylink/, so the files must be at the root of
+          # the zip: do NOT wrap them in a folder.
+          cd custom_components/familylink
+          zip -r ../../familylink.zip . -x '*/__pycache__/*'
+          cd ../..
           echo "✅ Created familylink.zip with version ${{ steps.version.outputs.version }}"
           unzip -l familylink.zip
 

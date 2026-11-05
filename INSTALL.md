@@ -20,15 +20,15 @@ Both routes then continue with the same [integration install](#install-the-integ
 ## Prerequisites
 
 - A Google account with Family Link configured and at least one supervised child.
-- Route A: a Home Assistant installation with the add-on store (OS or Supervised).
+- Route A: a Home Assistant installation with the app store (OS or Supervised). Home Assistant's menus now call add-ons *apps*.
 - Route B: Docker (ideally with Docker Compose) on any machine Home Assistant can reach.
-- HACS (optional but recommended) for easy install and updates of the integration.
+- The Marketplace (recommended) for easy install and updates of the integration. Before Home Assistant 2026.11 it is a separate install called HACS.
 
 ## Route A: Home Assistant OS or Supervised
 
 [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fnoiwid%2FHAFamilyLink)
 
-1. Go to **Settings > Add-ons > Add-on Store**, open the three-dot menu, choose **Repositories**, and add `https://github.com/noiwid/HAFamilyLink`.
+1. Go to **Settings > Apps > Install app**, open the three-dot menu, choose **Repositories**, and add `https://github.com/noiwid/HAFamilyLink`.
 2. Install **Google Family Link Auth**. The image is built locally, so the install takes several minutes.
 3. Start the add-on. Enabling **Start on boot** and **Watchdog** is recommended.
 4. Log in to Google through the add-on: click **Open Web UI** (port 8099), click **Start Authentication**, then open the noVNC page (port 6080) and finish the Google login and 2FA in the browser window it shows. The full walkthrough, the options reference, and add-on troubleshooting are in the [add-on documentation](familylink-playwright/DOCS.md).
@@ -43,17 +43,17 @@ Both routes then continue with the same [integration install](#install-the-integ
 
 ## Install the integration
 
-### Via HACS (recommended)
+### Via the Marketplace (recommended)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration)
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration)
 
-1. In HACS, search for **Google Family Link** and download the latest version.
+1. Go to **Settings > Marketplace > Browse**, search for **Google Family Link** and install it.
 2. Restart Home Assistant.
 
 ### Manual
 
 1. Download `familylink.zip` from the [latest release](https://github.com/noiwid/HAFamilyLink/releases), or copy the `custom_components/familylink` folder from the repository.
-2. Extract or copy it into your Home Assistant `config/custom_components/` directory, so that `config/custom_components/familylink/manifest.json` exists. Copy the folder in full: it contains subpackages (`auth/`, `client/`, `translations/`, `utils/`) and non-Python files (`services.yaml`, `strings.json`) that the integration needs; a partial copy will not load.
+2. Extract the zip into a new `config/custom_components/familylink/` folder (its files are at the root of the zip), or copy the repository folder to that place, so that `config/custom_components/familylink/manifest.json` exists. Copy the folder in full: it contains subpackages (`auth/`, `client/`, `translations/`, `utils/`) and non-Python files (`services.yaml`, `strings.json`) that the integration needs; a partial copy will not load.
 3. Restart Home Assistant.
 
 ## Configuration flow
@@ -137,8 +137,8 @@ Auth-service issues (noVNC not connecting, black screen, login timeout, VNC pass
 ## Uninstalling
 
 1. **Settings > Devices & Services > Google Family Link**, three-dot menu, **Delete**.
-2. Remove the integration files: via HACS (**Remove**) or by deleting `config/custom_components/familylink/`, then restart Home Assistant.
-3. Route A: uninstall the add-on and optionally remove the repository from the add-on store. Route B: stop and remove the container (`docker compose down`).
+2. Remove the integration files: from the Marketplace or by deleting `config/custom_components/familylink/`, then restart Home Assistant.
+3. Route A: uninstall the add-on and optionally remove the repository from the app store. Route B: stop and remove the container (`docker compose down`).
 4. Optionally delete the stored cookies: `/share/familylink/` (Route A) or the container's `./data` directory (Route B).
 
 ## Getting help

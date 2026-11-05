@@ -41,9 +41,9 @@ Version 2.0 adds one `number` per weekday (the screen time quota) and two `time`
 
 With strict mode on, the values written from this card are the reference the integration puts back if they are changed in the Family Link app.
 
-## Required custom cards (HACS)
+## Required custom cards (Marketplace)
 
-Install these from **HACS > Frontend** before pasting the YAML, otherwise cards render as "Custom element doesn't exist":
+Install these from **Settings > Marketplace** before pasting the YAML, otherwise cards render as "Custom element doesn't exist":
 
 | Card | Element |
 |------|---------|
@@ -63,4 +63,4 @@ Install these from **HACS > Frontend** before pasting the YAML, otherwise cards 
 
 ## Theme
 
-The view sets `theme: ios-dark-mode-blue-red` (HACS > Frontend, "iOS Themes"). Change or remove that line to use your own theme; the cards work with any dark theme, only the exact colors differ.
+The view sets `theme: ios-dark-mode-blue-red` (Marketplace, "iOS Themes"). Change or remove that line to use your own theme; the cards work with any dark theme, only the exact colors differ.

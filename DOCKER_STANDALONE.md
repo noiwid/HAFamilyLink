@@ -1,6 +1,6 @@
 # Docker Standalone Guide
 
-How to run the Family Link auth service as a standalone Docker container, for **Home Assistant Container** or **Home Assistant Core** (no Supervisor, so no add-on store). The integration side of the setup (install, configuration flow) is covered in [INSTALL.md](INSTALL.md), Route B.
+How to run the Family Link auth service as a standalone Docker container, for **Home Assistant Container** or **Home Assistant Core** (no Supervisor, so no app store). The integration side of the setup (install, configuration flow) is covered in [INSTALL.md](INSTALL.md), Route B.
 
 > **Warning**: this project relies on unofficial, reverse-engineered Google endpoints. There is no official API: Google can change or break it at any time. Use at your own risk.
 
@@ -208,4 +208,4 @@ Your Google login survives updates as long as the `./data` volume is kept. Versi
 | `latest` | Latest add-on image (for HA OS/Supervised only) |
 | `<version>` | Add-on image as of repository release `v<version>` |
 
-Versioned tags follow the repository's release tag (the integration version), not the add-on version shown in the add-on store.
+Versioned tags follow the repository's release tag (the integration version), not the add-on version shown in the app store.

@@ -10,7 +10,7 @@ After a successful login, the add-on extracts the Google session cookies, encryp
 
 ## Installation
 
-1. Go to **Settings > Add-ons > Add-on Store**, open the three-dot menu, choose **Repositories**, and add `https://github.com/noiwid/HAFamilyLink`.
+1. Go to **Settings > Apps > Install app**, open the three-dot menu, choose **Repositories**, and add `https://github.com/noiwid/HAFamilyLink`.
 2. Install **Google Family Link Auth**. The prebuilt image is downloaded from GHCR, so the install only takes a moment.
 3. Optionally adjust the options in the **Configuration** tab (see [Configuration](#configuration)).
 4. Start the add-on. Enabling **Start on boot** and **Watchdog** is recommended.
@@ -95,7 +95,7 @@ Current integrations send the key as an `X-API-Key` header. Query-key acceptance
 
 ### Where the logs are
 
-- Add-on: **Settings > Add-ons > Google Family Link Auth > Log**. From the CLI: `ha addons logs <repository-hash>_familylink-playwright` (installed add-ons carry a repository hash prefix in their slug).
+- Add-on: **Settings > Apps > Google Family Link Auth > Log**. From the CLI: `ha apps logs <repository-hash>_familylink-playwright` (installed add-ons carry a repository hash prefix in their slug).
 - Standalone container: `docker logs`; display-stack logs are also written to `/var/log/familylink/` inside the container.
 
 Set `log_level: debug` for more detail. A successful run logs, among others: `Starting authentication session: <id>`, `Navigating to Google Family Link...`, `Monitoring authentication for session <id>`, `Extracted N Google cookies`, `Saved N cookies to shared storage`.
