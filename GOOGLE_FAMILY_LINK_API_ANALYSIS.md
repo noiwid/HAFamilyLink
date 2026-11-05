@@ -42,6 +42,7 @@
 | **Location** | `/kidsmanagement/v1/families/mine/location/{childId}?locationRefreshMode=...&supportedConsents=SUPERVISED_LOCATION_SHARING` | Child's GPS location + **battery level** of source device. |
 | **TimeLimit (scheduling)** | `/kidsmanagement/v1/people/{childId}/timeLimit?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME&timeLimitKey.type=SUPERVISED_DEVICES` | **Scheduling** Bedtime & Schooltime + **global switches** (ON/OFF) via "revisions". |
 | **AppliedTimeLimits (applied state)** | `/kidsmanagement/v1/people/{childId}/appliedTimeLimits?capabilities=TIME_LIMIT_CLIENT_CAPABILITY_SCHOOLTIME` | **Daily state per device**: daily limits, active windows, allowed/consumed aggregates, **bonus overrides**. |
+| **Devices** | `/kidsmanagement/v1/people/{childId}/devices` | `[<meta>, [<device>, ...], null, null, <n>]`. `<device>[0]` = device id, `<device>[22]` = `[<battery percent>, <state>]` (state not confirmed, same pair as the location battery). Read for the per-device battery sensors |
 | **Trusted contacts (communication restrictions)** | `/kidsmanagement/v1/people/{childId}/trustedcontacts` | Returns the current allowed-calls-and-texts restriction level. |
 
 > Other endpoints exist without being exhaustive here (capability list not public). This doc covers those necessary for reading **bedtime/schooltime/daily-limit** & app usage/notifications/photos.

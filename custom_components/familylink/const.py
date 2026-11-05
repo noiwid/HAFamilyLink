@@ -41,6 +41,7 @@ CAP_BEDTIME: Final = "capabilityBedtime"
 CAP_SCHOOL_TIME: Final = "capabilitySchoolTimeMode"
 CAP_LOCK_WITH_DEADLINE: Final = "capabilityLockWithDeadline"
 CAP_APP_ACTIVITY: Final = "capabilityAppActivity"
+CAP_BATTERY_REPORTING: Final = "capabilityBatteryReporting"
 
 # A device enforces screen-time rules (daily limit, bedtime, remaining time,
 # next restriction) only if it advertises one of these.

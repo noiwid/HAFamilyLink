@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.5.0] - 2026-11-05
+
+### Added
+- `sensor.<device>_battery_level`: the battery of each device, without GPS tracking. It adds one Google call per child at each update (#223).
+
+---
+
 ## [2.4.5] - 2026-11-05
 
 ### Changed

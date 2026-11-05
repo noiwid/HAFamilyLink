@@ -582,6 +582,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							_LOGGER.debug(f"Using cached contact restriction for {child_name}")
 							break
 
+			# Battery of each device. One call per child; on a transient error
+			# keep the last readings.
+			device_batteries = {}
+			try:
+				device_batteries = await self.client.async_get_device_batteries(account_id=child_id)
+			except SessionExpiredError:
+				raise  # Re-raise to trigger auth notification
+			except Exception as err:
+				_LOGGER.warning(f"Failed to fetch device batteries for {child_name}: {err}")
+				for cached_child in (self._last_known_data or {}).get("children_data", []):
+					if cached_child.get("child_id") == child_id:
+						device_batteries = cached_child.get("device_batteries", {})
+						break
+
 			websites = await self._async_child_websites(child_id, child_name)
 
 			# Store data for this child
@@ -595,6 +609,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"screen_time": screen_time,
 				"location": location,
 				"contact_restriction": contact_restriction,
+				"device_batteries": device_batteries,
 				"websites": websites,
 				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],

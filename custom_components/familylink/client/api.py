@@ -4305,6 +4305,54 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Error fetching contact restriction: {err}")
 			raise NetworkError(f"Error fetching contact restriction: {err}") from err
 
+	@staticmethod
+	def _parse_device_batteries(data: Any) -> dict[str, int]:
+		"""Return {device_id: battery percent} from a /people/{id}/devices response.
+
+		Captured live 2026-11-05: [<meta>, [<device>, ...], null, null, <n>], where
+		<device>[0] is the device id and <device>[22] is [<percent>, <state>].
+		A device without a usable reading is left out.
+		"""
+		batteries: dict[str, int] = {}
+		devices = data[1] if isinstance(data, list) and len(data) > 1 else None
+		for device in devices if isinstance(devices, list) else []:
+			if not (isinstance(device, list) and len(device) > 22 and isinstance(device[0], str)):
+				continue
+			battery = device[22]
+			level = battery[0] if isinstance(battery, list) and battery else None
+			if type(level) is int and 0 <= level <= 100:
+				batteries[device[0]] = level
+		return batteries
+
+	async def async_get_device_batteries(self, account_id: str | None = None) -> dict[str, int]:
+		"""Read the battery level of each of the child's devices."""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+
+		if account_id is None:
+			account_id = await self.async_get_supervised_child_id()
+
+		try:
+			session = await self._get_session()
+			async with session.get(
+				self._people_url(account_id, "devices"),
+				headers={
+					"Content-Type": "application/json+protobuf",
+					"Cookie": self._get_cookie_header(),
+				},
+			) as response:
+				if response.status == 401:
+					_LOGGER.error("✗ 401 Unauthorized - Session expired fetching device batteries")
+					raise SessionExpiredError("Session expired, please re-authenticate")
+				if response.status != 200:
+					raise NetworkError(f"Failed to fetch device batteries: HTTP {response.status}")
+				return self._parse_device_batteries(await response.json())
+
+		except (SessionExpiredError, NetworkError):
+			raise
+		except Exception as err:
+			raise NetworkError(f"Error fetching device batteries: {err}") from err
+
 	async def async_set_contact_restriction(
 		self, restriction_level: int, account_id: str | None = None
 	) -> bool:

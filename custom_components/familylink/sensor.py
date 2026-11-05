@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CAP_APP_ACTIVITY,
+    CAP_BATTERY_REPORTING,
     CAPS_BONUS,
     CAPS_TIME_LIMIT,
     CONF_ENABLE_LOCATION_TRACKING,
@@ -132,6 +133,7 @@ async def async_setup_entry(
                 (DailyLimitDeviceSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_TIME_LIMIT),
                 (ActiveBonusSensor(coordinator, child_id, child_name, device_id, device_name), CAPS_BONUS),
                 (FamilyLinkDeviceDailyScreenTimeSensor(coordinator, child_id, child_name, device_id, device_name), (CAP_APP_ACTIVITY,)),
+                (FamilyLinkDeviceBatterySensor(coordinator, child_id, child_name, device_id, device_name), (CAP_BATTERY_REPORTING,)),
             )
             for entity, caps in candidates:
                 if device_supports(device, *caps):
@@ -1558,6 +1560,51 @@ class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 						attributes["has_bonus"] = bonus_mins > 0
 
 		return attributes
+
+
+class FamilyLinkDeviceBatterySensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""Battery level of one device, read from the child's device list."""
+
+	_attr_device_class = SensorDeviceClass.BATTERY
+	_attr_state_class = SensorStateClass.MEASUREMENT
+	_attr_native_unit_of_measurement = PERCENTAGE
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		device_id: str,
+		device_name: str,
+	) -> None:
+		"""Initialize the sensor."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._device_id = device_id
+		self._device_name = device_name
+		self._attr_name = f"{device_name} Battery Level"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_battery_level"
+
+	@property
+	def device_info(self) -> DeviceInfo:
+		"""Link this sensor to the child device."""
+		return DeviceInfo(
+			identifiers={(DOMAIN, f"{self._child_id}_{self._device_id}")},
+			name=self._device_name,
+			manufacturer="Google",
+			model="Family Link Device",
+			**via_child(self.coordinator, self._child_id),
+		)
+
+	@property
+	def native_value(self) -> int | None:
+		"""Return the battery level percentage."""
+		child_data = self._get_child_data()
+		return (child_data or {}).get("device_batteries", {}).get(self._device_id)
+
+	@property
+	def available(self) -> bool:
+		"""Return True while Google reports a level for this device."""
+		return self.coordinator.last_update_success and self.native_value is not None
 
 
 class FamilyLinkBatteryLevelSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):

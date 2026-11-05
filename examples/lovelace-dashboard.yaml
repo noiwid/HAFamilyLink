@@ -285,7 +285,7 @@ views:
         - sensor.sm_s916b_active_bonus
         - sensor.firstname_name_daily_screen_time
         - switch.sm_s916b
-        - sensor.firstname_name_battery_level
+        - sensor.sm_s916b_battery_level
         show_state: false
         show_label: false
         show_name: true
@@ -345,7 +345,7 @@ views:
         custom_fields:
           stat: "[[[\n  let bonus = variables.screen_data.bonus;\n  let limit = variables.screen_data.limit;\n  let total = variables.screen_data.total;\n  let used = variables.screen_data.used;\n  let overflow = variables.screen_data.overflow;\n  \n  let base = `${used}m / ${total}m`;\n  let suffix = '';\n  \n  if (bonus > 0) {\n    suffix = ` <span style=\"color: #4CAF50;\">(+${bonus})</span>`;\n  } else if (overflow > 0) {\n    suffix = ` <span style=\"color: #db4437;\">(+${overflow})</span>`;\n  }\n  \n  return base + suffix;\n]]]\n"
           bar: "[[[\n  let pct = variables.screen_data.percent;\n  let color = \"var(--primary-color)\";\n  if (pct >= 90) color = \"#db4437\";\n  else if (pct >= 75) color = \"#f4b400\";\n  \n  return `\n    <div style=\"background-color: rgba(127,127,127, 0.2); border-radius: 6px; width: 100%; height: 12px; overflow: hidden;\">\n      <div style=\"background-color: ${color}; width: ${pct}%; height: 100%;\"></div>\n    </div>\n  `;\n]]]\n"
-          batt: "[[[\n  const lvl = parseInt(states['sensor.firstname_name_battery_level']?.state);\n  if (isNaN(lvl)) return '';\n  let color = lvl <= 20 ? '#F44336' : (lvl <= 40 ? '#F4B400' : 'rgba(255,255,255,0.55)');\n  let icon = 'mdi:battery';\n  if (lvl <= 10) icon='mdi:battery-10'; else if (lvl<=20) icon='mdi:battery-20';\n  else if (lvl<=30) icon='mdi:battery-30'; else if (lvl<=40) icon='mdi:battery-40';\n  else if (lvl<=50) icon='mdi:battery-50'; else if (lvl<=60) icon='mdi:battery-60';\n  else if (lvl<=70) icon='mdi:battery-70'; else if (lvl<=80) icon='mdi:battery-80';\n  else if (lvl<=90) icon='mdi:battery-90'; else icon='mdi:battery';\n  return `<span style=\"display:inline-flex;align-items:center;gap:3px;color:${color};font-size:12px;font-weight:600;line-height:14px;white-space:nowrap;\"><ha-icon icon=\"${icon}\" style=\"--mdc-icon-size:14px;width:14px;height:14px;color:${color};\"></ha-icon>${lvl}%</span>`;\n]]]\n"
+          batt: "[[[\n  const lvl = parseInt(states['sensor.sm_s916b_battery_level']?.state);\n  if (isNaN(lvl)) return '';\n  let color = lvl <= 20 ? '#F44336' : (lvl <= 40 ? '#F4B400' : 'rgba(255,255,255,0.55)');\n  let icon = 'mdi:battery';\n  if (lvl <= 10) icon='mdi:battery-10'; else if (lvl<=20) icon='mdi:battery-20';\n  else if (lvl<=30) icon='mdi:battery-30'; else if (lvl<=40) icon='mdi:battery-40';\n  else if (lvl<=50) icon='mdi:battery-50'; else if (lvl<=60) icon='mdi:battery-60';\n  else if (lvl<=70) icon='mdi:battery-70'; else if (lvl<=80) icon='mdi:battery-80';\n  else if (lvl<=90) icon='mdi:battery-90'; else icon='mdi:battery';\n  return `<span style=\"display:inline-flex;align-items:center;gap:3px;color:${color};font-size:12px;font-weight:600;line-height:14px;white-space:nowrap;\"><ha-icon icon=\"${icon}\" style=\"--mdc-icon-size:14px;width:14px;height:14px;color:${color};\"></ha-icon>${lvl}%</span>`;\n]]]\n"
         card_mod:
           style: 'ha-card { border-top-left-radius: var(--ha-card-border-radius, 12px) !important; border-top-right-radius: var(--ha-card-border-radius, 12px) !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }'
       - type: custom:mod-card
