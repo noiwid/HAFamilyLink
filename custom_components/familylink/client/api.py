@@ -746,12 +746,11 @@ class FamilyLinkClient:
 					return None
 
 				data = await response.json()
-				_LOGGER.debug(f"Location response: {str(data)[:500]}")
 
 				# Parse the protobuf-like JSON response
 				# Structure: [[null, timestamp], [child_id, status, [location_data], ...]]
 				if not isinstance(data, list) or len(data) < 2:
-					_LOGGER.warning(f"Unexpected location response structure: {data}")
+					_LOGGER.warning(f"Unexpected location response structure for child {account_id}")
 					return None
 
 				child_data = data[1] if len(data) > 1 else None
@@ -827,11 +826,10 @@ class FamilyLinkClient:
 					"battery_level": battery_level,
 				}
 
+				# No position in the log: it ends up pasted in public issues
 				_LOGGER.debug(
-					f"Location for child {account_id}: "
-					f"({latitude}, {longitude}) accuracy={accuracy}m, "
-					f"place={place_name or 'unknown'}, device={source_device_id}, "
-					f"battery={battery_level}%"
+					f"Location for child {account_id}: accuracy={accuracy}m, "
+					f"device={source_device_id}, battery={battery_level}%"
 				)
 
 				return result

@@ -554,11 +554,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 									source_device_name = device.get("name")
 									break
 						location["source_device_name"] = source_device_name
-						_LOGGER.debug(
-							f"Fetched location for {child_name}: "
-							f"({location['latitude']}, {location['longitude']}) "
-							f"place={location.get('place_name') or 'unknown'}"
-						)
+						_LOGGER.debug(f"Fetched location for {child_name}")
 				except SessionExpiredError:
 					raise  # Re-raise to trigger auth notification
 				except Exception as err:

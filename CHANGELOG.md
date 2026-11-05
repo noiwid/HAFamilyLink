@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.4] - 2026-11-05
+
+### Security
+- The child's position no longer appears in the log, even in debug: coordinates, place name and raw location responses are left out (logs are often pasted in public issues).
+
+---
+
 ## [2.4.3] - 2026-11-05
 
 ### Added
