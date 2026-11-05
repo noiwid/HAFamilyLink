@@ -176,5 +176,5 @@ This is an unofficial integration, not affiliated with, endorsed by, or connecte
 [releases]: https://github.com/noiwid/HAFamilyLink/releases
 [license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg?style=for-the-badge
 [license]: LICENSE
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge
 [hacs]: https://github.com/hacs/integration

@@ -47,10 +47,8 @@ Both routes then continue with the same [integration install](#install-the-integ
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noiwid&repository=HAFamilyLink&category=integration)
 
-1. In HACS, open the three-dot menu and choose **Custom repositories**.
-2. Add repository `https://github.com/noiwid/HAFamilyLink` with category **Integration**.
-3. Search for **Google Family Link** and download the latest version.
-4. Restart Home Assistant.
+1. In HACS, search for **Google Family Link** and download the latest version.
+2. Restart Home Assistant.
 
 ### Manual
 
