@@ -3,6 +3,7 @@
 [![GitHub Release][releases-shield]][releases]
 [![Marketplace][marketplacebadge]][marketplace]
 [![License][license-shield]][license]
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
 Monitor and control Google Family Link from Home Assistant: screen time, device lock, bedtime and school time schedules, daily limits, communication restrictions, app blocking, time bonuses, and optional GPS location. Multiple children and multiple devices are supported out of the box.
 
@@ -11,6 +12,12 @@ Monitor and control Google Family Link from Home Assistant: screen time, device 
 ![Family Link dashboard](https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/examples/dashboard.png)
 
 > An example Lovelace dashboard built from this integration. The YAML and setup instructions are in [`examples/`](examples/).
+
+⭐ **Enjoying this integration?** [Star it on GitHub](https://github.com/noiwid/HAFamilyLink): it gives the project visibility and helps other parents discover it.
+
+## Also supervising Windows or Xbox?
+
+[Microsoft Family Safety for Home Assistant](https://github.com/noiwid/HAFamilySafety) is the companion integration for Windows, Xbox and mobile devices. With both installed, all of your child's screen time can be followed in one place, in Home Assistant. This also makes a time budget shared across devices possible, something Google and Microsoft cannot do across each other's devices. It is not built in: an automation adds up `sensor.<child>_daily_screen_time` and `sensor.{prefix}_screen_time`, then locks the devices once the budget is spent.
 
 ## How it works
 
