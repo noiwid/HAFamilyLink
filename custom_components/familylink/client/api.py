@@ -2338,6 +2338,34 @@ class FamilyLinkClient:
 			enable=False, account_id=account_id, rule_id=rule_id
 		)
 
+	async def async_restore_school_time(self, account_id: str | None = None, rule_id: str | None = None) -> bool:
+		"""Put school time back to the weekly schedule (strict mode).
+
+		Switches the weekly policy on and deletes today's school time
+		overrides, so today follows the weekly schedule again: its window if
+		the day has one, nothing on a day without school time. Unlike
+		async_enable_school_time, it posts no "now -> 23:59" override, which
+		reverting a switch-off on a Saturday turned into school time until
+		midnight, and on a school day stretched the window to 23:59.
+		"""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+		if not account_id:
+			account_id = await self.async_get_supervised_child_id()
+		if not rule_id:
+			time_limit_data = await self.async_get_time_limit(account_id)
+			rule_id = time_limit_data.get("schooltime_rule_id")
+			if not rule_id:
+				_LOGGER.error("Could not find school time rule ID for this account")
+				return False
+		if not await self._async_set_weekly_policy(account_id, rule_id, True):
+			return False
+		weekday = dt_util.now().isoweekday()
+		ok = True
+		for override_uuid in await self._async_list_schooltime_overrides_today(account_id, rule_id, weekday):
+			ok = await self._async_delete_time_limit_override(account_id, override_uuid) and ok
+		return ok
+
 	async def _async_set_weekly_policy(self, account_id: str, rule_id: str, enable: bool) -> bool:
 		"""Flip the weekly state of a bedtime / school time policy (timeLimit:update).
 
@@ -2581,7 +2609,7 @@ class FamilyLinkClient:
 
 	@staticmethod
 	def _parse_schooltime_overrides(
-		data: Any, rule_id: str, weekday: int
+		data: Any, rule_id: str, weekday: int, since_ms: int | None = None
 	) -> list[tuple[str, int, int]]:
 		"""Extract today's schooltime overrides from an unwrapped timeLimit payload.
 
@@ -2631,6 +2659,10 @@ class FamilyLinkClient:
 					ts = int(item[1])
 				except (TypeError, ValueError):
 					ts = -1
+				# An override covers the day it was posted on only; the list
+				# keeps those of the previous weeks, keyed by the same weekday.
+				if since_ms is not None and ts < since_ms:
+					continue
 				matches.append((item[0], ts, action))
 
 		return matches
@@ -4228,16 +4260,21 @@ class FamilyLinkClient:
 				# the effective one is the most recent by timestamp, exactly as
 				# for bedtime.
 				school_time_enabled_today = school_time_enabled
+				# Today's explicit override (True on, False off), None when none
+				school_time_today_override = None
 				if schooltime_rule_id:
-					weekday = dt_util.now().isoweekday()
+					now_local = dt_util.now()
+					weekday = now_local.isoweekday()
+					midnight_ms = int(now_local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
 					overrides = self._parse_schooltime_overrides(
-						data, schooltime_rule_id, weekday
+						data, schooltime_rule_id, weekday, since_ms=midnight_ms
 					)
 					if overrides:
 						_uuid, latest_ts, latest_action = max(
 							overrides, key=lambda o: o[1]
 						)
 						school_time_enabled_today = (latest_action == 2)
+						school_time_today_override = school_time_enabled_today
 						_LOGGER.debug(
 							f"Most recent school time override for today "
 							f"(weekday={weekday}, ts={latest_ts}): "
@@ -4262,6 +4299,10 @@ class FamilyLinkClient:
 					"bedtime_enabled_today": bedtime_enabled_today,
 					# Same, for school time (issue #140).
 					"school_time_enabled_today": school_time_enabled_today,
+					# Today's explicit school time override, None when none was
+					# posted today (strict mode tells a "today only" change from
+					# a day without school time with it)
+					"school_time_today_override": school_time_today_override,
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
 					"daily_limit_week": daily_limit_week_rows,
