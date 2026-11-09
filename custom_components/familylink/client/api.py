@@ -1726,6 +1726,7 @@ class FamilyLinkClient:
 												start_dt = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
 												end_dt = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
 												crosses_midnight = end_hour < start_hour or (end_hour == start_hour and end_min < start_min)
+												morning_from_today_row = False
 
 												if is_yesterday_row:
 													# Yesterday's occurrence: relevant only if it runs past
@@ -1748,6 +1749,7 @@ class FamilyLinkClient:
 													# evening, because end_ms was already in the past.
 													if now < end_dt:
 														start_dt -= timedelta(days=1)
+														morning_from_today_row = True
 													else:
 														end_dt += timedelta(days=1)
 												else:
@@ -1757,11 +1759,13 @@ class FamilyLinkClient:
 													"start_ms": int(start_dt.timestamp() * 1000),
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
-												if is_today_row and crosses_midnight and now < end_dt:
+												if morning_from_today_row:
 													# The morning belongs to last night, i.e. to
 													# yesterday's row, which this account may not list:
 													# the coordinator fixes it from the weekly schedule
-													# (issue #229, days with different end times)
+													# (issue #229, days with different end times).
+													# Set where the morning is known: end_dt has
+													# already moved to tomorrow in the evening case
 													window_data["morning_from_today_row"] = True
 
 												# Several rows can describe the same rule (today's and
