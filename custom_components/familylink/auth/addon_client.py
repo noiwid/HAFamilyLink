@@ -422,6 +422,13 @@ class AddonCookieClient:
                 return await self._load_cookies_from_file()
 
             cookies = await self._fetch_cookies_from_url(self.auth_url)
+            if cookies is None and self.auth_url == DEFAULT_AUTH_URL:
+                # Old entries stored the default local address (#228): with the
+                # add-on's default network it is not reachable from Core, and
+                # the shared file is where the add-on keeps the cookies. No
+                # key is sent anywhere, only a local file is read.
+                _LOGGER.debug("Default local address unavailable, trying shared file")
+                cookies = await self._load_cookies_from_file()
             if cookies is None:
                 _LOGGER.warning(
                     "Failed to load cookies from configured authentication server"

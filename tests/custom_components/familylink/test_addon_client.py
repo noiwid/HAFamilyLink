@@ -506,6 +506,27 @@ async def test_stopped_addon_entry_rejected_key_fails_closed(hass, monkeypatch) 
     file_fallback.assert_not_awaited()
 
 
+async def test_old_default_local_address_reads_the_shared_file(hass, monkeypatch) -> None:
+    """Issue #228: an old entry kept http://localhost:8099, unreachable from Core."""
+    client = addon_client.AddonCookieClient(hass, auth_url=addon_client.DEFAULT_AUTH_URL)
+    requests: list[tuple[str, str | None]] = []
+
+    async def _fetch(url, *, api_key=None):
+        requests.append((url, api_key))
+        return None
+
+    file_fallback = AsyncMock(return_value=[{"name": "TEST_SESSION", "value": "fake-value"}])
+    monkeypatch.setattr(client, "_get_addon_url", AsyncMock(return_value=None))
+    monkeypatch.setattr(client, "_get_shared_api_key", AsyncMock(return_value=FAKE_API_KEY))
+    monkeypatch.setattr(client, "_fetch_cookies_from_url", _fetch)
+    monkeypatch.setattr(client, "_load_cookies_from_file", file_fallback)
+
+    assert await client.load_cookies()
+    # No key leaves for the default address, only the local file is read
+    assert requests == [(addon_client.DEFAULT_AUTH_URL, None)]
+    file_fallback.assert_awaited_once()
+
+
 async def test_user_typed_url_without_marker_still_gets_no_shared_key(hass, monkeypatch) -> None:
     """A manual server that merely cannot be reached is not mistaken for the add-on."""
     client = addon_client.AddonCookieClient(hass, auth_url=FAKE_AUTH_URL)
