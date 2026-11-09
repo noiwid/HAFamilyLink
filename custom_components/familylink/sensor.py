@@ -1,7 +1,7 @@
 """Sensor platform for Google Family Link integration."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 from typing import Any
@@ -30,7 +30,7 @@ from .const import (
 )
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
-from .schedules import WINDOW_BEDTIME, describe_time_until, next_scheduled_window
+from .schedules import WINDOW_BEDTIME, describe_time_at, next_scheduled_window
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -392,6 +392,8 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
     """Sensor showing the next upcoming time restriction."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # The countdown changes every minute: kept out of the recorder (#230)
+    _unrecorded_attributes = frozenset({"minutes_until"})
 
     def __init__(
         self,
@@ -423,12 +425,6 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
             **via_child(self.coordinator, self._child_id),
         )
 
-    def _calculate_time_until(self, target_ms: int) -> str | None:
-        """Calculate human-readable time until target timestamp."""
-        now = dt_util.now()
-        target = datetime.fromtimestamp(target_ms / 1000, tz=now.tzinfo)
-        return describe_time_until(target, now)
-
     def _next_scheduled_window(self, child_data: dict[str, Any]):
         """Earliest bedtime / school time window from tomorrow on, from the weekly schedule."""
         return next_scheduled_window(
@@ -439,68 +435,65 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
             child_data.get("school_time_enabled"),
         )
 
+    def _child_data(self) -> dict[str, Any] | None:
+        for child_data in (self.coordinator.data or {}).get("children_data", []):
+            if child_data["child_id"] == self._child_id:
+                return child_data
+        return None
+
+    def _next_restriction(self) -> tuple[str, str | None, datetime | None] | None:
+        """(state, restriction type, moment it starts or ends), None without data.
+
+        The state names a fixed time, not a countdown: it only changes when the
+        next restriction does, so the recorder no longer gets a row a minute
+        (#230). The countdown is the unrecorded minutes_until attribute.
+        """
+        child_data = self._child_data()
+        if not child_data:
+            return None
+        time_data = (child_data.get("devices_time_data") or {}).get(self._device_id)
+        if time_data is None:
+            return None
+        now = dt_util.now()
+
+        def _moment(window: dict[str, Any] | None, key: str) -> datetime | None:
+            value = (window or {}).get(key)
+            return datetime.fromtimestamp(value / 1000, tz=now.tzinfo) if value else None
+
+        for label, kind, active_key, window_key in (
+            ("Bedtime", "bedtime", "bedtime_active", "bedtime_window"),
+            ("School time", "school_time", "schooltime_active", "schooltime_window"),
+        ):
+            end = _moment(time_data.get(window_key), "end_ms")
+            if time_data.get(active_key) and end:
+                return f"{label} (ends {describe_time_at(end, now)})", kind, end
+        for label, kind, window_key in (
+            ("Bedtime", "bedtime", "bedtime_window"),
+            ("School time", "school_time", "schooltime_window"),
+        ):
+            start = _moment(time_data.get(window_key), "start_ms")
+            if start and start > now:
+                return f"{label} {describe_time_at(start, now)}", kind, start
+
+        remaining = time_data.get("remaining_minutes", 0)
+        if time_data.get("daily_limit_enabled") and 0 < remaining <= 30:
+            return "Daily limit soon reached", "daily_limit", now + timedelta(minutes=remaining)
+
+        # Nothing left today: announce the next window of the weekly schedule
+        # (tomorrow's bedtime, Monday's school time) instead of "No restrictions"
+        upcoming = self._next_scheduled_window(child_data)
+        if upcoming:
+            window_type, start_dt, _ = upcoming
+            if window_type == WINDOW_BEDTIME:
+                return f"Bedtime {describe_time_at(start_dt, now)}", "bedtime", start_dt
+            return f"School time {describe_time_at(start_dt, now)}", "school_time", start_dt
+        return "No restrictions", None, None
+
     @property
     def native_value(self) -> str | None:
         """Return description of next restriction."""
-        if self.coordinator.data and "children_data" in self.coordinator.data:
-            for child_data in self.coordinator.data["children_data"]:
-                if child_data["child_id"] == self._child_id:
-                    devices_time_data = child_data.get("devices_time_data", {})
-
-                    if self._device_id in devices_time_data:
-                        time_data = devices_time_data[self._device_id]
-
-                        # Check if bedtime is active
-                        if time_data.get("bedtime_active"):
-                            bedtime_window = time_data.get("bedtime_window")
-                            if bedtime_window:
-                                end_ms = bedtime_window.get("end_ms")
-                                if end_ms:
-                                    return f"Bedtime (ends {self._calculate_time_until(end_ms)})"
-
-                        # Check if school time is active
-                        if time_data.get("schooltime_active"):
-                            schooltime_window = time_data.get("schooltime_window")
-                            if schooltime_window:
-                                end_ms = schooltime_window.get("end_ms")
-                                if end_ms:
-                                    return f"School time (ends {self._calculate_time_until(end_ms)})"
-
-                        # Check upcoming bedtime
-                        bedtime_window = time_data.get("bedtime_window")
-                        if bedtime_window:
-                            start_ms = bedtime_window.get("start_ms")
-                            if start_ms:
-                                time_until = self._calculate_time_until(start_ms)
-                                if time_until and time_until != "Active now":
-                                    return f"Bedtime {time_until}"
-
-                        # Check upcoming school time
-                        schooltime_window = time_data.get("schooltime_window")
-                        if schooltime_window:
-                            start_ms = schooltime_window.get("start_ms")
-                            if start_ms:
-                                time_until = self._calculate_time_until(start_ms)
-                                if time_until and time_until != "Active now":
-                                    return f"School time {time_until}"
-
-                        # Check if daily limit is about to be reached
-                        remaining = time_data.get("remaining_minutes", 0)
-                        if time_data.get("daily_limit_enabled") and remaining > 0 and remaining <= 30:
-                            return f"Daily limit {remaining}min remaining"
-
-                        # Nothing left today: announce the next window of the weekly
-                        # schedule (tomorrow's bedtime, Monday's school time) instead of
-                        # "No restrictions" for the rest of the day.
-                        upcoming = self._next_scheduled_window(child_data)
-                        if upcoming:
-                            window_type, start_dt, _ = upcoming
-                            label = "Bedtime" if window_type == WINDOW_BEDTIME else "School time"
-                            return f"{label} {describe_time_until(start_dt, dt_util.now())}"
-
-                        return "No restrictions"
-
-        return None
+        upcoming = self._next_restriction()
+        return upcoming[0] if upcoming else None
 
     @property
     def available(self) -> bool:
@@ -527,6 +520,14 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
 
                         attributes["bedtime_active"] = time_data.get("bedtime_active", False)
                         attributes["schooltime_active"] = time_data.get("schooltime_active", False)
+
+                        upcoming_restriction = self._next_restriction()
+                        if upcoming_restriction:
+                            _, kind, moment = upcoming_restriction
+                            attributes["restriction_type"] = kind
+                            attributes["minutes_until"] = (
+                                max(0, int((moment - dt_util.now()).total_seconds() // 60)) if moment else None
+                            )
 
                         upcoming = self._next_scheduled_window(child_data)
                         if upcoming:
