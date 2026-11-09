@@ -345,6 +345,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# precedence over the appliedTimeLimits heuristic below.
 			bedtime_enabled_today_from_rules = None
 			school_time_enabled_today_from_rules = None
+			school_time_today_override = None
 			# Policy ids from the revisions, handed to the appliedTimeLimits
 			# parser so UUID-keyed windows are classified by policy instead of
 			# by list order (issue #151).
@@ -362,6 +363,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				schooltime_rule_id = time_limit_config.get("schooltime_rule_id")
 				bedtime_enabled_today_from_rules = time_limit_config.get("bedtime_enabled_today")
 				school_time_enabled_today_from_rules = time_limit_config.get("school_time_enabled_today")
+				school_time_today_override = time_limit_config.get("school_time_today_override")
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
 				daily_limit_week_rows = time_limit_config.get("daily_limit_week")
@@ -651,6 +653,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# Whether a school time window exists in today's weekly policy,
 				# independent of any "today only" override (issue #140).
 				"school_time_scheduled_today": school_time_scheduled_today,
+				# Today's explicit school time override from timeLimit (True on, False
+				# off), None when none: tells strict mode a "today only" change apart
+				# from a day without school time
+				"school_time_today_override": school_time_today_override,
 				"bedtime_schedule": bedtime_schedule,
 				"school_time_schedule": school_time_schedule,
 				"daily_limit_week": daily_limit_week_rows,
@@ -1281,7 +1287,13 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				)
 			elif policy:
 				self.set_pending_time_limit_state(child_id, policy, True)
-				success = await getattr(self.client, f"async_enable_{policy}")(account_id=child_id)
+				# School time goes back to the weekly schedule: async_enable_school_time
+				# posts an override "now -> 23:59", school time until midnight
+				enable_call = (
+					self.client.async_restore_school_time if policy == "school_time"
+					else getattr(self.client, f"async_enable_{policy}")
+				)
+				success = await enable_call(account_id=child_id)
 				if not success:
 					self.set_pending_time_limit_state(child_id, policy, None)
 		except Exception as err:

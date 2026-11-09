@@ -273,12 +273,31 @@ def plan_strict_actions(
 	return actions
 
 
+def _school_time_today(child_data: dict[str, Any]) -> bool | None:
+	"""Today's school time state, None when today has nothing to compare.
+
+	An override posted today ("today only" on or off) is the today state.
+	Without one, a day the appliedTimeLimits scan shows no school time
+	window has nothing to enforce: a weekend day, or a school day whose
+	window a manual unlock (override 4) suspended. Reading it as "school
+	time switched off" made strict mode put school time on a Saturday and
+	lock a device the parent had just unlocked. The weekly switch is still
+	compared on every day.
+	"""
+	override = child_data.get("school_time_today_override")
+	if override is not None:
+		return bool(override)
+	if child_data.get("school_time_scheduled_today") is False:
+		return None
+	return child_data.get("school_time_enabled_today")
+
+
 def observed_policy_states(child_data: dict[str, Any], policy: str) -> list[bool]:
 	"""Today-effective and weekly states of a policy as Google reports them (known ones only)."""
 	if policy == STRICT_RULE_BEDTIME:
 		candidates = (child_data.get("bedtime_enabled_today"), child_data.get("bedtime_enabled"))
 	elif policy == STRICT_RULE_SCHOOL_TIME:
-		candidates = (child_data.get("school_time_enabled_today"), child_data.get("school_time_enabled"))
+		candidates = (_school_time_today(child_data), child_data.get("school_time_enabled"))
 	elif policy == STRICT_RULE_DAILY_LIMIT:
 		candidates = (observed_policy_state(child_data, policy),)
 	else:
@@ -292,7 +311,7 @@ def observed_policy_state(child_data: dict[str, Any], policy: str) -> bool | Non
 		today = child_data.get("bedtime_enabled_today")
 		return today if today is not None else child_data.get("bedtime_enabled")
 	if policy == STRICT_RULE_SCHOOL_TIME:
-		today = child_data.get("school_time_enabled_today")
+		today = _school_time_today(child_data)
 		return today if today is not None else child_data.get("school_time_enabled")
 	if policy == STRICT_RULE_DAILY_LIMIT:
 		# Aggregated over the devices: meaningless for a child without any.
