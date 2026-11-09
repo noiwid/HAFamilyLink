@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - 'v*'
+      # Integration betas (v2.6.1b1) are not semver: no image tag, failed build
+      - '!v*b*'
+      - '!v*rc*'
   release:
     types: [published]
   workflow_dispatch:
@@ -16,6 +19,8 @@ env:
 
 jobs:
   build-and-push:
+    # A pre-release only ships the integration; the add-on image does not change
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     permissions:
       contents: read
