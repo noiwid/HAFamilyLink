@@ -193,6 +193,8 @@ Sets the daily screen time quota of one device, or of every device of a child wh
 
 The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
 
+While the child's daily limit is switched off, the action only writes the weekly quota (today's when `day` is omitted): no override is posted and the limit stays off. Google enforces a today override even with the limit off, so posting one would block the device. The weekday number entities behave the same way.
+
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `daily_minutes` | int, 0 to 1440 | yes | - (form prefills 120) | Minutes allowed per day. `0` disables the device for the day without fully locking it |
@@ -220,7 +222,7 @@ data:
 
 ### familylink.enable_daily_limit / familylink.disable_daily_limit
 
-Turns the child's daily screen time limit on or off.
+Turns the child's daily screen time limit on or off. Switching it off also removes the quota overrides left on the child's devices, which Google would otherwise keep enforcing; the weekly quotas are kept for when the limit is switched back on.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|

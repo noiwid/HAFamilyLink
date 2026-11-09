@@ -1014,7 +1014,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._websites[child_id] = (time.monotonic(), {k: lists.get(k) for k in ("filter_level", "approved", "blocked")})
 
 	def record_daily_limit_minutes(
-		self, child_id: str | None, minutes: int, day: int | None = None
+		self, child_id: str | None, minutes: int, day: int | None = None, limit_on: bool = True
 	) -> tuple[int | None, bool | None] | None:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
 
@@ -1033,9 +1033,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		limits = intents.setdefault("values", {}).setdefault("weekly_limits", {})
 		previous = (limits.get(str(day)), intents["policies"].get("daily_limit"))
 		limits[str(day)] = int(minutes)
-		# Google writes every quota with the limit switched on: setting one from
-		# HA is the parent switching the daily limit on, strict mode follows it
-		intents["policies"]["daily_limit"] = True
+		# A quota set while the limit is switched off only changes the schedule:
+		# the limit stays off (limit_on False) and so does its reference
+		if limit_on:
+			intents["policies"]["daily_limit"] = True
 		self._save_strict_intents()
 		return previous
 

@@ -36,6 +36,7 @@ def coordinator():
         "async_unblock_app",
     ):
         getattr(client, method_name).return_value = True
+    client.async_is_daily_limit_off.return_value = False
     client.async_block_device_for_school.return_value = {
         "blocked_count": 1,
         "unblocked_count": 0,

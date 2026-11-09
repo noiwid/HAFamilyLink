@@ -128,7 +128,8 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		}
 
 	async def async_set_native_value(self, value: float) -> None:
-		"""Write the weekly quota of this weekday; for today, also post today's override.
+		"""Write the weekly quota of this weekday; for today, also post today's override
+		(not while the daily limit is switched off).
 
 		The weekly row is what the app's weekly screen writes (captured
 		2026-09-03). Google keeps applying today's override while one is in
@@ -146,9 +147,13 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		# override for several seconds, and a refresh in between must not find
 		# the old reference and put the old quota back (which also made the
 		# verification fail, so the new value was never recorded)
-		previous = self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day)
-		results = [await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id)]
-		if results[0] and self._day == today:
+		# Limit switched off: only the weekly row is written and the limit stays
+		# off. Google enforces today's override even then, which blocked the
+		# phone during a week without limit (2026-11-09)
+		limit_on = not await client.async_is_daily_limit_off(self._child_id)
+		previous = self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day, limit_on)
+		results = [await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id, limit_on)]
+		if results[0] and self._day == today and limit_on:
 			# Not on a Google TV: it takes no time limits and never confirms
 			# the override, which made the whole write fail (#173)
 			for device_id in time_limit_device_ids(self.coordinator.data, self._child_id):

@@ -25,7 +25,9 @@ PHONE = "device-phone"
 TABLET = "device-tablet"
 
 
-def _tracking(coordinator, calls: list, *, weekly_ok: bool = True, today_ok: bool = True) -> None:
+def _tracking(
+    coordinator, calls: list, *, weekly_ok: bool = True, today_ok: bool = True, limit_off: bool = False
+) -> None:
     """Make the strict mode hooks and the client writes log their order."""
     coordinator.record_daily_limit_minutes = MagicMock(
         side_effect=lambda *a, **k: calls.append(("record", a[1], a[2])) or 300
@@ -33,8 +35,9 @@ def _tracking(coordinator, calls: list, *, weekly_ok: bool = True, today_ok: boo
     coordinator.restore_daily_limit_minutes = MagicMock(
         side_effect=lambda *a, **k: calls.append(("restore", a[1], a[2]))
     )
+    coordinator.client.async_is_daily_limit_off = AsyncMock(return_value=limit_off)
 
-    async def weekly(day, minutes, child_id):
+    async def weekly(day, minutes, child_id, limit_on=True):
         calls.append(("weekly", day, minutes))
         return weekly_ok
 
@@ -109,6 +112,19 @@ async def test_number_of_another_weekday_writes_the_weekly_quota_only() -> None:
     assert calls == [("record", 240, day), ("weekly", day, 240)]
 
 
+async def test_number_for_today_with_the_limit_off_writes_the_weekly_quota_only() -> None:
+    """Google enforces today's override even with the limit off: none is posted (2026-11-09)."""
+    calls: list = []
+    number = _number(calls, _today(), limit_off=True)
+
+    await number.async_set_native_value(400)
+
+    assert calls == [("record", 400, _today()), ("weekly", _today(), 400)]
+    # The limit and its strict mode reference stay off
+    assert number.coordinator.record_daily_limit_minutes.call_args.args[3] is False
+    assert number.coordinator.client.async_set_weekly_daily_limit.call_args.args[3] is False
+
+
 @pytest.fixture
 async def services(hass, coordinator):
     hass.states.async_set("switch.kid_phone", "on", {"device_id": PHONE, "child_id": CHILD_ID})
@@ -127,6 +143,18 @@ async def test_service_declares_the_quota_before_writing_it(hass, services) -> N
 
     assert calls[0] == ("record", 400, _today())
     assert calls[1:] == [("today", PHONE, 400), ("today", TABLET, 400)]
+
+
+async def test_service_without_a_day_with_the_limit_off_writes_the_weekly_quota_only(hass, services) -> None:
+    calls: list = []
+    _tracking(services, calls, limit_off=True)
+
+    await hass.services.async_call(
+        DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400}, blocking=True
+    )
+
+    assert calls == [("record", 400, _today()), ("weekly", _today(), 400)]
+    assert services.client.async_set_weekly_daily_limit.call_args.args[3] is False
 
 
 async def test_service_restores_the_reference_only_when_nothing_was_taken(hass, services) -> None:

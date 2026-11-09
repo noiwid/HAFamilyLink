@@ -38,6 +38,7 @@ from ..schedules import (
 	WINDOW_SCHOOL_TIME,
 	classify_window_row,
 	DAY_CODES,
+	daily_limit_override_ids,
 	daily_limit_week,
 	parse_daily_limit_overrides,
 	parse_daily_limit_schedule,
@@ -2401,9 +2402,13 @@ class FamilyLinkClient:
 			return False
 
 	async def async_set_weekly_daily_limit(
-		self, day: int, daily_minutes: int, account_id: str | None = None
+		self, day: int, daily_minutes: int, account_id: str | None = None, limit_on: bool = True
 	) -> bool:
 		"""Set the weekly screen time quota of one weekday (the app's "weekly schedule" screen).
+
+		The request carries the daily limit switch with the row: pass
+		``limit_on=False`` to write the row and leave the limit switched off
+		(checked live 2026-11-09: Google stores the row, the switch stays off).
 
 		Captured on the web app (2026-09-03): PUT timeLimit:update with
 		``[null, childId, [null, [[2, null, null, [[slot, minutes]]]]], null, [1]]``.
@@ -2435,7 +2440,7 @@ class FamilyLinkClient:
 			payload = json.dumps([
 				None,
 				account_id,
-				[None, [[2, None, None, [[slot, int(daily_minutes)]]]]],
+				[None, [[2 if limit_on else 1, None, None, [[slot, int(daily_minutes)]]]]],
 				None,
 				[1],
 			])
@@ -2868,6 +2873,18 @@ class FamilyLinkClient:
 			_LOGGER.error(f"Unexpected error enabling daily limit: {err}")
 			return False
 
+	async def async_is_daily_limit_off(self, account_id: str) -> bool:
+		"""True when Google says the daily limit is switched off; False when on or unreadable.
+
+		Read live: a quota written from HA must not switch the limit back on,
+		and the coordinator data can be one poll behind the app.
+		"""
+		data = await self._async_fetch_time_limit_data(account_id)
+		try:
+			return data[1][0][0] == 1
+		except (TypeError, IndexError):
+			return False
+
 	async def async_disable_daily_limit(self, account_id: str | None = None) -> bool:
 		"""Disable daily time limit for a child.
 
@@ -2914,12 +2931,42 @@ class FamilyLinkClient:
 					_LOGGER.error(f"Failed to disable daily limit {response.status}: {response_text}")
 					return False
 
-				_LOGGER.info(f"Successfully disabled daily limit for account {account_id}")
-				return True
+			_LOGGER.info(f"Successfully disabled daily limit for account {account_id}")
+			# Google keeps enforcing a quota override with the limit switched
+			# off: the device stays blocked once that quota is used
+			await self._async_clear_daily_limit_overrides(account_id)
+			return True
 
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error disabling daily limit: {err}")
 			return False
+
+	async def _async_clear_daily_limit_overrides(self, account_id: str) -> None:
+		"""Delete every per-device quota override (type 8) of the child.
+
+		All of them, not only today's: Google applies the most recent one on
+		its weekday, so an older row would be the most recent again once
+		today's are gone.
+		"""
+		data = await self._async_fetch_time_limit_data(account_id)
+		if data is None:
+			_LOGGER.warning(
+				f"Daily limit switched off for account {account_id} but its quota overrides "
+				"could not be read: a quota set for today may still apply until midnight"
+			)
+			return
+		override_ids = daily_limit_override_ids(data)
+		deleted = 0
+		for override_uuid in override_ids:
+			if await self._async_delete_time_limit_override(account_id, override_uuid):
+				deleted += 1
+		if deleted < len(override_ids):
+			_LOGGER.warning(
+				f"Daily limit switched off for account {account_id} but {len(override_ids) - deleted} "
+				"quota override(s) could not be deleted: a quota set for today may still apply"
+			)
+		elif deleted:
+			_LOGGER.info(f"Deleted {deleted} quota override(s) left behind the daily limit of account {account_id}")
 
 	async def async_set_daily_limit(
 		self,
