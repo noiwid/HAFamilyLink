@@ -475,19 +475,20 @@ def morning_window_from_yesterday(
 	return {"start_ms": _next_day_ms(window["start_ms"]), "end_ms": _next_day_ms(window["end_ms"])}, False
 
 
-def describe_time_until(target: datetime, now: datetime) -> str:
-	"""Human-readable delay until `target`: "Active now", "in 25min", "in 3h05", "in 1d 14h"."""
-	diff_seconds = int((target - now).total_seconds())
-	if diff_seconds <= 0:
-		return "Active now"
-	days, rem = divmod(diff_seconds, 86400)
-	hours, rem = divmod(rem, 3600)
-	minutes = rem // 60
-	if days > 0:
-		return f"in {days}d {hours}h"
-	if hours > 0:
-		return f"in {hours}h{minutes:02d}"
-	return f"in {minutes}min"
+def describe_time_at(target: datetime, now: datetime) -> str:
+	"""Fixed wording of a moment: "at 22:00" today, "tomorrow 07:00", "Mon 22:00" later.
+
+	A countdown changed the next-restriction state every minute and filled the
+	recorder (#230); this one only changes when the next restriction does.
+	"""
+	target = target.astimezone(now.tzinfo) if now.tzinfo else target
+	days = (target.date() - now.date()).days
+	clock = target.strftime("%H:%M")
+	if days <= 0:
+		return f"at {clock}"
+	if days == 1:
+		return f"tomorrow {clock}"
+	return f"{('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')[target.weekday()]} {clock}"
 
 
 def next_scheduled_window(

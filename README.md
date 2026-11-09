@@ -82,7 +82,7 @@ Each child appears as a hub device named `<child> (Family Link)`, with every phy
 | `time.<child>_<weekday>_bedtime_start`, `_bedtime_end` | Child | Start and end of that weekday's bedtime in the weekly schedule. Setting one rewrites the slot (the other bound is kept) |
 | `time.<child>_<weekday>_school_time_start`, `_school_time_end` | Child | Start and end of that weekday's school time in the weekly schedule. Setting one rewrites the slot (the other bound is kept). Unavailable for a weekday that has no school time window in Family Link |
 | `sensor.<device>_screen_time_remaining` | Device | Remaining minutes today, accounting for bonuses and used time |
-| `sensor.<device>_next_restriction` | Device | Next upcoming restriction as text, window timestamps in attributes |
+| `sensor.<device>_next_restriction` | Device | Next restriction at a fixed time ("Bedtime at 22:00", "School time (ends at 16:30)"); `restriction_type`, `minutes_until` (countdown, not recorded) and window timestamps in attributes |
 | `sensor.<device>_daily_limit` | Device | Configured daily quota in minutes |
 | `sensor.<device>_active_bonus` | Device | Active bonus minutes (0 when none) |
 | `sensor.<device>_daily_screen_time` | Device | Today's screen time on this device in minutes, per-app breakdown in attributes; unknown while the data is missing |
