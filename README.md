@@ -2,6 +2,7 @@
 
 [![GitHub Release][releases-shield]][releases]
 [![Marketplace][marketplacebadge]][marketplace]
+[![Downloads][downloads-shield]][releases]
 [![License][license-shield]][license]
 [![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
@@ -182,6 +183,7 @@ This is an unofficial integration, not affiliated with, endorsed by, or connecte
 
 [releases-shield]: https://img.shields.io/github/release/noiwid/HAFamilyLink.svg?style=for-the-badge
 [releases]: https://github.com/noiwid/HAFamilyLink/releases
+[downloads-shield]: https://img.shields.io/github/downloads/noiwid/HAFamilyLink/total.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/noiwid/HAFamilyLink.svg?style=for-the-badge
 [license]: LICENSE
 [marketplacebadge]: https://img.shields.io/badge/Marketplace-Default-41BDF5.svg?style=for-the-badge
