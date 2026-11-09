@@ -37,6 +37,7 @@ from .const import (
 	WEBSITES_REFRESH,
 )
 from .exceptions import FamilyLinkException, SessionExpiredError
+from .schedules import morning_window_from_yesterday
 from .strict_mode import (
 	ACTION_CANCEL_BONUS,
 	ACTION_ENABLE_BEDTIME,
@@ -470,6 +471,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# reports "bedtime active" in the evening while the switch (which
 			# reads the policy state above) correctly shows off. Apply the same
 			# today-effective state to the device windows the sensors read.
+			# The morning of an overnight window read on today's row: yesterday's
+			# weekly row decides (#229). Before the policy gate, which still wins.
+			for time_data in devices_time_data.values():
+				for kind, schedule in (("bedtime", bedtime_schedule), ("schooltime", school_time_schedule)):
+					window = (time_data or {}).get(f"{kind}_window") or {}
+					if not window.pop("morning_from_today_row", False):
+						continue
+					fixed = morning_window_from_yesterday(window, schedule, dt_util.now())
+					if fixed:
+						time_data[f"{kind}_window"], time_data[f"{kind}_active"] = fixed
 			_gate_windows_on_policy_state(
 				devices_time_data, bedtime_enabled_today, schooltime_enabled_today, child_name
 			)
