@@ -26,6 +26,7 @@ from .const import (
 	EVENT_STRICT_MODE_ACTION,
 	STRICT_MODE_BONUS_GRACE,
 	STRICT_MODE_COOLDOWN,
+	STRICT_MODE_MAX_ATTEMPTS,
 	CONF_ENABLE_LOCATION_TRACKING,
 	CONF_UPDATE_INTERVAL,
 	DEFAULT_UPDATE_INTERVAL,
@@ -38,9 +39,6 @@ from .const import (
 from .exceptions import FamilyLinkException, SessionExpiredError
 from .strict_mode import (
 	ACTION_CANCEL_BONUS,
-	ACTION_DISABLE_BEDTIME,
-	ACTION_DISABLE_DAILY_LIMIT,
-	ACTION_DISABLE_SCHOOL_TIME,
 	ACTION_ENABLE_BEDTIME,
 	ACTION_ENABLE_DAILY_LIMIT,
 	ACTION_ENABLE_SCHOOL_TIME,
@@ -87,6 +85,17 @@ def _gate_windows_on_policy_state(
 			time_data[f"{policy}_window"] = None
 
 
+def _strict_key(action: dict[str, Any]) -> str:
+	"""Identity of a corrective action, for its cooldown and its tries.
+
+	Dated: a correction given up one day is tried again the next.
+	"""
+	return (
+		f"{action['child_id']}:{action['action']}:{action.get('device_id') or ''}:"
+		f"{action.get('day') or ''}:{dt_util.now().date().isoformat()}"
+	)
+
+
 class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	"""Class to manage fetching data from the Family Link API."""
 
@@ -121,6 +130,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._strict_mode_children: dict[str, bool] = {}
 		self.strict_mode_status: dict[str, dict[str, Any]] = {}  # child_id -> last action info
 		self._strict_cooldown: dict[str, float] = {}  # action key -> last run timestamp
+		self._strict_attempts: dict[str, int] = {}  # action key -> tries in a row while still planned
 		# Writes made from HA, keyed "child:policy" or device id: strict mode
 		# leaves a target alone while one runs and for a moment after (D-038)
 		self._ha_writes_running: dict[str, int] = {}
@@ -323,6 +333,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			bedtime_schedule = None
 			school_time_schedule = None
 			daily_limit_week_rows = None
+			# The app's daily limit switch, None when not read (cache keeps the last)
+			daily_limit_switch = None
 			# "Allow apps with unlimited time during downtime", None when not reported
 			downtime_unlimited_apps = None
 			# Today-effective bedtime state derived from the per-day type-9
@@ -352,6 +364,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				bedtime_schedule = time_limit_config.get("bedtime_schedule")
 				school_time_schedule = time_limit_config.get("school_time_schedule")
 				daily_limit_week_rows = time_limit_config.get("daily_limit_week")
+				daily_limit_switch = time_limit_config.get("daily_limit_enabled")
 				downtime_unlimited_apps = time_limit_config.get("downtime_unlimited_apps")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
@@ -375,6 +388,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 							bedtime_schedule = cached_child.get("bedtime_schedule")
 							school_time_schedule = cached_child.get("school_time_schedule")
 							daily_limit_week_rows = cached_child.get("daily_limit_week")
+							daily_limit_switch = cached_child.get("daily_limit_enabled")
 							downtime_unlimited_apps = cached_child.get("downtime_unlimited_apps")
 							_LOGGER.debug(f"Using cached time limit config for {child_name}")
 							break
@@ -507,12 +521,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					device["bonus_override_id"] = time_data.get("bonus_override_id")
 
 			# Aggregate daily_limit_enabled from devices
-			# If ANY device has daily_limit enabled, consider it globally enabled
-			daily_limit_enabled = False
-			for device in devices:
-				if device.get("daily_limit_enabled"):
-					daily_limit_enabled = True
-					break
+			# If ANY device has daily_limit enabled, consider it globally enabled;
+			# unknown (None) when no device reports today's row
+			states = [device.get("daily_limit_enabled") for device in devices]
+			daily_limit_enabled = True if True in states else (False if False in states else None)
+			# The app's switch wins when it was read: today's rows keep an
+			# override's "on" after the limit is switched off
+			if daily_limit_switch is not None:
+				daily_limit_enabled = daily_limit_switch
 			_LOGGER.debug(f"Aggregated daily_limit_enabled for {child_name}: {daily_limit_enabled}")
 
 			# Compute daily screen time for this child from the already-fetched
@@ -980,36 +996,51 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		"""Keep the lists an update returned, so entities show them without a new read."""
 		self._websites[child_id] = (time.monotonic(), {k: lists.get(k) for k in ("filter_level", "approved", "blocked")})
 
-	def record_daily_limit_minutes(self, child_id: str | None, minutes: int, day: int | None = None) -> int | None:
+	def record_daily_limit_minutes(
+		self, child_id: str | None, minutes: int, day: int | None = None
+	) -> tuple[int | None, bool | None] | None:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
 
 		Call it BEFORE writing to Google: the write verifies the applied value
 		for several seconds, and a refresh in between must not find the old
-		reference and put the old quota back. Returns the previous reference
-		(None when there was none) so a failed write can restore it.
+		reference and put the old quota back. Returns what it replaced (the
+		weekday quota and the daily limit reference, None when absent) for
+		restore_daily_limit_minutes; None without a child.
 		"""
 		child_id = self._resolve_child_id(child_id)
 		if not child_id:
 			return None
 		if not (isinstance(day, int) and 1 <= day <= 7):
 			day = dt_util.now().isoweekday()
-		values = self._intents_for(child_id).setdefault("values", {})
-		limits = values.setdefault("weekly_limits", {})
-		previous = limits.get(str(day))
+		intents = self._intents_for(child_id)
+		limits = intents.setdefault("values", {}).setdefault("weekly_limits", {})
+		previous = (limits.get(str(day)), intents["policies"].get("daily_limit"))
 		limits[str(day)] = int(minutes)
+		# Google writes every quota with the limit switched on: setting one from
+		# HA is the parent switching the daily limit on, strict mode follows it
+		intents["policies"]["daily_limit"] = True
 		self._save_strict_intents()
 		return previous
 
-	def restore_daily_limit_minutes(self, child_id: str | None, day: int, previous: int | None) -> None:
-		"""Put a weekday reference back after a failed write (the value before, or none)."""
+	def restore_daily_limit_minutes(
+		self, child_id: str | None, day: int, previous: tuple[int | None, bool | None] | None
+	) -> None:
+		"""Undo record_daily_limit_minutes after a write Google did not take."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
+		if not child_id or previous is None:
 			return
-		limits = self._intents_for(child_id).setdefault("values", {}).setdefault("weekly_limits", {})
-		if previous is None:
+		minutes, limit_on = previous
+		intents = self._intents_for(child_id)
+		limits = intents.setdefault("values", {}).setdefault("weekly_limits", {})
+		if minutes is None:
 			limits.pop(str(day), None)
 		else:
-			limits[str(day)] = int(previous)
+			limits[str(day)] = int(minutes)
+		# Nothing reached Google: the limit is still what the parent had chosen
+		if limit_on is None:
+			intents["policies"].pop("daily_limit", None)
+		else:
+			intents["policies"]["daily_limit"] = limit_on
 		self._save_strict_intents()
 
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
@@ -1135,6 +1166,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				_LOGGER.warning(f"Strict mode: could not evaluate child {child_id}: {err}")
 				continue
+			# A correction no longer planned took effect (or is moot): its count restarts
+			planned_keys = {_strict_key(a) for a in actions}
+			for key in [k for k in self._strict_attempts if k.startswith(f"{child_id}:") and k not in planned_keys]:
+				del self._strict_attempts[key]
+			today_key = dt_util.now().date().isoformat()
+			self._strict_cooldown = {k: t for k, t in self._strict_cooldown.items() if k.endswith(today_key)}
 			for action in actions:
 				await self._async_run_strict_action(child_data, action, planned)
 
@@ -1148,10 +1185,11 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		# A change Home Assistant itself just made is still propagating on
 		# Google's side: do not fight our own pending state.
+		# Strict mode only ever switches a restriction back on
 		policy_of_action = {
-			ACTION_ENABLE_BEDTIME: "bedtime", ACTION_DISABLE_BEDTIME: "bedtime",
-			ACTION_ENABLE_DAILY_LIMIT: "daily_limit", ACTION_DISABLE_DAILY_LIMIT: "daily_limit",
-			ACTION_ENABLE_SCHOOL_TIME: "school_time", ACTION_DISABLE_SCHOOL_TIME: "school_time",
+			ACTION_ENABLE_BEDTIME: "bedtime",
+			ACTION_ENABLE_DAILY_LIMIT: "daily_limit",
+			ACTION_ENABLE_SCHOOL_TIME: "school_time",
 		}
 		policy = policy_of_action.get(name)
 		if policy and self.get_pending_time_limit_state(child_id, policy) is not None:
@@ -1175,11 +1213,23 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.debug(f"Strict mode: {name} for {child_id} dropped, decided otherwise from HA since")
 			return
 
-		key = f"{child_id}:{name}:{device_id or ''}:{action.get('day') or ''}"
+		key = _strict_key(action)
 		now = time.time()
 		if now - self._strict_cooldown.get(key, 0.0) < STRICT_MODE_COOLDOWN:
 			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} skipped, cooldown active")
 			return
+		# Google answers 200 to writes it does not apply: a correction still
+		# planned after a few tries is given up instead of looping all night
+		attempts = self._strict_attempts.get(key, 0)
+		if attempts >= STRICT_MODE_MAX_ATTEMPTS:
+			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} given up, no effect after {attempts} tries")
+			return
+		self._strict_attempts[key] = attempts + 1
+		if attempts + 1 == STRICT_MODE_MAX_ATTEMPTS:
+			_LOGGER.warning(
+				f"Strict mode: {name} for child {child_data.get('child_name', child_id)} had no effect "
+				f"after {STRICT_MODE_MAX_ATTEMPTS} tries, given up until the state changes ({action.get('reason')})"
+			)
 		self._strict_cooldown[key] = now
 
 		_LOGGER.info(
@@ -1219,17 +1269,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					daily_minutes=action["minutes"], device_id=device_id, account_id=child_id, day=action.get("day")
 				)
 			elif policy:
-				enable = name in (ACTION_ENABLE_BEDTIME, ACTION_ENABLE_DAILY_LIMIT, ACTION_ENABLE_SCHOOL_TIME)
-				client_calls = {
-					("bedtime", True): self.client.async_enable_bedtime,
-					("bedtime", False): self.client.async_disable_bedtime,
-					("daily_limit", True): self.client.async_enable_daily_limit,
-					("daily_limit", False): self.client.async_disable_daily_limit,
-					("school_time", True): self.client.async_enable_school_time,
-					("school_time", False): self.client.async_disable_school_time,
-				}
-				self.set_pending_time_limit_state(child_id, policy, enable)
-				success = await client_calls[(policy, enable)](account_id=child_id)
+				self.set_pending_time_limit_state(child_id, policy, True)
+				success = await getattr(self.client, f"async_enable_{policy}")(account_id=child_id)
 				if not success:
 					self.set_pending_time_limit_state(child_id, policy, None)
 		except Exception as err:
@@ -1250,6 +1291,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			(d.get("name") for d in child_data.get("devices") or [] if isinstance(d, dict) and d.get("id") == device_id),
 			None,
 		)
+		created_by = self._member_name(
+			((child_data.get("devices_time_data") or {}).get(device_id) or {}).get("override_by")
+		) if device_id and name in (ACTION_CANCEL_BONUS, ACTION_LOCK_DEVICE) else None
+		status["last_created_by"] = created_by
+		if created_by:
+			_LOGGER.warning(f"Strict mode: the override countered by {name} was created by {created_by}")
 		self.hass.bus.async_fire(EVENT_STRICT_MODE_ACTION, {
 			"child_id": child_id,
 			"child_name": child_data.get("child_name"),
@@ -1258,6 +1305,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			"action": name,
 			"reason": action.get("reason"),
 			"success": success,
+			# Account that created the bonus or unlock override countered (None
+			# when Google gives none, e.g. a lock lifted without any override)
+			"created_by": created_by,
 			# Structured details for notifications: weekday (1 = Monday), minutes,
 			# bedtime bounds, and what Google reported before the correction.
 			"day": action.get("day"),
@@ -1266,6 +1316,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			"end": action.get("end"),
 			"observed": action.get("observed"),
 		})
+
+	def _member_name(self, user_id: str | None) -> str | None:
+		"""Family member's display name for a Google user id, the id when unknown."""
+		if not user_id:
+			return None
+		for member in (self.data or {}).get("family_members") or []:
+			if isinstance(member, dict) and member.get("userId") == user_id:
+				return (member.get("profile") or {}).get("displayName") or user_id
+		return user_id
 
 	async def async_cleanup(self) -> None:
 		"""Clean up coordinator resources."""

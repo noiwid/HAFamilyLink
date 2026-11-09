@@ -102,6 +102,12 @@ def test_unlock_override_during_school_time_is_countered():
     child = _child(locked=False, schooltime_active=True, lock_override=LOCK_OVERRIDE_UNLOCKED)
     assert _actions(child, _intents(None)) == [ACTION_LOCK_DEVICE]
 
+def test_unlock_from_the_app_during_bedtime_is_countered():
+    """2026-11-09 02:48: the app's Unlock wrote code 3, read as no override, phone free until 22:00."""
+    child = _child(locked=False, bedtime_active=True, lock_override=3)
+    assert _actions(child, _intents(None)) == [ACTION_LOCK_DEVICE]
+
+
 def test_lock_with_allowed_apps_is_a_lock_for_strict_mode():
     """Issue #175: a code 7 lock (allowed apps reachable) must not be fought or countered."""
     child = _child(locked=True, lock_override=LOCK_OVERRIDE_LOCKED_ALLOWED_APPS)

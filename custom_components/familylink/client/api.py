@@ -1506,9 +1506,10 @@ class FamilyLinkClient:
 							# time limit" reachable from the lock screen (written by the app
 							# when that lock screen setting is on, issue #175), 4 = manual
 							# unlock (a bypass of the active restriction until the next
-							# scheduled event); kept for strict mode and the switch attribute
+							# scheduled event; the app's "Unlock" during bedtime writes 3);
+							# kept for strict mode and the switch attribute
 							is_locked = action_code in (1, 7)
-							if action_code in (1, 4, 7):
+							if action_code in (1, 3, 4, 7):
 								lock_override = action_code
 						else:
 							is_locked = False
@@ -1519,7 +1520,10 @@ class FamilyLinkClient:
 							"total_allowed_minutes": 0,
 							"used_minutes": 0,
 							"remaining_minutes": 0,
-							"daily_limit_enabled": False,
+							# None until today's row is read: read as "off" when the row
+							# was missing, strict mode switched a limit that was on
+							# back on every 97 s for three hours (2026-11-08)
+							"daily_limit_enabled": None,
 							"daily_limit_minutes": 0,
 							"bedtime_window": None,
 							"schooltime_window": None,
@@ -1528,6 +1532,14 @@ class FamilyLinkClient:
 							"bonus_minutes": 0,
 							"bonus_override_id": None,
 							"lock_override": lock_override,
+							# Account that created the device's override (lock, unlock
+							# or bonus): strict mode names it, to tell a parent's click
+							# from a way around (2026-11-09, locks lifted at school)
+							"override_by": (
+								device_data[0][8]
+								if has_lock_override and len(device_data[0]) > 8 and isinstance(device_data[0][8], str)
+								else None
+							),
 						}
 						# A device block can carry two daily-limit rows for today: the
 						# effective one near the front (index < 10) and a recurring or
@@ -4083,6 +4095,19 @@ class FamilyLinkClient:
 				daily_limit_week_rows = daily_limit_week(
 					weekly_limits, parse_daily_limit_overrides(data), dt_util.now().isoweekday()
 				)
+				# The app's "Daily limit" switch: state flag heading the block,
+				# 2 = on, 1 = off (what timeLimit:update writes). Today's per-device
+				# row keeps an override's "on" after the switch is turned off, so
+				# reading the rows showed the limit back on (2026-11-09)
+				daily_limit_block = data[1][0] if (
+					isinstance(data, list) and len(data) > 1 and isinstance(data[1], list)
+					and data[1] and isinstance(data[1][0], list) and data[1][0]
+				) else None
+				daily_limit_enabled = (
+					daily_limit_block[0] == 2
+					if daily_limit_block and daily_limit_block[0] in (1, 2) and type(daily_limit_block[0]) is int
+					else None
+				)
 
 				schedule_bedtime_id = bedtime_rule_id or self._BEDTIME_POLICY_ID
 				schedule_schooltime_id = schooltime_rule_id or self._SCHOOLTIME_POLICY_ID
@@ -4230,6 +4255,7 @@ class FamilyLinkClient:
 					"bedtime_schedule": bedtime_schedule,
 					"school_time_schedule": school_time_schedule,
 					"daily_limit_week": daily_limit_week_rows,
+					"daily_limit_enabled": daily_limit_enabled,
 					"bedtime_rule_id": bedtime_rule_id,
 					"schooltime_rule_id": schooltime_rule_id,
 					# "Allow apps with unlimited time during downtime" (per child)

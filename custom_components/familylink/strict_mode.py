@@ -14,15 +14,16 @@ The four rules mirror the automations parents were writing by hand:
 - ``lock``: the device lock follows Home Assistant. Locked from HA today and
   unlocked on Google's side -> locked again; unlocked from HA today and
   locked on Google's side -> unlocked again; no HA decision and a Google
-  unlock override (code 4) bypassing an active bedtime, school time or
+  unlock override (code 3 or 4) bypassing an active bedtime, school time or
   reached daily limit -> locked again, and unlocked by strict mode itself
   once the restriction is over, as Google would have done. A bonus granted
   from HA suspends the relock for its duration: the parent chose to give
   that time, the lock is put back once the bonus is over
 - ``bedtime``, ``daily_limit``, ``school_time``: the policy cannot be changed
   from the Family Link side. The reference is the state observed when strict
-  mode was switched on, changed only from Home Assistant; whatever differs on
-  Google's side is put back, on or off.
+  mode was switched on, changed only from Home Assistant; a policy switched
+  off on Google's side is put back on. One switched on there is left on: it
+  is more protection, not a bypass.
 - ``values``: the weekly bedtime hours and the weekday quotas (7 days each)
   cannot be changed from the Family Link side either. Same reference logic;
   hours are rewritten in the weekly schedule; a weekly quota changed on
@@ -69,6 +70,9 @@ ACTION_UNLOCK_DEVICE = "unlock_device"
 DEVICE_INTENT_AUTO_LOCK = "auto_lock"
 LOCK_OVERRIDE_LOCKED = 1
 LOCK_OVERRIDE_UNLOCKED = 4
+# The app's "Unlock" during bedtime writes 3 (seen 2026-11-09 02:48, phone
+# free until 22:00 and never countered): both are an unlock override
+LOCK_OVERRIDE_UNLOCKS = (3, LOCK_OVERRIDE_UNLOCKED)
 # A lock that keeps the "apps without time limit" reachable from the lock
 # screen (issue #175). Read as locked everywhere; only the unlock override
 # (4) is ever countered.
@@ -76,18 +80,15 @@ LOCK_OVERRIDE_LOCKED_ALLOWED_APPS = 7
 ACTION_ENABLE_BEDTIME = "enable_bedtime"
 ACTION_ENABLE_DAILY_LIMIT = "enable_daily_limit"
 ACTION_ENABLE_SCHOOL_TIME = "enable_school_time"
-ACTION_DISABLE_BEDTIME = "disable_bedtime"
-ACTION_DISABLE_DAILY_LIMIT = "disable_daily_limit"
-ACTION_DISABLE_SCHOOL_TIME = "disable_school_time"
 ACTION_SET_BEDTIME = "set_bedtime"
 ACTION_SET_DAILY_LIMIT = "set_daily_limit"
 ACTION_SET_WEEKLY_LIMIT = "set_weekly_limit"
 
 POLICY_RULES: tuple[str, ...] = (STRICT_RULE_BEDTIME, STRICT_RULE_DAILY_LIMIT, STRICT_RULE_SCHOOL_TIME)
 _POLICY_ACTIONS = {
-	STRICT_RULE_BEDTIME: (ACTION_ENABLE_BEDTIME, ACTION_DISABLE_BEDTIME, "bedtime"),
-	STRICT_RULE_DAILY_LIMIT: (ACTION_ENABLE_DAILY_LIMIT, ACTION_DISABLE_DAILY_LIMIT, "daily limit"),
-	STRICT_RULE_SCHOOL_TIME: (ACTION_ENABLE_SCHOOL_TIME, ACTION_DISABLE_SCHOOL_TIME, "school time"),
+	STRICT_RULE_BEDTIME: (ACTION_ENABLE_BEDTIME, "bedtime"),
+	STRICT_RULE_DAILY_LIMIT: (ACTION_ENABLE_DAILY_LIMIT, "daily limit"),
+	STRICT_RULE_SCHOOL_TIME: (ACTION_ENABLE_SCHOOL_TIME, "school time"),
 }
 
 
@@ -165,7 +166,7 @@ def _plan_device_lock(
 			# lock it placed, as Google's schedule would have done.
 			return [_action(ACTION_UNLOCK_DEVICE, "restriction over, lifting the strict mode lock", clear_intent=True)]
 		if not locked and not ha_bonus:
-			return [_action(ACTION_LOCK_DEVICE, f"bypass of {active} ({'unlock override' if override == LOCK_OVERRIDE_UNLOCKED else 'lock lifted'})", record=DEVICE_INTENT_AUTO_LOCK)]
+			return [_action(ACTION_LOCK_DEVICE, f"bypass of {active} ({'unlock override' if override in LOCK_OVERRIDE_UNLOCKS else 'lock lifted'})", record=DEVICE_INTENT_AUTO_LOCK)]
 		return []
 
 	# No HA decision: only a Google-side unlock override that bypasses an
@@ -173,7 +174,7 @@ def _plan_device_lock(
 	# bypass (a Google-side one is handled by the bonus rule first).
 	if (
 		active is not None
-		and override == LOCK_OVERRIDE_UNLOCKED
+		and override in LOCK_OVERRIDE_UNLOCKS
 		and not locked
 		and (time_data.get("bonus_minutes") or 0) <= 0
 	):
@@ -238,6 +239,7 @@ def plan_strict_actions(
 				ha_bonus=device_id in ha_bonus_devices,
 			))
 
+	restored: set[str] = set()
 	for policy in POLICY_RULES:
 		if policy not in rules:
 			continue
@@ -246,17 +248,27 @@ def plan_strict_actions(
 		# No reference yet (snapshot pending) or state unknown: nothing to compare.
 		# Both today's effective state and the weekly switch must match: a
 		# "today only" change and a weekly change are both reverted.
-		if reference is None or not observed_states or all(o == bool(reference) for o in observed_states):
+		# Strict mode guards what is active: a restriction switched on from
+		# Family Link is more protection, never switched back off (a quota
+		# script re-enabled the daily limit on 2026-11-09 and was fought all night)
+		if not reference or not observed_states or all(observed_states):
 			continue
-		enable_action, disable_action, label = _POLICY_ACTIONS[policy]
-		actions.append({
-			"action": enable_action if reference else disable_action,
-			"child_id": child_id,
-			"reason": f"{label} switched {'off' if reference else 'on'} on Google's side",
-		})
+		action, label = _POLICY_ACTIONS[policy]
+		actions.append({"action": action, "child_id": child_id, "reason": f"{label} switched off on Google's side"})
+		restored.add(policy)
+
+	if restored & {STRICT_RULE_BEDTIME, STRICT_RULE_SCHOOL_TIME}:
+		# The restriction a strict mode lock protects is only off because it was
+		# switched off on Google's side, and is being put back in this pass:
+		# lifting the lock first left the device free until the next poll
+		# (2026-11-09 03:02, tablet unlocked then bedtime restored 3 s later)
+		actions = [a for a in actions if not a.get("clear_intent")]
 
 	if STRICT_RULE_VALUES in rules:
-		actions.extend(_plan_values(child_data, intents.get("values") or {}, today))
+		# Every quota write switches the limit on at Google: none while the
+		# parent keeps the daily limit off, or the two rules fight forever
+		limit_on = not (STRICT_RULE_DAILY_LIMIT in rules and wanted.get(STRICT_RULE_DAILY_LIMIT) is False)
+		actions.extend(_plan_values(child_data, intents.get("values") or {}, today, limit_on))
 
 	return actions
 
@@ -369,7 +381,9 @@ def snapshot_values(
 	return added
 
 
-def _plan_values(child_data: dict[str, Any], values: dict[str, Any], today: int | None = None) -> list[dict[str, Any]]:
+def _plan_values(
+	child_data: dict[str, Any], values: dict[str, Any], today: int | None = None, limit_on: bool = True,
+) -> list[dict[str, Any]]:
 	"""Rule ``values``: put the weekly bedtime hours and the daily limits back."""
 	child_id = child_data.get("child_id")
 	actions: list[dict[str, Any]] = []
@@ -393,7 +407,7 @@ def _plan_values(child_data: dict[str, Any], values: dict[str, Any], today: int 
 				),
 			})
 
-	reference_limits = values.get("weekly_limits") or {}
+	reference_limits = (values.get("weekly_limits") or {}) if limit_on else {}
 	if reference_limits:
 		# The weekly quotas (the app's weekly screen) are put back day by day
 		# with the weekly write; unknown days are skipped.

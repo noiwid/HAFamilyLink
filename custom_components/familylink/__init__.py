@@ -715,8 +715,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
 			if failed and len(failed) == len(results):
-				# Nothing was taken: the references go back to what they were
-				for ref_day, previous in recorded.items():
+				# Nothing was taken: the references go back to what they were,
+				# last recorded first so the daily limit reference ends as before
+				for ref_day, previous in reversed(list(recorded.items())):
 					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
 			if len(failed) < len(results):
 				_LOGGER.info(

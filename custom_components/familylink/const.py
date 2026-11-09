@@ -133,6 +133,7 @@ STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "school_t
 DEFAULT_STRICT_MODE_RULES: Final = ("bonus", "lock", "bedtime", "daily_limit", "school_time", "values")
 STRICT_MODE_BONUS_GRACE: Final = 120  # seconds added to an HA-granted bonus before strict mode may cancel it
 STRICT_MODE_COOLDOWN: Final = 90  # seconds between two identical corrective actions
+STRICT_MODE_MAX_ATTEMPTS: Final = 3  # same correction still needed after that many tries: given up until the state changes
 EVENT_STRICT_MODE_ACTION: Final = "familylink_strict_mode_action"
 
 # Polling
