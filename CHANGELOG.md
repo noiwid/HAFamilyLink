@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [2.6.0] - 2026-11-09
 
 ### Fixed
 - **Strict mode no longer loops on the daily limit.** A correction Google accepts but does not apply was retried every 97 s all night, with a notification each time. It is now given up after 3 tries until the state changes, and tried again the next day.
@@ -14,9 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **An unlock from the Family Link app during bedtime is seen.** The app writes lock code 3, which was read as no override: the device stayed free and strict mode never countered it.
 - **Strict mode keeps its lock while it puts bedtime back.** When bedtime was switched off on Google's side, the lock strict mode had placed was lifted first, leaving the device free until the next refresh.
 - A quota set from Home Assistant now counts as switching the daily limit on, and a quota Google refuses puts the previous choice back.
+- **The morning of an overnight bedtime is read on yesterday's row** (#229). Accounts on the older downtime model only list today's row, and its end time was used: with Saturday 21:00-11:00 and Sunday 20:00-17:00, Sunday was read as bedtime until 17:00. The weekly schedule now settles it.
+- **Old entries on `http://localhost:8099` read the shared cookie file again** (#228). That address is not reachable from Core with the add-on's default network, and nothing fell back to `/share/familylink` since 2.0.0. No key is sent anywhere, only the local file is read.
 
 ### Changed
 - **Strict mode only guards what is active.** A restriction switched off on Google's side is switched back on; one switched on there is left on, it is more protection, not a bypass. Strict mode no longer rewrites the quotas while you keep the daily limit off.
+- **`sensor.<device>_next_restriction` names a fixed time instead of a countdown** (#230): "Bedtime at 22:00", "School time (ends at 16:30)", "Bedtime tomorrow 07:00". The countdown changed the state every minute and filled the recorder. It is now the `minutes_until` attribute, not recorded, next to `restriction_type`. **Automations that parsed the old text ("in 25min") should use `minutes_until`.**
 - The `familylink_strict_mode_action` event carries `created_by`: the family member (or the account id) that created the bonus or unlock override strict mode countered.
 
 ---
