@@ -440,6 +440,41 @@ def parse_downtime_unlimited_apps(data: Any) -> bool | None:
 	return None
 
 
+def morning_window_from_yesterday(
+	window: dict[str, Any], schedule: list[dict[str, Any]] | None, now: datetime
+) -> tuple[dict[str, Any], bool] | None:
+	"""The morning part of an overnight window, read on yesterday's weekly row.
+
+	Before its end, an overnight window still running belongs to last night,
+	so to yesterday's row. Accounts on the older downtime model only list
+	today's row, and its end time was used: wrong whenever the two days end
+	at different times (#229: Saturday 21:00-11:00, Sunday 20:00-17:00 read
+	as locked until 17:00 on Sunday). Returns the window and whether it runs
+	now, or None when the weekly schedule is unknown (the reading is kept).
+	"""
+	if not schedule:
+		return None
+	yesterday = now - timedelta(days=1)
+	row = next(
+		(slot for slot in schedule if slot.get("day") == yesterday.isoweekday() and slot.get("enabled")),
+		None,
+	)
+	if row:
+		(start_h, start_m), (end_h, end_m) = row["start"], row["end"]
+		if (end_h, end_m) < (start_h, start_m):
+			end = now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+			if now < end:
+				start = yesterday.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+				return {"start_ms": int(start.timestamp() * 1000), "end_ms": int(end.timestamp() * 1000)}, True
+	# Last night is over (or there was none): the window is tonight's. One day
+	# later on the wall clock, not 86 400 s, for the days the clock changes
+	def _next_day_ms(ms: int) -> int:
+		moment = datetime.fromtimestamp(ms / 1000, tz=now.tzinfo) + timedelta(days=1)
+		return int(moment.timestamp() * 1000)
+
+	return {"start_ms": _next_day_ms(window["start_ms"]), "end_ms": _next_day_ms(window["end_ms"])}, False
+
+
 def describe_time_until(target: datetime, now: datetime) -> str:
 	"""Human-readable delay until `target`: "Active now", "in 25min", "in 3h05", "in 1d 14h"."""
 	diff_seconds = int((target - now).total_seconds())

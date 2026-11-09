@@ -1757,6 +1757,12 @@ class FamilyLinkClient:
 													"start_ms": int(start_dt.timestamp() * 1000),
 													"end_ms": int(end_dt.timestamp() * 1000)
 												}
+												if is_today_row and crosses_midnight and now < end_dt:
+													# The morning belongs to last night, i.e. to
+													# yesterday's row, which this account may not list:
+													# the coordinator fixes it from the weekly schedule
+													# (issue #229, days with different end times)
+													window_data["morning_from_today_row"] = True
 
 												# Several rows can describe the same rule (today's and
 												# yesterday's occurrence, or a duplicate further down the
