@@ -24,16 +24,15 @@ The YAML was exported from a real setup (Family Link 2.0). Find your own entity 
 | `switch.sm_s916b`, `sensor.sm_s916b_*` (screen_time_remaining, daily_limit, active_bonus, battery_level), `button.sm_s916b_*` (15min, 30min, 60min, reset_bonus) | your phone's entities |
 | `device_tracker.firstname_name_family_link_firstname_name` | your child's device tracker (requires GPS tracking enabled in the integration options) |
 
-## Cards that need extra work
+## Card that needs extra work
 
-Two cards reference entities the integration does **not** create:
+One card references an entity the integration does **not** create:
 
 | Entity | Used for |
 |--------|----------|
 | `sensor.firstname_ecran_par_heure` | hourly screen time chart, a template sensor that stores the minutes used in the current hour (a `derivative` or `utility_meter` helper on `sensor.firstname_name_daily_screen_time` with an hourly cycle works) |
-| `sensor.firstname_pending_requests`, `button.firstname_approve_request`, `button.firstname_deny_request` | the "Incoming requests" card (app and time requests); Family Link does not expose them, the author's come from another parental-control integration |
 
-Build equivalents or delete those cards.
+Build an equivalent or delete that card.
 
 ## Weekly limits card (2.0)
 
