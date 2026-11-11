@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.7.0] - Unreleased
+
+### Added
+- **Google Play settings of each child, read-only** (#239): `sensor.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `sensor.<child>_play_apps_games_rating` (Google's label, e.g. `PEGI 16`). Read every 15 minutes, two Google calls per child. Changing them from Home Assistant is not there yet.
+
+### Fixed
+- **A daily limit switched off no longer blocks the device.** Google keeps enforcing a "today" quota override even with the limit off, so a quota written earlier from Home Assistant blocked the phone while the app and Home Assistant both showed the limit off. Switching the limit off now removes the quota overrides of the child's devices; the weekly quotas are kept.
+- **A quota written while the limit is off leaves it off.** The weekday number entities and `familylink.set_daily_limit` then only write the weekly quota and post no "today" override.
+- **Strict mode puts school time back to the weekly schedule** instead of an override until 23:59. A day without school time is no longer read as school time switched off, and school time overrides of previous weeks no longer count for today (#231, thanks @mindw00rk).
+
+### Changed
+- The example dashboard no longer has the "Incoming requests" card: Family Link gives nothing to feed it.
+
+---
+
 ## [2.6.0] - 2026-11-09
 
 ### Fixed
