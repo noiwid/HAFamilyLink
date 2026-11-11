@@ -5,6 +5,7 @@ import asyncio
 import copy
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Any
@@ -118,6 +119,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		# and taken from the answer of a change made from Home Assistant (store_websites).
 		self._websites: dict[str, tuple[float, dict[str, Any] | None]] = {}  # child_id -> (read at, lists)
 		self._websites_warned: set[str] = set()  # children whose last site list read failed (warned once)
+		# Google Play settings (#239): same pace, same handling of a failed read
+		self._play_settings: dict[str, tuple[float, dict[str, Any] | None]] = {}  # child_id -> (read at, settings)
+		self._play_settings_warned: set[str] = set()
 
 		# Strict mode: Home Assistant reverts restriction changes made from the
 		# Family Link side (see strict_mode.py). The default and the rule set
@@ -626,6 +630,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 						break
 
 			websites = await self._async_child_websites(child_id, child_name)
+			play_settings = await self._async_child_play_settings(child_id, child_name)
 
 			# Store data for this child
 			child_data = {
@@ -640,6 +645,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				"contact_restriction": contact_restriction,
 				"device_batteries": device_batteries,
 				"websites": websites,
+				"play_settings": play_settings,
 				"apps": apps_usage_data.get("apps", []) if apps_usage_data else [],
 				"app_usage_sessions": apps_usage_data.get("appUsageSessions", []) if apps_usage_data else [],
 				"bedtime_enabled": bedtime_enabled,
@@ -986,28 +992,50 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		an account without "Google Chrome and Web" fails for good, and would
 		otherwise cost a call and a log line per refresh. Warned once per child.
 		"""
-		cached = self._websites.get(child_id)
+		return await self._async_rarely_read(
+			self._websites, self._websites_warned, child_id, child_name,
+			"website restrictions", self.client.async_get_website_restrictions,
+		)
+
+	async def _async_child_play_settings(self, child_id: str, child_name: str) -> dict[str, Any] | None:
+		"""The child's Google Play settings (#239), read and kept as the site lists are."""
+		return await self._async_rarely_read(
+			self._play_settings, self._play_settings_warned, child_id, child_name,
+			"Google Play settings", self.client.async_get_play_settings,
+		)
+
+	async def _async_rarely_read(
+		self,
+		cache: dict[str, tuple[float, dict[str, Any] | None]],
+		warned: set[str],
+		child_id: str,
+		child_name: str,
+		what: str,
+		read: Callable[[str], Awaitable[dict[str, Any]]],
+	) -> dict[str, Any] | None:
+		"""``read(child_id)`` at most every WEBSITES_REFRESH seconds, the last answer in between and on an error."""
+		cached = cache.get(child_id)
 		if cached and time.monotonic() - cached[0] < WEBSITES_REFRESH:
 			return cached[1]
 		try:
-			lists = await self.client.async_get_website_restrictions(child_id)
+			answer = await read(child_id)
 		except SessionExpiredError:
 			raise
 		except Exception as err:
 			previous = cached[1] if cached else None
-			self._websites[child_id] = (time.monotonic(), previous)
-			if child_id in self._websites_warned:
-				_LOGGER.debug(f"Failed to fetch website restrictions for {child_name} again: {err}")
+			cache[child_id] = (time.monotonic(), previous)
+			if child_id in warned:
+				_LOGGER.debug(f"Failed to fetch {what} for {child_name} again: {err}")
 			else:
-				self._websites_warned.add(child_id)
+				warned.add(child_id)
 				_LOGGER.warning(
-					f"Failed to fetch website restrictions for {child_name}: {err}. "
+					f"Failed to fetch {what} for {child_name}: {err}. "
 					f"Retried every {WEBSITES_REFRESH // 60} minutes, logged at debug level from now on"
 				)
 			return previous
-		self._websites_warned.discard(child_id)
-		self._websites[child_id] = (time.monotonic(), lists)
-		return lists
+		warned.discard(child_id)
+		cache[child_id] = (time.monotonic(), answer)
+		return answer
 
 	def store_websites(self, child_id: str, lists: dict[str, Any]) -> None:
 		"""Keep the lists an update returned, so entities show them without a new read."""

@@ -4642,6 +4642,99 @@ class FamilyLinkClient:
 		_LOGGER.info(f"Web filter level set to {level} for {account_id} (Google reads {lists.get('filter_level')!r})")
 		return lists
 
+	# Google Play settings ("Controls" > "Google Play"), issue #239, read with
+	# POST settingResources: the body of :performAction without the value,
+	# [None, [[resource, subkey, [child]], ...], constant block], several
+	# resources per call. The answer is [[row, ...]], row[0] being the resource
+	# key; a radio group has row[4] = [selected value, [option, ...]] and an
+	# option is [value, ..., texts at index 7]. An unknown resource or subkey
+	# answers [] (live 2026-11-11).
+	# "7" is the purchase and download approval mode. "13" is the highest
+	# rating allowed in a content category, and its subkey is the category's
+	# label in the language of the request ("Apps & games", "Applications et
+	# jeux"), so it is read from the Google Play page ("2"), where the
+	# categories are the "11" rows, apps and games first. English is asked for,
+	# so the rating labels ("PEGI 16", "Allow all") do not follow a language
+	# Google picks.
+	PLAY_PAGE_RESOURCE = "2"
+	PLAY_CATEGORY_RESOURCE = "11"
+	PLAY_APPROVAL_RESOURCE = "7"
+	PLAY_RATING_RESOURCE = "13"
+	PLAY_APPROVAL_NAMES = {"4": "all_content", "3": "paid_content", "2": "in_app_purchases", "1": "never"}
+
+	@staticmethod
+	def _setting_rows(data: Any, resource: str) -> list[list]:
+		"""The rows of a settingResources answer whose key is ``resource``."""
+		rows = data[0] if isinstance(data, list) and data and isinstance(data[0], list) else []
+		return [
+			row for row in rows
+			if isinstance(row, list) and row and isinstance(row[0], list) and row[0] and row[0][0] == resource
+		]
+
+	@classmethod
+	def _setting_choice(cls, data: Any, resource: str) -> dict[str, Any] | None:
+		"""{"value", "label", "options": {value: label}} of a radio group, None if Google did not return one."""
+		for row in cls._setting_rows(data, resource):
+			try:
+				selected, options = row[4]
+			except (IndexError, TypeError, ValueError):
+				continue
+			if not isinstance(selected, str):
+				continue
+			labels: dict[str, Any] = {}
+			for option in options if isinstance(options, list) else []:
+				try:
+					labels[option[0]] = option[7][5][0][0]
+				except (IndexError, TypeError):
+					pass  # a label that moved must not hide the value
+			return {"value": selected, "label": labels.get(selected), "options": labels}
+		return None
+
+	async def _async_setting_resources(self, account_id: str, resources: list[tuple[str, str | None]]) -> Any:
+		"""Read (resource, subkey) setting resources of a child in one call."""
+		if not self.is_authenticated():
+			raise AuthenticationError("Not authenticated")
+		self._validate_id(account_id, "account_id")
+		session = await self._get_session()
+		payload = json.dumps([None, [[resource, subkey, [account_id]] for resource, subkey in resources], [[1, 3, 4, 5, 6], 1]])
+		async with session.post(
+			f"{self.BASE_URL}/people/settingResources",
+			headers={
+				"Content-Type": "application/json+protobuf",
+				"Accept-Language": "en",
+				"Cookie": self._get_cookie_header(),
+			},
+			data=payload,
+		) as response:
+			if response.status == 401:
+				raise SessionExpiredError("Session expired, please re-authenticate")
+			text = await response.text()
+			if response.status != 200:
+				raise NetworkError(f"Setting resources read failed: HTTP {response.status}")
+		try:
+			return json.loads(text)
+		except ValueError as err:
+			raise NetworkError("Unexpected setting resources response") from err
+
+	async def async_get_play_settings(self, account_id: str) -> dict[str, Any]:
+		"""The child's Google Play purchase approval mode and apps & games rating (issue #239).
+
+		{"approval": choice, "apps_rating": choice}, a choice being what
+		_setting_choice returns, None when Google did not return the setting.
+		"""
+		data = await self._async_setting_resources(
+			account_id, [(self.PLAY_PAGE_RESOURCE, None), (self.PLAY_APPROVAL_RESOURCE, None)]
+		)
+		rating = None
+		categories = self._setting_rows(data, self.PLAY_CATEGORY_RESOURCE)
+		subkey = categories[0][0][1] if categories and len(categories[0][0]) > 1 else None
+		if isinstance(subkey, str):
+			rating = self._setting_choice(
+				await self._async_setting_resources(account_id, [(self.PLAY_RATING_RESOURCE, subkey)]),
+				self.PLAY_RATING_RESOURCE,
+			)
+		return {"approval": self._setting_choice(data, self.PLAY_APPROVAL_RESOURCE), "apps_rating": rating}
+
 	async def async_update_website_restrictions(
 		self,
 		account_id: str,

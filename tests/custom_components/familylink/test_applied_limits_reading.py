@@ -106,6 +106,7 @@ async def test_child_limit_is_unknown_when_no_device_reports_it() -> None:
     coordinator._pending_lock_states = {}
     coordinator._pending_time_limit_states = {}
     coordinator._async_child_websites = AsyncMock(return_value=None)
+    coordinator._async_child_play_settings = AsyncMock(return_value=None)
 
     data = await coordinator._async_fetch_data()
 

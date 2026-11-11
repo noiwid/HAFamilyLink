@@ -28,6 +28,7 @@ from .const import (
     DOMAIN,
     LOGGER_NAME,
 )
+from .client.api import FamilyLinkClient
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 from .schedules import WINDOW_BEDTIME, describe_time_at, next_scheduled_window
@@ -102,6 +103,8 @@ async def async_setup_entry(
         entities.append(FamilyLinkBlockedAppsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkWebsitesSensor(coordinator, child_id, child_name, "blocked"))
         entities.append(FamilyLinkWebsitesSensor(coordinator, child_id, child_name, "approved"))
+        entities.append(FamilyLinkPlaySettingSensor(coordinator, child_id, child_name, "approval"))
+        entities.append(FamilyLinkPlaySettingSensor(coordinator, child_id, child_name, "apps_rating"))
         entities.append(FamilyLinkAppsWithLimitsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAppsWithoutLimitsSensor(coordinator, child_id, child_name))
         entities.append(FamilyLinkAlwaysAllowedAppsSensor(coordinator, child_id, child_name))
@@ -952,6 +955,67 @@ class FamilyLinkWebsitesSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
 		if truncated:
 			attrs["truncated"] = True
 		return attrs
+
+
+class FamilyLinkPlaySettingSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
+	"""A Google Play setting of the child (Family Link "Controls" > "Google Play"), read-only (#239).
+
+	``kind`` "approval" is the purchase and download approval mode, under a
+	fixed name. "apps_rating" is the highest apps & games rating allowed, as
+	Google labels it ("PEGI 16"): the ratings follow the account's region.
+	"""
+
+	def __init__(
+		self,
+		coordinator: FamilyLinkDataUpdateCoordinator,
+		child_id: str,
+		child_name: str,
+		kind: str,
+	) -> None:
+		"""Initialize the sensor; ``kind`` is "approval" or "apps_rating"."""
+		super().__init__(coordinator=coordinator, child_id=child_id, child_name=child_name)
+		self._kind = kind
+		if kind == "approval":
+			self._attr_name = f"{child_name} Play Purchase Approvals"
+			self._attr_icon = "mdi:cart-check"
+			self._attr_device_class = SensorDeviceClass.ENUM
+			self._attr_options = list(FamilyLinkClient.PLAY_APPROVAL_NAMES.values())
+		else:
+			self._attr_name = f"{child_name} Play Apps & Games Rating"
+			self._attr_icon = "mdi:google-play"
+		self._attr_unique_id = f"{DOMAIN}_{child_id}_play_{kind}"
+
+	def _choice(self) -> dict[str, Any] | None:
+		child_data = self._get_child_data()
+		return ((child_data or {}).get("play_settings") or {}).get(self._kind)
+
+	@property
+	def available(self) -> bool:
+		"""Available once the Google Play settings have been read."""
+		child_data = self._get_child_data()
+		return self.coordinator.last_update_success and bool(child_data) and child_data.get("play_settings") is not None
+
+	@property
+	def native_value(self) -> str | None:
+		"""The approval mode's name, or the rating's label; None for a setting or a value not known here."""
+		choice = self._choice()
+		if not choice:
+			return None
+		if self._kind == "approval":
+			return FamilyLinkClient.PLAY_APPROVAL_NAMES.get(choice["value"])
+		return choice["label"]
+
+	@property
+	def extra_state_attributes(self) -> dict[str, Any]:
+		"""Google's own value and label, and the labels of every choice."""
+		choice = self._choice() or {}
+		return {
+			"child_id": self._child_id,
+			"child_name": self._child_name,
+			"value": choice.get("value"),
+			"label": choice.get("label"),
+			"choices": list((choice.get("options") or {}).values()),
+		}
 
 
 class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
