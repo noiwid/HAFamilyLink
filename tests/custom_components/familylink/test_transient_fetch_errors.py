@@ -56,6 +56,7 @@ def _coordinator() -> FamilyLinkDataUpdateCoordinator:
     coordinator._pending_lock_states = {}
     coordinator._pending_time_limit_states = {}
     coordinator._async_child_websites = AsyncMock(return_value=None)
+    coordinator._async_child_play_settings = AsyncMock(return_value=None)
     return coordinator
 
 
