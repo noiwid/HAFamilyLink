@@ -313,6 +313,15 @@ def parse_daily_limit_overrides(data: Any) -> dict[int, dict[str, tuple[int, int
 	return result
 
 
+def daily_limit_override_ids(data: Any) -> list[str]:
+	"""Uuid of every stored per-device quota override (type 8) of the timeLimit response."""
+	return [
+		item[0]
+		for item in _walk_lists(data)
+		if len(item) >= 5 and item[2] == 8 and isinstance(item[0], str) and item[0] and isinstance(item[3], str) and item[3]
+	]
+
+
 def latest_daily_limit_override(
 	overrides: dict[int, dict[str, tuple[int, int]]],
 ) -> tuple[int, int, int] | None:

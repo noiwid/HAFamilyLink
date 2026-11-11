@@ -658,9 +658,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		day = call.data.get("day")
 		today = dt_util.now().isoweekday()
-		# Today's quota is a per-device override; another weekday is a weekly
-		# row of the child and needs no device at all
-		posts_override = day is None or day == today
 
 		# A child_id on its own targets every device of that child (issue
 		# #148): the daily limit is a per-device override on Google's side,
@@ -672,15 +669,25 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				child_id = resolve_service_child(hass, coordinator.data, call, device_id)
 		elif child_id:
 			device_ids = time_limit_device_ids(coordinator.data, child_id)
-			if not device_ids and posts_override:
-				raise ValueError(
-					f"No device of child_id {child_id} takes a daily limit. Check the "
-					"child_id or select a device entity instead."
-				)
 		else:
 			raise ValueError(
 				"device_id or child_id is required. Either select an entity or "
 				"provide one of them manually."
+			)
+
+		# Limit switched off: only the weekly row is written and the limit stays
+		# off. Google enforces today's override even then, which blocked the
+		# phone during a week without limit (2026-11-09)
+		limit_on = not await coordinator.client.async_is_daily_limit_off(child_id)
+		if not limit_on and day is None:
+			day = today
+		# Today's quota is a per-device override; another weekday is a weekly
+		# row of the child and needs no device at all
+		posts_override = limit_on and (day is None or day == today)
+		if posts_override and not device_ids:
+			raise ValueError(
+				f"No device of child_id {child_id} takes a daily limit. Check the "
+				"child_id or select a device entity instead."
 			)
 
 		_LOGGER.info(
@@ -698,9 +705,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				# A weekday: the weekly quota of that day, as the app's weekly
 				# screen writes it. Today also gets the override below so the
 				# change applies at once.
-				recorded[day] = coordinator.record_daily_limit_minutes(child_id, daily_minutes, day)
+				recorded[day] = coordinator.record_daily_limit_minutes(child_id, daily_minutes, day, limit_on)
 				results["weekly"] = await coordinator.client.async_set_weekly_daily_limit(
-					day, daily_minutes, child_id
+					day, daily_minutes, child_id, limit_on
 				)
 			if posts_override:
 				if today not in recorded:

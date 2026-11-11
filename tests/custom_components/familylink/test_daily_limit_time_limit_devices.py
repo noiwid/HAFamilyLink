@@ -55,8 +55,10 @@ def _tracking(coordinator, calls: list) -> None:
         side_effect=lambda *a, **k: calls.append(("restore", a[1], a[2]))
     )
 
-    async def weekly(day, minutes, child_id):
+    async def weekly(day, minutes, child_id, limit_on=True):
         return True
+
+    coordinator.client.async_is_daily_limit_off = AsyncMock(return_value=False)
 
     async def today(daily_minutes, device_id, account_id):
         calls.append(("today", device_id, daily_minutes))
