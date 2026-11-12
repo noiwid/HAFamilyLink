@@ -47,6 +47,7 @@ from .const import (
 	SERVICE_UNBLOCK_APP,
 )
 from .app_pause import async_remove_app_pause_services, async_setup_app_pause_services
+from .card import async_register_card
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import child_of_device, devices_not_listed_yet, time_limit_device_ids
 from .permissions import async_register_guarded_service
@@ -292,6 +293,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		await async_setup_services(hass, coordinator)
 		await async_setup_app_pause_services(hass, coordinator)
 		await async_setup_website_services(hass, coordinator)
+
+		# The dashboard card is a convenience: a failure there must not stop the integration
+		try:
+			await async_register_card(hass)
+		except Exception:  # noqa: BLE001
+			_LOGGER.exception("Could not register the Family Link dashboard card")
 
 		_LOGGER.info("Successfully set up Family Link integration")
 		return True

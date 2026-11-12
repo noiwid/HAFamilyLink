@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.8.0] - 2026-11-12
+
+### Added
+- **Dashboard cards shipped with the integration.** They load on every dashboard by themselves, with a visual editor; no Marketplace card, helper or script is needed any more. Details and screenshots in [`examples/`](examples/README.md).
+  - `custom:familylink-card`: one phone or tablet. Lock and unlock behind a confirmation, ring to find it, a settings dialog (strict mode, unlimited apps during bedtime, calls and texts), why it is blocked or the next restriction, bonus bar and custom bonus, daily limit / bedtime / school time tiles, the apps by tab with a dialog per app (always allowed, no limit, daily limit, paused, blocked), a Web tab (filter level, sites allowed or blocked, several at once), and the weekly limits with a dialog per weekday (quota, bedtime and school hours).
+  - `custom:parental-screen-time-card` and `custom:parental-screen-time-history-card`: today's screen time of several devices together, hourly chart and daily history from the long-term statistics. The same file ships with Microsoft Family Safety, so PCs and Xbox can sit next to the phones; a limit or a lock shared by several devices counts once.
+  - `custom:familylink-location-card`: the child on Home Assistant's map, with the place, the age of the fix and a refresh button.
+  - Every change goes through the integration's entities and actions, so the option **Users allowed to control Family Link** applies to the cards too.
+
+### Changed
+- The example dashboard is now made of these cards (a few lines of YAML). The earlier example, its helper package and its Marketplace cards are gone; the standalone weekly limits card stays.
+- Requires Home Assistant 2024.7 or later.
+
+---
+
 ## [2.7.1] - 2026-11-12
 
 ### Fixed
