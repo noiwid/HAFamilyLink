@@ -1,12 +1,16 @@
 {
   "domain": "familylink",
   "name": "Google Family Link",
+  "after_dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "codeowners": [
     "@noiwid"
   ],
   "config_flow": true,
   "dependencies": [],
-  "after_dependencies": ["frontend", "http", "websocket_api"],
   "documentation": "https://github.com/noiwid/HAFamilyLink",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
