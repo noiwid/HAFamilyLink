@@ -17,7 +17,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - The example dashboard is now made of these cards (a few lines of YAML). The earlier example, its helper package and its Marketplace cards are gone; the standalone weekly limits card stays.
-- Requires Home Assistant 2024.7 or later.
 
 ---
 

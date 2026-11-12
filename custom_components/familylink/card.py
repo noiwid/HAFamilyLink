@@ -15,12 +15,16 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
+
+try:
+	from homeassistant.components.http import StaticPathConfig
+except ImportError:  # Home Assistant before 2024.7: the synchronous registration below
+	StaticPathConfig = None
 
 URL_BASE = "/familylink_card"
 _REGISTERED = f"{DOMAIN}_card_registered"
@@ -40,9 +44,12 @@ async def async_register_card(hass: HomeAssistant) -> None:
 	if hass.data.get(_REGISTERED):
 		return
 	hass.data[_REGISTERED] = True
-	await hass.http.async_register_static_paths(
-		[StaticPathConfig(URL_BASE, str(FRONTEND), cache_headers=False)]
-	)
+	if StaticPathConfig is None:
+		hass.http.register_static_path(URL_BASE, str(FRONTEND), False)
+	else:
+		await hass.http.async_register_static_paths(
+			[StaticPathConfig(URL_BASE, str(FRONTEND), cache_headers=False)]
+		)
 	# A new address for a new file, or the mobile app keeps its copy: the version for a release,
 	# the modification time for a file changed in place
 	version = (await async_get_integration(hass, DOMAIN)).version

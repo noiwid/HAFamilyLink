@@ -90,4 +90,7 @@ async def test_registered_once():
 		"/familylink_card/parental-screen-time.js?v=9.9.9-123",
 	]
 	add_ws.assert_called_once()
-	hass.http.async_register_static_paths.assert_awaited_once()
+	if card.StaticPathConfig is None:  # Home Assistant before 2024.7
+		hass.http.register_static_path.assert_called_once()
+	else:
+		hass.http.async_register_static_paths.assert_awaited_once()
