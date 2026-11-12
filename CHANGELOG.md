@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.7.0] - Unreleased
+## [2.7.0] - 2026-11-12
 
 ### Added
 - **Google Play settings of each child, read-only** (#239): `sensor.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `sensor.<child>_play_apps_games_rating` (Google's label, e.g. `PEGI 16`). Read every 15 minutes, two Google calls per child. Changing them from Home Assistant is not there yet.
