@@ -193,7 +193,7 @@ Sets the daily screen time quota of one device, or of every device of a child wh
 
 The override references today's slot of the weekly daily-limit schedule. That slot id is resolved from the account's live schedule (it is not the same on every account), and the new value is read back from Google after 3 and 8 seconds. The action therefore takes up to about 10 seconds and raises an error when Google accepted the request without applying it, so an automation can react instead of assuming success.
 
-While the child's daily limit is switched off, the action only writes the weekly quota (today's when `day` is omitted): no override is posted and the limit stays off. Google enforces a today override even with the limit off, so posting one would block the device. The weekday number entities behave the same way.
+While the child's daily limit is switched off, the action only writes the weekly quota (today's when `day` is omitted): no override is posted and the limit stays off. Google enforces a today override even with the limit off, so posting one would block the device. The weekday number entities behave the same way. With strict mode on, a quota set for one device stays that device's for the day; set for the child, it is the reference of every device.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|

@@ -119,6 +119,8 @@ async def test_service_for_an_explicit_device_still_targets_it(hass, services) -
     )
 
     assert calls == [("today", PHONE, 90)]
+    # The quota is recorded for that device alone, not as the child's reference
+    assert services.record_daily_limit_minutes.call_args.kwargs == {"device_id": PHONE}
 
 
 async def test_service_for_a_child_with_only_a_tv_says_so(hass, coordinator) -> None:

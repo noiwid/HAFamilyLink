@@ -443,8 +443,10 @@ def _plan_values(
 				"observed": observed_minutes,
 				"reason": f"weekly daily limit for day {day} changed on Google's side ({observed_minutes} min instead of {minutes})",
 			})
-	reference_today = reference_limits.get(str(today)) if today is not None else None
-	if reference_today is not None:
+	reference_child = reference_limits.get(str(today)) if today is not None else None
+	# A quota set from HA on one device today wins over the child's for that device
+	device_limits = (values.get("device_limits") or {}) if limit_on and today is not None else {}
+	if reference_child is not None or device_limits:
 		# Google keeps applying today's override while one is in force, so
 		# today's quota is enforced on the minutes applied on each device.
 		# Limit off: the daily_limit policy rule owns it.
@@ -452,8 +454,9 @@ def _plan_values(
 		for device_id, time_data in devices_time_data.items():
 			if not isinstance(time_data, dict) or not time_data.get("daily_limit_enabled"):
 				continue
+			reference_today = device_limits.get(device_id, reference_child)
 			applied = time_data.get("daily_limit_minutes")
-			if type(applied) is not int or applied == reference_today:
+			if reference_today is None or type(applied) is not int or applied == reference_today:
 				continue
 			actions.append({
 				"action": ACTION_SET_DAILY_LIMIT,

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.7.1] - Unreleased
+
+### Fixed
+- **A daily limit of 0 minutes is read as reached.** A device set to 0 showed "Locked all day" on its screen while `binary_sensor.<device>_daily_limit_reached` stayed off and the remaining time was unknown.
+- **Strict mode keeps a quota set on one device to that device.** `familylink.set_daily_limit` called for a single device recorded its value as the reference of the whole child, and strict mode then gave the same quota to the child's other devices and to the weekly schedule. The quota is now kept for that device, for the day.
+
+---
+
 ## [2.7.0] - 2026-11-12
 
 ### Added

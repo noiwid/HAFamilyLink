@@ -176,3 +176,45 @@ async def test_the_notification_names_who_created_the_bonus() -> None:
     coordinator._strict_cooldown.clear()
     await coordinator._async_run_strict_action(child, bonus)
     assert coordinator.hass.bus.async_fire.call_args.args[1]["created_by"] == "42"
+
+
+def test_a_quota_set_on_one_device_is_not_copied_to_the_others(monkeypatch) -> None:
+    """set_daily_limit on the tablet alone: strict mode gave the phone the same quota at the next poll."""
+    from datetime import datetime
+
+    from custom_components.familylink import coordinator as coordinator_module
+
+    monkeypatch.setattr(coordinator_module.dt_util, "now", lambda: datetime(2026, 11, 9, 9, 0))  # a Monday
+    coordinator = _coordinator()
+    coordinator.record_daily_limit_minutes(CHILD, 180, 1)
+    previous = coordinator.record_daily_limit_minutes(CHILD, 0, 1, device_id="tablet")
+    values = coordinator._intents_for(CHILD)["values"]
+    assert values == {"weekly_limits": {"1": 180}, "device_limits": {"tablet": 0}}
+
+    child = _child(True)
+    child["devices_time_data"] = {
+        DEVICE: {"daily_limit_enabled": True, "daily_limit_minutes": 180},
+        "tablet": {"daily_limit_enabled": True, "daily_limit_minutes": 0},
+    }
+    policies = {"bedtime": True, "daily_limit": True, "school_time": False}
+    plan = lambda: [  # noqa: E731
+        (a["device_id"], a["minutes"])
+        for a in plan_strict_actions(child, set(STRICT_RULES), frozenset(), {"policies": policies, "devices": {}, "values": values}, today=1)
+        if a["action"] == "set_daily_limit"
+    ]
+    assert plan() == []
+    # Changed on Google's side: each device goes back to its own quota
+    child["devices_time_data"][DEVICE]["daily_limit_minutes"] = 600
+    child["devices_time_data"]["tablet"]["daily_limit_minutes"] = 600
+    assert plan() == [(DEVICE, 180), ("tablet", 0)]
+
+    # Refused by Google: the device has no quota of its own any more
+    coordinator.restore_daily_limit_minutes(CHILD, 1, previous, device_id="tablet")
+    assert values["device_limits"] == {}
+    # A quota for the whole child today, or the next day, drops the per-device ones
+    coordinator.record_daily_limit_minutes(CHILD, 0, 1, device_id="tablet")
+    coordinator.record_daily_limit_minutes(CHILD, 200, 1)
+    assert "device_limits" not in values
+    coordinator.record_daily_limit_minutes(CHILD, 0, 1, device_id="tablet")
+    monkeypatch.setattr(coordinator_module.dt_util, "now", lambda: datetime(2026, 11, 10, 9, 0))
+    assert "device_limits" not in coordinator._intents_for(CHILD)["values"]

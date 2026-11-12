@@ -916,6 +916,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				if kept and intent == DEVICE_INTENT_AUTO_LOCK and device_id not in carried
 			}
 			entry["carried"] = list(entry["devices"])
+			# A quota set on one device is today's override, gone at midnight
+			entry.setdefault("values", {}).pop("device_limits", None)
 		entry.setdefault("policies", {})
 		entry.setdefault("values", {})
 		return entry
@@ -1042,7 +1044,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._websites[child_id] = (time.monotonic(), {k: lists.get(k) for k in ("filter_level", "approved", "blocked")})
 
 	def record_daily_limit_minutes(
-		self, child_id: str | None, minutes: int, day: int | None = None, limit_on: bool = True
+		self, child_id: str | None, minutes: int, day: int | None = None, limit_on: bool = True,
+		device_id: str | None = None,
 	) -> tuple[int | None, bool | None] | None:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
 
@@ -1051,16 +1054,27 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		reference and put the old quota back. Returns what it replaced (the
 		weekday quota and the daily limit reference, None when absent) for
 		restore_daily_limit_minutes; None without a child.
+
+		With ``device_id`` the quota is today's, for that device alone: the
+		other devices and the weekly quota keep the child's reference.
 		"""
 		child_id = self._resolve_child_id(child_id)
 		if not child_id:
 			return None
+		today = dt_util.now().isoweekday()
 		if not (isinstance(day, int) and 1 <= day <= 7):
-			day = dt_util.now().isoweekday()
+			day = today
 		intents = self._intents_for(child_id)
-		limits = intents.setdefault("values", {}).setdefault("weekly_limits", {})
-		previous = (limits.get(str(day)), intents["policies"].get("daily_limit"))
-		limits[str(day)] = int(minutes)
+		values = intents.setdefault("values", {})
+		limits = values.setdefault("device_limits" if device_id else "weekly_limits", {})
+		key = device_id or str(day)
+		previous = (limits.get(key), intents["policies"].get("daily_limit"))
+		limits[key] = int(minutes)
+		if not device_id and day == today:
+			# Today's quota for the whole child replaces the per-device ones.
+			# shortcut: not put back by restore_daily_limit_minutes when Google
+			# refuses the write, return them here if that ever matters
+			values.pop("device_limits", None)
 		# A quota set while the limit is switched off only changes the schedule:
 		# the limit stays off (limit_on False) and so does its reference
 		if limit_on:
@@ -1069,7 +1083,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		return previous
 
 	def restore_daily_limit_minutes(
-		self, child_id: str | None, day: int, previous: tuple[int | None, bool | None] | None
+		self, child_id: str | None, day: int, previous: tuple[int | None, bool | None] | None,
+		device_id: str | None = None,
 	) -> None:
 		"""Undo record_daily_limit_minutes after a write Google did not take."""
 		child_id = self._resolve_child_id(child_id)
@@ -1077,11 +1092,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 		minutes, limit_on = previous
 		intents = self._intents_for(child_id)
-		limits = intents.setdefault("values", {}).setdefault("weekly_limits", {})
+		limits = intents.setdefault("values", {}).setdefault("device_limits" if device_id else "weekly_limits", {})
+		key = device_id or str(day)
 		if minutes is None:
-			limits.pop(str(day), None)
+			limits.pop(key, None)
 		else:
-			limits[str(day)] = int(minutes)
+			limits[key] = int(minutes)
 		# Nothing reached Google: the limit is still what the parent had chosen
 		if limit_on is None:
 			intents["policies"].pop("daily_limit", None)

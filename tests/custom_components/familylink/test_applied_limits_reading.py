@@ -77,6 +77,22 @@ async def test_app_unlock_and_missing_limit_row(monkeypatch) -> None:
     assert no_row["override_by"] is None
 
 
+async def test_a_quota_of_zero_is_a_limit_reached(monkeypatch) -> None:
+    """Tablet set to 0 min, "Locked all day" on its screen, and the limit never read as reached."""
+    import sys
+
+    monkeypatch.setattr(api_module.dt_util, "now", lambda: datetime(2026, 11, 9, 3, 0))  # a Monday
+    zero = [None, [_device(UNLOCKED, None, {5: ["CAEQAQ", 1, 2, 0, "1788268036514", "1794179037473"]})]]
+    monkeypatch.setattr(sys.modules[__name__], "RESPONSE", zero)
+
+    device = (await _client().async_get_applied_time_limits(account_id=CHILD_ID))["devices"][UNLOCKED]
+
+    assert device["daily_limit_enabled"] is True
+    assert device["daily_limit_minutes"] == 0
+    assert device["daily_limit_remaining"] == 0
+    assert device["remaining_minutes"] == 0
+
+
 async def test_child_limit_is_unknown_when_no_device_reports_it() -> None:
     coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
     client = MagicMock()

@@ -1846,7 +1846,8 @@ class FamilyLinkClient:
 							bonus_mins = device_info.get("bonus_minutes", 0)
 							used_mins = device_info.get("used_minutes", 0)
 
-							if daily_limit_mins > 0:
+							# A quota of 0 is a quota too: the device is blocked all day
+							if daily_limit_mins >= 0:
 								# ALWAYS calculate daily_limit_remaining (ignoring bonus)
 								# This is used by "Daily Limit Reached" binary sensor
 								device_info["daily_limit_remaining"] = max(0, daily_limit_mins - used_mins)
