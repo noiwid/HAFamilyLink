@@ -4662,6 +4662,12 @@ class FamilyLinkClient:
 	PLAY_APPROVAL_RESOURCE = "7"
 	PLAY_RATING_RESOURCE = "13"
 	PLAY_APPROVAL_NAMES = {"4": "all_content", "3": "paid_content", "2": "in_app_purchases", "1": "never"}
+	# Written with POST settingResources:performAction, [None, [[1, [resource,
+	# subkey, [child]], value]], constant block], as the web filter is; the
+	# answer carries the radio group again with the new value selected (#239,
+	# captured 2026-11-12). The rating is addressed under the category label it
+	# was read with, in the language of the request.
+	PLAY_SETTING_RESOURCES = {"approval": PLAY_APPROVAL_RESOURCE, "apps_rating": PLAY_RATING_RESOURCE}
 
 	@staticmethod
 	def _setting_rows(data: Any, resource: str) -> list[list]:
@@ -4693,13 +4699,19 @@ class FamilyLinkClient:
 
 	async def _async_setting_resources(self, account_id: str, resources: list[tuple[str, str | None]]) -> Any:
 		"""Read (resource, subkey) setting resources of a child in one call."""
+		self._validate_id(account_id, "account_id")
+		return await self._async_setting_post(
+			"settingResources", [None, [[resource, subkey, [account_id]] for resource, subkey in resources], [[1, 3, 4, 5, 6], 1]]
+		)
+
+	async def _async_setting_post(self, path: str, body: list) -> Any:
+		"""POST a settingResources read or action, in English (the labels and subkeys follow the request)."""
 		if not self.is_authenticated():
 			raise AuthenticationError("Not authenticated")
-		self._validate_id(account_id, "account_id")
 		session = await self._get_session()
-		payload = json.dumps([None, [[resource, subkey, [account_id]] for resource, subkey in resources], [[1, 3, 4, 5, 6], 1]])
+		payload = json.dumps(body)
 		async with session.post(
-			f"{self.BASE_URL}/people/settingResources",
+			f"{self.BASE_URL}/people/{path}",
 			headers={
 				"Content-Type": "application/json+protobuf",
 				"Accept-Language": "en",
@@ -4711,7 +4723,7 @@ class FamilyLinkClient:
 				raise SessionExpiredError("Session expired, please re-authenticate")
 			text = await response.text()
 			if response.status != 200:
-				raise NetworkError(f"Setting resources read failed: HTTP {response.status}")
+				raise NetworkError(f"{path} failed: HTTP {response.status}")
 		try:
 			return json.loads(text)
 		except ValueError as err:
@@ -4734,7 +4746,34 @@ class FamilyLinkClient:
 				await self._async_setting_resources(account_id, [(self.PLAY_RATING_RESOURCE, subkey)]),
 				self.PLAY_RATING_RESOURCE,
 			)
-		return {"approval": self._setting_choice(data, self.PLAY_APPROVAL_RESOURCE), "apps_rating": rating}
+		return {
+			"approval": self._setting_choice(data, self.PLAY_APPROVAL_RESOURCE),
+			"apps_rating": rating,
+			"apps_category": subkey if isinstance(subkey, str) else None,  # where the rating is written
+		}
+
+	async def async_set_play_setting(self, account_id: str, kind: str, value: str, category: str | None = None) -> dict[str, Any]:
+		"""Change a Google Play setting of the child (#239) and return the choice Google answers with.
+
+		``kind`` "approval" (``value`` a key of PLAY_APPROVAL_NAMES) or
+		"apps_rating" (``value`` one of the rating's option values, ``category``
+		the apps_category read with it). Raises NetworkError when Google's answer
+		does not show ``value`` selected.
+		"""
+		resource = self.PLAY_SETTING_RESOURCES[kind]
+		if kind == "apps_rating" and not category:
+			raise ValueError("The apps & games rating is written under its category label: read the settings first")
+		self._validate_id(account_id, "account_id")
+		data = await self._async_setting_post(
+			"settingResources:performAction",
+			[None, [[1, [resource, category if kind == "apps_rating" else None, [account_id]], value]], [[1, 3, 4, 5, 6], 1]],
+		)
+		choice = self._setting_choice(data, resource)
+		if not choice or choice["value"] != value:
+			_LOGGER.error(f"Google Play {kind} change to {value} not confirmed for {account_id}: {json.dumps(data)[:300]}")
+			raise NetworkError(f"Google did not confirm the Google Play {kind} change")
+		_LOGGER.info(f"Google Play {kind} set to {value} ({choice.get('label')}) for {account_id}")
+		return choice
 
 	async def async_update_website_restrictions(
 		self,

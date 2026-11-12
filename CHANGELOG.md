@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Change the Google Play settings from Home Assistant** (#239): `select.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `select.<child>_play_apps_games_rating` (the ratings Google offers the child, e.g. `PEGI 12`). A change counts only once Google's answer shows it; the users allowed to control Family Link apply. The read-only sensors stay.
+
+---
+
 ## [2.8.0] - 2026-11-12
 
 ### Added

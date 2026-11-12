@@ -16,6 +16,7 @@ from custom_components.familylink.client.api import FamilyLinkClient
 from custom_components.familylink.const import WEBSITES_REFRESH
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
 from custom_components.familylink.exceptions import NetworkError, SessionExpiredError
+from custom_components.familylink.select import FamilyLinkPlaySettingSelect
 from custom_components.familylink.sensor import FamilyLinkPlaySettingSensor
 
 CHILD = "child-1"
@@ -86,6 +87,7 @@ async def test_the_rating_is_read_under_the_category_label_google_returned() -> 
     assert settings == {
         "approval": {"value": "3", "label": "Paid content only", "options": APPROVALS},
         "apps_rating": {"value": "4", "label": "PEGI 16", "options": RATINGS},
+        "apps_category": "Applications et jeux",
     }
     first, second = session.post.call_args_list
     assert first.args[0].endswith("/people/settingResources")  # a read, never :performAction
@@ -98,7 +100,7 @@ async def test_the_rating_is_read_under_the_category_label_google_returned() -> 
 async def test_a_setting_google_does_not_return_is_none(answer) -> None:
     # No category row either: the rating is not asked for
     client, session = _client(answer)
-    assert await client.async_get_play_settings(CHILD) == {"approval": None, "apps_rating": None}
+    assert await client.async_get_play_settings(CHILD) == {"approval": None, "apps_rating": None, "apps_category": None}
     assert session.post.call_count == 1
 
 
@@ -182,3 +184,97 @@ def test_the_sensors_are_unknown_or_unavailable_without_a_reading() -> None:
     assert rating.available and rating.native_value is None
     # Never read: unavailable
     assert not _sensor("approval", None).available
+
+
+# --- writing (#239) -------------------------------------------------------------
+
+
+async def test_the_rating_is_written_under_its_category_and_confirmed_by_the_answer() -> None:
+    # The answer of the live capture: the "11" rows, then the radio group with the new value first
+    answer = [[*_page("Apps & games")[1:], _radio("13", "Apps & games", "2", RATINGS)]]
+    client, session = _client(answer)
+
+    choice = await client.async_set_play_setting(CHILD, "apps_rating", "2", "Apps & games")
+
+    assert choice == {"value": "2", "label": "PEGI 7", "options": RATINGS}
+    call = session.post.call_args
+    assert call.args[0].endswith("/people/settingResources:performAction")
+    assert json.loads(call.kwargs["data"]) == [None, [[1, _key("13", "Apps & games"), "2"]], [[1, 3, 4, 5, 6], 1]]
+    assert call.kwargs["headers"]["Accept-Language"] == "en"
+
+
+async def test_the_approval_mode_is_written_without_a_subkey() -> None:
+    client, session = _client([[_radio("7", None, "3", APPROVALS)]])
+    assert (await client.async_set_play_setting(CHILD, "approval", "3"))["value"] == "3"
+    assert json.loads(session.post.call_args.kwargs["data"])[1] == [[1, _key("7"), "3"]]
+
+
+@pytest.mark.parametrize("answer", [[[_radio("7", None, "4", APPROVALS)]], [[]], []])
+async def test_a_change_google_does_not_confirm_raises(answer) -> None:
+    client, _ = _client(answer)
+    with pytest.raises(NetworkError):
+        await client.async_set_play_setting(CHILD, "approval", "3")
+
+
+async def test_the_rating_is_not_written_without_its_category() -> None:
+    client, session = _client()
+    with pytest.raises(ValueError):
+        await client.async_set_play_setting(CHILD, "apps_rating", "2", None)
+    session.post.assert_not_called()
+
+
+def _select(kind: str, settings) -> FamilyLinkPlaySettingSelect:
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"children_data": [{"child_id": CHILD, "play_settings": settings}]}
+    entity = FamilyLinkPlaySettingSelect(coordinator, CHILD, "Alex", kind)
+    entity.hass = MagicMock()
+    return entity
+
+
+def _settings() -> dict:
+    return {
+        "approval": {"value": "4", "label": "All content", "options": APPROVALS},
+        "apps_rating": {"value": "3", "label": "PEGI 12", "options": RATINGS},
+        "apps_category": "Apps & games",
+    }
+
+
+def test_the_selects_offer_the_modes_and_the_ratings_google_listed() -> None:
+    approval, rating = _select("approval", _settings()), _select("apps_rating", _settings())
+    assert approval.current_option == "all_content" and approval.current_option in approval.options
+    assert rating.options == list(RATINGS.values()) and rating.current_option == "PEGI 12"
+    assert approval.unique_id == f"familylink_{CHILD}_play_approval_setting"
+    assert not _select("apps_rating", None).available
+
+
+async def test_selecting_a_rating_writes_its_value_and_keeps_the_answer(monkeypatch) -> None:
+    monkeypatch.setattr("custom_components.familylink.select.async_check_entity_action", AsyncMock())
+    rating = _select("apps_rating", _settings())
+    confirmed = {"value": "2", "label": "PEGI 7", "options": RATINGS}
+    rating.coordinator.client.async_set_play_setting = AsyncMock(return_value=confirmed)
+
+    await rating.async_select_option("PEGI 7")
+
+    rating.coordinator.client.async_set_play_setting.assert_awaited_once_with(CHILD, "apps_rating", "2", "Apps & games")
+    rating.coordinator.store_play_setting.assert_called_once_with(CHILD, "apps_rating", confirmed)
+
+
+async def test_a_refused_change_is_an_error_and_keeps_the_setting(monkeypatch) -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    monkeypatch.setattr("custom_components.familylink.select.async_check_entity_action", AsyncMock())
+    approval = _select("approval", _settings())
+    approval.coordinator.client.async_set_play_setting = AsyncMock(side_effect=NetworkError("not confirmed"))
+    with pytest.raises(HomeAssistantError):
+        await approval.async_select_option("never")
+    approval.coordinator.store_play_setting.assert_not_called()
+
+
+def test_the_coordinator_keeps_a_confirmed_change_in_the_settings_entities_read() -> None:
+    coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
+    settings = _settings()
+    coordinator._play_settings = {CHILD: (1.0, settings)}
+    choice = {"value": "1", "label": "Never", "options": APPROVALS}
+    coordinator.store_play_setting(CHILD, "approval", choice)
+    assert settings["approval"] is choice

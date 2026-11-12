@@ -1039,6 +1039,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		cache[child_id] = (time.monotonic(), answer)
 		return answer
 
+	def store_play_setting(self, child_id: str, kind: str, choice: dict[str, Any]) -> None:
+		"""Keep a Google Play setting a change returned; the entities read this same dict."""
+		cached = self._play_settings.get(child_id)
+		if cached and cached[1] is not None:
+			cached[1][kind] = choice
+
 	def store_websites(self, child_id: str, lists: dict[str, Any]) -> None:
 		"""Keep the lists an update returned, so entities show them without a new read."""
 		self._websites[child_id] = (time.monotonic(), {k: lists.get(k) for k in ("filter_level", "approved", "blocked")})
