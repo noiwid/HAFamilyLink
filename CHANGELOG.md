@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.7.1] - Unreleased
+## [2.7.1] - 2026-11-12
 
 ### Fixed
 - **A daily limit of 0 minutes is read as reached.** A device set to 0 showed "Locked all day" on its screen while `binary_sensor.<device>_daily_limit_reached` stayed off and the remaining time was unknown.
