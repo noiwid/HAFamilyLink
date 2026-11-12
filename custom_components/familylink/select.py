@@ -63,6 +63,8 @@ async def async_setup_entry(
             FamilyLinkContactRestrictionSelect(coordinator, child_data["child_id"], child_data["child_name"])
         )
         entities.append(FamilyLinkWebFilterSelect(coordinator, child_data["child_id"], child_data["child_name"]))
+        for kind in ("approval", "apps_rating"):
+            entities.append(FamilyLinkPlaySettingSelect(coordinator, child_data["child_id"], child_data["child_name"], kind))
     async_add_entities(entities)
 
 
@@ -226,3 +228,104 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
             raise HomeAssistantError(f"Failed to set allowed calls and texts to '{option}' for {self._child_name}")
         _LOGGER.info(f"Set allowed calls and texts to '{option}' for {self._child_name}")
         await self.coordinator.async_request_refresh()
+
+
+class FamilyLinkPlaySettingSelect(CoordinatorEntity, SelectEntity):
+    """A Google Play setting of the child, writable (#239).
+
+    ``kind`` "approval": the purchase and download approval mode, under the
+    names of the read-only sensor. "apps_rating": the highest apps & games
+    rating allowed, as Google labels it for the account's region ("PEGI 16"),
+    so its options are the ones Google listed at the last reading.
+    """
+
+    def __init__(
+        self,
+        coordinator: FamilyLinkDataUpdateCoordinator,
+        child_id: str,
+        child_name: str,
+        kind: str,
+    ) -> None:
+        """Initialize the select; ``kind`` is "approval" or "apps_rating"."""
+        super().__init__(coordinator)
+        self._child_id = child_id
+        self._child_name = child_name
+        self._kind = kind
+        if kind == "approval":
+            self._attr_name = f"{child_name} Play Purchase Approvals"
+            self._attr_icon = "mdi:cart-check"
+        else:
+            self._attr_name = f"{child_name} Play Apps & Games Rating"
+            self._attr_icon = "mdi:google-play"
+        # "_setting": the read-only sensors already use familylink_<child>_play_<kind>
+        self._attr_unique_id = f"{DOMAIN}_{child_id}_play_{kind}_setting"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information for this child."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._child_id)},
+            name=f"{self._child_name} (Family Link)",
+            manufacturer="Google",
+            model="Family Link Account",
+        )
+
+    def _settings(self) -> dict[str, Any] | None:
+        for child_data in (self.coordinator.data or {}).get("children_data", []):
+            if child_data["child_id"] == self._child_id:
+                return child_data.get("play_settings")
+        return None
+
+    def _choice(self) -> dict[str, Any] | None:
+        return (self._settings() or {}).get(self._kind)
+
+    @property
+    def available(self) -> bool:
+        """Available once Google returned this setting."""
+        return self.coordinator.last_update_success and self._choice() is not None
+
+    @property
+    def options(self) -> list[str]:
+        """The approval modes, or the ratings Google offers this child."""
+        if self._kind == "approval":
+            return list(FamilyLinkClient.PLAY_APPROVAL_NAMES.values())
+        return [label for label in ((self._choice() or {}).get("options") or {}).values() if label]
+
+    @property
+    def current_option(self) -> str | None:
+        """The mode's name or the rating's label; None for a value not known here."""
+        choice = self._choice()
+        if not choice:
+            return None
+        if self._kind == "approval":
+            return FamilyLinkClient.PLAY_APPROVAL_NAMES.get(choice["value"])
+        return choice.get("label")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The child ids, and Google's own value."""
+        return {
+            "child_id": self._child_id,
+            "child_name": self._child_name,
+            "value": (self._choice() or {}).get("value"),
+        }
+
+    async def async_select_option(self, option: str) -> None:
+        """Write the setting to Google, keep the value Google confirmed."""
+        await async_check_entity_action(self)
+        settings, choice = self._settings() or {}, self._choice() or {}
+        if self._kind == "approval":
+            values = {name: value for value, name in FamilyLinkClient.PLAY_APPROVAL_NAMES.items()}
+        else:
+            values = {label: value for value, label in (choice.get("options") or {}).items()}
+        if option not in values:
+            raise HomeAssistantError(f"Unknown Google Play option '{option}' for {self._child_name}")
+        try:
+            confirmed = await self.coordinator.client.async_set_play_setting(
+                self._child_id, self._kind, values[option], settings.get("apps_category")
+            )
+        except Exception as err:  # noqa: BLE001 - shown to the user as the reason of the refusal
+            raise HomeAssistantError(f"Failed to set the Google Play setting to '{option}' for {self._child_name}: {err}") from err
+        self.coordinator.store_play_setting(self._child_id, self._kind, confirmed)
+        _LOGGER.info(f"Set the Google Play {self._kind} of {self._child_name} to '{option}'")
+        self.coordinator.async_update_listeners()
