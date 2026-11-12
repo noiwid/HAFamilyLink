@@ -12,7 +12,7 @@ Monitor and control Google Family Link from Home Assistant: screen time, device 
 
 ![Family Link dashboard](https://raw.githubusercontent.com/noiwid/HAFamilyLink/main/examples/dashboard.png)
 
-> An example Lovelace dashboard built from this integration. The YAML and setup instructions are in [`examples/`](examples/).
+> The dashboard cards that ship with the integration: nothing else to install. Configuration, dialogs and the YAML of this dashboard are in [`examples/`](examples/).
 
 ⭐ **Enjoying this integration?** [Star it on GitHub](https://github.com/noiwid/HAFamilyLink): it gives the project visibility and helps other parents discover it.
 
@@ -37,6 +37,7 @@ The endpoints and payload shapes the integration relies on are documented in [GO
 | App management | Block or unblock apps, per-app daily limits (blocked, limited, unrestricted or "unlimited time"), one-call school mode that blocks everything except an essentials whitelist |
 | Location (opt-in) | GPS device tracker with saved places and address, battery level of the source device, on-demand refresh |
 | Strict mode (opt-in) | Home Assistant reverts what is changed from the Family Link side: bonuses are cancelled, a device unlocked with no time left is locked again, bedtime and the daily limit are switched back on. One switch per child, rules chosen in the options |
+| Dashboard cards | Built in, no Marketplace card, helper or script needed: a card per phone or tablet (lock with confirmation, bonuses, restriction tiles, apps and their rules, websites, weekly limits), screen time of several devices together with hourly and daily charts (shared with Microsoft Family Safety), and a location map. See [`examples/`](examples/) |
 | Robustness | Cached data on transient API errors, automatic session refresh, persistent notification when re-authentication is needed |
 
 Translations: English, French, Hebrew.
