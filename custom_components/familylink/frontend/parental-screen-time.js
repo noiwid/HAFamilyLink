@@ -92,7 +92,8 @@ class Base extends HTMLElement {
 			const d = found.device;
 			sources.push({
 				name: (typeof item === 'object' && item.name) || (dev && (dev.name_by_user || dev.name || '').trim()) || d.daily_screen_time, used: d.daily_screen_time,
-				limit: d.daily_limit || (found.child || {})[`daily_limit_${todayNum()}`], remaining: d.screen_time_remaining,
+				// read at each use: a card left open overnight takes the new weekday's quota
+				get limit() { return d.daily_limit || (found.child || {})[`daily_limit_${todayNum()}`]; }, remaining: d.screen_time_remaining,
 				bonus: d.active_bonus, lock: d.lock, lockedWhen: found.locked_when || 'off', next: d.next_restriction,
 				icon: /tab|pad/i.test((dev && (dev.model || dev.name)) || '') ? 'mdi:tablet' : reg.platform === 'familylink' ? 'mdi:cellphone' : 'mdi:monitor',
 			});
@@ -150,7 +151,15 @@ class Base extends HTMLElement {
 				day > first, day < today, `<div class="msg">${this._t('loading')}</div>`);
 			let values;
 			if (this._config.demo_data) values = Array.from({ length: 24 }, (_, h) => this._config.demo_data.hours[h] || 0);  // shortcut: a demo has no statistics
-			else values = this._hours(await this._stats('hour', new Date(day - 3600000), new Date(day + 86400000)), midnight, day === today);
+			else {
+				const end = new Date(midnight); end.setDate(end.getDate() + 1);  // a day is 23 or 25 h when the clocks change
+				try {
+					values = this._hours(await this._stats('hour', new Date(day - 3600000), end), midnight, day === today);
+				} catch (err) {
+					if (dialog.day === day) dialog.fill(`<div class="msg err">${esc((err && err.message) || String(err))}</div>`);
+					return;
+				}
+			}
 			if (dialog.day === day) dialog.fill(hourChart(values));  // the arrows may have moved on meanwhile
 		};
 		dialog.show(this._t('close'), this._t('prev_day'), this._t('next_day'), (dir) => {

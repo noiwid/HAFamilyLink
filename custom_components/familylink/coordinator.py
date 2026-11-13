@@ -18,6 +18,8 @@ from homeassistant.util import dt as dt_util
 
 from .client.api import FamilyLinkClient
 from .const import (
+	CONF_TIMEOUT,
+	DEFAULT_TIMEOUT,
 	CONF_STRICT_MODE,
 	CONF_STRICT_MODE_RULES,
 	CONF_LOCK_KEEPS_ALLOWED_APPS,
@@ -95,9 +97,11 @@ def _strict_key(action: dict[str, Any]) -> str:
 
 	Dated: a correction given up one day is tried again the next.
 	"""
+	# A new bonus is a new correction: posting one after each cancel must not
+	# use up the tries meant for a write Google ignores
 	return (
 		f"{action['child_id']}:{action['action']}:{action.get('device_id') or ''}:"
-		f"{action.get('day') or ''}:{dt_util.now().date().isoformat()}"
+		f"{action.get('day') or ''}:{action.get('override_id') or ''}:{dt_util.now().date().isoformat()}"
 	)
 
 
@@ -710,6 +714,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				hass=self.hass,
 				config=self.entry.data,
 			)
+			self.client.request_timeout = int(self.entry.options.get(
+				CONF_TIMEOUT, self.entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+			))
 			self.client.lock_keeps_allowed_apps = bool(self.entry.options.get(
 				CONF_LOCK_KEEPS_ALLOWED_APPS,
 				self.entry.data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS),
@@ -1311,7 +1318,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} given up, no effect after {attempts} tries")
 			return
 		self._strict_attempts[key] = attempts + 1
-		if attempts + 1 == STRICT_MODE_MAX_ATTEMPTS:
+		last_try = attempts + 1 == STRICT_MODE_MAX_ATTEMPTS
+		if last_try:
 			_LOGGER.warning(
 				f"Strict mode: {name} for child {child_data.get('child_name', child_id)} had no effect "
 				f"after {STRICT_MODE_MAX_ATTEMPTS} tries, given up until the state changes ({action.get('reason')})"
@@ -1407,6 +1415,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			"start": action.get("start"),
 			"end": action.get("end"),
 			"observed": action.get("observed"),
+			# Strict mode gives this correction up after this try (until the state
+			# changes or the next day): a lock bypassed again and again ends here
+			"last_try": last_try,
 		})
 
 	def _member_name(self, user_id: str | None) -> str | None:

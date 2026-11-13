@@ -149,8 +149,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 		else:
 			end = value
 		if start is None or end is None:
-			_LOGGER.error(f"Cannot set the {DAY_NAMES[self._day]} bedtime of {self._child_name}: the other bound is unknown")
-			return
+			raise HomeAssistantError(f"Cannot set the {DAY_NAMES[self._day]} bedtime of {self._child_name}: the other bound is unknown")
 		start_text, end_text = start.strftime("%H:%M"), end.strftime("%H:%M")
 		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} bedtime of {self._child_name} to {start_text}-{end_text}")
 		success = await client.async_set_bedtime(
@@ -268,8 +267,7 @@ class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
 		else:
 			end = value
 		if start is None or end is None:
-			_LOGGER.error(f"Cannot set the {DAY_NAMES[self._day]} school time of {self._child_name}: the other bound is unknown")
-			return
+			raise HomeAssistantError(f"Cannot set the {DAY_NAMES[self._day]} school time of {self._child_name}: the other bound is unknown")
 		start_text, end_text = start.strftime("%H:%M"), end.strftime("%H:%M")
 		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} school time of {self._child_name} to {start_text}-{end_text}")
 		success = await client.async_set_school_time(

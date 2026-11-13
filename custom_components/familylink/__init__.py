@@ -491,6 +491,7 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.info("Service called: block_device_for_school (all children)")
 				children = await coordinator.client.async_get_all_supervised_children()
+				failed = []
 				for child in children:
 					child_account_id = child["id"]
 					child_name = child["name"]
@@ -504,6 +505,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 						)
 					except Exception as child_err:
 						_LOGGER.error(f"Failed to block device for school for {child_name}: {child_err}")
+						failed.append(child_name)
+				if failed:
+					# every child is tried, then the caller is told which ones failed
+					await coordinator.async_request_refresh()
+					raise HomeAssistantError(f"School mode failed for {', '.join(failed)} (see the log for details)")
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Failed to block device for school: {err}")
@@ -526,14 +532,24 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			else:
 				_LOGGER.info("Service called: unblock_all_apps (all children)")
 				children = await coordinator.client.async_get_all_supervised_children()
+				failed = []
 				for child in children:
 					child_account_id = child["id"]
 					child_name = child["name"]
-					result = await coordinator.client.async_unblock_all_apps(account_id=child_account_id)
+					try:
+						result = await coordinator.client.async_unblock_all_apps(account_id=child_account_id)
+					except Exception as child_err:
+						# one child failing must not leave the others blocked
+						_LOGGER.error(f"Failed to unblock all apps for {child_name}: {child_err}")
+						failed.append(child_name)
+						continue
 					_LOGGER.info(
 						f"All apps unblocked for {child_name}: {result['unblocked_count']} apps unblocked, "
 						f"{result['failed_count']} failed"
 					)
+				if failed:
+					await coordinator.async_request_refresh()
+					raise HomeAssistantError(f"Unblocking all apps failed for {', '.join(failed)} (see the log for details)")
 			await coordinator.async_request_refresh()
 		except Exception as err:
 			_LOGGER.error(f"Failed to unblock all apps: {err}")

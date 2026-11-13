@@ -546,12 +546,12 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                             end_ms = bedtime_window.get("end_ms")
                             if start_ms:
                                 try:
-                                    attributes["bedtime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                    attributes["bedtime_start"] = dt_util.as_local(dt_util.utc_from_timestamp(start_ms / 1000)).isoformat()
                                 except (ValueError, OSError):
                                     pass
                             if end_ms:
                                 try:
-                                    attributes["bedtime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                    attributes["bedtime_end"] = dt_util.as_local(dt_util.utc_from_timestamp(end_ms / 1000)).isoformat()
                                 except (ValueError, OSError):
                                     pass
 
@@ -561,12 +561,12 @@ class NextRestrictionSensor(CoordinatorEntity, SensorEntity):
                             end_ms = schooltime_window.get("end_ms")
                             if start_ms:
                                 try:
-                                    attributes["schooltime_start"] = datetime.fromtimestamp(start_ms / 1000).isoformat()
+                                    attributes["schooltime_start"] = dt_util.as_local(dt_util.utc_from_timestamp(start_ms / 1000)).isoformat()
                                 except (ValueError, OSError):
                                     pass
                             if end_ms:
                                 try:
-                                    attributes["schooltime_end"] = datetime.fromtimestamp(end_ms / 1000).isoformat()
+                                    attributes["schooltime_end"] = dt_util.as_local(dt_util.utc_from_timestamp(end_ms / 1000)).isoformat()
                                 except (ValueError, OSError):
                                     pass
 

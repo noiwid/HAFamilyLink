@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 
 from ..auth.addon_client import AddonCookieClient
 from ..const import (
+	DEFAULT_TIMEOUT,
 	CONF_API_KEY,
 	CONF_AUTH_SOURCE,
 	CONF_AUTH_URL,
@@ -49,6 +50,20 @@ from ..schedules import (
 )
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
+
+
+def _domain_priority(domain: str) -> int:
+	"""Rank of a cookie's domain, lowest first: google.com, then other domains, then regional TLDs.
+
+	The same cookie (SAPISID) can exist for .google.com and .google.com.au; the
+	SAPISIDHASH and the Cookie header must both use the .google.com one (#92).
+	"""
+	domain = domain.lower().lstrip(".")
+	if domain == "google.com":
+		return 0
+	if domain.startswith("google.com.") or domain.startswith("google.co."):
+		return 2
+	return 1
 
 
 class FamilyLinkClient:
@@ -90,6 +105,7 @@ class FamilyLinkClient:
 		self._session: aiohttp.ClientSession | None = None
 		self._session_lock = asyncio.Lock()
 		self._session_created_at: float = 0  # Track session age for SAPISIDHASH refresh
+		self.request_timeout: int = DEFAULT_TIMEOUT  # seconds, the Timeout option (set by the coordinator)
 		self._cookies: list[dict[str, Any]] | None = None
 		self._account_id: str | None = None  # Cached supervised child ID
 		# account_id -> (fetched_at, raw timeLimit response) for weekly slot ids
@@ -198,17 +214,8 @@ class FamilyLinkClient:
 						if cookie_name in self._cookie_dict:
 							existing_domain = cookie_domains.get(cookie_name, "")
 
-							# Priority: google.com > other domains > regional TLDs
-							def domain_priority(d):
-								if d == "google.com":
-									return 0
-								elif d.startswith("google.com.") or d.startswith("google.co."):
-									return 2  # Regional TLDs
-								else:
-									return 1
-
 							# Only replace if new domain has higher priority (lower value)
-							if domain_priority(cookie_domain) < domain_priority(existing_domain):
+							if _domain_priority(cookie_domain) < _domain_priority(existing_domain):
 								_LOGGER.debug(
 									f"Cookie '{cookie_name}': replacing {existing_domain} with {cookie_domain} (higher priority)"
 								)
@@ -251,7 +258,10 @@ class FamilyLinkClient:
 			# Recreate session if SAPISIDHASH timestamp is too old
 			if self._session is not None and (time.time() - self._session_created_at) > self.SESSION_MAX_AGE:
 				_LOGGER.debug("Session SAPISIDHASH is stale (>%ds), recreating session", self.SESSION_MAX_AGE)
-				await self._session.close()
+				# A write in several requests (bedtime: weekly policy, then tonight) may still
+				# hold the old session: close it a little later, not under that write
+				old = self._session
+				asyncio.get_running_loop().call_later(120, lambda: asyncio.ensure_future(old.close()))
 				self._session = None
 
 			if self._session is None:
@@ -285,16 +295,7 @@ class FamilyLinkClient:
 								_LOGGER.warning(f"Found SAPISID but wrong domain: {cookie_domain} (expected google.* domain)")
 
 					if sapisid_candidates:
-						def domain_priority(candidate):
-							d = candidate["domain_lower"]
-							if d == "google.com":
-								return 0
-							elif d.startswith("google.com.") or d.startswith("google.co."):
-								return 2
-							else:
-								return 1
-
-						sapisid_candidates.sort(key=domain_priority)
+						sapisid_candidates.sort(key=lambda candidate: _domain_priority(candidate["domain_lower"]))
 						best_candidate = sapisid_candidates[0]
 						sapisid = best_candidate["value"]
 						sapisid_domain = best_candidate["domain"]
@@ -330,7 +331,7 @@ class FamilyLinkClient:
 
 				self._session = aiohttp.ClientSession(
 					headers=headers,
-					timeout=aiohttp.ClientTimeout(total=30),
+					timeout=aiohttp.ClientTimeout(total=self.request_timeout),
 				)
 				self._session_created_at = time.time()
 				_LOGGER.debug("✓ Session created successfully")
@@ -810,7 +811,7 @@ class FamilyLinkClient:
 				timestamp_iso = None
 				if timestamp_ms:
 					try:
-						timestamp_iso = datetime.fromtimestamp(timestamp_ms / 1000).isoformat()
+						timestamp_iso = dt_util.as_local(dt_util.utc_from_timestamp(timestamp_ms / 1000)).isoformat()
 					except (ValueError, OSError) as e:
 						_LOGGER.debug("Invalid location timestamp %s: %s", timestamp_ms, e)
 
@@ -1214,6 +1215,8 @@ class FamilyLinkClient:
 				_LOGGER.debug(f"Response status: {response.status}")
 
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					response_text = await response.text()
 					_LOGGER.error(f"Device control failed {response.status}: {response_text}")
 					return False
@@ -1223,6 +1226,8 @@ class FamilyLinkClient:
 				_LOGGER.info(f"Successfully {action}ed device {device_id}")
 				return True
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			raise DeviceControlError(f"Failed to control device: {err}") from err
@@ -1970,6 +1975,8 @@ class FamilyLinkClient:
 				await self._async_verify_bonus_applied(account_id, device_id)
 			return True
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error adding time bonus: {err}")
 			return False
@@ -2032,6 +2039,8 @@ class FamilyLinkClient:
 		) as response:
 			response_text = await response.text()
 			if response.status != 200:
+				if response.status == 401:  # a write must not hide an expired session behind False
+					raise SessionExpiredError("Session expired, please re-authenticate")
 				_LOGGER.error(f"Failed to add time bonus {response.status}: {response_text}")
 				return False, response_text
 
@@ -2259,6 +2268,8 @@ class FamilyLinkClient:
 				params={"$httpMethod": "PUT"},
 			) as response:
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					response_text = await response.text()
 					_LOGGER.error(
 						"Failed to update weekly bedtime policy (HTTP %s): %s",
@@ -2295,6 +2306,8 @@ class FamilyLinkClient:
 				data=override_payload,
 			) as response:
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					response_text = await response.text()
 					_LOGGER.error(
 						"Bedtime weekly policy was updated but the daily override failed "
@@ -2310,6 +2323,8 @@ class FamilyLinkClient:
 			)
 			return True
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error("Unexpected error applying bedtime override: %s", err)
 			return False
@@ -3045,6 +3060,8 @@ class FamilyLinkClient:
 			) as response:
 				response_text = await response.text()
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					_LOGGER.error(f"Failed to set daily limit {response.status}: {response_text}")
 					return False
 
@@ -3069,6 +3086,8 @@ class FamilyLinkClient:
 			)
 			return False
 
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error setting daily limit: {err}")
 			return False
@@ -3427,6 +3446,8 @@ class FamilyLinkClient:
 					params={"$httpMethod": "PUT"},
 				) as response:
 					if response.status != 200:
+						if response.status == 401:  # a write must not hide an expired session behind False
+							raise SessionExpiredError("Session expired, please re-authenticate")
 						response_text = await response.text()
 						_LOGGER.error(
 							"Failed to set weekly bedtime (HTTP %s): %s",
@@ -3459,6 +3480,8 @@ class FamilyLinkClient:
 				data=payload
 			) as response:
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					response_text = await response.text()
 					_LOGGER.error(f"Failed to set bedtime {response.status}: {response_text}")
 					return False
@@ -3469,6 +3492,8 @@ class FamilyLinkClient:
 		except ValueError as err:
 			_LOGGER.error(f"Invalid time format: {err}")
 			return False
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error(f"Unexpected error setting bedtime: {err}")
 			return False

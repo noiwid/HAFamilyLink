@@ -278,3 +278,18 @@ def test_the_coordinator_keeps_a_confirmed_change_in_the_settings_entities_read(
     choice = {"value": "1", "label": "Never", "options": APPROVALS}
     coordinator.store_play_setting(CHILD, "approval", choice)
     assert settings["approval"] is choice
+
+
+async def test_a_refused_web_filter_change_is_an_error(monkeypatch) -> None:
+    """It was only logged: the UI and the automation trace saw a success."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.familylink.select import FamilyLinkWebFilterSelect
+
+    monkeypatch.setattr("custom_components.familylink.select.async_check_entity_action", AsyncMock())
+    coordinator = MagicMock()
+    coordinator.client.async_set_website_filter_level = AsyncMock(side_effect=NetworkError("HTTP 500"))
+    entity = FamilyLinkWebFilterSelect(coordinator, CHILD, "Alex")
+    with pytest.raises(HomeAssistantError):
+        await entity.async_select_option("Only approved sites")
+    coordinator.store_websites.assert_not_called()
