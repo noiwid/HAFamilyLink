@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **A day of the history, hour by hour**: tap a bar of the daily history (screen time cards) to see that day's hourly chart in a dialog, from Home Assistant's statistics; arrows (and the left and right keys) move from day to day.
 - **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
+- **Polish** for the dashboard cards and the integration (#247, thanks to @smarthomewithme).
+
 ### Changed
 - **Auth add-on 1.9.6:** a page from another site can no longer start a login, and reading the stored session never deletes it (see the add-on changelog).
 - On a phone, the apps tabs of the Family Link card show their icons and counts only (below 405 px).

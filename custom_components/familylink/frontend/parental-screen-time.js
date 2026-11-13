@@ -85,7 +85,7 @@ class Base extends HTMLElement {
 		this._update();
 	}
 
-	_t(key) { return STR[lang(this)][key]; }
+	_t(key) { return STR[lang(this)][key] ?? STR.en[key]; }  // a language added later may lack the newest strings
 	_watched() { return this._sources.flatMap((s) => [s.used, s.limit, s.remaining, s.lock, s.next, s.bonus].filter(Boolean)); }
 	_num(id) { const s = id && this._hass.states[id]; return s ? parseFloat(s.state) : NaN; }
 	_shell(body, second) {
