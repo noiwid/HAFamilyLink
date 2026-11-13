@@ -149,7 +149,7 @@ class Base extends HTMLElement {
 			dialog.set(day, `${midnight.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}${known ? ` · ${hm(known.v)}` : ''}`,
 				day > first, day < today, `<div class="msg">${this._t('loading')}</div>`);
 			let values;
-			if (this._config.demo_data) values = this._config.demo_data.hours.map((v) => v || 0);  // shortcut: a demo has no statistics
+			if (this._config.demo_data) values = Array.from({ length: 24 }, (_, h) => this._config.demo_data.hours[h] || 0);  // shortcut: a demo has no statistics
 			else values = this._hours(await this._stats('hour', new Date(day - 3600000), new Date(day + 86400000)), midnight, day === today);
 			if (dialog.day === day) dialog.fill(hourChart(values));  // the arrows may have moved on meanwhile
 		};
