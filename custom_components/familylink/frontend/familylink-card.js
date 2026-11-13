@@ -7,6 +7,7 @@
  *   title: Phone                     # optional
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
  *   bonus: true                      # optional, true by default (written in a new card): false hides the bonus bar (+15 / +30 / +60 buttons)
+ *   inline_app_editor: true          # optional: edit apps inside this card (useful in popup containers)
  *   language: en                     # optional: en, fr or pl, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
@@ -233,6 +234,8 @@ class FamilyLinkCard extends HTMLElement {
 	}
 
 	_render() {
+		// Do not discard the app editor or its unsaved draft during state updates.
+		if (this._inlineAppDialog?.isConnected) return;
 		const t = (k) => this._t(k), cfg = this._config;
 		const lock = this._d('lock'), locked = lock && lock.state === 'off';
 		const used = this._n(this._d('daily_screen_time')), limit = this._n(this._d('daily_limit')), bonus = this._n(this._d('active_bonus')) || 0;
@@ -455,6 +458,23 @@ class FamilyLinkCard extends HTMLElement {
 
 	_open(spec) {
 		const dialog = document.createElement('familylink-dialog');
+		if (spec.inlineInCard) {
+			const surface = this.shadowRoot?.querySelector('ha-card');
+			if (surface) {
+				// Reuse the current card, rather than placing a modal above its parent popup.
+				this._inlineAppDialog = dialog;
+				dialog._inlineInCard = true;
+				const originalClose = dialog._close.bind(dialog);
+				dialog._close = () => {
+					originalClose();
+					this._inlineAppDialog = null;
+					if (this.isConnected) this._render();
+				};
+				surface.replaceChildren(dialog);
+				dialog.open({ ...spec, t: (k) => this._t(k) });
+				return;
+			}
+		}
 		document.body.appendChild(dialog);
 		dialog.open({ ...spec, t: (k) => this._t(k) });
 	}
@@ -463,6 +483,7 @@ class FamilyLinkCard extends HTMLElement {
 		const t = (k) => this._t(k), target = this._map.child.screen_time_total || this._map.device.lock;
 		const current = { block: t('cur_blocked'), always: t('cur_always'), limit: t('cur_limited').replace('{t}', hm(rule.minutes || 0)), none: t('cur_none'), pause: t('cur_paused') }[rule.mode];
 		this._open({
+			inlineInCard: this._config.inline_app_editor === true,
 			title: t('app'), icon: 'mdi:cellphone-cog', name: short(rule.name), sub: current,
 			state: { mode: rule.mode, minutes: rule.mode === 'limit' && rule.minutes > 0 ? rule.minutes : 60 },
 			fields: [
@@ -653,6 +674,8 @@ class FamilyLinkDialog extends HTMLElement {
 	}
 
 	_close() { document.removeEventListener('keydown', this._key); this.remove(); }
+	// Also clean up if the entire parent popup is dismissed during editing.
+	disconnectedCallback() { if (this._key) document.removeEventListener('keydown', this._key); }
 
 	async _save() {
 		this._busy = true; this._error = ''; this._render();
@@ -685,7 +708,7 @@ class FamilyLinkDialog extends HTMLElement {
 			<style>${FamilyLinkDialog.css}</style>
 			<div class="veil"></div>
 			<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(s.title)}">
-				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="mdi:close"></ha-icon></button></div>
+				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="${this._inlineInCard ? 'mdi:chevron-left' : 'mdi:close'}"></ha-icon></button></div>
 				<div class="app"><div class="txt"><div class="big">${esc(s.name)}</div>${s.sub ? `<small>${esc(s.sub)}</small>` : ''}</div></div>
 				${s.input ? `<input class="in" data-input="${s.input.key}" placeholder="${esc(s.input.placeholder)}" autocomplete="off" value="${esc(this._state[s.input.key])}" ${this._busy ? 'disabled' : ''}>` : ''}
 				${s.fields.map(field).join('')}
@@ -693,6 +716,16 @@ class FamilyLinkDialog extends HTMLElement {
 				<button class="save" ${this._busy ? 'disabled' : ''}><ha-icon icon="${this._busy ? 'mdi:loading' : s.saveIcon || 'mdi:content-save-outline'}"></ha-icon>${this._busy ? t('saving') : s.saveLabel || t('save')}</button>
 			</div>`;
 		const root = this.shadowRoot;
+		if (this._inlineInCard) {
+			// Use the existing parent popup for sizing and scrolling, not another fixed overlay.
+			const style = document.createElement('style');
+			style.textContent = `
+				:host { position: static !important; inset: auto !important; z-index: auto !important; display: block !important; width: 100%; }
+				.veil { display: none !important; }
+				.sheet { width: 100% !important; max-height: none !important; overflow: visible !important; border-radius: 0 !important; }
+			`;
+			root.appendChild(style);
+		}
 		root.querySelector('.veil').addEventListener('click', () => this._busy || this._close());
 		root.querySelector('.x').addEventListener('click', () => this._busy || this._close());
 		root.querySelector('.save').addEventListener('click', () => this._busy || this._save());
