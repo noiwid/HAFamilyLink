@@ -16,7 +16,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - On a phone, the apps tabs of the Family Link card show their icons and counts only (below 420 px).
 - The screen time card lists only the devices used today under the total.
 - The Family Link card follows the restrictions in force: with the daily limit off, no "/ limit" and no time bar; with bedtime off, no allowed hours; and no "No restrictions" line.
-- The Family Link card shows no time bar when the device has no daily limit today.
 
 ### Fixed
 - **The next restriction at midnight reads "at 00:00"**, not "tomorrow 00:00": a bedtime starting at midnight tonight was announced as tomorrow.
