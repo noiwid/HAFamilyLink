@@ -180,19 +180,23 @@ class FamilyLinkCard extends HTMLElement {
 		const t = (k) => this._t(k), cfg = this._config;
 		const lock = this._d('lock'), locked = lock && lock.state === 'off';
 		const used = this._n(this._d('daily_screen_time')), limit = this._n(this._d('daily_limit')), bonus = this._n(this._d('active_bonus')) || 0;
-		const total = limit > 0 ? limit + bonus : NaN, pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+		// daily limit off: no "/ limit" and no bar, whatever quota the device still reports
+		const limitOn = (this._c('daily_limit') || {}).state !== 'off';
+		const total = limitOn && limit > 0 ? limit + bonus : NaN, pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
 		const battery = this._n(this._d('battery_level'));
 		const base = cfg.icon || (/tab|pad/i.test((lock && (lock.attributes.model || lock.attributes.friendly_name)) || '') ? 'mdi:tablet' : 'mdi:cellphone');
 		const icon = locked && base === 'mdi:cellphone' ? 'mdi:cellphone-lock' : base;
 		const day = todayNum();
 		const bedStart = toMin((this._c(`bedtime_${day}_start`) || {}).state), bedEnd = toMin((this._c(`bedtime_${day}_end`) || {}).state);
-		const window = !isNaN(bedStart) && !isNaN(bedEnd) ? t('allowed').replace('{a}', hour(bedEnd)).replace('{b}', hour(bedStart)) : '';
+		// bedtime off today: no allowed hours to show
+		const bedOn = (this._c('bedtime') || {}).state !== 'off';
+		const window = bedOn && !isNaN(bedStart) && !isNaN(bedEnd) ? t('allowed').replace('{a}', hour(bedEnd)).replace('{b}', hour(bedStart)) : '';
 		const next = this._d('next_restriction');
 		// a lock of your own (homework...) named by the entity that is on: lock_reasons: { input_boolean.homework: Homework }
 		const own = locked && lock.attributes.restriction_reason === 'manually_locked'
 			&& Object.entries(cfg.lock_reasons || {}).find(([id]) => (this._hass.states[id] || {}).state === 'on');
 		const status = own ? t('locked_by').replace('{r}', own[1]) : locked ? (t('why') || {})[lock.attributes.restriction_reason] || ''
-			: next && !['unknown', 'unavailable', ''].includes(next.state) ? t('next_tr')(next.state) : '';  // the sensor writes fixed English sentences
+			: next && !['unknown', 'unavailable', '', 'No restrictions'].includes(next.state) ? t('next_tr')(next.state) : '';  // the sensor writes fixed English sentences
 		const reset = this._d('reset_bonus');
 		const press = (role, n, tip) => (this._d(role) ? `<button class="round" data-press="${role}" data-tip="${esc(tip)}"><ha-icon icon="mdi:fast-forward-${n}"></ha-icon></button>` : '');
 		let html = `
