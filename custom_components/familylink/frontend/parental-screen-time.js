@@ -23,14 +23,14 @@
 const STR = {
 	en: {
 		today: 'Screen time today', history: 'Last {n} days', left: 'left', no_limit: ' · no limit', locked: 'Locked', unlocked: 'Unlocked',
-		loading: 'Loading…', close: 'Close', none: 'Choose at least one device or time sensor.', missing: 'Not found: ',
+		loading: 'Loading…', close: 'Close', prev_day: 'Previous day', next_day: 'Next day', none: 'Choose at least one device or time sensor.', missing: 'Not found: ',
 		f_devices: 'Devices (Family Link, Family Safety)', f_entities: 'Other time sensors (minutes)', f_title: 'Title', f_language: 'Language',
 		next_tr: (s) => s,
 		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)',
 	},
 	fr: {
 		today: "Temps d'écran aujourd'hui", history: '{n} derniers jours', left: 'reste', no_limit: ' · sans limite', locked: 'Verrouillé', unlocked: 'Libre',
-		loading: 'Chargement…', close: 'Fermer', none: "Choisissez au moins un appareil ou un capteur de temps.", missing: 'Introuvable : ',
+		loading: 'Chargement…', close: 'Fermer', prev_day: 'Jour précédent', next_day: 'Jour suivant', none: "Choisissez au moins un appareil ou un capteur de temps.", missing: 'Introuvable : ',
 		f_devices: 'Appareils (Family Link, Family Safety)', f_entities: 'Autres capteurs de temps (minutes)', f_title: 'Titre', f_language: 'Langue',
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Limite du jour bientôt atteinte').replace('No restrictions', 'Aucune restriction')
 			.replace('School time', 'École').replace('Bedtime', 'Coucher').replace('(ends ', '(fin ').replace(/\bat (\d)/, 'à $1').replace('tomorrow', 'demain')
@@ -138,21 +138,26 @@ class Base extends HTMLElement {
 	}
 
 	/** A tap on a bar of the daily history: that day's hourly chart in a dialog. */
-	async _openDay(t) {
-		const midnight = new Date(t), lang = this._config.language || this._hass.language || 'en';
-		const day = (this._days || []).find((d) => d.t === t);
-		const title = `${midnight.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}${day ? ` · ${hm(day.v)}` : ''}`;
+	_openDay(t) {
+		const lang = this._config.language || this._hass.language || 'en';
+		const first = this._days && this._days.length ? this._days[0].t : t, today = new Date().setHours(0, 0, 0, 0);
 		const dialog = document.createElement('parental-screen-time-day');
 		document.body.appendChild(dialog);
-		dialog.show(title, `<div class="msg">${this._t('loading')}</div>`, this._t('close'));
-		let values;
-		if (this._config.demo_data) values = this._config.demo_data.hours.map((v) => v || 0);  // shortcut: a demo has no statistics
-		else {
-			const today = midnight.getTime() === new Date().setHours(0, 0, 0, 0);
-			const stats = await this._stats('hour', new Date(t - 3600000), new Date(t + 86400000));
-			values = this._hours(stats, midnight, today);
-		}
-		dialog.fill(hourChart(values));
+		// the arrows go from day to day, from the first day of the history to today
+		const go = async (day) => {
+			const midnight = new Date(day), known = (this._days || []).find((d) => d.t === day);
+			dialog.set(day, `${midnight.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}${known ? ` · ${hm(known.v)}` : ''}`,
+				day > first, day < today, `<div class="msg">${this._t('loading')}</div>`);
+			let values;
+			if (this._config.demo_data) values = this._config.demo_data.hours.map((v) => v || 0);  // shortcut: a demo has no statistics
+			else values = this._hours(await this._stats('hour', new Date(day - 3600000), new Date(day + 86400000)), midnight, day === today);
+			if (dialog.day === day) dialog.fill(hourChart(values));  // the arrows may have moved on meanwhile
+		};
+		dialog.show(this._t('close'), this._t('prev_day'), this._t('next_day'), (dir) => {
+			const d = new Date(dialog.day); d.setDate(d.getDate() + dir); d.setHours(0, 0, 0, 0);  // a day is not always 24 h (summer time)
+			if (d.getTime() >= first && d.getTime() <= today) go(d.getTime());
+		});
+		go(t);
 	}
 
 	/** The daily history (header and bars) of the sources, for the last `days` days. */
@@ -367,14 +372,34 @@ class Editor extends HTMLElement {
 }
 
 class DayDialog extends HTMLElement {
-	show(title, body, close) {
+	/** `move(-1 | 1)` is called by the arrows and the left and right keys. */
+	show(close, prev, next, move) {
+		const btn = (cls, icon, label) => `<button class="${cls}" aria-label="${esc(label)}" title="${esc(label)}"><ha-icon icon="${icon}"></ha-icon></button>`;
 		this.attachShadow({ mode: 'open' }).innerHTML = `<style>${CSS}${DIALOG_CSS}</style><div class="veil"></div>
-			<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="top"><span>${esc(title)}</span>
-			<button class="close" aria-label="${esc(close)}"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="chart" id="body">${body}</div></div>`;
-		this._key = (e) => { if (e.key === 'Escape') this._close(); };
+			<div class="sheet" role="dialog" aria-modal="true"><div class="top">${btn('prev', 'mdi:chevron-left', prev)}<span></span>${btn('next', 'mdi:chevron-right', next)}
+			${btn('close', 'mdi:close', close)}</div><div class="chart" id="body"></div></div>`;
+		const root = this.shadowRoot;
+		this._key = (e) => {
+			if (e.key === 'Escape') this._close();
+			if (e.key === 'ArrowLeft' && !root.querySelector('.prev').disabled) move(-1);
+			if (e.key === 'ArrowRight' && !root.querySelector('.next').disabled) move(1);
+		};
 		document.addEventListener('keydown', this._key);
-		this.shadowRoot.querySelector('.veil').addEventListener('click', () => this._close());
-		this.shadowRoot.querySelector('.close').addEventListener('click', () => this._close());
+		root.querySelector('.veil').addEventListener('click', () => this._close());
+		root.querySelector('.close').addEventListener('click', () => this._close());
+		root.querySelector('.prev').addEventListener('click', () => move(-1));
+		root.querySelector('.next').addEventListener('click', () => move(1));
+	}
+
+	/** The day shown: its title, which arrows lead somewhere, and the body until the chart comes. */
+	set(day, title, canPrev, canNext, body) {
+		const root = this.shadowRoot;
+		this.day = day;
+		root.querySelector('.top span').textContent = title;
+		root.querySelector('.sheet').setAttribute('aria-label', title);
+		root.querySelector('.prev').disabled = !canPrev;
+		root.querySelector('.next').disabled = !canNext;
+		this.fill(body);
 	}
 
 	fill(html) { if (this.shadowRoot) this.shadowRoot.getElementById('body').innerHTML = html; }
@@ -388,6 +413,9 @@ const DIALOG_CSS = `
 		--rgb-primary-text-color: 235, 235, 240; }
 	.top { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; margin: 0 2px 4px 6px; }
 	.top span { flex: 1; } .top span::first-letter { text-transform: uppercase; }
+	.prev, .next { width: 36px; height: 36px; border-radius: 18px; border: 0; cursor: pointer; color: inherit; background: none; display: inline-flex; align-items: center; justify-content: center; }
+	.prev:disabled, .next:disabled { opacity: 0.25; cursor: default; }
+	.top span { text-align: center; }
 	.close { width: 44px; height: 44px; border-radius: 22px; border: 0; cursor: pointer; color: inherit; background: rgba(255, 255, 255, 0.08); display: inline-flex; align-items: center; justify-content: center; }
 `;
 
