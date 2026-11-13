@@ -1,0 +1,141 @@
+{
+	"options": {
+		"step": {
+			"init": {
+				"title": "Konfiguracja Family Link",
+				"description": "Dostosuj ustawienia integracji. Zmiany zostaną zastosowane po zapisaniu.",
+				"data": {
+					"update_interval": "Interwał aktualizacji (sekundy)",
+					"timeout": "Limit czasu żądania (sekundy)",
+					"enable_location_tracking": "Włącz śledzenie lokalizacji GPS",
+					"strict_mode": "Tryb ścisły (Home Assistant egzekwuje ograniczenia)",
+					"strict_mode_rules": "Zasady trybu ścisłego",
+					"lock_keeps_allowed_apps": "Blokada urządzenia pozwala korzystać z zawsze dozwolonych aplikacji",
+					"allowed_users": "Użytkownicy uprawnieni do sterowania Family Link"
+				},
+				"data_description": {
+					"update_interval": "Jak często pobierać dane z Google (30–3600 sekund)",
+					"enable_location_tracking": "Każde odpytywanie o lokalizację może spowodować powiadomienie na urządzeniu dziecka",
+					"strict_mode": "Tryb ścisły zapobiega obchodzeniu ograniczeń po stronie Google, np. przez samodzielne przyznanie dodatkowego czasu, odblokowanie urządzenia po wyczerpaniu limitu lub wyłączenie pory snu i limitu dziennego. Gdy jest włączony, ustawienia Home Assistanta są nadrzędne: przy każdej aktualizacji integracja przywraca ograniczenia ustawione w Home Assistant. UWAGA: w tym trybie zarządzaj Family Link wyłącznie z poziomu Home Assistanta. Zmiany dokonane w aplikacji Google Family Link będą cofane. Aby ponownie zarządzać ustawieniami z poziomu Google, wyłącz przełącznik trybu ścisłego dziecka. Ten przełącznik jest zsynchronizowany z niniejszą opcją.",
+					"strict_mode_rules": "Wybierz ograniczenia egzekwowane przez tryb ścisły. Nic nie jest włączane na siłę; punktem odniesienia są ustawienia Home Assistanta. Szczegóły w pliku README.",
+					"lock_keeps_allowed_apps": "Po włączeniu tej opcji dziecko nadal może uruchamiać aplikacje oznaczone w Google Family Link jako „Zawsze dozwolone” z przycisku „Dostępne aplikacje” na ekranie blokady urządzenia. Wyłącz tę opcję, aby uzyskać pełną blokadę z wyjątkiem połączeń alarmowych.",
+					"allowed_users": "Pozostaw puste, aby wszyscy użytkownicy Home Assistanta mogli korzystać z przycisków, przełączników i ustawień Family Link (domyślnie). Jeśli wybierzesz użytkowników, tylko oni oraz administratorzy będą mogli zmieniać ustawienia. Konto dziecka bez uprawnień administratora nie będzie mogło wywoływać akcji Family Link, nawet za pomocą odpowiednich encji. Automatyzacje i skrypty uruchamiane przez sam Home Assistant nie podlegają temu ograniczeniu. Nadaj dziecku konto bez uprawnień administratora, ponieważ administrator może zmienić to ustawienie."
+				}
+			}
+		}
+	},
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Wybierz sposób połączenia z usługą uwierzytelniania Family Link.",
+				"menu_options": {
+					"auto_detect": "Wykryj automatycznie (dodatek lub plik lokalny)",
+					"manual_url": "Konfiguracja adresu URL (osobny kontener Docker)"
+				}
+			},
+			"manual_url": {
+				"title": "Adres URL serwera uwierzytelniania",
+				"description": "Nie znaleziono lokalnej usługi uwierzytelniania. Wprowadź bazowy adres URL serwera Family Link Auth. Prefiks ścieżki serwera proxy zostanie zachowany. Jeśli osobny kontener ma skonfigurowany API_KEY, podaj go oddzielnie; w przeciwnym razie pozostaw pole klucza puste.\n\nPrzykładowy adres: `http://192.168.1.100:8099`",
+				"data": {
+					"auth_url": "Adres URL serwera uwierzytelniania",
+					"api_key": "Klucz API"
+				}
+			},
+			"configure": {
+				"title": "Konfiguracja Family Link",
+				"description": "Źródło uwierzytelniania: {auth_source}",
+				"data": {
+					"name": "Nazwa integracji",
+					"update_interval": "Interwał aktualizacji (sekundy)",
+					"timeout": "Limit czasu żądania (sekundy)",
+					"enable_location_tracking": "Włącz śledzenie lokalizacji GPS",
+					"strict_mode": "Tryb ścisły (Home Assistant egzekwuje ograniczenia)",
+					"strict_mode_rules": "Zasady trybu ścisłego",
+					"lock_keeps_allowed_apps": "Blokada urządzenia pozwala korzystać z zawsze dozwolonych aplikacji"
+				},
+				"data_description": {
+					"enable_location_tracking": "Każde odpytywanie o lokalizację może spowodować powiadomienie na urządzeniu dziecka. Domyślnie wyłączone ze względu na prywatność.",
+					"strict_mode": "Tryb ścisły zapobiega obchodzeniu ograniczeń po stronie Google, np. przez samodzielne przyznanie dodatkowego czasu, odblokowanie urządzenia po wyczerpaniu limitu lub wyłączenie pory snu i limitu dziennego. Gdy jest włączony, ustawienia Home Assistanta są nadrzędne: przy każdej aktualizacji integracja przywraca ograniczenia ustawione w Home Assistant. UWAGA: w tym trybie zarządzaj Family Link wyłącznie z poziomu Home Assistanta. Zmiany dokonane w aplikacji Google Family Link będą cofane. Aby ponownie zarządzać ustawieniami z poziomu Google, wyłącz przełącznik trybu ścisłego dziecka. Ten przełącznik jest zsynchronizowany z niniejszą opcją.",
+					"strict_mode_rules": "Wybierz ograniczenia egzekwowane przez tryb ścisły. Nic nie jest włączane na siłę; punktem odniesienia są ustawienia Home Assistanta. Szczegóły w pliku README.",
+					"lock_keeps_allowed_apps": "Po włączeniu tej opcji dziecko nadal może uruchamiać aplikacje oznaczone w Google Family Link jako „Zawsze dozwolone” z przycisku „Dostępne aplikacje” na ekranie blokady urządzenia. Wyłącz tę opcję, aby uzyskać pełną blokadę z wyjątkiem połączeń alarmowych."
+				}
+			},
+			"reconfigure": {
+				"title": "Aktualizuj serwer uwierzytelniania",
+				"description": "Zmień adres serwera i klucz API. Obecny klucz nie jest wyświetlany; pozostaw pole puste, aby go zachować.",
+				"data": {
+					"auth_url": "Adres URL serwera uwierzytelniania",
+					"api_key": "Klucz API",
+					"clear_api_key": "Usuń klucz API"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Nie można połączyć się z serwerem uwierzytelniania. Sprawdź adres URL i upewnij się, że kontener działa.",
+			"invalid_auth": "Nie znaleziono plików cookie. Najpierw zaloguj się przez dodatek lub kontener Family Link Auth.",
+			"url_required": "Adres URL jest wymagany",
+			"no_cookies": "Serwer jest dostępny, ale nie znaleziono plików cookie. Zaloguj się najpierw przez jego interfejs WWW.",
+			"invalid_api_key": "Serwer uwierzytelniania odrzucił klucz API.",
+			"api_key_conflict": "Wprowadź nowy klucz API albo wybierz usunięcie klucza, nie obie opcje naraz.",
+			"api_key_required_for_new_url": "Przy zmianie adresu serwera wprowadź jego klucz API albo wybierz usunięcie klucza.",
+			"invalid_url": "Wprowadź poprawny adres HTTP lub HTTPS, bez danych logowania, parametrów zapytania i fragmentów.",
+			"unknown": "Wystąpił nieoczekiwany błąd"
+		},
+		"abort": {
+			"already_configured": "Integracja jest już skonfigurowana",
+			"invalid_config": "Nieprawidłowa konfiguracja",
+			"reconfigure_successful": "Zaktualizowano serwer uwierzytelniania"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Dzienny czas ekranowy"
+			},
+			"screen_time_formatted": {
+				"name": "Czas ekranowy (sformatowany)"
+			},
+			"installed_apps": {
+				"name": "Zainstalowane aplikacje"
+			},
+			"blocked_apps": {
+				"name": "Zablokowane aplikacje"
+			},
+			"apps_with_time_limits": {
+				"name": "Aplikacje z limitami czasu"
+			},
+			"device_count": {
+				"name": "Liczba urządzeń"
+			},
+			"child_info": {
+				"name": "Informacje o dziecku"
+			},
+			"top_app": {
+				"name": "Najczęściej używana aplikacja {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Blokada urządzenia"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Lokalizacja"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Dodatkowy czas: anuluj bonusy dodane z Family Link",
+				"lock": "Blokada urządzenia: odblokowanie i blokowanie tylko z Home Assistanta",
+				"bedtime": "Pora snu: włączanie i wyłączanie tylko z Home Assistanta",
+				"daily_limit": "Dzienny limit: włączanie i wyłączanie tylko z Home Assistanta",
+				"school_time": "Szkoła: włączanie i wyłączanie tylko z Home Assistanta",
+				"values": "Pora snu i limity tygodniowe: wartości ustawiane tylko z Home Assistanta"
+			}
+		}
+	}
+}

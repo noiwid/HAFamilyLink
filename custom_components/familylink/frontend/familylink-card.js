@@ -6,7 +6,7 @@
  *   entity: switch.alex_phone        # or any Family Link entity of the device
  *   title: Phone                     # optional
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
- *   language: en                     # optional: en or fr, else the language of Home Assistant
+ *   language: en                     # optional: en, fr or pl, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
  *
@@ -82,6 +82,54 @@ const STR = {
 		days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
 	},
 };
+STR.pl = {
+    today: 'Dzisiaj', installed: 'Zainstalowane', limited: 'Z limitami', blocked: 'Zablokowane', apps: 'Aplikacje', week: 'Limity tygodniowe',
+    no_usage: 'Brak aktywności dzisiaj', no_app: 'Brak aplikacji', unlimited: 'Bez limitu', per_day: ' / dzień', allowed: 'Dozwolone godziny: {a} — {b}',
+    app: 'Aplikacja', cur_blocked: 'Obecnie zablokowana', cur_always: 'Obecnie zawsze dozwolona',
+    cur_limited: 'Obecnie limit {t} dziennie', cur_none: 'Obecnie bez osobnego limitu',
+    always: 'Zawsze dozwolona', always_sub: 'Dostępna nawet po wyczerpaniu czasu ekranowego',
+    none: 'Bez osobnego limitu', none_sub: 'Obowiązuje tylko ogólny limit czasu ekranowego',
+    limit: 'Z limitem', limit_sub: 'Dziennie', block: 'Zablokowana', block_sub: 'Nie można jej uruchomić',
+    reset: 'Resetuj', no_bonus: 'Brak dodatkowego czasu', bonus_on: 'Dodatkowy czas +{t}',
+    tip_reset: 'Anuluj dodatkowy czas', tip_add: 'Dodaj dziś {n} min',
+    tip_custom: 'Dodaj dowolną liczbę minut', bonus: 'Dodatkowy czas', bonus_min: 'Liczba minut', bonus_sub: 'Dodawane do dzisiejszego limitu',
+    daily_limit: 'Dzienny limit', bedtime: 'Pora snu', school: 'Szkoła', day_settings: 'Ustawienia dnia',
+    limit_day: 'Dozwolony czas ekranowy tego dnia', bed_from: 'Pora snu od', bed_to: 'Pora snu do',
+    steps: 'Co 15 minut', school_from: 'Zajęcia od', school_to: 'Zajęcia do',
+    pick_device: 'Wybierz telefon lub tablet, a nie profil dziecka.',
+    pause: 'Wstrzymana', pause_sub: 'Pozostaje zainstalowana; później wróci do poprzednich ustawień', cur_paused: 'Obecnie wstrzymana',
+    web: 'Internet', web_hint: 'Chrome na wszystkich urządzeniach dziecka',
+    f_approved: 'Tylko zatwierdzone witryny', f_filtered: 'Próbuj blokować strony dla dorosłych',
+    site_ph: 'example.com', allow: 'Zezwól', deny: 'Zablokuj', approved: 'Zatwierdzone witryny', blocked_sites: 'Zablokowane witryny', no_site: 'Brak',
+    remove: 'Usuń', sites: 'Witryny', add_site: 'Dodaj witrynę', several: 'Jedna domena lub kilka oddzielonych spacją',
+    s_allow: 'Zawsze dozwolona', s_allow_sub: 'Otwierana nawet wtedy, gdy filtr ją blokuje',
+    s_block: 'Zawsze zablokowana', s_block_sub: 'Chrome nie otworzy tej witryny',
+    s_remove: 'Usuń z list', s_remove_sub: 'Dalszy dostęp określa filtr', allowed_tag: 'dozwolona', blocked_tag: 'zablokowana',
+    lock: 'Zablokuj', unlock: 'Odblokuj', lock_q: 'Zablokować {d}?', unlock_q: 'Odblokować {d}?',
+    next_tr: (s) => String(s ?? '')
+        .replace('Daily limit soon reached', 'Dzienny limit wkrótce się skończy')
+        .replace('No restrictions', 'Brak ograniczeń')
+        .replace('School time', 'Zajęcia szkolne')
+        .replace('Bedtime', 'Pora snu')
+        .replace('(ends ', '(koniec ')
+        .replace(/\bat (\d)/, 'o $1')
+        .replace('tomorrow', 'jutro')
+        .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
+    settings: 'Ustawienia', strict: 'Tryb ścisły',
+    strict_sub: 'Zmiany dokonane w Google są przywracane do ustawień Home Assistanta',
+    unl: 'Aplikacje bez limitu podczas pory snu', unl_sub: 'Wyłączone: także aplikacje bez limitu są wtedy blokowane',
+    calls: 'Połączenia i SMS-y',
+    calls_opts: {'Anyone': 'Wszyscy', 'Only contacts I add': 'Tylko dodane kontakty', 'Contacts I add & limited groups': 'Dodane kontakty i wybrane grupy'},
+    configure: 'Konfiguruj integrację', configure_sub: 'Uprawnieni użytkownicy, zasady trybu ścisłego i lokalizacja',
+    not_confirmed: 'Początek zapisano, ale Google nie potwierdził końca. Spróbuj ponownie.',
+    ring: 'Zadzwoń', ring_q: 'Uruchomić dzwonek na {d}?', ring_sub: 'Telefon zacznie dzwonić, aby łatwiej go znaleźć.',
+    why: {manually_locked: 'Zablokowany', bedtime_active: 'Zablokowany: pora snu', school_time_active: 'Zablokowany: szkoła', daily_limit_reached: 'Zablokowany: wyczerpany limit'},
+    lock_sub: 'Nie będzie można korzystać z urządzenia do czasu odblokowania.',
+    unlock_sub: 'Można ponownie korzystać z urządzenia w ramach obowiązujących limitów.',
+    save: 'Zapisz', saving: 'Zapisywanie…', close: 'Zamknij', loading: 'Wczytywanie…', not_found: 'Nie znaleziono encji Family Link: ',
+    days: ['Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota','Niedziela'],
+};
+
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hm = (m) => { m = Math.round(m); const h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
@@ -731,7 +779,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
 				: [{ name: 'compact', selector: { boolean: {} } }]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }] } } },
 		];
 	}
 }
@@ -744,6 +792,14 @@ class FamilyLinkCardEditor extends HTMLElement {
 const LOC = {
 	en: { title: 'Location', refresh: "Refresh the location (uses the phone's battery)", ago: '{t} ago', now: 'just now', off: 'Location tracking is off in the integration options' },
 	fr: { title: 'Localisation', refresh: 'Actualiser la position (consomme la batterie du téléphone)', ago: 'il y a {t}', now: "à l'instant", off: "Le suivi de position est désactivé dans les options de l'intégration" },
+};
+
+LOC.pl = {
+    title: 'Lokalizacja',
+    refresh: 'Odśwież lokalizację (zużywa baterię telefonu)',
+    ago: '{t} temu',
+    now: 'przed chwilą',
+    off: 'Śledzenie lokalizacji jest wyłączone w ustawieniach integracji',
 };
 
 class FamilyLinkLocationCard extends HTMLElement {
