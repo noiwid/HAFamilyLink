@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
 ### Changed
-- On a phone, the apps tabs of the Family Link card show their icons and counts only (below 420 px).
+- On a phone, the apps tabs of the Family Link card show their icons and counts only (below 405 px).
 - The screen time card lists only the devices used today under the total.
 - The Family Link card follows the restrictions in force: with the daily limit off, no "/ limit" and no time bar; with bedtime off, no allowed hours; and no "No restrictions" line.
 

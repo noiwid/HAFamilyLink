@@ -293,7 +293,7 @@ class FamilyLinkCard extends HTMLElement {
 		const cut = () => tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1);
 		tabs.classList.remove('tight');
 		// on a phone the words crowd the tabs even when they fit: icons and counts only there
-		if (tabs.clientWidth < 420 || cut()) tabs.classList.add('tight');
+		if (tabs.clientWidth < 405 || cut()) tabs.classList.add('tight');
 	}
 
 	_childPart() {
@@ -572,7 +572,7 @@ FamilyLinkCard.css = `
 	.empty.left { text-align: left; padding: 2px 0; font-size: 13px; }
 	/* narrow card (half width, phone, card picker preview): icons and counts only */
 	/* five tabs with their words: tighter between 460 and 560px, icons and counts only below (the word stays as a tooltip) */
-	@container (max-width: 560px) { .tab { font-size: 12px; gap: 4px; padding: 10px 2px; } .tab ha-icon { --mdc-icon-size: 16px; } }
+	@container (max-width: 560px) { .tab { font-size: 12px; gap: 3px; padding: 10px 0; } .tab ha-icon { --mdc-icon-size: 16px; } }
 	.tabs.tight .tab .lbl { display: none; }
 	@container (max-width: 420px) {
 		.btxt small { display: none; }
