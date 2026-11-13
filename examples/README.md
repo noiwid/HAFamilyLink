@@ -75,7 +75,7 @@ sources:                       # optional: the same, with a name, a limit, a rem
     limit: number.switch_max_screentime_today
 ```
 
-The charts read Home Assistant's long-term statistics of the time sensors, so the history fills up day after day. A limit, a remaining time or a lock shared by several devices counts once.
+The charts read Home Assistant's long-term statistics of the time sensors, so the history fills up day after day. Tap a bar of the daily history to see that day hour by hour. A limit, a remaining time or a lock shared by several devices counts once.
 
 **With Microsoft Family Safety.** The same file ships with [Microsoft Family Safety for Home Assistant](https://github.com/noiwid/HAFamilySafety): its PCs and Xbox can be listed in `devices` next to the phones and tablets, and the card shows all of the child's screen time together.
 
