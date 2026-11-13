@@ -6,7 +6,7 @@
  *   entity: switch.alex_phone        # or any Family Link entity of the device
  *   title: Phone                     # optional
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
- *   bonus: false                     # optional: no bonus bar (the +15 / +30 / +60 buttons); shown by default
+ *   bonus: true                      # optional, true by default (written in a new card): false hides the bonus bar (+15 / +30 / +60 buttons)
  *   language: en                     # optional: en, fr or pl, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
@@ -162,7 +162,8 @@ class FamilyLinkCard extends HTMLElement {
 	static getStubConfig(hass) {
 		// the child is found from the device: each device belongs to one child
 		const sw = Object.keys(hass.states).find((id) => id.startsWith('switch.') && hass.entities?.[id]?.platform === 'familylink' && 'locked' in hass.states[id].attributes);
-		return { device: (sw && hass.entities[sw].device_id) || '' };
+		// bonus is true by default: written in the config of a new card, so the option is there to see (false hides the bonus bar)
+		return { device: (sw && hass.entities[sw].device_id) || '', bonus: true };
 	}
 
 	static getConfigElement() { return document.createElement('familylink-card-editor'); }
@@ -836,7 +837,7 @@ class FamilyLinkLocationCard extends HTMLElement {
 		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
 	}
 
-	static getStubConfig(hass) { return FamilyLinkCard.getStubConfig(hass); }
+	static getStubConfig(hass) { return { device: FamilyLinkCard.getStubConfig(hass).device }; }  // no bonus bar on this card
 	static getConfigElement() { return document.createElement('familylink-card-editor'); }
 	getCardSize() { return 6; }
 	getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }

@@ -22,7 +22,7 @@ type: custom:familylink-card
 entity: switch.kids_phone      # or device: <device id>, as the visual editor writes it
 title: Kid's phone             # optional, the device name otherwise
 compact: true                  # optional: header and bonus bar only, for a second device of the same child
-bonus: false                   # optional: no bonus bar (+15 / +30 / +60 min, reset, custom duration); shown by default
+bonus: true                    # true by default, and written in a new card; false hides the bonus bar (+15 / +30 / +60 min, reset, custom duration)
 language: fr                   # optional: en, fr or pl, the language of Home Assistant otherwise
 entities:                      # optional: replace the entity behind a role
   child: { school_time: automation.my_school_mode }

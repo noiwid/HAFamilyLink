@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - **Change the Google Play settings from Home Assistant** (#239): `select.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `select.<child>_play_apps_games_rating` (the ratings Google offers the child, e.g. `PEGI 12`). A change counts only once Google's answer shows it; the users allowed to control Family Link apply. The read-only sensors stay.
 - **A day of the history, hour by hour**: tap a bar of the daily history (screen time cards) to see that day's hourly chart in a dialog, from Home Assistant's statistics; arrows (and the left and right keys) move from day to day.
-- **The bonus bar is optional on the Family Link card.** `bonus: false` hides it (the +15 / +30 / +60 buttons, reset and the custom duration), or switch it off in the visual editor; it is shown by default. The extra time in progress stays visible in the header. The Microsoft Family Safety card takes the same option.
+- **The bonus bar is optional on the Family Link card** (#246, thanks to @grimpy). `bonus` is `true` by default and written in the configuration of a new card; `bonus: false` hides the bar (the +15 / +30 / +60 buttons, reset and the custom duration), or switch it off in the visual editor. The extra time in progress stays visible in the header. The Microsoft Family Safety card takes the same option.
 - **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
 - **Polish** for the dashboard cards and the integration (#247, thanks to @smarthomewithme).
