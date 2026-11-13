@@ -22,6 +22,7 @@ type: custom:familylink-card
 entity: switch.kids_phone      # or device: <device id>, as the visual editor writes it
 title: Kid's phone             # optional, the device name otherwise
 compact: true                  # optional: header and bonus bar only, for a second device of the same child
+inline_app_editor: true        # optional: edit apps inside the card, for popup containers such as Browser Mod
 language: fr                   # optional: en or fr, the language of Home Assistant otherwise
 entities:                      # optional: replace the entity behind a role
   child: { school_time: automation.my_school_mode }
@@ -54,6 +55,8 @@ Under the bar, next to the allowed hours: why the device is blocked (bedtime, sc
 ![Web tab](card-web.png)
 
 A dialog keeps its draft until **Save**, and only sends what changed. When Google or Home Assistant refuses a change, the dialog stays open with the reason.
+
+If you embed this card in another popup (for example a **Browser Mod** popup), add `inline_app_editor: true`. Opening an app then replaces the card content with its editor; **Save** or the back arrow returns to the previously selected applications tab. This avoids stacking a second fixed-position dialog under or above the parent popup. The option is off by default to preserve the usual dialog behavior for existing cards. All other dialogs are unchanged.
 
 ## Screen time cards
 
