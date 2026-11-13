@@ -77,8 +77,13 @@ class SharedStorage:
         try:
             # Read and decrypt
             encrypted = self.storage_path.read_bytes()
-            fernet = Fernet(self._encryption_key)
-            decrypted = fernet.decrypt(encrypted)
+            try:
+                decrypted = Fernet(self._encryption_key).decrypt(encrypted)
+            except InvalidToken:
+                # The key on disk may have been replaced with the file (a backup
+                # restored while the add-on runs): read it again once
+                self._encryption_key = self._get_encryption_key()
+                decrypted = Fernet(self._encryption_key).decrypt(encrypted)
 
             # Parse
             data = json.loads(decrypted.decode())
@@ -88,12 +93,9 @@ class SharedStorage:
             return cookies
 
         except InvalidToken:
-            _LOGGER.error(
-                "Cookie file is corrupted or encryption key has changed. "
-                "Deleting corrupted file — please re-authenticate."
-            )
-            self.storage_path.unlink(missing_ok=True)
-            raise FileNotFoundError("Cookies were corrupted and have been deleted. Please re-authenticate.")
+            # A read never deletes: the file is replaced by the next login
+            _LOGGER.error("Cookie file cannot be decrypted with the current key - please re-authenticate.")
+            raise FileNotFoundError("Cookies cannot be decrypted. Please re-authenticate.")
 
         except Exception as e:
             _LOGGER.error(f"Failed to load cookies: {e}")

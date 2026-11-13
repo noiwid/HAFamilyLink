@@ -102,3 +102,39 @@ async def test_parallel_starts_launch_a_single_browser():
     assert isinstance(results[0], str)
     assert isinstance(results[1], RuntimeError)
     assert manager._playwright.chromium.launch.await_count == 1
+
+
+def test_cookies_round_trip_and_a_key_mismatch_never_deletes_the_file(tmp_path):
+    """A read must not destroy a session: a stale or wrong key leaves cookies.enc in place."""
+    from cryptography.fernet import Fernet
+
+    from app.storage.file_storage import SharedStorage
+
+    storage = SharedStorage(str(tmp_path))
+    cookies = [{"name": "SAPISID", "value": "abc", "domain": ".google.com"}]
+    asyncio.run(storage.save_cookies(cookies))
+    assert asyncio.run(storage.load_cookies()) == cookies
+
+    # The key on disk replaced (a backup restored while the add-on runs): read again with it
+    other = SharedStorage(str(tmp_path / "other"))
+    asyncio.run(other.save_cookies(cookies))
+    (tmp_path / ".key").write_bytes((tmp_path / "other" / ".key").read_bytes())
+    (tmp_path / "cookies.enc").write_bytes((tmp_path / "other" / "cookies.enc").read_bytes())
+    assert asyncio.run(storage.load_cookies()) == cookies
+
+    # A key that matches nothing: an error, and the file is still there
+    (tmp_path / ".key").write_bytes(Fernet.generate_key())
+    storage._encryption_key = Fernet.generate_key()
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(storage.load_cookies())
+    assert (tmp_path / "cookies.enc").exists()
+
+
+def test_a_page_from_another_site_cannot_start_a_login(standalone_app):
+    """No key in add-on mode: the web UI stays open on the LAN, but not to other sites."""
+    _main, client, _share = standalone_app
+    refused = client.post("/api/auth/start", headers={"Origin": "https://evil.example", "Host": "homeassistant.local:8099"})
+    assert refused.status_code == 403
+    # The add-on's own page (same host and port) gets past the check
+    own = client.get("/api/auth/status/unknown", headers={"Origin": "http://testserver", "Host": "testserver"})
+    assert own.status_code != 403

@@ -14,11 +14,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
 ### Changed
+- **Auth add-on 1.9.6:** a page from another site can no longer start a login, and reading the stored session never deletes it (see the add-on changelog).
 - On a phone, the apps tabs of the Family Link card show their icons and counts only (below 405 px).
 - The screen time card lists only the devices used today under the total.
 - The Family Link card follows the restrictions in force: with the daily limit off, no "/ limit" and no time bar; with bedtime off, no allowed hours; and no "No restrictions" line.
 
 ### Fixed
+- **Bedtime "today" ignores the overrides of earlier weeks.** Google keeps a "tonight only" change under its weekday: one made last Monday showed the bedtime switch off all this Monday while Google applied bedtime, and strict mode read it the same way. Only an override posted today counts now, as for school time since 2.7.0.
+- **Strict mode no longer turns a quota for today into the weekly quota.** `set_daily_limit` for a child without `day` changes today's quota only, but strict mode recorded it as that weekday's weekly reference and rewrote the weekly schedule at the next refresh. It is now kept per device, until midnight.
+- **Strict mode protects stacked bonuses.** A second bonus given from Home Assistant shortened the protection of the first, and strict mode cancelled the parent's bonus early. Cancelling the bonus or locking the device from Home Assistant now ends the protection at once.
+- **A long outage no longer shows old data as live.** On a fetch error the last good data was served with no limit: overnight, yesterday's screen time and a bedtime long over stayed on screen. It now bridges 15 minutes of errors, within the same day, and the entities then go unavailable.
+- **The dashboard cards recover from a network drop.** A statistics fetch that failed (the app waking up) froze the daily history until midnight and the hourly chart for the hour; a Family Link card that could not reach Home Assistant during a restart stayed on "not found" until the page was reloaded. Both try again. The location card with location tracking off no longer asks Home Assistant for its entities at every state change.
 - **The next restriction at midnight reads "at 00:00"**, not "tomorrow 00:00": a bedtime starting at midnight tonight was announced as tomorrow.
 ---
 

@@ -4241,6 +4241,9 @@ class FamilyLinkClient:
 				# made the switch ignore a fresh "Only today" toggle.
 				bedtime_enabled_today = bedtime_enabled
 				today_day_code = self._DAY_CODES.get(dt_util.now().isoweekday())
+				# Google keeps the overrides of earlier weeks under the same day:
+				# only one posted today speaks for today (as for school time, #231)
+				since_ms = int(dt_util.start_of_local_day().timestamp() * 1000)
 				if today_day_code and isinstance(data, list):
 					latest_ts = -1
 					latest_action = None
@@ -4270,7 +4273,7 @@ class FamilyLinkClient:
 								ts = int(item[1]) if len(item) > 1 else -1
 							except (TypeError, ValueError):
 								ts = -1
-							if ts >= latest_ts:
+							if ts >= since_ms and ts >= latest_ts:
 								latest_ts = ts
 								latest_action = action
 					# Accounts on the newer downtime model reference the bedtime
@@ -4279,7 +4282,7 @@ class FamilyLinkClient:
 					# the most recent one wins, whatever its shape.
 					if bedtime_rule_id:
 						for _uuid, ts, action in self._parse_schooltime_overrides(
-							data, bedtime_rule_id, dt_util.now().isoweekday()
+							data, bedtime_rule_id, dt_util.now().isoweekday(), since_ms=since_ms
 						):
 							if ts >= latest_ts:
 								latest_ts = ts

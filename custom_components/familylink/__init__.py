@@ -716,15 +716,16 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 				results["weekly"] = await coordinator.client.async_set_weekly_daily_limit(
 					day, daily_minutes, child_id, limit_on
 				)
-			# A device named by the caller: the quota is that device's alone, the
-			# child's reference stays for the others (strict mode copied it to them)
-			today_device = None
+			# Today's quota is an override per device, for today only: strict mode
+			# keeps it per device until midnight and leaves the weekly row alone
+			# (a child-wide reference for today rewrote the weekday's weekly quota)
+			recorded_devices: dict[str, tuple[int | None, bool | None] | None] = {}
 			if posts_override:
 				if today not in recorded:
-					today_device = device_id
-					recorded[today] = coordinator.record_daily_limit_minutes(
-						child_id, daily_minutes, today, device_id=device_id
-					)
+					for target_device_id in device_ids:
+						recorded_devices[target_device_id] = coordinator.record_daily_limit_minutes(
+							child_id, daily_minutes, today, device_id=target_device_id
+						)
 				for target_device_id in device_ids:
 					results[target_device_id] = await coordinator.client.async_set_daily_limit(
 						daily_minutes=daily_minutes,
@@ -737,10 +738,10 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			if failed and len(failed) == len(results):
 				# Nothing was taken: the references go back to what they were,
 				# last recorded first so the daily limit reference ends as before
+				for target_device_id, previous in reversed(list(recorded_devices.items())):
+					coordinator.restore_daily_limit_minutes(child_id, today, previous, device_id=target_device_id)
 				for ref_day, previous in reversed(list(recorded.items())):
-					coordinator.restore_daily_limit_minutes(
-						child_id, ref_day, previous, device_id=today_device if ref_day == today else None
-					)
+					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
 			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "

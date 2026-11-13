@@ -105,6 +105,7 @@ class FamilyLinkCard extends HTMLElement {
 		this._tab = 'today';
 		this._seen = '';
 		this._map = null;
+		this._resolving = null;  // a new device: look it up again
 		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
 		if (!this._resize) { this._resize = new ResizeObserver(() => this._fitTabs()); this._resize.observe(this); }
 	}
@@ -135,7 +136,7 @@ class FamilyLinkCard extends HTMLElement {
 		const over = this._config.entities || {};
 		const done = (found) => {
 			if (!found.device_id && !this._config.entities) {  // the child's own device was picked, not a phone or tablet
-				this._resolving = null;
+				// _resolving stays set: the message stays until the config changes, no new lookup per state change
 				return this._shell(`<div class="msg err">${this._t('pick_device')}</div>`);
 			}
 			this._map = { child: { ...(found.child || {}), ...(over.child || {}) }, device: { ...(found.device || {}), ...(over.device || {}) } };
@@ -151,7 +152,12 @@ class FamilyLinkCard extends HTMLElement {
 		this._shell(`<div class="msg">${this._t('loading')}</div>`);
 		this._resolving = this._hass.callWS({ type: 'familylink/card_entities', entity_id: entity })
 			.then(done)
-			.catch(() => (this._config.entities ? done({}) : this._shell(`<div class="msg err">${this._t('not_found')}${esc(entity)}</div>`)));
+			.catch(() => {
+				if (this._config.entities) return done({});
+				this._shell(`<div class="msg err">${this._t('not_found')}${esc(entity)}</div>`);
+				// Home Assistant restarting with the dashboard open: look it up again a little later
+				setTimeout(() => { this._resolving = null; if (this._hass) this.hass = this._hass; }, 30000);
+			});
 	}
 
 	_watched() { return [...Object.values(this._map.child), ...Object.values(this._map.device)]; }
@@ -760,6 +766,7 @@ class FamilyLinkLocationCard extends HTMLElement {
 		if (!config || (!config.device && !config.entity)) throw new Error('familylink-location-card: choose the device (phone or tablet)');
 		this._config = config;
 		this._tracker = config.entity && config.entity.startsWith('device_tracker.') ? config.entity : null;
+		this._looked = false;  // the tracker is looked up once per config
 		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
 	}
 
@@ -772,7 +779,7 @@ class FamilyLinkLocationCard extends HTMLElement {
 
 	set hass(hass) {
 		this._hass = hass;
-		if (!this._tracker) return this._resolve();
+		if (!this._tracker) return this._looked ? undefined : this._resolve();
 		if (this._map) this._map.hass = hass;
 		const st = hass.states[this._tracker];
 		const seen = st ? st.last_updated : 'x';
@@ -784,9 +791,11 @@ class FamilyLinkLocationCard extends HTMLElement {
 		const entity = this._config.entity || entityOfDevice(this._hass, this._config.device);
 		this._resolving = this._hass.callWS({ type: 'familylink/card_entities', entity_id: entity })
 			.then((r) => { this._tracker = r.child && r.child.location; })
-			.catch(() => {})
+			.catch(() => setTimeout(() => { this._looked = false; }, 30000))  // Home Assistant restarting: ask again later
 			.finally(() => {
 				this._resolving = null;
+				// no tracker (location off): say so once, not a websocket call per state change of the house
+				this._looked = true;
 				if (this._tracker) this.hass = this._hass;
 				else this.shadowRoot.innerHTML = `<style>${FamilyLinkLocationCard.css}</style><ha-card><div class="msg">${this._t('off')}</div></ha-card>`;
 			});

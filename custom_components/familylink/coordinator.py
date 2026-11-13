@@ -7,7 +7,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -54,6 +54,9 @@ from .strict_mode import (
 	snapshot_policies,
 	snapshot_values,
 )
+
+# A fetch error is bridged with the last good data for this long, no more
+LAST_KNOWN_DATA_MAX_AGE = timedelta(minutes=15)
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -114,6 +117,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
+		self._last_known_at: datetime | None = None  # when it was fetched (local time)
 		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
 		# Chrome site lists change rarely: read every WEBSITES_REFRESH seconds,
 		# and taken from the answer of a change made from Home Assistant (store_websites).
@@ -173,7 +177,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self._auth_notification_sent:
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
-			self._last_known_data = result  # Store successful result
+			self._last_known_data, self._last_known_at = result, dt_util.now()  # Store successful result
 			await self._async_enforce_strict_mode(result)
 			return result
 
@@ -194,7 +198,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.info("Retrying data fetch after authentication refresh...")
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
-				self._last_known_data = result  # Store successful result
+				self._last_known_data, self._last_known_at = result, dt_util.now()  # Store successful result
 				await self._async_enforce_strict_mode(result)
 				return result
 
@@ -211,17 +215,30 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
-			if self._last_known_data is not None:
+			if (cached := self._recent_data()) is not None:
 				_LOGGER.info("Returning last known data due to FamilyLinkException: %s", err)
-				return self._last_known_data
+				return cached
 			raise UpdateFailed(f"Error communicating with Family Link: {err}") from err
 
 		except Exception as err:
 			_LOGGER.exception("Unexpected error fetching Family Link data")
-			if self._last_known_data is not None:
+			if (cached := self._recent_data()) is not None:
 				_LOGGER.info("Returning last known data due to unexpected error: %s", err)
-				return self._last_known_data
+				return cached
 			raise UpdateFailed(f"Unexpected error: {err}") from err
+
+	def _recent_data(self) -> dict[str, Any] | None:
+		"""The last good data while it can stand for now: fetched today, less than 15 min ago.
+
+		It bridges a transient Google error. During a long outage it would show
+		yesterday's screen time and a bedtime long over as live, so the entities
+		go unavailable instead.
+		"""
+		at = self._last_known_at
+		now = dt_util.now()
+		if self._last_known_data is None or at is None or at.date() != now.date() or now - at > LAST_KNOWN_DATA_MAX_AGE:
+			return None
+		return self._last_known_data
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
@@ -1150,7 +1167,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		restore_ha_bonus.
 		"""
 		previous = self._ha_bonus_until.get(device_id)
-		self._ha_bonus_until[device_id] = time.time() + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
+		# Bonuses stack on Google's side: a second one extends the protection, never shortens it
+		self._ha_bonus_until[device_id] = max(previous or 0, time.time()) + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
 		return previous

@@ -288,6 +288,8 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 			raise HomeAssistantError(f"Failed to lock device {self._device_id}")
 		else:
 			_LOGGER.info("Successfully locked device %s", self._device_id)
+			# A lock from HA ends any bonus given from HA: strict mode protects none any more
+			self.coordinator.restore_ha_bonus(self._device_id, None)
 
 
 class FamilyLinkBedtimeSwitch(CoordinatorEntity, SwitchEntity):

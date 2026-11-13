@@ -2,6 +2,14 @@
 
 All notable changes to the Google Family Link Auth Add-on will be documented in this file.
 
+## [1.9.6] - 2026-11-13
+
+### Security
+- **A page from another site can no longer start a login.** In add-on mode the login endpoints need no key (the web UI stays usable on the LAN), so any web page the parent visited could start logins in the background and keep the only session slot busy; the parent's own "Start Authentication" then failed. Requests carrying another site's `Origin` are now refused.
+
+### Fixed
+- **Reading the cookies never deletes them.** When the stored session could not be decrypted (for example a backup restored while the add-on runs, which replaces the key and the file together), the cookie read deleted the file. The key is now read again from disk once, and a session that still cannot be read is left in place until the next login replaces it.
+
 ## [1.9.5] - 2026-11-03
 
 ### Security

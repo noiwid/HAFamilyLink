@@ -1,6 +1,7 @@
 """Main FastAPI application for Family Link Auth."""
 import logging
 import os
+from urllib.parse import urlparse
 import secrets
 import sys
 from pathlib import Path
@@ -104,7 +105,12 @@ def _check_key(request: Request, expected: str):
 
 
 def _verify_api_key(request: Request):
-    """Optional protection for the auth-flow endpoints (only when API_KEY is set)."""
+    """Protection of the auth-flow endpoints: same site always, the key when API_KEY is set."""
+    # Without a key the web UI is open on the LAN, but a page from another site
+    # must not start logins: each one holds the only session slot for minutes
+    origin = request.headers.get("origin")
+    if origin and urlparse(origin).netloc != request.headers.get("host", ""):
+        raise HTTPException(status_code=403, detail="Cross-site request refused")
     if not _API_KEY:
         return  # Auth flow stays usable from the local web UI without a key
     _check_key(request, _API_KEY)

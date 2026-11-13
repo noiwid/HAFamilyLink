@@ -170,14 +170,16 @@ class Base extends HTMLElement {
 			this._days = this._config.demo_data.days.slice(-days).map((v, i, all) => ({ t: start.getTime() - (all.length - 1 - i) * 86400000, v }));
 		}
 		if (this._key !== key) {
-			this._key = key;
 			const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - (days - 1));
 			const { ids, rows } = await this._stats('day', start);
-			this._days = Array.from({ length: days }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return { t: d.getTime(), v: 0 }; });
+			const fresh = Array.from({ length: days }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return { t: d.getTime(), v: 0 }; });
 			for (const id of ids) for (const r of rows[id] || []) {
-				const day = this._days.find((d) => d.t === new Date(ms(r.start)).setHours(0, 0, 0, 0));
+				const day = fresh.find((d) => d.t === new Date(ms(r.start)).setHours(0, 0, 0, 0));
 				if (day) day.v += r.max ?? r.state ?? 0;
 			}
+			// marked as read only once read: a failed fetch (the app waking up) is tried again at the next update
+			this._days = fresh;
+			this._key = key;
 		}
 		// today from the live states, the statistics of the day are not complete yet
 		this._days[this._days.length - 1].v = sum(this._sources.filter((s) => !s.missing).map((s) => this._num(s.used) || 0));
@@ -258,8 +260,8 @@ class ScreenTimeCard extends Base {
 			return this._drawHours();
 		}
 		if (this._chartKey !== key) {
-			this._chartKey = key;
 			this._hourly = await this._stats('hour', new Date(midnight.getTime() - 3600000));
+			this._chartKey = key;  // only once read, as the history
 		}
 		this._bars = this._hours(this._hourly, midnight, true);
 		this._drawHours();
