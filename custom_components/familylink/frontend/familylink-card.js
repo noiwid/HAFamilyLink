@@ -204,7 +204,7 @@ class FamilyLinkCard extends HTMLElement {
 				<span class="used">${isNaN(used) ? '' : hm(used)}${isNaN(total) ? '' : ' / ' + hm(total)}${bonus > 0 ? ` <span class="plus">(+${hm(bonus)})</span>` : ''}</span>
 				<button class="ringbtn gear" data-settings data-tip="${esc(t('settings'))}" aria-label="${esc(t('settings'))}"><ha-icon icon="mdi:cog-outline"></ha-icon></button>
 			</div>
-			<div class="track big"><div style="width:${pct}%"></div></div>
+			${isNaN(total) ? '' : `<div class="track big"><div style="width:${pct}%"></div></div>`}
 			${window || status ? `<div class="window">${esc(window)}${window && status ? ' · ' : ''}${status ? `<span class="${locked ? 'why' : ''}">${esc(status)}</span>` : ''}</div>` : ''}
 			<div class="bonus">
 				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${this._on(reset) ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
