@@ -9,7 +9,7 @@
  *   entities: [sensor.switch_used_screen_time]      # any other time sensor in minutes
  *   sources:                         # optional, same with a name and a limit entity
  *     - { entity: sensor.console_time, name: Console, limit: number.console_limit }
- *   title / language (en, fr) / chart: false (summary card) / days: 14 (history card)
+ *   title / language (en, fr, pl) / chart: false (summary card) / days: 14 (history card)
  *   history: true                    # summary card: add the daily history below it, as a second card (days: 14)
  *
  * A device is resolved by the websocket command "<integration>/card_entities" of the integration
@@ -38,6 +38,24 @@ const STR = {
 		f_chart: 'Graphique par heure', f_days: 'Jours', f_history: 'Historique par jour en dessous (seconde carte)',
 	},
 };
+STR.pl = {
+    today: 'Czas ekranowy dzisiaj', history: 'Ostatnie {n} dni', left: 'pozostało',
+    no_limit: ' · bez limitu', locked: 'Zablokowany', unlocked: 'Odblokowany',
+    loading: 'Wczytywanie…', none: 'Wybierz co najmniej jedno urządzenie lub czujnik czasu.', missing: 'Nie znaleziono: ',
+    f_devices: 'Urządzenia (Family Link, Family Safety)',
+    f_entities: 'Inne czujniki czasu (minuty)', f_title: 'Tytuł', f_language: 'Język',
+    next_tr: (s) => String(s ?? '')
+        .replace('Daily limit soon reached', 'Dzienny limit wkrótce się skończy')
+        .replace('No restrictions', 'Brak ograniczeń')
+        .replace('School time', 'Zajęcia szkolne')
+        .replace('Bedtime', 'Pora snu')
+        .replace('(ends ', '(koniec ')
+        .replace(/\bat (\d)/, 'o $1')
+        .replace('tomorrow', 'jutro')
+        .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
+    f_chart: 'Wykres godzinowy', f_days: 'Dni', f_history: 'Historia dni poniżej (druga karta)',
+};
+
 const PLATFORMS = ['familylink', 'microsoft_family_safety'];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hm = (m) => { m = Math.round(m); const h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
@@ -377,7 +395,7 @@ class Editor extends HTMLElement {
 			...(history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }]
 				: [{ name: 'chart', selector: { boolean: {} } }, { name: 'history', selector: { boolean: {} } },
 					...(this._config.history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }] : [])]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }] } } },
 		];
 	}
 }
