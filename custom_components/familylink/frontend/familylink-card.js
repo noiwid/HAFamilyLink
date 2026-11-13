@@ -6,6 +6,7 @@
  *   entity: switch.alex_phone        # or any Family Link entity of the device
  *   title: Phone                     # optional
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
+ *   bonus: false                     # optional: no bonus bar (the +15 / +30 / +60 buttons); shown by default
  *   language: en                     # optional: en, fr or pl, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
@@ -264,12 +265,12 @@ class FamilyLinkCard extends HTMLElement {
 			</div>
 			${isNaN(total) ? '' : `<div class="track big"><div style="width:${pct}%"></div></div>`}
 			${window || status ? `<div class="window">${esc(window)}${window && status ? ' · ' : ''}${status ? `<span class="${locked ? 'why' : ''}">${esc(status)}</span>` : ''}</div>` : ''}
-			<div class="bonus">
+			${cfg.bonus === false ? '' : `<div class="bonus">
 				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${this._on(reset) ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
 				<div class="btxt"><div>${t('reset')}</div><small>${bonus > 0 ? t('bonus_on').replace('{t}', hm(bonus)) : t('no_bonus')}</small></div>
 				${press('bonus_15min', 15, t('tip_add').replace('{n}', 15))}${press('bonus_30min', 30, t('tip_add').replace('{n}', 30))}${press('bonus_60min', 60, t('tip_add').replace('{n}', 60))}
 				<button class="round" data-dialog="bonus" data-tip="${esc(t('tip_custom'))}"><ha-icon icon="mdi:timer-edit-outline"></ha-icon></button>
-			</div>`;
+			</div>`}`;
 		if (!cfg.compact) html += this._childPart();
 		this._shell(html);
 		this._fitTabs();
@@ -781,6 +782,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			this._form.computeLabel = (s) => ({
 				device: fr ? 'Téléphone ou tablette' : 'Phone or tablet', title: fr ? 'Titre' : 'Title',
 				compact: fr ? 'Compact (en-tête et bonus seulement)' : 'Compact (header and bonus only)', language: fr ? 'Langue' : 'Language',
+				bonus: fr ? 'Barre de bonus (+15 / +30 / +60 min)' : 'Bonus bar (+15 / +30 / +60 min)',
 				zoom: 'Zoom', height: fr ? 'Hauteur de la carte (px)' : 'Map height (px)',
 			}[s.name]);
 			this._form.addEventListener('value-changed', (e) => {
@@ -793,14 +795,15 @@ class FamilyLinkCardEditor extends HTMLElement {
 			this.appendChild(this._form);
 		}
 		this._form.hass = this._hass;
-		this._form.data = { ...this._config, device: this._config.device || deviceOfEntity(this._hass, this._config.entity) };
+		// the card shows the bonus bar unless bonus is false: the switch is on when the option is absent
+		this._form.data = { ...(this._config.type === 'custom:familylink-location-card' ? {} : { bonus: true }), ...this._config, device: this._config.device || deviceOfEntity(this._hass, this._config.entity) };
 		this._form.schema = [
 			// only phones and tablets: they carry the bonus buttons, the child's own device has none
 			{ name: 'device', required: true, selector: { device: { filter: { integration: 'familylink' }, entity: { domain: 'button' } } } },
 			{ name: 'title', selector: { text: {} } },
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
-				: [{ name: 'compact', selector: { boolean: {} } }]),
+				: [{ name: 'compact', selector: { boolean: {} } }, { name: 'bonus', selector: { boolean: {} } }]),
 			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }] } } },
 		];
 	}
