@@ -182,7 +182,7 @@ class ScreenTimeCard extends Base {
 			<div class="head"><ha-icon icon="mdi:timer-outline"></ha-icon><span>${esc(this._config.title || t('today'))}</span><em>${isNaN(left) ? '' : `${t('left')} ${hm(left)}`.trim()}</em></div>
 			<div class="body">
 				<div class="big">${hm(total)}<span>${isNaN(limit) ? t('no_limit') : ' / ' + hm(limit)}</span></div>
-				<div class="per">${live.map((s) => `${esc(s.name)}: ${hm(this._num(s.used) || 0)}`).join(' · ')}</div>
+				<div class="per">${live.filter((s) => this._num(s.used) > 0).map((s) => `${esc(s.name)}: ${hm(this._num(s.used) || 0)}`).join(' · ')}</div>
 				<div class="bar"><div style="width:${pct}%;background:${col}"></div></div>
 				${next ? `<div class="next">${esc(t('next_tr')(next.state))}</div>` : ''}
 				${missing.length ? `<div class="msg err">${t('missing')}${esc(missing.join(', '))}</div>` : ''}

@@ -10,7 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **Change the Google Play settings from Home Assistant** (#239): `select.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `select.<child>_play_apps_games_rating` (the ratings Google offers the child, e.g. `PEGI 12`). A change counts only once Google's answer shows it; the users allowed to control Family Link apply. The read-only sensors stay.
+- **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
+### Changed
+- On a phone, the apps tabs of the Family Link card show their icons and counts only (below 420 px).
+- The screen time card lists only the devices used today under the total.
+
+### Fixed
+- **The next restriction at midnight reads "at 00:00"**, not "tomorrow 00:00": a bedtime starting at midnight tonight was announced as tomorrow.
 ---
 
 ## [2.8.0] - 2026-11-12

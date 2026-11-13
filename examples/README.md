@@ -25,6 +25,8 @@ compact: true                  # optional: header and bonus bar only, for a seco
 language: fr                   # optional: en or fr, the language of Home Assistant otherwise
 entities:                      # optional: replace the entity behind a role
   child: { school_time: automation.my_school_mode }
+lock_reasons:                  # optional: name a lock of your own, shown while the entity is on
+  input_boolean.homework: homework
 ```
 
 Choose a phone or a tablet, not the child: the card finds every entity of the device and of its child by itself. Everything the card changes goes through the integration's entities and actions, with the permissions of the logged-in user (see below).
@@ -41,7 +43,7 @@ Choose a phone or a tablet, not the child: the card finds every entity of the de
 | Web tab | filter pills, `+`, a site | Switches the Chrome filter (only the approved sites, or Google's filter), adds one or several sites as allowed or blocked, moves a site from one list to the other or removes it |
 | Weekly limits | a weekday | The quota, the bedtime hours and the school hours of that weekday, in 15-minute steps. School hours show on the days that have school time in Family Link; with a lunch break, the start is the morning's and the end the afternoon's |
 
-Under the bar, next to the allowed hours: why the device is blocked (bedtime, school time, daily limit reached, locked), in red, or else the next restriction. The tabs drop their icons, then their words, when the card is narrow.
+Under the bar, next to the allowed hours: why the device is blocked (bedtime, school time, daily limit reached, locked, or the name given in `lock_reasons` to a lock of your own), in red, or else the next restriction. On a narrow card the tabs keep their icons and counts, without the words.
 
 | App rule | Website | Weekday |
 |----------|---------|---------|

@@ -42,6 +42,7 @@ const STR = {
 		configure: 'Configure the integration', configure_sub: 'Users allowed, strict mode rules, location',
 		not_confirmed: 'The start is saved, the end is not: Google has not confirmed it yet. Try again.',
 		ring: 'Ring', ring_q: 'Ring {d}?', ring_sub: 'The device rings so it can be found.',
+		locked_by: 'Locked: {r}',
 		why: { manually_locked: 'Locked', bedtime_active: 'Locked: bedtime', school_time_active: 'Locked: school time', daily_limit_reached: 'Locked: daily limit reached' },
 		lock_sub: 'The device can no longer be used until it is unlocked.', unlock_sub: 'The device can be used again, within its limits.',
 		save: 'Save', saving: 'Saving…', close: 'Close', loading: 'Loading…', not_found: 'Family Link entity not found: ',
@@ -76,6 +77,7 @@ const STR = {
 		configure: "Configurer l'intégration", configure_sub: 'Utilisateurs autorisés, règles du mode strict, position',
 		not_confirmed: "Le début est enregistré, pas la fin : Google ne l'a pas encore confirmé. Réessayez.",
 		ring: 'Faire sonner', ring_q: 'Faire sonner {d} ?', ring_sub: "L'appareil sonne pour qu'on le retrouve.",
+		locked_by: 'Bloqué : {r}',
 		why: { manually_locked: 'Verrouillé', bedtime_active: 'Bloqué : coucher', school_time_active: 'Bloqué : école', daily_limit_reached: 'Bloqué : limite du jour atteinte' },
 		lock_sub: "L'appareil ne peut plus être utilisé jusqu'à son déverrouillage.", unlock_sub: "L'appareil peut de nouveau être utilisé, dans ses limites.",
 		save: 'Enregistrer', saving: 'Enregistrement…', close: 'Fermer', loading: 'Chargement…', not_found: 'Entité Family Link introuvable : ',
@@ -186,7 +188,10 @@ class FamilyLinkCard extends HTMLElement {
 		const bedStart = toMin((this._c(`bedtime_${day}_start`) || {}).state), bedEnd = toMin((this._c(`bedtime_${day}_end`) || {}).state);
 		const window = !isNaN(bedStart) && !isNaN(bedEnd) ? t('allowed').replace('{a}', hour(bedEnd)).replace('{b}', hour(bedStart)) : '';
 		const next = this._d('next_restriction');
-		const status = locked ? (t('why') || {})[lock.attributes.restriction_reason] || ''
+		// a lock of your own (homework...) named by the entity that is on: lock_reasons: { input_boolean.homework: Homework }
+		const own = locked && lock.attributes.restriction_reason === 'manually_locked'
+			&& Object.entries(cfg.lock_reasons || {}).find(([id]) => (this._hass.states[id] || {}).state === 'on');
+		const status = own ? t('locked_by').replace('{r}', own[1]) : locked ? (t('why') || {})[lock.attributes.restriction_reason] || ''
 			: next && !['unknown', 'unavailable', ''].includes(next.state) ? t('next_tr')(next.state) : '';  // the sensor writes fixed English sentences
 		const reset = this._d('reset_bonus');
 		const press = (role, n, tip) => (this._d(role) ? `<button class="round" data-press="${role}" data-tip="${esc(tip)}"><ha-icon icon="mdi:fast-forward-${n}"></ha-icon></button>` : '');
@@ -279,12 +284,12 @@ class FamilyLinkCard extends HTMLElement {
 	_fitTabs() {
 		const tabs = this.shadowRoot && this.shadowRoot.querySelector('.tabs');
 		if (!tabs) return;
-		// first drop the icons, then the words (French words are long): the counts always stay
+		// the words go, the icons and counts stay
 		// the row as a whole too: tabs do not shrink below their content, the row overflows instead
 		const cut = () => tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1);
-		tabs.classList.remove('noicon', 'tight');
-		if (cut()) tabs.classList.add('noicon');
-		if (cut()) { tabs.classList.remove('noicon'); tabs.classList.add('tight'); }
+		tabs.classList.remove('tight');
+		// on a phone the words crowd the tabs even when they fit: icons and counts only there
+		if (tabs.clientWidth < 420 || cut()) tabs.classList.add('tight');
 	}
 
 	_childPart() {
@@ -564,7 +569,7 @@ FamilyLinkCard.css = `
 	/* narrow card (half width, phone, card picker preview): icons and counts only */
 	/* five tabs with their words: tighter between 460 and 560px, icons and counts only below (the word stays as a tooltip) */
 	@container (max-width: 560px) { .tab { font-size: 12px; gap: 4px; padding: 10px 2px; } .tab ha-icon { --mdc-icon-size: 16px; } }
-	.tabs.tight .tab .lbl, .tabs.noicon .tab ha-icon { display: none; }
+	.tabs.tight .tab .lbl { display: none; }
 	@container (max-width: 420px) {
 		.btxt small { display: none; }
 		.bonus { gap: 6px; padding: 8px 10px; }
