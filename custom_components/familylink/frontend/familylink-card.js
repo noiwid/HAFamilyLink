@@ -727,8 +727,9 @@ class FamilyLinkDialog extends HTMLElement {
 FamilyLinkDialog.css = `
 	:host { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
 	.veil { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
-	.sheet { position: relative; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; box-sizing: border-box; padding: 16px;
-		border-radius: 28px; background: #1c1c1e; color: #ebebf0; }
+	/* dvh: the height really visible on a phone (100vh counts the browser bars); the sheet scrolls when it is taller */
+	.sheet { position: relative; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+		overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 16px; border-radius: 28px; background: #1c1c1e; color: #ebebf0; container-type: inline-size; }
 	.bar { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; margin-bottom: 14px; }
 	.bar span { flex: 1; }
 	button { font: inherit; color: inherit; border: 0; cursor: pointer; }
@@ -752,6 +753,12 @@ FamilyLinkDialog.css = `
 	.step button { width: 44px; height: 44px; background: none; font-size: 20px; }
 	.step span { min-width: 64px; text-align: center; font-weight: 700; font-size: 15px; }
 	.err { margin: 4px 2px 10px; font-size: 13px; color: #ff6b6b; }
+	/* a narrow sheet (a phone): the stepper takes its own row under the text, or the title is squeezed to a few letters per line */
+	@container (max-width: 390px) {
+		.opt { flex-wrap: wrap; row-gap: 8px; }
+		.opt .step { flex: none; width: calc(100% - 62px); margin-left: 62px; justify-content: space-between; }
+		.opt .step span { flex: 1; }
+	}
 	.in { width: 100%; box-sizing: border-box; height: 52px; margin-bottom: 8px; padding: 0 16px; border-radius: 18px; font: inherit; font-size: 16px;
 		color: inherit; background: rgba(255, 255, 255, 0.06); border: 2px solid var(--accent-color, #ff9800); outline: none; }
 	.save { width: 100%; height: 52px; margin-top: 6px; border-radius: 26px; background: rgba(255, 255, 255, 0.1); font-weight: 600; font-size: 16px;

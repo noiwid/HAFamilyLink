@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Times carry their time zone.** The location time and the bedtime and school time window attributes used the container's time zone without saying so: on a Docker install without `TZ`, a 15:00 Paris fix read "13:00:00".
 - **The Timeout option is used.** Requests to Google always timed out after 30 s whatever it said.
 - **Strict mode keeps trying against a repeated bypass.** A bonus posted again after each cancel used up the three tries and won for the rest of the day; each bonus now gets tries of its own. The `familylink_strict_mode_action` event has a new `last_try` field, true when strict mode gives a correction up after it.
+- **The dialogs of the Family Link card fit a phone.** On a narrow screen the stepper (limit, hours, bonus, app limit) takes its own row under the title instead of squeezing it to a few letters per line, and the height follows the visible area, not the browser bars.
 - The screen time card takes the new weekday's quota after midnight on a dashboard left open, and the day dialog counts a day of 23 or 25 hours right when the clocks change.
 - **The next restriction at midnight reads "at 00:00"**, not "tomorrow 00:00": a bedtime starting at midnight tonight was announced as tomorrow.
 ---
