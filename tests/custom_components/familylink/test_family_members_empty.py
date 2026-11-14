@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
 from custom_components.familylink.exceptions import FamilyLinkException
 
@@ -35,6 +37,7 @@ def _coordinator(members: dict, last_known: dict | None) -> FamilyLinkDataUpdate
     coordinator.client = MagicMock()
     coordinator.client.async_get_family_members = AsyncMock(return_value=members)
     coordinator._last_known_data = last_known
+    coordinator._last_known_at = dt_util.now()
     coordinator._auth_notification_sent = False
     coordinator._is_retrying_auth = False
     coordinator._async_enforce_strict_mode = AsyncMock()

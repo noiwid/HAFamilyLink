@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+from custom_components.familylink.const import STRICT_MODE_BONUS_GRACE
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
 from custom_components.familylink.strict_mode import ACTION_ENABLE_DAILY_LIMIT, ACTION_LOCK_DEVICE
 
@@ -111,3 +113,28 @@ async def test_a_device_lock_planned_before_an_unlock_click_is_dropped() -> None
     await coordinator._async_run_strict_action(CHILD_DATA, lock, planned)
 
     coordinator.client.async_control_device.assert_not_awaited()
+
+
+def test_a_second_ha_bonus_extends_the_protection(monkeypatch) -> None:
+    """+30 then +15 min: the protection covers both, the first bonus is not cancelled early."""
+    clock = [1000.0]
+    monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(time=lambda: clock[0], monotonic=lambda: clock[0]))
+    coordinator = _coordinator()
+    coordinator.register_ha_bonus("phone", 30)
+    first_end = coordinator._ha_bonus_until["phone"]
+    clock[0] += 300
+    coordinator.register_ha_bonus("phone", 15)
+    assert coordinator._ha_bonus_until["phone"] == first_end + 15 * 60 + STRICT_MODE_BONUS_GRACE
+    # Taken back from HA (reset button, lock): nothing protected any more
+    coordinator.restore_ha_bonus("phone", None)
+    assert "phone" not in coordinator._ha_bonus_until
+
+
+def test_a_new_bonus_gets_tries_of_its_own() -> None:
+    """A bonus posted again after each cancel must not use up the tries and win for the day."""
+    from custom_components.familylink.coordinator import _strict_key
+    from custom_components.familylink.strict_mode import ACTION_CANCEL_BONUS
+
+    first = {"child_id": CHILD, "action": ACTION_CANCEL_BONUS, "device_id": "phone", "override_id": "o1"}
+    assert _strict_key(first) == _strict_key(dict(first))
+    assert _strict_key(first) != _strict_key({**first, "override_id": "o2"})

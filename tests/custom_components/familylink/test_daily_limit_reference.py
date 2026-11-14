@@ -141,8 +141,10 @@ async def test_service_declares_the_quota_before_writing_it(hass, services) -> N
         DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400}, blocking=True
     )
 
-    assert calls[0] == ("record", 400, _today())
-    assert calls[1:] == [("today", PHONE, 400), ("today", TABLET, 400)]
+    # One reference per device, for today: the weekly row is not touched (strict
+    # mode rewrote the weekday's weekly quota from a child-wide reference)
+    assert calls == [("record", 400, _today()), ("record", 400, _today()), ("today", PHONE, 400), ("today", TABLET, 400)]
+    assert [c.kwargs["device_id"] for c in services.record_daily_limit_minutes.call_args_list] == [PHONE, TABLET]
 
 
 async def test_service_without_a_day_with_the_limit_off_writes_the_weekly_quota_only(hass, services) -> None:

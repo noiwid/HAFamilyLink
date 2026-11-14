@@ -139,8 +139,8 @@ class FamilyLinkWebFilterSelect(CoordinatorEntity, SelectEntity):
         try:
             lists = await self.coordinator.client.async_set_website_filter_level(self._child_id, level)
         except Exception as err:
-            _LOGGER.error(f"Failed to set the web filter to '{option}' for {self._child_name}: {err}")
-            return
+            # Told to the caller (UI, automation trace), not only logged
+            raise HomeAssistantError(f"Failed to set the web filter to '{option}' for {self._child_name}: {err}") from err
         self.coordinator.store_websites(self._child_id, lists)
         _LOGGER.info(f"Set the web filter to '{option}' for {self._child_name}")
         await self.coordinator.async_request_refresh()

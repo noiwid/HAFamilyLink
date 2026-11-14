@@ -22,9 +22,13 @@ type: custom:familylink-card
 entity: switch.kids_phone      # or device: <device id>, as the visual editor writes it
 title: Kid's phone             # optional, the device name otherwise
 compact: true                  # optional: header and bonus bar only, for a second device of the same child
-language: fr                   # optional: en or fr, the language of Home Assistant otherwise
+bonus: true                    # true by default, and written in a new card; false hides the bonus bar (+15 / +30 / +60 min, reset, custom duration)
+inline_app_editor: true        # optional: edit apps inside the card, for popup containers such as Browser Mod
+language: fr                   # optional: en, fr, pl, de or es, the language of Home Assistant otherwise
 entities:                      # optional: replace the entity behind a role
   child: { school_time: automation.my_school_mode }
+lock_reasons:                  # optional: name a lock of your own, shown while the entity is on
+  input_boolean.homework: homework
 ```
 
 Choose a phone or a tablet, not the child: the card finds every entity of the device and of its child by itself. Everything the card changes goes through the integration's entities and actions, with the permissions of the logged-in user (see below).
@@ -41,7 +45,7 @@ Choose a phone or a tablet, not the child: the card finds every entity of the de
 | Web tab | filter pills, `+`, a site | Switches the Chrome filter (only the approved sites, or Google's filter), adds one or several sites as allowed or blocked, moves a site from one list to the other or removes it |
 | Weekly limits | a weekday | The quota, the bedtime hours and the school hours of that weekday, in 15-minute steps. School hours show on the days that have school time in Family Link; with a lunch break, the start is the morning's and the end the afternoon's |
 
-Under the bar, next to the allowed hours: why the device is blocked (bedtime, school time, daily limit reached, locked), in red, or else the next restriction. The tabs drop their icons, then their words, when the card is narrow.
+Under the bar, next to the allowed hours: why the device is blocked (bedtime, school time, daily limit reached, locked, or the name given in `lock_reasons` to a lock of your own), in red, or else the next restriction. On a narrow card the tabs keep their icons and counts, without the words.
 
 | App rule | Website | Weekday |
 |----------|---------|---------|
@@ -54,6 +58,8 @@ Under the bar, next to the allowed hours: why the device is blocked (bedtime, sc
 ![Web tab](card-web.png)
 
 A dialog keeps its draft until **Save**, and only sends what changed. When Google or Home Assistant refuses a change, the dialog stays open with the reason.
+
+If you embed this card in another popup (for example a **Browser Mod** popup), add `inline_app_editor: true`. Opening an app then replaces the card content with its editor; **Save** or the back arrow returns to the previously selected applications tab. This avoids stacking a second fixed-position dialog under or above the parent popup. The option is off by default to preserve the usual dialog behavior for existing cards. All other dialogs are unchanged.
 
 ## Screen time cards
 
@@ -73,7 +79,9 @@ sources:                       # optional: the same, with a name, a limit, a rem
     limit: number.switch_max_screentime_today
 ```
 
-The charts read Home Assistant's long-term statistics of the time sensors, so the history fills up day after day. A limit, a remaining time or a lock shared by several devices counts once.
+The charts read Home Assistant's long-term statistics of the time sensors, so the history fills up day after day. Tap a bar of the daily history to see that day hour by hour; the arrows (or the left and right keys) move from day to day.
+
+![A day hour by hour](dialog-history-day.png) A limit, a remaining time or a lock shared by several devices counts once.
 
 **With Microsoft Family Safety.** The same file ships with [Microsoft Family Safety for Home Assistant](https://github.com/noiwid/HAFamilySafety): its PCs and Xbox can be listed in `devices` next to the phones and tablets, and the card shows all of the child's screen time together.
 

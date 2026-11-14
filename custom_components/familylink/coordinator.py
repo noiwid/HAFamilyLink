@@ -7,7 +7,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -18,6 +18,8 @@ from homeassistant.util import dt as dt_util
 
 from .client.api import FamilyLinkClient
 from .const import (
+	CONF_TIMEOUT,
+	DEFAULT_TIMEOUT,
 	CONF_STRICT_MODE,
 	CONF_STRICT_MODE_RULES,
 	CONF_LOCK_KEEPS_ALLOWED_APPS,
@@ -54,6 +56,9 @@ from .strict_mode import (
 	snapshot_policies,
 	snapshot_values,
 )
+
+# A fetch error is bridged with the last good data for this long, no more
+LAST_KNOWN_DATA_MAX_AGE = timedelta(minutes=15)
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
@@ -92,9 +97,11 @@ def _strict_key(action: dict[str, Any]) -> str:
 
 	Dated: a correction given up one day is tried again the next.
 	"""
+	# A new bonus is a new correction: posting one after each cancel must not
+	# use up the tries meant for a write Google ignores
 	return (
 		f"{action['child_id']}:{action['action']}:{action.get('device_id') or ''}:"
-		f"{action.get('day') or ''}:{dt_util.now().date().isoformat()}"
+		f"{action.get('day') or ''}:{action.get('override_id') or ''}:{dt_util.now().date().isoformat()}"
 	)
 
 
@@ -114,6 +121,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._pending_lock_states: dict[str, tuple[bool, float]] = {}  # device_id -> (locked, timestamp)
 		self._pending_time_limit_states: dict[str, dict[str, tuple[bool, float]]] = {}  # child_id -> {"bedtime": (enabled, timestamp), "school_time": (enabled, timestamp), "daily_limit": (enabled, timestamp)}
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
+		self._last_known_at: datetime | None = None  # when it was fetched (local time)
 		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
 		# Chrome site lists change rarely: read every WEBSITES_REFRESH seconds,
 		# and taken from the answer of a change made from Home Assistant (store_websites).
@@ -173,7 +181,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			if self._auth_notification_sent:
 				self._auth_notification_sent = False
 				_LOGGER.debug("Auth notification flag reset after successful data fetch")
-			self._last_known_data = result  # Store successful result
+			self._last_known_data, self._last_known_at = result, dt_util.now()  # Store successful result
 			await self._async_enforce_strict_mode(result)
 			return result
 
@@ -194,7 +202,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				_LOGGER.info("Retrying data fetch after authentication refresh...")
 				result = await self._async_fetch_data()
 				self._is_retrying_auth = False  # Reset flag on success
-				self._last_known_data = result  # Store successful result
+				self._last_known_data, self._last_known_at = result, dt_util.now()  # Store successful result
 				await self._async_enforce_strict_mode(result)
 				return result
 
@@ -211,17 +219,30 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 		except FamilyLinkException as err:
 			_LOGGER.error("Error fetching Family Link data: %s", err)
-			if self._last_known_data is not None:
+			if (cached := self._recent_data()) is not None:
 				_LOGGER.info("Returning last known data due to FamilyLinkException: %s", err)
-				return self._last_known_data
+				return cached
 			raise UpdateFailed(f"Error communicating with Family Link: {err}") from err
 
 		except Exception as err:
 			_LOGGER.exception("Unexpected error fetching Family Link data")
-			if self._last_known_data is not None:
+			if (cached := self._recent_data()) is not None:
 				_LOGGER.info("Returning last known data due to unexpected error: %s", err)
-				return self._last_known_data
+				return cached
 			raise UpdateFailed(f"Unexpected error: {err}") from err
+
+	def _recent_data(self) -> dict[str, Any] | None:
+		"""The last good data while it can stand for now: fetched today, less than 15 min ago.
+
+		It bridges a transient Google error. During a long outage it would show
+		yesterday's screen time and a bedtime long over as live, so the entities
+		go unavailable instead.
+		"""
+		at = self._last_known_at
+		now = dt_util.now()
+		if self._last_known_data is None or at is None or at.date() != now.date() or now - at > LAST_KNOWN_DATA_MAX_AGE:
+			return None
+		return self._last_known_data
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
@@ -693,6 +714,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				hass=self.hass,
 				config=self.entry.data,
 			)
+			self.client.request_timeout = int(self.entry.options.get(
+				CONF_TIMEOUT, self.entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+			))
 			self.client.lock_keeps_allowed_apps = bool(self.entry.options.get(
 				CONF_LOCK_KEEPS_ALLOWED_APPS,
 				self.entry.data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS),
@@ -1150,7 +1174,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		restore_ha_bonus.
 		"""
 		previous = self._ha_bonus_until.get(device_id)
-		self._ha_bonus_until[device_id] = time.time() + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
+		# Bonuses stack on Google's side: a second one extends the protection, never shortens it
+		self._ha_bonus_until[device_id] = max(previous or 0, time.time()) + max(int(minutes), 0) * 60 + STRICT_MODE_BONUS_GRACE
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
 		return previous
@@ -1293,7 +1318,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			_LOGGER.debug(f"Strict mode: {name} for {child_id}/{device_id} given up, no effect after {attempts} tries")
 			return
 		self._strict_attempts[key] = attempts + 1
-		if attempts + 1 == STRICT_MODE_MAX_ATTEMPTS:
+		last_try = attempts + 1 == STRICT_MODE_MAX_ATTEMPTS
+		if last_try:
 			_LOGGER.warning(
 				f"Strict mode: {name} for child {child_data.get('child_name', child_id)} had no effect "
 				f"after {STRICT_MODE_MAX_ATTEMPTS} tries, given up until the state changes ({action.get('reason')})"
@@ -1389,6 +1415,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			"start": action.get("start"),
 			"end": action.get("end"),
 			"observed": action.get("observed"),
+			# Strict mode gives this correction up after this try (until the state
+			# changes or the next day): a lock bypassed again and again ends here
+			"last_try": last_try,
 		})
 
 	def _member_name(self, user_id: str | None) -> str | None:

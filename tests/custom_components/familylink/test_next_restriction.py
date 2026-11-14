@@ -24,6 +24,7 @@ DEVICE = "device-1"
 def test_describe_time_at() -> None:
     assert describe_time_at(NOW.replace(hour=22, minute=0), NOW) == "at 22:00"
     assert describe_time_at(NOW + timedelta(days=1), NOW) == "tomorrow 20:35"
+    assert describe_time_at((NOW + timedelta(days=1)).replace(hour=0, minute=0), NOW) == "at 00:00"
     assert describe_time_at(NOW + timedelta(days=3), NOW) == "Thu 20:35"
 
 

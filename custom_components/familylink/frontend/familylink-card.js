@@ -6,7 +6,9 @@
  *   entity: switch.alex_phone        # or any Family Link entity of the device
  *   title: Phone                     # optional
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
- *   language: en                     # optional: en or fr, else the language of Home Assistant
+ *   bonus: true                      # optional, true by default (written in a new card): false hides the bonus bar (+15 / +30 / +60 buttons)
+ *   inline_app_editor: true          # optional: edit apps inside this card (useful in popup containers)
+ *   language: en                     # optional: en, fr, pl, de or es, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
  *
@@ -42,10 +44,45 @@ const STR = {
 		configure: 'Configure the integration', configure_sub: 'Users allowed, strict mode rules, location',
 		not_confirmed: 'The start is saved, the end is not: Google has not confirmed it yet. Try again.',
 		ring: 'Ring', ring_q: 'Ring {d}?', ring_sub: 'The device rings so it can be found.',
+		locked_by: 'Locked: {r}',
 		why: { manually_locked: 'Locked', bedtime_active: 'Locked: bedtime', school_time_active: 'Locked: school time', daily_limit_reached: 'Locked: daily limit reached' },
 		lock_sub: 'The device can no longer be used until it is unlocked.', unlock_sub: 'The device can be used again, within its limits.',
 		save: 'Save', saving: 'Saving…', close: 'Close', loading: 'Loading…', not_found: 'Family Link entity not found: ',
 		days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+	},
+	de: {
+		locked_by: 'Gesperrt: {r}',
+		today: 'Heute', installed: 'installiert', limited: 'begrenzt', blocked: 'gesperrt', apps: 'Apps', week: 'Tageslimits der Woche',
+		no_usage: 'Heute keine Nutzung', no_app: 'Keine App', unlimited: 'Unbegrenzt', per_day: ' / Tag', allowed: 'Erlaubte Zeit: {a} – {b}',
+		app: 'App', cur_blocked: 'Derzeit gesperrt', cur_always: 'Derzeit immer erlaubt',
+		cur_limited: 'Derzeit begrenzt auf {t} pro Tag', cur_none: 'Derzeit kein eigenes Limit',
+		always: 'Immer erlaubt', always_sub: 'Auch wenn die Bildschirmzeit aufgebraucht ist', none: 'Kein Limit', none_sub: 'Es gilt nur die gesamte Bildschirmzeit',
+		limit: 'Begrenzt', limit_sub: 'Pro Tag', block: 'Gesperrt', block_sub: 'Lässt sich nicht mehr öffnen',
+		reset: 'Zurücksetzen', no_bonus: 'Kein Bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Aktiven Bonus beenden', tip_add: '{n} min Bonus für heute',
+		tip_custom: 'Bonus mit eigener Dauer', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Wird zum heutigen Limit addiert',
+		daily_limit: 'Tageslimit', bedtime: 'Schlafenszeit', school: 'Schule', day_settings: 'Einstellungen für den Tag', limit_day: 'Erlaubte Bildschirmzeit an diesem Tag',
+		bed_from: 'Schlafenszeit ab', bed_to: 'Schlafenszeit bis', steps: 'In 15-Minuten-Schritten', school_from: 'Schule ab', school_to: 'Schule bis',
+		pick_device: 'Bitte ein Handy oder Tablet wählen, nicht das Kind.',
+		pause: 'Pausiert', pause_sub: 'Bleibt installiert und gilt danach wieder mit der vorherigen Regel', cur_paused: 'Derzeit pausiert',
+		web: 'Web', web_hint: 'Chrome auf allen Geräten des Kindes', f_approved: 'Nur genehmigte Websites', f_filtered: 'Anstößige Websites möglichst blockieren',
+		site_ph: 'beispiel.de', allow: 'Erlauben', deny: 'Sperren', approved: 'Genehmigte Websites', blocked_sites: 'Gesperrte Websites', no_site: 'Keine',
+		remove: 'Entfernen', sites: 'Websites', add_site: 'Website hinzufügen', several: 'Eine Domain oder mehrere, durch Leerzeichen getrennt',
+		s_allow: 'Immer erlaubt', s_allow_sub: 'Auch wenn der Webfilter sie sperren würde', s_block: 'Immer gesperrt', s_block_sub: 'Chrome öffnet sie nicht',
+		s_remove: 'Aus den Listen entfernen', s_remove_sub: 'Der Webfilter entscheidet wieder', allowed_tag: 'erlaubt', blocked_tag: 'gesperrt',
+		lock: 'Sperren', unlock: 'Entsperren', lock_q: '{d} sperren?', unlock_q: '{d} entsperren?',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
+			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
+		settings: 'Einstellungen', strict: 'Strenger Modus', strict_sub: 'Änderungen auf der Google-Seite werden auf den Stand in Home Assistant zurückgesetzt',
+		unl: 'Unbegrenzte Apps in der Schlafenszeit', unl_sub: 'Aus: Auch die Apps ohne Zeitlimit werden gesperrt', calls: 'Anrufe und Nachrichten',
+		calls_opts: { 'Anyone': 'Alle', 'Only contacts I add': 'Nur von mir hinzugefügte Kontakte', 'Contacts I add & limited groups': 'Von mir hinzugefügte Kontakte und begrenzte Gruppen' },
+		configure: 'Integration konfigurieren', configure_sub: 'Berechtigte Benutzer, Regeln des strengen Modus, Standort',
+		not_confirmed: 'Der Beginn ist gespeichert, das Ende noch nicht: Google hat es noch nicht bestätigt. Bitte erneut versuchen.',
+		ring: 'Klingeln', ring_q: '{d} klingeln lassen?', ring_sub: 'Das Gerät klingelt, damit man es findet.',
+		why: { manually_locked: 'Gesperrt', bedtime_active: 'Gesperrt: Schlafenszeit', school_time_active: 'Gesperrt: Schulzeit', daily_limit_reached: 'Gesperrt: Tageslimit erreicht' },
+		lock_sub: 'Das Gerät lässt sich nicht mehr nutzen, bis es entsperrt wird.', unlock_sub: 'Das Gerät lässt sich wieder nutzen, im Rahmen seiner Limits.',
+		save: 'Speichern', saving: 'Speichern…', close: 'Schließen', loading: 'Wird geladen…', not_found: 'Family-Link-Entität nicht gefunden: ',
+		days: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
 	},
 	fr: {
 		today: 'Jour', installed: 'installées', limited: 'limitées', blocked: 'bloquées', apps: 'Applications', week: 'Limites de la semaine',
@@ -76,12 +113,96 @@ const STR = {
 		configure: "Configurer l'intégration", configure_sub: 'Utilisateurs autorisés, règles du mode strict, position',
 		not_confirmed: "Le début est enregistré, pas la fin : Google ne l'a pas encore confirmé. Réessayez.",
 		ring: 'Faire sonner', ring_q: 'Faire sonner {d} ?', ring_sub: "L'appareil sonne pour qu'on le retrouve.",
+		locked_by: 'Bloqué : {r}',
 		why: { manually_locked: 'Verrouillé', bedtime_active: 'Bloqué : coucher', school_time_active: 'Bloqué : école', daily_limit_reached: 'Bloqué : limite du jour atteinte' },
 		lock_sub: "L'appareil ne peut plus être utilisé jusqu'à son déverrouillage.", unlock_sub: "L'appareil peut de nouveau être utilisé, dans ses limites.",
 		save: 'Enregistrer', saving: 'Enregistrement…', close: 'Fermer', loading: 'Chargement…', not_found: 'Entité Family Link introuvable : ',
 		days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
 	},
 };
+STR.pl = {
+    locked_by: 'Zablokowany: {r}',
+    today: 'Dzisiaj', installed: 'Zainstalowane', limited: 'Z limitami', blocked: 'Zablokowane', apps: 'Aplikacje', week: 'Limity tygodniowe',
+    no_usage: 'Brak aktywności dzisiaj', no_app: 'Brak aplikacji', unlimited: 'Bez limitu', per_day: ' / dzień', allowed: 'Dozwolone godziny: {a} — {b}',
+    app: 'Aplikacja', cur_blocked: 'Obecnie zablokowana', cur_always: 'Obecnie zawsze dozwolona',
+    cur_limited: 'Obecnie limit {t} dziennie', cur_none: 'Obecnie bez osobnego limitu',
+    always: 'Zawsze dozwolona', always_sub: 'Dostępna nawet po wyczerpaniu czasu ekranowego',
+    none: 'Bez osobnego limitu', none_sub: 'Obowiązuje tylko ogólny limit czasu ekranowego',
+    limit: 'Z limitem', limit_sub: 'Dziennie', block: 'Zablokowana', block_sub: 'Nie można jej uruchomić',
+    reset: 'Resetuj', no_bonus: 'Brak dodatkowego czasu', bonus_on: 'Dodatkowy czas +{t}',
+    tip_reset: 'Anuluj dodatkowy czas', tip_add: 'Dodaj dziś {n} min',
+    tip_custom: 'Dodaj dowolną liczbę minut', bonus: 'Dodatkowy czas', bonus_min: 'Liczba minut', bonus_sub: 'Dodawane do dzisiejszego limitu',
+    daily_limit: 'Dzienny limit', bedtime: 'Pora snu', school: 'Szkoła', day_settings: 'Ustawienia dnia',
+    limit_day: 'Dozwolony czas ekranowy tego dnia', bed_from: 'Pora snu od', bed_to: 'Pora snu do',
+    steps: 'Co 15 minut', school_from: 'Zajęcia od', school_to: 'Zajęcia do',
+    pick_device: 'Wybierz telefon lub tablet, a nie profil dziecka.',
+    pause: 'Wstrzymana', pause_sub: 'Pozostaje zainstalowana; później wróci do poprzednich ustawień', cur_paused: 'Obecnie wstrzymana',
+    web: 'Internet', web_hint: 'Chrome na wszystkich urządzeniach dziecka',
+    f_approved: 'Tylko zatwierdzone witryny', f_filtered: 'Próbuj blokować strony dla dorosłych',
+    site_ph: 'example.com', allow: 'Zezwól', deny: 'Zablokuj', approved: 'Zatwierdzone witryny', blocked_sites: 'Zablokowane witryny', no_site: 'Brak',
+    remove: 'Usuń', sites: 'Witryny', add_site: 'Dodaj witrynę', several: 'Jedna domena lub kilka oddzielonych spacją',
+    s_allow: 'Zawsze dozwolona', s_allow_sub: 'Otwierana nawet wtedy, gdy filtr ją blokuje',
+    s_block: 'Zawsze zablokowana', s_block_sub: 'Chrome nie otworzy tej witryny',
+    s_remove: 'Usuń z list', s_remove_sub: 'Dalszy dostęp określa filtr', allowed_tag: 'dozwolona', blocked_tag: 'zablokowana',
+    lock: 'Zablokuj', unlock: 'Odblokuj', lock_q: 'Zablokować {d}?', unlock_q: 'Odblokować {d}?',
+    next_tr: (s) => String(s ?? '')
+        .replace('Daily limit soon reached', 'Dzienny limit wkrótce się skończy')
+        .replace('No restrictions', 'Brak ograniczeń')
+        .replace('School time', 'Zajęcia szkolne')
+        .replace('Bedtime', 'Pora snu')
+        .replace('(ends ', '(koniec ')
+        .replace(/\bat (\d)/, 'o $1')
+        .replace('tomorrow', 'jutro')
+        .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
+    settings: 'Ustawienia', strict: 'Tryb ścisły',
+    strict_sub: 'Zmiany dokonane w Google są przywracane do ustawień Home Assistanta',
+    unl: 'Aplikacje bez limitu podczas pory snu', unl_sub: 'Wyłączone: także aplikacje bez limitu są wtedy blokowane',
+    calls: 'Połączenia i SMS-y',
+    calls_opts: {'Anyone': 'Wszyscy', 'Only contacts I add': 'Tylko dodane kontakty', 'Contacts I add & limited groups': 'Dodane kontakty i wybrane grupy'},
+    configure: 'Konfiguruj integrację', configure_sub: 'Uprawnieni użytkownicy, zasady trybu ścisłego i lokalizacja',
+    not_confirmed: 'Początek zapisano, ale Google nie potwierdził końca. Spróbuj ponownie.',
+    ring: 'Zadzwoń', ring_q: 'Uruchomić dzwonek na {d}?', ring_sub: 'Telefon zacznie dzwonić, aby łatwiej go znaleźć.',
+    why: {manually_locked: 'Zablokowany', bedtime_active: 'Zablokowany: pora snu', school_time_active: 'Zablokowany: szkoła', daily_limit_reached: 'Zablokowany: wyczerpany limit'},
+    lock_sub: 'Nie będzie można korzystać z urządzenia do czasu odblokowania.',
+    unlock_sub: 'Można ponownie korzystać z urządzenia w ramach obowiązujących limitów.',
+    save: 'Zapisz', saving: 'Zapisywanie…', close: 'Zamknij', loading: 'Wczytywanie…', not_found: 'Nie znaleziono encji Family Link: ',
+    days: ['Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota','Niedziela'],
+};
+STR.es = {
+	today: 'Hoy', installed: 'instaladas', limited: 'limitadas', blocked: 'bloqueadas', apps: 'Aplicaciones', week: 'Límites de la semana',
+	no_usage: 'Hoy no se ha usado', no_app: 'Ninguna aplicación', unlimited: 'Sin límite', per_day: ' / día', allowed: 'Horas permitidas: {a} — {b}',
+	app: 'Aplicación', cur_blocked: 'Bloqueada actualmente', cur_always: 'Siempre permitida actualmente',
+	cur_limited: 'Limitada actualmente a {t} al día', cur_none: 'Sin límite propio actualmente',
+	always: 'Siempre permitida', always_sub: 'Incluso cuando se agota el tiempo de pantalla', none: 'Sin límite', none_sub: 'Solo se aplica el tiempo de pantalla total',
+	limit: 'Limitada', limit_sub: 'Por día', block: 'Bloqueada', block_sub: 'Ya no se puede abrir',
+	reset: 'Restablecer', no_bonus: 'Sin tiempo extra', bonus_on: 'Tiempo extra +{t}', tip_reset: 'Cancelar el tiempo extra activo', tip_add: '{n} min de tiempo extra hoy',
+	tip_custom: 'Tiempo extra de duración personalizada', bonus: 'Tiempo extra', bonus_min: 'Minutos extra', bonus_sub: 'Se suma al límite de hoy',
+	daily_limit: 'Límite diario', bedtime: 'Hora de dormir', school: 'Colegio', day_settings: 'Ajustes del día', limit_day: 'Tiempo de pantalla permitido ese día',
+	bed_from: 'Hora de dormir desde', bed_to: 'Hora de dormir hasta', steps: 'En pasos de 15 min', school_from: 'Colegio desde', school_to: 'Colegio hasta',
+	pick_device: 'Elige un teléfono o una tableta, no al niño.',
+	pause: 'En pausa', pause_sub: 'Sigue instalada y vuelve a su regla anterior', cur_paused: 'En pausa actualmente',
+	web: 'Web', web_hint: 'Chrome en todos los dispositivos del niño', f_approved: 'Solo sitios aprobados', f_filtered: 'Intentar bloquear sitios explícitos',
+	site_ph: 'ejemplo.es', allow: 'Permitir', deny: 'Bloquear', approved: 'Sitios aprobados', blocked_sites: 'Sitios bloqueados', no_site: 'Ninguno',
+	remove: 'Quitar', sites: 'Sitios web', add_site: 'Añadir un sitio web', several: 'Un dominio, o varios separados por espacios',
+	s_allow: 'Siempre permitido', s_allow_sub: 'Incluso si el filtro web lo bloquearía', s_block: 'Siempre bloqueado', s_block_sub: 'Chrome se negará a abrirlo',
+	s_remove: 'Quitar de las listas', s_remove_sub: 'Vuelve a decidir el filtro web', allowed_tag: 'permitido', blocked_tag: 'bloqueado',
+	lock: 'Bloquear', unlock: 'Desbloquear', lock_q: '¿Bloquear {d}?', unlock_q: '¿Desbloquear {d}?',
+	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
+		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
+		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
+	settings: 'Ajustes', strict: 'Modo estricto', strict_sub: 'Lo que se cambia en Google se restablece como en Home Assistant',
+	unl: 'Apps sin límite durante la hora de dormir', unl_sub: 'Desactivado: las apps sin límite de tiempo también se bloquean', calls: 'Llamadas y mensajes',
+	calls_opts: { 'Anyone': 'Cualquiera', 'Only contacts I add': 'Solo los contactos que añado', 'Contacts I add & limited groups': 'Los contactos que añado y grupos limitados' },
+	configure: 'Configurar la integración', configure_sub: 'Usuarios autorizados, reglas del modo estricto, ubicación',
+	not_confirmed: 'El inicio está guardado, el final no: Google aún no lo ha confirmado. Inténtalo de nuevo.',
+	ring: 'Hacer sonar', ring_q: '¿Hacer sonar {d}?', ring_sub: 'El dispositivo suena para poder encontrarlo.',
+	locked_by: 'Bloqueado: {r}',
+	why: { manually_locked: 'Bloqueado', bedtime_active: 'Bloqueado: hora de dormir', school_time_active: 'Bloqueado: horario escolar', daily_limit_reached: 'Bloqueado: límite diario alcanzado' },
+	lock_sub: 'El dispositivo no se podrá usar hasta que se desbloquee.', unlock_sub: 'El dispositivo se puede volver a usar, dentro de sus límites.',
+	save: 'Guardar', saving: 'Guardando…', close: 'Cerrar', loading: 'Cargando…', not_found: 'Entidad de Family Link no encontrada: ',
+	days: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
+};
+
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hm = (m) => { m = Math.round(m); const h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
@@ -103,6 +224,7 @@ class FamilyLinkCard extends HTMLElement {
 		this._tab = 'today';
 		this._seen = '';
 		this._map = null;
+		this._resolving = null;  // a new device: look it up again
 		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
 		if (!this._resize) { this._resize = new ResizeObserver(() => this._fitTabs()); this._resize.observe(this); }
 	}
@@ -110,7 +232,8 @@ class FamilyLinkCard extends HTMLElement {
 	static getStubConfig(hass) {
 		// the child is found from the device: each device belongs to one child
 		const sw = Object.keys(hass.states).find((id) => id.startsWith('switch.') && hass.entities?.[id]?.platform === 'familylink' && 'locked' in hass.states[id].attributes);
-		return { device: (sw && hass.entities[sw].device_id) || '' };
+		// bonus is true by default: written in the config of a new card, so the option is there to see (false hides the bonus bar)
+		return { device: (sw && hass.entities[sw].device_id) || '', bonus: true };
 	}
 
 	static getConfigElement() { return document.createElement('familylink-card-editor'); }
@@ -133,7 +256,7 @@ class FamilyLinkCard extends HTMLElement {
 		const over = this._config.entities || {};
 		const done = (found) => {
 			if (!found.device_id && !this._config.entities) {  // the child's own device was picked, not a phone or tablet
-				this._resolving = null;
+				// _resolving stays set: the message stays until the config changes, no new lookup per state change
 				return this._shell(`<div class="msg err">${this._t('pick_device')}</div>`);
 			}
 			this._map = { child: { ...(found.child || {}), ...(over.child || {}) }, device: { ...(found.device || {}), ...(over.device || {}) } };
@@ -149,7 +272,12 @@ class FamilyLinkCard extends HTMLElement {
 		this._shell(`<div class="msg">${this._t('loading')}</div>`);
 		this._resolving = this._hass.callWS({ type: 'familylink/card_entities', entity_id: entity })
 			.then(done)
-			.catch(() => (this._config.entities ? done({}) : this._shell(`<div class="msg err">${this._t('not_found')}${esc(entity)}</div>`)));
+			.catch(() => {
+				if (this._config.entities) return done({});
+				this._shell(`<div class="msg err">${this._t('not_found')}${esc(entity)}</div>`);
+				// Home Assistant restarting with the dashboard open: look it up again a little later
+				setTimeout(() => { this._resolving = null; if (this._hass) this.hass = this._hass; }, 30000);
+			});
 	}
 
 	_watched() { return [...Object.values(this._map.child), ...Object.values(this._map.device)]; }
@@ -175,19 +303,28 @@ class FamilyLinkCard extends HTMLElement {
 	}
 
 	_render() {
+		// Do not discard the app editor or its unsaved draft during state updates.
+		if (this._inlineAppDialog?.isConnected) return;
 		const t = (k) => this._t(k), cfg = this._config;
 		const lock = this._d('lock'), locked = lock && lock.state === 'off';
 		const used = this._n(this._d('daily_screen_time')), limit = this._n(this._d('daily_limit')), bonus = this._n(this._d('active_bonus')) || 0;
-		const total = limit > 0 ? limit + bonus : NaN, pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+		// daily limit off: no "/ limit" and no bar, whatever quota the device still reports
+		const limitOn = (this._c('daily_limit') || {}).state !== 'off';
+		const total = limitOn && limit > 0 ? limit + bonus : NaN, pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
 		const battery = this._n(this._d('battery_level'));
 		const base = cfg.icon || (/tab|pad/i.test((lock && (lock.attributes.model || lock.attributes.friendly_name)) || '') ? 'mdi:tablet' : 'mdi:cellphone');
 		const icon = locked && base === 'mdi:cellphone' ? 'mdi:cellphone-lock' : base;
 		const day = todayNum();
 		const bedStart = toMin((this._c(`bedtime_${day}_start`) || {}).state), bedEnd = toMin((this._c(`bedtime_${day}_end`) || {}).state);
-		const window = !isNaN(bedStart) && !isNaN(bedEnd) ? t('allowed').replace('{a}', hour(bedEnd)).replace('{b}', hour(bedStart)) : '';
+		// bedtime off today: no allowed hours to show
+		const bedOn = (this._c('bedtime') || {}).state !== 'off';
+		const window = bedOn && !isNaN(bedStart) && !isNaN(bedEnd) ? t('allowed').replace('{a}', hour(bedEnd)).replace('{b}', hour(bedStart)) : '';
 		const next = this._d('next_restriction');
-		const status = locked ? (t('why') || {})[lock.attributes.restriction_reason] || ''
-			: next && !['unknown', 'unavailable', ''].includes(next.state) ? t('next_tr')(next.state) : '';  // the sensor writes fixed English sentences
+		// a lock of your own (homework...) named by the entity that is on: lock_reasons: { input_boolean.homework: Homework }
+		const own = locked && lock.attributes.restriction_reason === 'manually_locked'
+			&& Object.entries(cfg.lock_reasons || {}).find(([id]) => (this._hass.states[id] || {}).state === 'on');
+		const status = own ? t('locked_by').replace('{r}', own[1]) : locked ? (t('why') || {})[lock.attributes.restriction_reason] || ''
+			: next && !['unknown', 'unavailable', '', 'No restrictions'].includes(next.state) ? t('next_tr')(next.state) : '';  // the sensor writes fixed English sentences
 		const reset = this._d('reset_bonus');
 		const press = (role, n, tip) => (this._d(role) ? `<button class="round" data-press="${role}" data-tip="${esc(tip)}"><ha-icon icon="mdi:fast-forward-${n}"></ha-icon></button>` : '');
 		let html = `
@@ -199,14 +336,14 @@ class FamilyLinkCard extends HTMLElement {
 				<span class="used">${isNaN(used) ? '' : hm(used)}${isNaN(total) ? '' : ' / ' + hm(total)}${bonus > 0 ? ` <span class="plus">(+${hm(bonus)})</span>` : ''}</span>
 				<button class="ringbtn gear" data-settings data-tip="${esc(t('settings'))}" aria-label="${esc(t('settings'))}"><ha-icon icon="mdi:cog-outline"></ha-icon></button>
 			</div>
-			<div class="track big"><div style="width:${pct}%"></div></div>
+			${isNaN(total) ? '' : `<div class="track big"><div style="width:${pct}%"></div></div>`}
 			${window || status ? `<div class="window">${esc(window)}${window && status ? ' · ' : ''}${status ? `<span class="${locked ? 'why' : ''}">${esc(status)}</span>` : ''}</div>` : ''}
-			<div class="bonus">
+			${cfg.bonus === false ? '' : `<div class="bonus">
 				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${this._on(reset) ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
 				<div class="btxt"><div>${t('reset')}</div><small>${bonus > 0 ? t('bonus_on').replace('{t}', hm(bonus)) : t('no_bonus')}</small></div>
 				${press('bonus_15min', 15, t('tip_add').replace('{n}', 15))}${press('bonus_30min', 30, t('tip_add').replace('{n}', 30))}${press('bonus_60min', 60, t('tip_add').replace('{n}', 60))}
 				<button class="round" data-dialog="bonus" data-tip="${esc(t('tip_custom'))}"><ha-icon icon="mdi:timer-edit-outline"></ha-icon></button>
-			</div>`;
+			</div>`}`;
 		if (!cfg.compact) html += this._childPart();
 		this._shell(html);
 		this._fitTabs();
@@ -279,12 +416,12 @@ class FamilyLinkCard extends HTMLElement {
 	_fitTabs() {
 		const tabs = this.shadowRoot && this.shadowRoot.querySelector('.tabs');
 		if (!tabs) return;
-		// first drop the icons, then the words (French words are long): the counts always stay
+		// the words go, the icons and counts stay
 		// the row as a whole too: tabs do not shrink below their content, the row overflows instead
 		const cut = () => tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1);
-		tabs.classList.remove('noicon', 'tight');
-		if (cut()) tabs.classList.add('noicon');
-		if (cut()) { tabs.classList.remove('noicon'); tabs.classList.add('tight'); }
+		tabs.classList.remove('tight');
+		// on a phone the words crowd the tabs even when they fit: icons and counts only there
+		if (tabs.clientWidth < 405 || cut()) tabs.classList.add('tight');
 	}
 
 	_childPart() {
@@ -390,6 +527,23 @@ class FamilyLinkCard extends HTMLElement {
 
 	_open(spec) {
 		const dialog = document.createElement('familylink-dialog');
+		if (spec.inlineInCard) {
+			const surface = this.shadowRoot?.querySelector('ha-card');
+			if (surface) {
+				// Reuse the current card, rather than placing a modal above its parent popup.
+				this._inlineAppDialog = dialog;
+				dialog._inlineInCard = true;
+				const originalClose = dialog._close.bind(dialog);
+				dialog._close = () => {
+					originalClose();
+					this._inlineAppDialog = null;
+					if (this.isConnected) this._render();
+				};
+				surface.replaceChildren(dialog);
+				dialog.open({ ...spec, t: (k) => this._t(k) });
+				return;
+			}
+		}
 		document.body.appendChild(dialog);
 		dialog.open({ ...spec, t: (k) => this._t(k) });
 	}
@@ -398,6 +552,7 @@ class FamilyLinkCard extends HTMLElement {
 		const t = (k) => this._t(k), target = this._map.child.screen_time_total || this._map.device.lock;
 		const current = { block: t('cur_blocked'), always: t('cur_always'), limit: t('cur_limited').replace('{t}', hm(rule.minutes || 0)), none: t('cur_none'), pause: t('cur_paused') }[rule.mode];
 		this._open({
+			inlineInCard: this._config.inline_app_editor === true,
 			title: t('app'), icon: 'mdi:cellphone-cog', name: short(rule.name), sub: current,
 			state: { mode: rule.mode, minutes: rule.mode === 'limit' && rule.minutes > 0 ? rule.minutes : 60 },
 			fields: [
@@ -563,8 +718,8 @@ FamilyLinkCard.css = `
 	.empty.left { text-align: left; padding: 2px 0; font-size: 13px; }
 	/* narrow card (half width, phone, card picker preview): icons and counts only */
 	/* five tabs with their words: tighter between 460 and 560px, icons and counts only below (the word stays as a tooltip) */
-	@container (max-width: 560px) { .tab { font-size: 12px; gap: 4px; padding: 10px 2px; } .tab ha-icon { --mdc-icon-size: 16px; } }
-	.tabs.tight .tab .lbl, .tabs.noicon .tab ha-icon { display: none; }
+	@container (max-width: 560px) { .tab { font-size: 12px; gap: 3px; padding: 10px 0; } .tab ha-icon { --mdc-icon-size: 16px; } }
+	.tabs.tight .tab .lbl { display: none; }
 	@container (max-width: 420px) {
 		.btxt small { display: none; }
 		.bonus { gap: 6px; padding: 8px 10px; }
@@ -588,6 +743,8 @@ class FamilyLinkDialog extends HTMLElement {
 	}
 
 	_close() { document.removeEventListener('keydown', this._key); this.remove(); }
+	// Also clean up if the entire parent popup is dismissed during editing.
+	disconnectedCallback() { if (this._key) document.removeEventListener('keydown', this._key); }
 
 	async _save() {
 		this._busy = true; this._error = ''; this._render();
@@ -620,7 +777,7 @@ class FamilyLinkDialog extends HTMLElement {
 			<style>${FamilyLinkDialog.css}</style>
 			<div class="veil"></div>
 			<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(s.title)}">
-				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="mdi:close"></ha-icon></button></div>
+				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="${this._inlineInCard ? 'mdi:chevron-left' : 'mdi:close'}"></ha-icon></button></div>
 				<div class="app"><div class="txt"><div class="big">${esc(s.name)}</div>${s.sub ? `<small>${esc(s.sub)}</small>` : ''}</div></div>
 				${s.input ? `<input class="in" data-input="${s.input.key}" placeholder="${esc(s.input.placeholder)}" autocomplete="off" value="${esc(this._state[s.input.key])}" ${this._busy ? 'disabled' : ''}>` : ''}
 				${s.fields.map(field).join('')}
@@ -628,6 +785,16 @@ class FamilyLinkDialog extends HTMLElement {
 				<button class="save" ${this._busy ? 'disabled' : ''}><ha-icon icon="${this._busy ? 'mdi:loading' : s.saveIcon || 'mdi:content-save-outline'}"></ha-icon>${this._busy ? t('saving') : s.saveLabel || t('save')}</button>
 			</div>`;
 		const root = this.shadowRoot;
+		if (this._inlineInCard) {
+			// Use the existing parent popup for sizing and scrolling, not another fixed overlay.
+			const style = document.createElement('style');
+			style.textContent = `
+				:host { position: static !important; inset: auto !important; z-index: auto !important; display: block !important; width: 100%; }
+				.veil { display: none !important; }
+				.sheet { width: 100% !important; max-height: none !important; overflow: visible !important; border-radius: 0 !important; }
+			`;
+			root.appendChild(style);
+		}
 		root.querySelector('.veil').addEventListener('click', () => this._busy || this._close());
 		root.querySelector('.x').addEventListener('click', () => this._busy || this._close());
 		root.querySelector('.save').addEventListener('click', () => this._busy || this._save());
@@ -664,8 +831,9 @@ class FamilyLinkDialog extends HTMLElement {
 FamilyLinkDialog.css = `
 	:host { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
 	.veil { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
-	.sheet { position: relative; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; box-sizing: border-box; padding: 16px;
-		border-radius: 28px; background: #1c1c1e; color: #ebebf0; }
+	/* dvh: the height really visible on a phone (100vh counts the browser bars); the sheet scrolls when it is taller */
+	.sheet { position: relative; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+		overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 16px; border-radius: 28px; background: #1c1c1e; color: #ebebf0; container-type: inline-size; }
 	.bar { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; margin-bottom: 14px; }
 	.bar span { flex: 1; }
 	button { font: inherit; color: inherit; border: 0; cursor: pointer; }
@@ -689,6 +857,12 @@ FamilyLinkDialog.css = `
 	.step button { width: 44px; height: 44px; background: none; font-size: 20px; }
 	.step span { min-width: 64px; text-align: center; font-weight: 700; font-size: 15px; }
 	.err { margin: 4px 2px 10px; font-size: 13px; color: #ff6b6b; }
+	/* a narrow sheet (a phone): the stepper takes its own row under the text, or the title is squeezed to a few letters per line */
+	@container (max-width: 390px) {
+		.opt { flex-wrap: wrap; row-gap: 8px; }
+		.opt .step { flex: none; width: calc(100% - 62px); margin-left: 62px; justify-content: space-between; }
+		.opt .step span { flex: 1; }
+	}
 	.in { width: 100%; box-sizing: border-box; height: 52px; margin-bottom: 8px; padding: 0 16px; border-radius: 18px; font: inherit; font-size: 16px;
 		color: inherit; background: rgba(255, 255, 255, 0.06); border: 2px solid var(--accent-color, #ff9800); outline: none; }
 	.save { width: 100%; height: 52px; margin-top: 6px; border-radius: 26px; background: rgba(255, 255, 255, 0.1); font-weight: 600; font-size: 16px;
@@ -711,6 +885,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			this._form.computeLabel = (s) => ({
 				device: fr ? 'Téléphone ou tablette' : 'Phone or tablet', title: fr ? 'Titre' : 'Title',
 				compact: fr ? 'Compact (en-tête et bonus seulement)' : 'Compact (header and bonus only)', language: fr ? 'Langue' : 'Language',
+				bonus: fr ? 'Barre de bonus (+15 / +30 / +60 min)' : 'Bonus bar (+15 / +30 / +60 min)',
 				zoom: 'Zoom', height: fr ? 'Hauteur de la carte (px)' : 'Map height (px)',
 			}[s.name]);
 			this._form.addEventListener('value-changed', (e) => {
@@ -723,15 +898,16 @@ class FamilyLinkCardEditor extends HTMLElement {
 			this.appendChild(this._form);
 		}
 		this._form.hass = this._hass;
-		this._form.data = { ...this._config, device: this._config.device || deviceOfEntity(this._hass, this._config.entity) };
+		// the card shows the bonus bar unless bonus is false: the switch is on when the option is absent
+		this._form.data = { ...(this._config.type === 'custom:familylink-location-card' ? {} : { bonus: true }), ...this._config, device: this._config.device || deviceOfEntity(this._hass, this._config.entity) };
 		this._form.schema = [
 			// only phones and tablets: they carry the bonus buttons, the child's own device has none
 			{ name: 'device', required: true, selector: { device: { filter: { integration: 'familylink' }, entity: { domain: 'button' } } } },
 			{ name: 'title', selector: { text: {} } },
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
-				: [{ name: 'compact', selector: { boolean: {} } }]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }] } } },
+				: [{ name: 'compact', selector: { boolean: {} } }, { name: 'bonus', selector: { boolean: {} } }]),
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
 		];
 	}
 }
@@ -743,18 +919,29 @@ class FamilyLinkCardEditor extends HTMLElement {
  */
 const LOC = {
 	en: { title: 'Location', refresh: "Refresh the location (uses the phone's battery)", ago: '{t} ago', now: 'just now', off: 'Location tracking is off in the integration options' },
+	de: { title: 'Standort', refresh: 'Standort aktualisieren (kostet Akku am Handy)', ago: 'vor {t}', now: 'gerade eben', off: 'Die Standortverfolgung ist in den Optionen der Integration ausgeschaltet' },
 	fr: { title: 'Localisation', refresh: 'Actualiser la position (consomme la batterie du téléphone)', ago: 'il y a {t}', now: "à l'instant", off: "Le suivi de position est désactivé dans les options de l'intégration" },
 };
+
+LOC.pl = {
+    title: 'Lokalizacja',
+    refresh: 'Odśwież lokalizację (zużywa baterię telefonu)',
+    ago: '{t} temu',
+    now: 'przed chwilą',
+    off: 'Śledzenie lokalizacji jest wyłączone w ustawieniach integracji',
+};
+LOC.es = { title: 'Ubicación', refresh: 'Actualizar la ubicación (consume batería del teléfono)', ago: 'hace {t}', now: 'ahora mismo', off: 'El seguimiento de ubicación está desactivado en las opciones de la integración' };
 
 class FamilyLinkLocationCard extends HTMLElement {
 	setConfig(config) {
 		if (!config || (!config.device && !config.entity)) throw new Error('familylink-location-card: choose the device (phone or tablet)');
 		this._config = config;
 		this._tracker = config.entity && config.entity.startsWith('device_tracker.') ? config.entity : null;
+		this._looked = false;  // the tracker is looked up once per config
 		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
 	}
 
-	static getStubConfig(hass) { return FamilyLinkCard.getStubConfig(hass); }
+	static getStubConfig(hass) { return { device: FamilyLinkCard.getStubConfig(hass).device }; }  // no bonus bar on this card
 	static getConfigElement() { return document.createElement('familylink-card-editor'); }
 	getCardSize() { return 6; }
 	getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
@@ -763,7 +950,7 @@ class FamilyLinkLocationCard extends HTMLElement {
 
 	set hass(hass) {
 		this._hass = hass;
-		if (!this._tracker) return this._resolve();
+		if (!this._tracker) return this._looked ? undefined : this._resolve();
 		if (this._map) this._map.hass = hass;
 		const st = hass.states[this._tracker];
 		const seen = st ? st.last_updated : 'x';
@@ -775,9 +962,11 @@ class FamilyLinkLocationCard extends HTMLElement {
 		const entity = this._config.entity || entityOfDevice(this._hass, this._config.device);
 		this._resolving = this._hass.callWS({ type: 'familylink/card_entities', entity_id: entity })
 			.then((r) => { this._tracker = r.child && r.child.location; })
-			.catch(() => {})
+			.catch(() => setTimeout(() => { this._looked = false; }, 30000))  // Home Assistant restarting: ask again later
 			.finally(() => {
 				this._resolving = null;
+				// no tracker (location off): say so once, not a websocket call per state change of the house
+				this._looked = true;
 				if (this._tracker) this.hass = this._hass;
 				else this.shadowRoot.innerHTML = `<style>${FamilyLinkLocationCard.css}</style><ha-card><div class="msg">${this._t('off')}</div></ha-card>`;
 			});

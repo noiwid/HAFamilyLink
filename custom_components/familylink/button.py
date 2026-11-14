@@ -256,6 +256,8 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			_LOGGER.info(
 				f"Successfully cancelled time bonus for device {self._device_name}"
 			)
+			# The parent took the bonus back: strict mode no longer protects one on this device
+			self.coordinator.restore_ha_bonus(self._device_id, None)
 			# Refresh to update sensors
 			await self.coordinator.async_request_refresh()
 

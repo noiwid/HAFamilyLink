@@ -9,7 +9,7 @@
  *   entities: [sensor.switch_used_screen_time]      # any other time sensor in minutes
  *   sources:                         # optional, same with a name and a limit entity
  *     - { entity: sensor.console_time, name: Console, limit: number.console_limit }
- *   title / language (en, fr) / chart: false (summary card) / days: 14 (history card)
+ *   title / language (en, fr, pl, de, es) / chart: false (summary card) / days: 14 (history card)
  *   history: true                    # summary card: add the daily history below it, as a second card (days: 14)
  *
  * A device is resolved by the websocket command "<integration>/card_entities" of the integration
@@ -23,14 +23,24 @@
 const STR = {
 	en: {
 		today: 'Screen time today', history: 'Last {n} days', left: 'left', no_limit: ' · no limit', locked: 'Locked', unlocked: 'Unlocked',
-		loading: 'Loading…', none: 'Choose at least one device or time sensor.', missing: 'Not found: ',
+		loading: 'Loading…', close: 'Close', prev_day: 'Previous day', next_day: 'Next day', none: 'Choose at least one device or time sensor.', missing: 'Not found: ',
 		f_devices: 'Devices (Family Link, Family Safety)', f_entities: 'Other time sensors (minutes)', f_title: 'Title', f_language: 'Language',
 		next_tr: (s) => s,
 		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)',
 	},
+	de: {
+		close: 'Schließen', prev_day: 'Vorheriger Tag', next_day: 'Nächster Tag',
+		today: 'Bildschirmzeit heute', history: 'Letzte {n} Tage', left: 'übrig', no_limit: ' · kein Limit', locked: 'Gesperrt', unlocked: 'Entsperrt',
+		loading: 'Wird geladen…', none: 'Bitte mindestens ein Gerät oder einen Zeitsensor wählen.', missing: 'Nicht gefunden: ',
+		f_devices: 'Geräte (Family Link, Family Safety)', f_entities: 'Weitere Zeitsensoren (Minuten)', f_title: 'Titel', f_language: 'Sprache',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
+			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
+		f_chart: 'Stundendiagramm', f_days: 'Tage', f_history: 'Tagesverlauf darunter (zweite Karte)',
+	},
 	fr: {
 		today: "Temps d'écran aujourd'hui", history: '{n} derniers jours', left: 'reste', no_limit: ' · sans limite', locked: 'Verrouillé', unlocked: 'Libre',
-		loading: 'Chargement…', none: "Choisissez au moins un appareil ou un capteur de temps.", missing: 'Introuvable : ',
+		loading: 'Chargement…', close: 'Fermer', prev_day: 'Jour précédent', next_day: 'Jour suivant', none: "Choisissez au moins un appareil ou un capteur de temps.", missing: 'Introuvable : ',
 		f_devices: 'Appareils (Family Link, Family Safety)', f_entities: 'Autres capteurs de temps (minutes)', f_title: 'Titre', f_language: 'Langue',
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Limite du jour bientôt atteinte').replace('No restrictions', 'Aucune restriction')
 			.replace('School time', 'École').replace('Bedtime', 'Coucher').replace('(ends ', '(fin ').replace(/\bat (\d)/, 'à $1').replace('tomorrow', 'demain')
@@ -38,6 +48,35 @@ const STR = {
 		f_chart: 'Graphique par heure', f_days: 'Jours', f_history: 'Historique par jour en dessous (seconde carte)',
 	},
 };
+STR.pl = {
+    close: 'Zamknij', prev_day: 'Poprzedni dzień', next_day: 'Następny dzień',
+    today: 'Czas ekranowy dzisiaj', history: 'Ostatnie {n} dni', left: 'pozostało',
+    no_limit: ' · bez limitu', locked: 'Zablokowany', unlocked: 'Odblokowany',
+    loading: 'Wczytywanie…', none: 'Wybierz co najmniej jedno urządzenie lub czujnik czasu.', missing: 'Nie znaleziono: ',
+    f_devices: 'Urządzenia (Family Link, Family Safety)',
+    f_entities: 'Inne czujniki czasu (minuty)', f_title: 'Tytuł', f_language: 'Język',
+    next_tr: (s) => String(s ?? '')
+        .replace('Daily limit soon reached', 'Dzienny limit wkrótce się skończy')
+        .replace('No restrictions', 'Brak ograniczeń')
+        .replace('School time', 'Zajęcia szkolne')
+        .replace('Bedtime', 'Pora snu')
+        .replace('(ends ', '(koniec ')
+        .replace(/\bat (\d)/, 'o $1')
+        .replace('tomorrow', 'jutro')
+        .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
+    f_chart: 'Wykres godzinowy', f_days: 'Dni', f_history: 'Historia dni poniżej (druga karta)',
+};
+STR.es = {
+	today: 'Tiempo de pantalla hoy', history: 'Últimos {n} días', left: 'restante', no_limit: ' · sin límite', locked: 'Bloqueado', unlocked: 'Libre',
+	loading: 'Cargando…', close: 'Cerrar', prev_day: 'Día anterior', next_day: 'Día siguiente',
+	none: 'Elige al menos un dispositivo o un sensor de tiempo.', missing: 'No encontrado: ',
+	f_devices: 'Dispositivos (Family Link, Family Safety)', f_entities: 'Otros sensores de tiempo (minutos)', f_title: 'Título', f_language: 'Idioma',
+	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
+		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
+		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
+	f_chart: 'Gráfico por horas', f_days: 'Días', f_history: 'Historial por día debajo (segunda tarjeta)',
+};
+
 const PLATFORMS = ['familylink', 'microsoft_family_safety'];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hm = (m) => { m = Math.round(m); const h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
@@ -52,7 +91,10 @@ class Base extends HTMLElement {
 		this._config = config || {};
 		this._sources = null;
 		this._seen = '';
-		if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
+		if (!this.shadowRoot) {
+			this.attachShadow({ mode: 'open' });
+			this.shadowRoot.addEventListener('click', (e) => { const col = e.target.closest('[data-day]'); if (col) this._openDay(Number(col.dataset.day)); });
+		}
 	}
 
 	set hass(hass) {
@@ -64,7 +106,7 @@ class Base extends HTMLElement {
 		this._update();
 	}
 
-	_t(key) { return STR[lang(this)][key]; }
+	_t(key) { return STR[lang(this)][key] ?? STR.en[key]; }  // a language added later may lack the newest strings
 	_watched() { return this._sources.flatMap((s) => [s.used, s.limit, s.remaining, s.lock, s.next, s.bonus].filter(Boolean)); }
 	_num(id) { const s = id && this._hass.states[id]; return s ? parseFloat(s.state) : NaN; }
 	_shell(body, second) {
@@ -89,7 +131,8 @@ class Base extends HTMLElement {
 			const d = found.device;
 			sources.push({
 				name: (typeof item === 'object' && item.name) || (dev && (dev.name_by_user || dev.name || '').trim()) || d.daily_screen_time, used: d.daily_screen_time,
-				limit: d.daily_limit || (found.child || {})[`daily_limit_${todayNum()}`], remaining: d.screen_time_remaining,
+				// read at each use: a card left open overnight takes the new weekday's quota
+				get limit() { return d.daily_limit || (found.child || {})[`daily_limit_${todayNum()}`]; }, remaining: d.screen_time_remaining,
 				bonus: d.active_bonus, lock: d.lock, lockedWhen: found.locked_when || 'off', next: d.next_restriction,
 				icon: /tab|pad/i.test((dev && (dev.model || dev.name)) || '') ? 'mdi:tablet' : reg.platform === 'familylink' ? 'mdi:cellphone' : 'mdi:monitor',
 			});
@@ -102,10 +145,67 @@ class Base extends HTMLElement {
 	}
 
 	/** Long-term statistics of every source, added up per period: [{ start, minutes }]. */
-	async _stats(period, start) {
+	async _stats(period, start, end) {
 		const ids = this._sources.filter((s) => s.used && !s.missing).map((s) => s.used);
-		const res = await this._hass.callWS({ type: 'recorder/statistics_during_period', start_time: start.toISOString(), statistic_ids: ids, period, types: ['max', 'state'] });
+		const res = await this._hass.callWS({ type: 'recorder/statistics_during_period', start_time: start.toISOString(), ...(end ? { end_time: end.toISOString() } : {}),
+			statistic_ids: ids, period, types: ['max', 'state'] });
 		return { ids, rows: res };
+	}
+
+	/** Minutes used in each hour of the day starting at `midnight`, all sources together; `live` adds today's current values. */
+	_hours({ ids, rows }, midnight, live) {
+		const now = new Date();
+		// each sensor counts up through the day and drops back at its daily reset (not always at midnight):
+		// the time used in an hour is its growth over that hour, or its whole value right after a reset
+		const bars = new Array(24).fill(0);
+		for (const id of ids) {
+			const list = (rows[id] || []).map((r) => ({ t: ms(r.start), v: r.max ?? r.state })).filter((r) => r.v != null);
+			const cur = live ? this._num(id) : NaN;
+			if (!isNaN(cur)) list.push({ t: now.getTime(), v: cur });
+			let prev = list.length && list[0].t < midnight.getTime() ? list[0].v : 0;
+			const own = new Array(24).fill(0);
+			for (const r of list) {
+				if (r.t < midnight.getTime()) continue;
+				own[new Date(r.t).getHours()] += Math.max(0, r.v >= prev ? r.v - prev : r.v);
+				prev = r.v;
+			}
+			// a device reports its usage in bursts (Family Link syncs late): no device is used more than
+			// 60 min in an hour, the excess belongs to the hours before
+			for (let h = 23; h > 0; h--) if (own[h] > 60) { own[h - 1] += own[h] - 60; own[h] = 60; }
+			own.forEach((v, h) => { bars[h] += Math.min(60, v); });
+		}
+		return bars;
+	}
+
+	/** A tap on a bar of the daily history: that day's hourly chart in a dialog. */
+	_openDay(t) {
+		const lang = this._config.language || this._hass.language || 'en';
+		const first = this._days && this._days.length ? this._days[0].t : t, today = new Date().setHours(0, 0, 0, 0);
+		const dialog = document.createElement('parental-screen-time-day');
+		document.body.appendChild(dialog);
+		// the arrows go from day to day, from the first day of the history to today
+		const go = async (day) => {
+			const midnight = new Date(day), known = (this._days || []).find((d) => d.t === day);
+			dialog.set(day, `${midnight.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}${known ? ` · ${hm(known.v)}` : ''}`,
+				day > first, day < today, `<div class="msg">${this._t('loading')}</div>`);
+			let values;
+			if (this._config.demo_data) values = Array.from({ length: 24 }, (_, h) => this._config.demo_data.hours[h] || 0);  // shortcut: a demo has no statistics
+			else {
+				const end = new Date(midnight); end.setDate(end.getDate() + 1);  // a day is 23 or 25 h when the clocks change
+				try {
+					values = this._hours(await this._stats('hour', new Date(day - 3600000), end), midnight, day === today);
+				} catch (err) {
+					if (dialog.day === day) dialog.fill(`<div class="msg err">${esc((err && err.message) || String(err))}</div>`);
+					return;
+				}
+			}
+			if (dialog.day === day) dialog.fill(hourChart(values));  // the arrows may have moved on meanwhile
+		};
+		dialog.show(this._t('close'), this._t('prev_day'), this._t('next_day'), (dir) => {
+			const d = new Date(dialog.day); d.setDate(d.getDate() + dir); d.setHours(0, 0, 0, 0);  // a day is not always 24 h (summer time)
+			if (d.getTime() >= first && d.getTime() <= today) go(d.getTime());
+		});
+		go(t);
 	}
 
 	/** The daily history (header and bars) of the sources, for the last `days` days. */
@@ -118,14 +218,16 @@ class Base extends HTMLElement {
 			this._days = this._config.demo_data.days.slice(-days).map((v, i, all) => ({ t: start.getTime() - (all.length - 1 - i) * 86400000, v }));
 		}
 		if (this._key !== key) {
-			this._key = key;
 			const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - (days - 1));
 			const { ids, rows } = await this._stats('day', start);
-			this._days = Array.from({ length: days }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return { t: d.getTime(), v: 0 }; });
+			const fresh = Array.from({ length: days }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return { t: d.getTime(), v: 0 }; });
 			for (const id of ids) for (const r of rows[id] || []) {
-				const day = this._days.find((d) => d.t === new Date(ms(r.start)).setHours(0, 0, 0, 0));
+				const day = fresh.find((d) => d.t === new Date(ms(r.start)).setHours(0, 0, 0, 0));
 				if (day) day.v += r.max ?? r.state ?? 0;
 			}
+			// marked as read only once read: a failed fetch (the app waking up) is tried again at the next update
+			this._days = fresh;
+			this._key = key;
 		}
 		// today from the live states, the statistics of the day are not complete yet
 		this._days[this._days.length - 1].v = sum(this._sources.filter((s) => !s.missing).map((s) => this._num(s.used) || 0));
@@ -135,7 +237,7 @@ class Base extends HTMLElement {
 		return `
 			<div class="head"><ha-icon icon="mdi:chart-bar"></ha-icon><span>${esc(title || t('history').replace('{n}', days))}</span></div>
 			<div class="chart">${bars(this._days.map((d) => d.v), (i) => (i % every ? '' : `${new Date(this._days[i].t).getDate()}/${new Date(this._days[i].t).getMonth() + 1}`),
-				Math.max(step * 2, Math.ceil(top / step) * step), (v) => `${Math.round(v / 60)} h`, 4, true)}</div>`;
+				Math.max(step * 2, Math.ceil(top / step) * step), (v) => `${Math.round(v / 60)} h`, 4, true, (i) => this._days[i].t)}</div>`;
 	}
 
 	static getConfigElement() { return document.createElement('parental-screen-time-editor'); }
@@ -182,7 +284,7 @@ class ScreenTimeCard extends Base {
 			<div class="head"><ha-icon icon="mdi:timer-outline"></ha-icon><span>${esc(this._config.title || t('today'))}</span><em>${isNaN(left) ? '' : `${t('left')} ${hm(left)}`.trim()}</em></div>
 			<div class="body">
 				<div class="big">${hm(total)}<span>${isNaN(limit) ? t('no_limit') : ' / ' + hm(limit)}</span></div>
-				<div class="per">${live.map((s) => `${esc(s.name)}: ${hm(this._num(s.used) || 0)}`).join(' · ')}</div>
+				<div class="per">${live.filter((s) => this._num(s.used) > 0).map((s) => `${esc(s.name)}: ${hm(this._num(s.used) || 0)}`).join(' · ')}</div>
 				<div class="bar"><div style="width:${pct}%;background:${col}"></div></div>
 				${next ? `<div class="next">${esc(t('next_tr')(next.state))}</div>` : ''}
 				${missing.length ? `<div class="msg err">${t('missing')}${esc(missing.join(', '))}</div>` : ''}
@@ -206,36 +308,16 @@ class ScreenTimeCard extends Base {
 			return this._drawHours();
 		}
 		if (this._chartKey !== key) {
-			this._chartKey = key;
 			this._hourly = await this._stats('hour', new Date(midnight.getTime() - 3600000));
+			this._chartKey = key;  // only once read, as the history
 		}
-		const { ids, rows } = this._hourly;
-		// each sensor counts up through the day and drops back at its daily reset (not always at midnight):
-		// the time used in an hour is its growth over that hour, or its whole value right after a reset
-		const bars = new Array(24).fill(0);
-		for (const id of ids) {
-			const list = (rows[id] || []).map((r) => ({ t: ms(r.start), v: r.max ?? r.state })).filter((r) => r.v != null);
-			const cur = this._num(id);
-			if (!isNaN(cur)) list.push({ t: now.getTime(), v: cur });
-			let prev = list.length && list[0].t < midnight.getTime() ? list[0].v : 0;
-			const own = new Array(24).fill(0);
-			for (const r of list) {
-				if (r.t < midnight.getTime()) continue;
-				own[new Date(r.t).getHours()] += Math.max(0, r.v >= prev ? r.v - prev : r.v);
-				prev = r.v;
-			}
-			// a device reports its usage in bursts (Family Link syncs late): no device is used more than
-			// 60 min in an hour, the excess belongs to the hours before
-			for (let h = 23; h > 0; h--) if (own[h] > 60) { own[h - 1] += own[h] - 60; own[h] = 60; }
-			own.forEach((v, h) => { bars[h] += Math.min(60, v); });
-		}
-		this._bars = bars;
+		this._bars = this._hours(this._hourly, midnight, true);
 		this._drawHours();
 	}
 
 	_drawHours() {
 		const el = this.shadowRoot.getElementById('chart');
-		if (el) el.innerHTML = bars(this._bars, (i) => (i % 2 ? '' : `${i}h`), Math.max(60, Math.ceil(Math.max(...this._bars) / 15) * 15), (v) => `${Math.round(v)} min`, 4);
+		if (el) el.innerHTML = hourChart(this._bars);
 	}
 }
 
@@ -249,15 +331,22 @@ class HistoryCard extends Base {
 	}
 }
 
+/** 24 hourly bars in minutes: steps of 15 min up to an hour, of 30 min above (several devices in the same hour). */
+function hourChart(values) {
+	const peak = Math.max(...values);
+	const top = peak <= 60 ? 60 : Math.ceil(peak / 30) * 30;
+	return bars(values, (i) => (i % 2 ? '' : `${i}h`), top, (v) => `${Math.round(v)} min`, top <= 60 ? 4 : top / 30);
+}
+
 /** Bars in plain HTML: values, x label per index, top of the scale, y label, number of grid steps. */
-function bars(values, xLabel, top, yLabel, steps, shade) {
+function bars(values, xLabel, top, yLabel, steps, shade, dayOf) {
 	const grid = Array.from({ length: steps + 1 }, (_, i) => top - (i * top) / steps);
 	const max = Math.max(...values, 1);
 	return `<div class="plot">
 		<div class="y">${grid.map((v) => `<span>${yLabel(v)}</span>`).join('')}</div>
 		<div class="area">
 			${grid.map((_, i) => `<i style="top:${(i * 100) / steps}%"></i>`).join('')}
-			<div class="cols">${values.map((v, i) => `<div class="col"><div style="height:${Math.min(100, (v / top) * 100)}%;${shade ? `opacity:${0.4 + 0.6 * (v / max)}` : ''}" title="${hm(v)}"></div></div>`).join('')}</div>
+			<div class="cols">${values.map((v, i) => `<div class="col${dayOf ? ' day' : ''}"${dayOf ? ` data-day="${dayOf(i)}" role="button"` : ''}><div style="height:${Math.min(100, (v / top) * 100)}%;${shade ? `opacity:${0.4 + 0.6 * (v / max)}` : ''}" title="${hm(v)}"></div></div>`).join('')}</div>
 		</div>
 		<div></div><div class="x">${values.map((_, i) => `<span>${xLabel(i)}</span>`).join('')}</div>
 	</div>`;
@@ -292,6 +381,7 @@ const CSS = `
 	.area i { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(var(--rgb-primary-text-color, 255, 255, 255), 0.2); }
 	.cols { position: absolute; inset: 0; display: flex; gap: 3px; align-items: flex-end; }
 	.col { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+	.col.day { cursor: pointer; } .col.day:hover div { filter: brightness(1.2); }
 	.col div { width: 100%; border-radius: 4px 4px 0 0; background: var(--accent-color); min-height: 0; }
 	.x { display: flex; gap: 3px; font-size: 10px; font-weight: 600; margin-top: 6px; }
 	.x span { flex: 1; text-align: center; white-space: nowrap; overflow: visible; }
@@ -326,12 +416,61 @@ class Editor extends HTMLElement {
 			...(history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }]
 				: [{ name: 'chart', selector: { boolean: {} } }, { name: 'history', selector: { boolean: {} } },
 					...(this._config.history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }] : [])]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
 		];
 	}
 }
 
+class DayDialog extends HTMLElement {
+	/** `move(-1 | 1)` is called by the arrows and the left and right keys. */
+	show(close, prev, next, move) {
+		const btn = (cls, icon, label) => `<button class="${cls}" aria-label="${esc(label)}" title="${esc(label)}"><ha-icon icon="${icon}"></ha-icon></button>`;
+		this.attachShadow({ mode: 'open' }).innerHTML = `<style>${CSS}${DIALOG_CSS}</style><div class="veil"></div>
+			<div class="sheet" role="dialog" aria-modal="true"><div class="top">${btn('prev', 'mdi:chevron-left', prev)}<span></span>${btn('next', 'mdi:chevron-right', next)}
+			${btn('close', 'mdi:close', close)}</div><div class="chart" id="body"></div></div>`;
+		const root = this.shadowRoot;
+		this._key = (e) => {
+			if (e.key === 'Escape') this._close();
+			if (e.key === 'ArrowLeft' && !root.querySelector('.prev').disabled) move(-1);
+			if (e.key === 'ArrowRight' && !root.querySelector('.next').disabled) move(1);
+		};
+		document.addEventListener('keydown', this._key);
+		root.querySelector('.veil').addEventListener('click', () => this._close());
+		root.querySelector('.close').addEventListener('click', () => this._close());
+		root.querySelector('.prev').addEventListener('click', () => move(-1));
+		root.querySelector('.next').addEventListener('click', () => move(1));
+	}
+
+	/** The day shown: its title, which arrows lead somewhere, and the body until the chart comes. */
+	set(day, title, canPrev, canNext, body) {
+		const root = this.shadowRoot;
+		this.day = day;
+		root.querySelector('.top span').textContent = title;
+		root.querySelector('.sheet').setAttribute('aria-label', title);
+		root.querySelector('.prev').disabled = !canPrev;
+		root.querySelector('.next').disabled = !canNext;
+		this.fill(body);
+	}
+
+	fill(html) { if (this.shadowRoot) this.shadowRoot.getElementById('body').innerHTML = html; }
+	_close() { document.removeEventListener('keydown', this._key); this.remove(); }
+}
+
+const DIALOG_CSS = `
+	:host { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
+	.veil { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
+	.sheet { position: relative; width: min(560px, calc(100vw - 24px)); box-sizing: border-box; padding: 16px; border-radius: 28px; background: #1c1c1e; color: #ebebf0;
+		--rgb-primary-text-color: 235, 235, 240; }
+	.top { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; margin: 0 2px 4px 6px; }
+	.top span { flex: 1; } .top span::first-letter { text-transform: uppercase; }
+	.prev, .next { width: 36px; height: 36px; border-radius: 18px; border: 0; cursor: pointer; color: inherit; background: none; display: inline-flex; align-items: center; justify-content: center; }
+	.prev:disabled, .next:disabled { opacity: 0.25; cursor: default; }
+	.top span { text-align: center; }
+	.close { width: 44px; height: 44px; border-radius: 22px; border: 0; cursor: pointer; color: inherit; background: rgba(255, 255, 255, 0.08); display: inline-flex; align-items: center; justify-content: center; }
+`;
+
 if (!customElements.get('parental-screen-time-card')) {
+	customElements.define('parental-screen-time-day', DayDialog);
 	customElements.define('parental-screen-time-editor', Editor);
 	customElements.define('parental-screen-time-card', ScreenTimeCard);
 	customElements.define('parental-screen-time-history-card', HistoryCard);

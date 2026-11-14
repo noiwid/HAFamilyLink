@@ -10,7 +10,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **Change the Google Play settings from Home Assistant** (#239): `select.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `select.<child>_play_apps_games_rating` (the ratings Google offers the child, e.g. `PEGI 12`). A change counts only once Google's answer shows it; the users allowed to control Family Link apply. The read-only sensors stay.
+- **A day of the history, hour by hour**: tap a bar of the daily history (screen time cards) to see that day's hourly chart in a dialog, from Home Assistant's statistics; arrows (and the left and right keys) move from day to day.
+- **The bonus bar is optional on the Family Link card** (#246, thanks to @grimpy). `bonus` is `true` by default and written in the configuration of a new card; `bonus: false` hides the bar (the +15 / +30 / +60 buttons, reset and the custom duration), or switch it off in the visual editor. The extra time in progress stays visible in the header. The Microsoft Family Safety card takes the same option.
+- **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
+- **Polish** for the dashboard cards and the integration (#247, thanks to @smarthomewithme).
+- **German** for the dashboard cards and the integration (#251, thanks to @phibro382), and **Spanish**.
+- **`inline_app_editor: true` on the Family Link card** (#250, thanks to @smarthomewithme): inside a popup (for example Browser Mod), the application editor replaces the card content instead of opening a second dialog on top of the popup. Off by default.
+
+### Changed
+- **Auth add-on 1.9.6:** a page from another site can no longer start a login, and reading the stored session never deletes it (see the add-on changelog).
+- On a phone, the apps tabs of the Family Link card show their icons and counts only (below 405 px).
+- The screen time card lists only the devices used today under the total.
+- The Family Link card follows the restrictions in force: with the daily limit off, no "/ limit" and no time bar; with bedtime off, no allowed hours; and no "No restrictions" line.
+
+### Fixed
+- **Bedtime "today" ignores the overrides of earlier weeks.** Google keeps a "tonight only" change under its weekday: one made last Monday showed the bedtime switch off all this Monday while Google applied bedtime, and strict mode read it the same way. Only an override posted today counts now, as for school time since 2.7.0.
+- **Strict mode no longer turns a quota for today into the weekly quota.** `set_daily_limit` for a child without `day` changes today's quota only, but strict mode recorded it as that weekday's weekly reference and rewrote the weekly schedule at the next refresh. It is now kept per device, until midnight.
+- **Strict mode protects stacked bonuses.** A second bonus given from Home Assistant shortened the protection of the first, and strict mode cancelled the parent's bonus early. Cancelling the bonus or locking the device from Home Assistant now ends the protection at once.
+- **A long outage no longer shows old data as live.** On a fetch error the last good data was served with no limit: overnight, yesterday's screen time and a bedtime long over stayed on screen. It now bridges 15 minutes of errors, within the same day, and the entities then go unavailable.
+- **The dashboard cards recover from a network drop.** A statistics fetch that failed (the app waking up) froze the daily history until midnight and the hourly chart for the hour; a Family Link card that could not reach Home Assistant during a restart stayed on "not found" until the page was reloaded. Both try again. The location card with location tracking off no longer asks Home Assistant for its entities at every state change.
+- **A write in several steps is no longer cut half-way.** Every 30 minutes the connection to Google was closed under whatever was running: a bedtime change could update the weekly schedule and fail for tonight. The old connection is now closed two minutes later.
+- **An expired Google session is reported as such on writes.** The lock switch, bonuses, bedtime, the daily limit and the bedtime hours turned it into a plain failure; they now say "Session expired, please re-authenticate".
+- **Failures are no longer reported as successes.** A web filter change Google refused, and a bedtime or school time bound set while the other one is unknown, now raise an error. `unblock_all_apps` and `block_device_for_school` for all children try every child, then name the ones that failed.
+- **Times carry their time zone.** The location time and the bedtime and school time window attributes used the container's time zone without saying so: on a Docker install without `TZ`, a 15:00 Paris fix read "13:00:00".
+- **The Timeout option is used.** Requests to Google always timed out after 30 s whatever it said.
+- **Strict mode keeps trying against a repeated bypass.** A bonus posted again after each cancel used up the three tries and won for the rest of the day; each bonus now gets tries of its own. The `familylink_strict_mode_action` event has a new `last_try` field, true when strict mode gives a correction up after it.
+- **The dialogs of the Family Link card fit a phone.** On a narrow screen the stepper (limit, hours, bonus, app limit) takes its own row under the title instead of squeezing it to a few letters per line, and the height follows the visible area, not the browser bars.
+- The screen time card takes the new weekday's quota after midnight on a dashboard left open, and the day dialog counts a day of 23 or 25 hours right when the clocks change.
+- **The next restriction at midnight reads "at 00:00"**, not "tomorrow 00:00": a bedtime starting at midnight tonight was announced as tomorrow.
 ---
 
 ## [2.8.0] - 2026-11-12

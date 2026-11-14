@@ -493,7 +493,8 @@ def describe_time_at(target: datetime, now: datetime) -> str:
 	target = target.astimezone(now.tzinfo) if now.tzinfo else target
 	days = (target.date() - now.date()).days
 	clock = target.strftime("%H:%M")
-	if days <= 0:
+	# midnight tonight reads as "at 00:00", not as tomorrow
+	if days <= 0 or (days == 1 and clock == "00:00"):
 		return f"at {clock}"
 	if days == 1:
 		return f"tomorrow {clock}"
