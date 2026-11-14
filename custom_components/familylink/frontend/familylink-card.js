@@ -50,6 +50,39 @@ const STR = {
 		save: 'Save', saving: 'Saving…', close: 'Close', loading: 'Loading…', not_found: 'Family Link entity not found: ',
 		days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
 	},
+	de: {
+		today: 'Heute', installed: 'installiert', limited: 'begrenzt', blocked: 'gesperrt', apps: 'Apps', week: 'Tageslimits der Woche',
+		no_usage: 'Heute keine Nutzung', no_app: 'Keine App', unlimited: 'Unbegrenzt', per_day: ' / Tag', allowed: 'Erlaubte Zeit: {a} – {b}',
+		app: 'App', cur_blocked: 'Derzeit gesperrt', cur_always: 'Derzeit immer erlaubt',
+		cur_limited: 'Derzeit begrenzt auf {t} pro Tag', cur_none: 'Derzeit kein eigenes Limit',
+		always: 'Immer erlaubt', always_sub: 'Auch wenn die Bildschirmzeit aufgebraucht ist', none: 'Kein Limit', none_sub: 'Es gilt nur die gesamte Bildschirmzeit',
+		limit: 'Begrenzt', limit_sub: 'Pro Tag', block: 'Gesperrt', block_sub: 'Lässt sich nicht mehr öffnen',
+		reset: 'Zurücksetzen', no_bonus: 'Kein Bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Aktiven Bonus beenden', tip_add: '{n} min Bonus für heute',
+		tip_custom: 'Bonus mit eigener Dauer', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Wird zum heutigen Limit addiert',
+		daily_limit: 'Tageslimit', bedtime: 'Schlafenszeit', school: 'Schule', day_settings: 'Einstellungen für den Tag', limit_day: 'Erlaubte Bildschirmzeit an diesem Tag',
+		bed_from: 'Schlafenszeit ab', bed_to: 'Schlafenszeit bis', steps: 'In 15-Minuten-Schritten', school_from: 'Schule ab', school_to: 'Schule bis',
+		pick_device: 'Bitte ein Handy oder Tablet wählen, nicht das Kind.',
+		pause: 'Pausiert', pause_sub: 'Bleibt installiert und gilt danach wieder mit der vorherigen Regel', cur_paused: 'Derzeit pausiert',
+		web: 'Web', web_hint: 'Chrome auf allen Geräten des Kindes', f_approved: 'Nur genehmigte Websites', f_filtered: 'Anstößige Websites möglichst blockieren',
+		site_ph: 'beispiel.de', allow: 'Erlauben', deny: 'Sperren', approved: 'Genehmigte Websites', blocked_sites: 'Gesperrte Websites', no_site: 'Keine',
+		remove: 'Entfernen', sites: 'Websites', add_site: 'Website hinzufügen', several: 'Eine Domain oder mehrere, durch Leerzeichen getrennt',
+		s_allow: 'Immer erlaubt', s_allow_sub: 'Auch wenn der Webfilter sie sperren würde', s_block: 'Immer gesperrt', s_block_sub: 'Chrome öffnet sie nicht',
+		s_remove: 'Aus den Listen entfernen', s_remove_sub: 'Der Webfilter entscheidet wieder', allowed_tag: 'erlaubt', blocked_tag: 'gesperrt',
+		lock: 'Sperren', unlock: 'Entsperren', lock_q: '{d} sperren?', unlock_q: '{d} entsperren?',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
+			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
+		settings: 'Einstellungen', strict: 'Strenger Modus', strict_sub: 'Änderungen auf der Google-Seite werden auf den Stand in Home Assistant zurückgesetzt',
+		unl: 'Unbegrenzte Apps in der Schlafenszeit', unl_sub: 'Aus: Auch die Apps ohne Zeitlimit werden gesperrt', calls: 'Anrufe und Nachrichten',
+		calls_opts: { 'Anyone': 'Alle', 'Only contacts I add': 'Nur von mir hinzugefügte Kontakte', 'Contacts I add & limited groups': 'Von mir hinzugefügte Kontakte und begrenzte Gruppen' },
+		configure: 'Integration konfigurieren', configure_sub: 'Berechtigte Benutzer, Regeln des strengen Modus, Standort',
+		not_confirmed: 'Der Beginn ist gespeichert, das Ende noch nicht: Google hat es noch nicht bestätigt. Bitte erneut versuchen.',
+		ring: 'Klingeln', ring_q: '{d} klingeln lassen?', ring_sub: 'Das Gerät klingelt, damit man es findet.',
+		why: { manually_locked: 'Gesperrt', bedtime_active: 'Gesperrt: Schlafenszeit', school_time_active: 'Gesperrt: Schulzeit', daily_limit_reached: 'Gesperrt: Tageslimit erreicht' },
+		lock_sub: 'Das Gerät lässt sich nicht mehr nutzen, bis es entsperrt wird.', unlock_sub: 'Das Gerät lässt sich wieder nutzen, im Rahmen seiner Limits.',
+		save: 'Speichern', saving: 'Speichern…', close: 'Schließen', loading: 'Wird geladen…', not_found: 'Family-Link-Entität nicht gefunden: ',
+		days: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+	},
 	fr: {
 		today: 'Jour', installed: 'installées', limited: 'limitées', blocked: 'bloquées', apps: 'Applications', week: 'Limites de la semaine',
 		no_usage: "Aucune utilisation aujourd'hui", no_app: 'Aucune application', unlimited: 'Illimitée', per_day: ' / jour',
@@ -838,7 +871,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
 				: [{ name: 'compact', selector: { boolean: {} } }, { name: 'bonus', selector: { boolean: {} } }]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }] } } },
 		];
 	}
 }
@@ -850,6 +883,7 @@ class FamilyLinkCardEditor extends HTMLElement {
  */
 const LOC = {
 	en: { title: 'Location', refresh: "Refresh the location (uses the phone's battery)", ago: '{t} ago', now: 'just now', off: 'Location tracking is off in the integration options' },
+	de: { title: 'Standort', refresh: 'Standort aktualisieren (kostet Akku am Handy)', ago: 'vor {t}', now: 'gerade eben', off: 'Die Standortverfolgung ist in den Optionen der Integration ausgeschaltet' },
 	fr: { title: 'Localisation', refresh: 'Actualiser la position (consomme la batterie du téléphone)', ago: 'il y a {t}', now: "à l'instant", off: "Le suivi de position est désactivé dans les options de l'intégration" },
 };
 

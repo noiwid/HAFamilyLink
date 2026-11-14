@@ -28,6 +28,15 @@ const STR = {
 		next_tr: (s) => s,
 		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)',
 	},
+	de: {
+		today: 'Bildschirmzeit heute', history: 'Letzte {n} Tage', left: 'übrig', no_limit: ' · kein Limit', locked: 'Gesperrt', unlocked: 'Entsperrt',
+		loading: 'Wird geladen…', none: 'Bitte mindestens ein Gerät oder einen Zeitsensor wählen.', missing: 'Nicht gefunden: ',
+		f_devices: 'Geräte (Family Link, Family Safety)', f_entities: 'Weitere Zeitsensoren (Minuten)', f_title: 'Titel', f_language: 'Sprache',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
+			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
+		f_chart: 'Stundendiagramm', f_days: 'Tage', f_history: 'Tagesverlauf darunter (zweite Karte)',
+	},
 	fr: {
 		today: "Temps d'écran aujourd'hui", history: '{n} derniers jours', left: 'reste', no_limit: ' · sans limite', locked: 'Verrouillé', unlocked: 'Libre',
 		loading: 'Chargement…', close: 'Fermer', prev_day: 'Jour précédent', next_day: 'Jour suivant', none: "Choisissez au moins un appareil ou un capteur de temps.", missing: 'Introuvable : ',
@@ -395,7 +404,7 @@ class Editor extends HTMLElement {
 			...(history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }]
 				: [{ name: 'chart', selector: { boolean: {} } }, { name: 'history', selector: { boolean: {} } },
 					...(this._config.history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }] : [])]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }] } } },
 		];
 	}
 }
