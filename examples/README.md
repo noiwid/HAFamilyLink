@@ -24,7 +24,7 @@ title: Kid's phone             # optional, the device name otherwise
 compact: true                  # optional: header and bonus bar only, for a second device of the same child
 bonus: true                    # true by default, and written in a new card; false hides the bonus bar (+15 / +30 / +60 min, reset, custom duration)
 inline_app_editor: true        # optional: edit apps inside the card, for popup containers such as Browser Mod
-language: fr                   # optional: en, fr or pl, the language of Home Assistant otherwise
+language: fr                   # optional: en, fr, pl, de or es, the language of Home Assistant otherwise
 entities:                      # optional: replace the entity behind a role
   child: { school_time: automation.my_school_mode }
 lock_reasons:                  # optional: name a lock of your own, shown while the entity is on

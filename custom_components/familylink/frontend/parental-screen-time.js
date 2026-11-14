@@ -9,7 +9,7 @@
  *   entities: [sensor.switch_used_screen_time]      # any other time sensor in minutes
  *   sources:                         # optional, same with a name and a limit entity
  *     - { entity: sensor.console_time, name: Console, limit: number.console_limit }
- *   title / language (en, fr, pl) / chart: false (summary card) / days: 14 (history card)
+ *   title / language (en, fr, pl, de, es) / chart: false (summary card) / days: 14 (history card)
  *   history: true                    # summary card: add the daily history below it, as a second card (days: 14)
  *
  * A device is resolved by the websocket command "<integration>/card_entities" of the integration
@@ -29,6 +29,7 @@ const STR = {
 		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)',
 	},
 	de: {
+		close: 'Schließen', prev_day: 'Vorheriger Tag', next_day: 'Nächster Tag',
 		today: 'Bildschirmzeit heute', history: 'Letzte {n} Tage', left: 'übrig', no_limit: ' · kein Limit', locked: 'Gesperrt', unlocked: 'Entsperrt',
 		loading: 'Wird geladen…', none: 'Bitte mindestens ein Gerät oder einen Zeitsensor wählen.', missing: 'Nicht gefunden: ',
 		f_devices: 'Geräte (Family Link, Family Safety)', f_entities: 'Weitere Zeitsensoren (Minuten)', f_title: 'Titel', f_language: 'Sprache',
@@ -48,6 +49,7 @@ const STR = {
 	},
 };
 STR.pl = {
+    close: 'Zamknij', prev_day: 'Poprzedni dzień', next_day: 'Następny dzień',
     today: 'Czas ekranowy dzisiaj', history: 'Ostatnie {n} dni', left: 'pozostało',
     no_limit: ' · bez limitu', locked: 'Zablokowany', unlocked: 'Odblokowany',
     loading: 'Wczytywanie…', none: 'Wybierz co najmniej jedno urządzenie lub czujnik czasu.', missing: 'Nie znaleziono: ',
@@ -63,6 +65,16 @@ STR.pl = {
         .replace('tomorrow', 'jutro')
         .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
     f_chart: 'Wykres godzinowy', f_days: 'Dni', f_history: 'Historia dni poniżej (druga karta)',
+};
+STR.es = {
+	today: 'Tiempo de pantalla hoy', history: 'Últimos {n} días', left: 'restante', no_limit: ' · sin límite', locked: 'Bloqueado', unlocked: 'Libre',
+	loading: 'Cargando…', close: 'Cerrar', prev_day: 'Día anterior', next_day: 'Día siguiente',
+	none: 'Elige al menos un dispositivo o un sensor de tiempo.', missing: 'No encontrado: ',
+	f_devices: 'Dispositivos (Family Link, Family Safety)', f_entities: 'Otros sensores de tiempo (minutos)', f_title: 'Título', f_language: 'Idioma',
+	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
+		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
+		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
+	f_chart: 'Gráfico por horas', f_days: 'Días', f_history: 'Historial por día debajo (segunda tarjeta)',
 };
 
 const PLATFORMS = ['familylink', 'microsoft_family_safety'];
@@ -404,7 +416,7 @@ class Editor extends HTMLElement {
 			...(history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }]
 				: [{ name: 'chart', selector: { boolean: {} } }, { name: 'history', selector: { boolean: {} } },
 					...(this._config.history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }] : [])]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
 		];
 	}
 }

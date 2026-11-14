@@ -1,0 +1,141 @@
+{
+	"options": {
+		"step": {
+			"init": {
+				"title": "Configurar Family Link",
+				"description": "Ajusta la configuración de la integración. Los cambios se aplican al guardar.",
+				"data": {
+					"update_interval": "Intervalo de actualización (segundos)",
+					"timeout": "Tiempo de espera de las solicitudes (segundos)",
+					"enable_location_tracking": "Activar el seguimiento de ubicación GPS",
+					"strict_mode": "Modo estricto (Home Assistant hace cumplir los límites)",
+					"strict_mode_rules": "Reglas del modo estricto",
+					"lock_keeps_allowed_apps": "El bloqueo del dispositivo deja accesibles las apps siempre permitidas",
+					"allowed_users": "Usuarios autorizados a controlar Family Link"
+				},
+				"data_description": {
+					"update_interval": "Con qué frecuencia se obtienen los datos de Google (30-3600 segundos)",
+					"enable_location_tracking": "Si se activa, cada consulta de ubicación puede enviar una notificación al dispositivo del niño",
+					"strict_mode": "El modo estricto cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse a sí mismo tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con el modo estricto activado, Home Assistant se convierte en el único punto de control: tras cada actualización revierte esos cambios y sobrescribe los ajustes de Family Link con lo que hayas definido en Home Assistant. ATENCIÓN: mientras esté activado, gestiona Family Link solo desde Home Assistant, los cambios hechos en la app Family Link se deshacen. Desactiva el interruptor Modo estricto del niño para devolver el control a Google. El interruptor Modo estricto del niño refleja esta opción: cambiar uno actualiza el otro.",
+					"strict_mode_rules": "Lo que hace cumplir el modo estricto. Nada se activa por la fuerza: el estado elegido en Home Assistant es la referencia. Detalles en el README.",
+					"lock_keeps_allowed_apps": "Si se activa, en un dispositivo bloqueado desde Home Assistant el niño aún puede abrir las apps marcadas como «siempre permitidas» en Family Link, mediante un botón «Apps disponibles» en la pantalla de bloqueo (lo que hace la app Family Link cuando su ajuste de pantalla de bloqueo está activado). Desactívalo para un bloqueo total: solo llamadas de emergencia.",
+					"allowed_users": "Déjalo vacío para que todos los usuarios de Home Assistant puedan usar los botones, interruptores y ajustes de Family Link (valor predeterminado). Cuando marques usuarios aquí, solo ellos y los administradores podrán: la cuenta de un niño sin permisos de administrador es rechazada en todos los botones, interruptores, límites, horas y selectores de Family Link, y en las acciones familylink.*. Las automatizaciones y scripts que inicia el propio Home Assistant no se ven afectados. Da al niño una cuenta sin permisos de administrador: un administrador puede cambiar esta opción."
+				}
+			}
+		}
+	},
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Elige cómo conectarte al servicio de autenticación de Family Link.",
+				"menu_options": {
+					"auto_detect": "Detección automática (add-on o archivo local)",
+					"manual_url": "Configuración manual de la URL (Docker independiente)"
+				}
+			},
+			"manual_url": {
+				"title": "URL del servidor de autenticación",
+				"description": "No se detectó ninguna fuente de autenticación local. Introduce la URL base del servidor de autenticación de Family Link. Se conserva cualquier prefijo de ruta del proxy inverso. Si el contenedor independiente tiene configurada API_KEY, introdúcela por separado; si no, deja la clave en blanco.\n\nEjemplo de URL: `http://192.168.1.100:8099`",
+				"data": {
+					"auth_url": "URL del servidor de autenticación",
+					"api_key": "Clave de API"
+				}
+			},
+			"configure": {
+				"title": "Configurar Family Link",
+				"description": "Fuente de autenticación: {auth_source}",
+				"data": {
+					"name": "Nombre de la integración",
+					"update_interval": "Intervalo de actualización (segundos)",
+					"timeout": "Tiempo de espera de las solicitudes (segundos)",
+					"enable_location_tracking": "Activar el seguimiento de ubicación GPS",
+					"strict_mode": "Modo estricto (Home Assistant hace cumplir los límites)",
+					"strict_mode_rules": "Reglas del modo estricto",
+					"lock_keeps_allowed_apps": "El bloqueo del dispositivo deja accesibles las apps siempre permitidas"
+				},
+				"data_description": {
+					"enable_location_tracking": "Si se activa, cada consulta de ubicación puede enviar una notificación al dispositivo del niño. Desactivado por defecto por privacidad.",
+					"strict_mode": "El modo estricto cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse a sí mismo tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con el modo estricto activado, Home Assistant se convierte en el único punto de control: tras cada actualización revierte esos cambios y sobrescribe los ajustes de Family Link con lo que hayas definido en Home Assistant. ATENCIÓN: mientras esté activado, gestiona Family Link solo desde Home Assistant, los cambios hechos en la app Family Link se deshacen. Desactiva el interruptor Modo estricto del niño para devolver el control a Google. El interruptor Modo estricto del niño refleja esta opción: cambiar uno actualiza el otro.",
+					"strict_mode_rules": "Lo que hace cumplir el modo estricto. Nada se activa por la fuerza: el estado elegido en Home Assistant es la referencia. Detalles en el README.",
+					"lock_keeps_allowed_apps": "Si se activa, en un dispositivo bloqueado desde Home Assistant el niño aún puede abrir las apps marcadas como «siempre permitidas» en Family Link, mediante un botón «Apps disponibles» en la pantalla de bloqueo (lo que hace la app Family Link cuando su ajuste de pantalla de bloqueo está activado). Desactívalo para un bloqueo total: solo llamadas de emergencia."
+				}
+			},
+			"reconfigure": {
+				"title": "Actualizar el servidor de autenticación",
+				"description": "Actualiza la URL del servidor y la clave de API. La clave existente nunca se muestra; deja la clave en blanco para conservarla.",
+				"data": {
+					"auth_url": "URL del servidor de autenticación",
+					"api_key": "Clave de API",
+					"clear_api_key": "Borrar la clave de API"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "No se puede conectar con el servidor de autenticación. Comprueba la URL y que el contenedor esté en ejecución.",
+			"invalid_auth": "No se encontraron cookies. Autentícate primero con el add-on o el contenedor de autenticación de Family Link.",
+			"url_required": "La URL es obligatoria",
+			"no_cookies": "El servidor es accesible pero no se encontraron cookies. Autentícate primero desde la interfaz web.",
+			"invalid_api_key": "El servidor de autenticación rechazó la clave de API.",
+			"api_key_conflict": "Introduce una nueva clave de API o selecciona Borrar la clave de API, no ambas.",
+			"api_key_required_for_new_url": "Al cambiar la URL del servidor, introduce su clave de API o selecciona Borrar la clave de API.",
+			"invalid_url": "Introduce una URL HTTP o HTTPS válida, sin credenciales, parámetros de consulta ni fragmentos.",
+			"unknown": "Se produjo un error inesperado"
+		},
+		"abort": {
+			"already_configured": "La integración ya está configurada",
+			"invalid_config": "Configuración no válida",
+			"reconfigure_successful": "Servidor de autenticación actualizado"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Tiempo de pantalla diario"
+			},
+			"screen_time_formatted": {
+				"name": "Tiempo de pantalla (formateado)"
+			},
+			"installed_apps": {
+				"name": "Apps instaladas"
+			},
+			"blocked_apps": {
+				"name": "Apps bloqueadas"
+			},
+			"apps_with_time_limits": {
+				"name": "Apps con límite de tiempo"
+			},
+			"device_count": {
+				"name": "Número de dispositivos"
+			},
+			"child_info": {
+				"name": "Información del niño"
+			},
+			"top_app": {
+				"name": "App n.º {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Bloqueo del dispositivo"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Ubicación"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Tiempo extra: el añadido desde Family Link se cancela",
+				"lock": "Bloqueo del dispositivo: bloquear y desbloquear reservado a Home Assistant",
+				"bedtime": "Hora de dormir: activar y desactivar reservado a Home Assistant",
+				"daily_limit": "Límite diario: activar y desactivar reservado a Home Assistant",
+				"school_time": "Horario escolar: activar y desactivar reservado a Home Assistant",
+				"values": "Horas de dormir y cuotas semanales: valores reservados a Home Assistant"
+			}
+		}
+	}
+}

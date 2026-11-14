@@ -8,7 +8,7 @@
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
  *   bonus: true                      # optional, true by default (written in a new card): false hides the bonus bar (+15 / +30 / +60 buttons)
  *   inline_app_editor: true          # optional: edit apps inside this card (useful in popup containers)
- *   language: en                     # optional: en, fr or pl, else the language of Home Assistant
+ *   language: en                     # optional: en, fr, pl, de or es, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
  *
@@ -51,6 +51,7 @@ const STR = {
 		days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
 	},
 	de: {
+		locked_by: 'Gesperrt: {r}',
 		today: 'Heute', installed: 'installiert', limited: 'begrenzt', blocked: 'gesperrt', apps: 'Apps', week: 'Tageslimits der Woche',
 		no_usage: 'Heute keine Nutzung', no_app: 'Keine App', unlimited: 'Unbegrenzt', per_day: ' / Tag', allowed: 'Erlaubte Zeit: {a} – {b}',
 		app: 'App', cur_blocked: 'Derzeit gesperrt', cur_always: 'Derzeit immer erlaubt',
@@ -120,6 +121,7 @@ const STR = {
 	},
 };
 STR.pl = {
+    locked_by: 'Zablokowany: {r}',
     today: 'Dzisiaj', installed: 'Zainstalowane', limited: 'Z limitami', blocked: 'Zablokowane', apps: 'Aplikacje', week: 'Limity tygodniowe',
     no_usage: 'Brak aktywności dzisiaj', no_app: 'Brak aplikacji', unlimited: 'Bez limitu', per_day: ' / dzień', allowed: 'Dozwolone godziny: {a} — {b}',
     app: 'Aplikacja', cur_blocked: 'Obecnie zablokowana', cur_always: 'Obecnie zawsze dozwolona',
@@ -165,6 +167,40 @@ STR.pl = {
     unlock_sub: 'Można ponownie korzystać z urządzenia w ramach obowiązujących limitów.',
     save: 'Zapisz', saving: 'Zapisywanie…', close: 'Zamknij', loading: 'Wczytywanie…', not_found: 'Nie znaleziono encji Family Link: ',
     days: ['Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota','Niedziela'],
+};
+STR.es = {
+	today: 'Hoy', installed: 'instaladas', limited: 'limitadas', blocked: 'bloqueadas', apps: 'Aplicaciones', week: 'Límites de la semana',
+	no_usage: 'Hoy no se ha usado', no_app: 'Ninguna aplicación', unlimited: 'Sin límite', per_day: ' / día', allowed: 'Horas permitidas: {a} — {b}',
+	app: 'Aplicación', cur_blocked: 'Bloqueada actualmente', cur_always: 'Siempre permitida actualmente',
+	cur_limited: 'Limitada actualmente a {t} al día', cur_none: 'Sin límite propio actualmente',
+	always: 'Siempre permitida', always_sub: 'Incluso cuando se agota el tiempo de pantalla', none: 'Sin límite', none_sub: 'Solo se aplica el tiempo de pantalla total',
+	limit: 'Limitada', limit_sub: 'Por día', block: 'Bloqueada', block_sub: 'Ya no se puede abrir',
+	reset: 'Restablecer', no_bonus: 'Sin tiempo extra', bonus_on: 'Tiempo extra +{t}', tip_reset: 'Cancelar el tiempo extra activo', tip_add: '{n} min de tiempo extra hoy',
+	tip_custom: 'Tiempo extra de duración personalizada', bonus: 'Tiempo extra', bonus_min: 'Minutos extra', bonus_sub: 'Se suma al límite de hoy',
+	daily_limit: 'Límite diario', bedtime: 'Hora de dormir', school: 'Colegio', day_settings: 'Ajustes del día', limit_day: 'Tiempo de pantalla permitido ese día',
+	bed_from: 'Hora de dormir desde', bed_to: 'Hora de dormir hasta', steps: 'En pasos de 15 min', school_from: 'Colegio desde', school_to: 'Colegio hasta',
+	pick_device: 'Elige un teléfono o una tableta, no al niño.',
+	pause: 'En pausa', pause_sub: 'Sigue instalada y vuelve a su regla anterior', cur_paused: 'En pausa actualmente',
+	web: 'Web', web_hint: 'Chrome en todos los dispositivos del niño', f_approved: 'Solo sitios aprobados', f_filtered: 'Intentar bloquear sitios explícitos',
+	site_ph: 'ejemplo.es', allow: 'Permitir', deny: 'Bloquear', approved: 'Sitios aprobados', blocked_sites: 'Sitios bloqueados', no_site: 'Ninguno',
+	remove: 'Quitar', sites: 'Sitios web', add_site: 'Añadir un sitio web', several: 'Un dominio, o varios separados por espacios',
+	s_allow: 'Siempre permitido', s_allow_sub: 'Incluso si el filtro web lo bloquearía', s_block: 'Siempre bloqueado', s_block_sub: 'Chrome se negará a abrirlo',
+	s_remove: 'Quitar de las listas', s_remove_sub: 'Vuelve a decidir el filtro web', allowed_tag: 'permitido', blocked_tag: 'bloqueado',
+	lock: 'Bloquear', unlock: 'Desbloquear', lock_q: '¿Bloquear {d}?', unlock_q: '¿Desbloquear {d}?',
+	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
+		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
+		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
+	settings: 'Ajustes', strict: 'Modo estricto', strict_sub: 'Lo que se cambia en Google se restablece como en Home Assistant',
+	unl: 'Apps sin límite durante la hora de dormir', unl_sub: 'Desactivado: las apps sin límite de tiempo también se bloquean', calls: 'Llamadas y mensajes',
+	calls_opts: { 'Anyone': 'Cualquiera', 'Only contacts I add': 'Solo los contactos que añado', 'Contacts I add & limited groups': 'Los contactos que añado y grupos limitados' },
+	configure: 'Configurar la integración', configure_sub: 'Usuarios autorizados, reglas del modo estricto, ubicación',
+	not_confirmed: 'El inicio está guardado, el final no: Google aún no lo ha confirmado. Inténtalo de nuevo.',
+	ring: 'Hacer sonar', ring_q: '¿Hacer sonar {d}?', ring_sub: 'El dispositivo suena para poder encontrarlo.',
+	locked_by: 'Bloqueado: {r}',
+	why: { manually_locked: 'Bloqueado', bedtime_active: 'Bloqueado: hora de dormir', school_time_active: 'Bloqueado: horario escolar', daily_limit_reached: 'Bloqueado: límite diario alcanzado' },
+	lock_sub: 'El dispositivo no se podrá usar hasta que se desbloquee.', unlock_sub: 'El dispositivo se puede volver a usar, dentro de sus límites.',
+	save: 'Guardar', saving: 'Guardando…', close: 'Cerrar', loading: 'Cargando…', not_found: 'Entidad de Family Link no encontrada: ',
+	days: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
 };
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -871,7 +907,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
 				: [{ name: 'compact', selector: { boolean: {} } }, { name: 'bonus', selector: { boolean: {} } }]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
 		];
 	}
 }
@@ -894,6 +930,7 @@ LOC.pl = {
     now: 'przed chwilą',
     off: 'Śledzenie lokalizacji jest wyłączone w ustawieniach integracji',
 };
+LOC.es = { title: 'Ubicación', refresh: 'Actualizar la ubicación (consume batería del teléfono)', ago: 'hace {t}', now: 'ahora mismo', off: 'El seguimiento de ubicación está desactivado en las opciones de la integración' };
 
 class FamilyLinkLocationCard extends HTMLElement {
 	setConfig(config) {

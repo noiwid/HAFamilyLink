@@ -40,7 +40,7 @@ The endpoints and payload shapes the integration relies on are documented in [GO
 | Dashboard cards | Built in, no Marketplace card, helper or script needed: a card per phone or tablet (lock with confirmation, bonuses, restriction tiles, apps and their rules, websites, weekly limits), screen time of several devices together with hourly and daily charts (shared with Microsoft Family Safety), and a location map. See [`examples/`](examples/) |
 | Robustness | Cached data on transient API errors, automatic session refresh, persistent notification when re-authentication is needed |
 
-Translations: English, French, Hebrew, Polish.
+Translations: English, French, Hebrew, Polish, German, Spanish.
 
 ## Quick start
 

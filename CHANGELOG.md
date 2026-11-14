@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Name your own locks on the Family Link card**: `lock_reasons: { input_boolean.homework: homework }` shows "Locked: homework" while that entity is on and the device is locked by hand.
 
 - **Polish** for the dashboard cards and the integration (#247, thanks to @smarthomewithme).
+- **German** for the dashboard cards and the integration (#251, thanks to @phibro382), and **Spanish**.
+- **`inline_app_editor: true` on the Family Link card** (#250, thanks to @smarthomewithme): inside a popup (for example Browser Mod), the application editor replaces the card content instead of opening a second dialog on top of the popup. Off by default.
 
 ### Changed
 - **Auth add-on 1.9.6:** a page from another site can no longer start a login, and reading the stored session never deletes it (see the add-on changelog).
