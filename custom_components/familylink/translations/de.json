@@ -1,0 +1,141 @@
+{
+	"options": {
+		"step": {
+			"init": {
+				"title": "Family Link konfigurieren",
+				"description": "Einstellungen der Integration anpassen. Änderungen gelten nach dem Speichern.",
+				"data": {
+					"update_interval": "Aktualisierungsintervall (Sekunden)",
+					"timeout": "Zeitlimit für Anfragen (Sekunden)",
+					"enable_location_tracking": "GPS-Standortverfolgung aktivieren",
+					"strict_mode": "Strenger Modus (Home Assistant setzt die Limits durch)",
+					"strict_mode_rules": "Regeln des strengen Modus",
+					"lock_keeps_allowed_apps": "Gerätesperre lässt die immer erlaubten Apps erreichbar",
+					"allowed_users": "Benutzer, die Family Link steuern dürfen"
+				},
+				"data_description": {
+					"update_interval": "Wie oft Daten von Google abgerufen werden (30–3600 Sekunden)",
+					"enable_location_tracking": "Wenn aktiviert, kann jede Standortabfrage eine Benachrichtigung auf dem Gerät des Kindes auslösen",
+					"strict_mode": "Der strenge Modus schließt eine Lücke auf der Google-Seite, die viele Kinder zu nutzen wissen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind selbst Bonuszeit geben, ein Gerät ohne verbleibende Zeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit strengem Modus wird Home Assistant zur einzigen Steuerstelle: Nach jeder Aktualisierung macht es solche Änderungen rückgängig und überschreibt die Family-Link-Einstellungen mit dem, was in Home Assistant eingestellt ist. ACHTUNG: Solange er aktiv ist, Family Link nur über Home Assistant verwalten, Änderungen in der Family-Link-App werden zurückgesetzt. Den Schalter „Strenger Modus“ des Kindes ausschalten, um die Steuerung an Google zurückzugeben. Dieser Schalter spiegelt diese Option: Eine Änderung an einem aktualisiert das andere.",
+					"strict_mode_rules": "Was der strenge Modus durchsetzt. Nichts wird zwangsweise eingeschaltet: Maßgeblich ist der in Home Assistant gewählte Zustand. Details im README.",
+					"lock_keeps_allowed_apps": "Wenn aktiviert, kann das Kind auf einem aus Home Assistant gesperrten Gerät weiterhin die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ auf dem Sperrbildschirm (so wie die Family-Link-App, wenn deren Sperrbildschirm-Einstellung aktiv ist). Ausschalten für eine reine Sperre: nur Notrufe.",
+					"allowed_users": "Leer lassen, damit alle Home-Assistant-Benutzer die Family-Link-Schaltflächen, -Schalter und -Einstellungen nutzen können (Standard). Sobald hier Benutzer ausgewählt sind, können das nur noch sie und die Administratoren: Ein Konto eines Kindes ohne Administratorrechte wird bei jeder Family-Link-Schaltfläche, jedem Schalter, Limit, jeder Zeit und Auswahl sowie bei den familylink.*-Aktionen abgewiesen. Automationen und Skripte, die Home Assistant selbst startet, sind davon nicht betroffen. Dem Kind ein Konto ohne Administratorrechte geben: Ein Administrator kann diese Option ändern."
+				}
+			}
+		}
+	},
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Wähle, wie die Verbindung zum Family-Link-Auth-Dienst hergestellt wird.",
+				"menu_options": {
+					"auto_detect": "Automatisch erkennen (Add-on oder lokale Datei)",
+					"manual_url": "URL manuell konfigurieren (eigenständiger Docker-Container)"
+				}
+			},
+			"manual_url": {
+				"title": "URL des Authentifizierungsservers",
+				"description": "Es wurde keine lokale Authentifizierungsquelle gefunden. Gib die Basis-URL des Family-Link-Auth-Servers ein. Ein Pfadpräfix eines Reverse-Proxys bleibt erhalten. Ist im eigenständigen Container ein API_KEY konfiguriert, gib ihn separat ein; andernfalls das Schlüsselfeld leer lassen.\n\nBeispiel-URL: `http://192.168.1.100:8099`",
+				"data": {
+					"auth_url": "URL des Authentifizierungsservers",
+					"api_key": "API-Schlüssel"
+				}
+			},
+			"configure": {
+				"title": "Family Link konfigurieren",
+				"description": "Authentifizierungsquelle: {auth_source}",
+				"data": {
+					"name": "Name der Integration",
+					"update_interval": "Aktualisierungsintervall (Sekunden)",
+					"timeout": "Zeitlimit für Anfragen (Sekunden)",
+					"enable_location_tracking": "GPS-Standortverfolgung aktivieren",
+					"strict_mode": "Strenger Modus (Home Assistant setzt die Limits durch)",
+					"strict_mode_rules": "Regeln des strengen Modus",
+					"lock_keeps_allowed_apps": "Gerätesperre lässt die immer erlaubten Apps erreichbar"
+				},
+				"data_description": {
+					"enable_location_tracking": "Wenn aktiviert, kann jede Standortabfrage eine Benachrichtigung auf dem Gerät des Kindes auslösen. Aus Datenschutzgründen standardmäßig deaktiviert.",
+					"strict_mode": "Der strenge Modus schließt eine Lücke auf der Google-Seite, die viele Kinder zu nutzen wissen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind selbst Bonuszeit geben, ein Gerät ohne verbleibende Zeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit strengem Modus wird Home Assistant zur einzigen Steuerstelle: Nach jeder Aktualisierung macht es solche Änderungen rückgängig und überschreibt die Family-Link-Einstellungen mit dem, was in Home Assistant eingestellt ist. ACHTUNG: Solange er aktiv ist, Family Link nur über Home Assistant verwalten, Änderungen in der Family-Link-App werden zurückgesetzt. Den Schalter „Strenger Modus“ des Kindes ausschalten, um die Steuerung an Google zurückzugeben. Dieser Schalter spiegelt diese Option: Eine Änderung an einem aktualisiert das andere.",
+					"strict_mode_rules": "Was der strenge Modus durchsetzt. Nichts wird zwangsweise eingeschaltet: Maßgeblich ist der in Home Assistant gewählte Zustand. Details im README.",
+					"lock_keeps_allowed_apps": "Wenn aktiviert, kann das Kind auf einem aus Home Assistant gesperrten Gerät weiterhin die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ auf dem Sperrbildschirm (so wie die Family-Link-App, wenn deren Sperrbildschirm-Einstellung aktiv ist). Ausschalten für eine reine Sperre: nur Notrufe."
+				}
+			},
+			"reconfigure": {
+				"title": "Authentifizierungsserver aktualisieren",
+				"description": "Server-URL und API-Schlüssel aktualisieren. Der vorhandene Schlüssel wird nie angezeigt; das Feld leer lassen, um ihn zu behalten.",
+				"data": {
+					"auth_url": "URL des Authentifizierungsservers",
+					"api_key": "API-Schlüssel",
+					"clear_api_key": "API-Schlüssel löschen"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Keine Verbindung zum Authentifizierungsserver. Bitte die URL prüfen und sicherstellen, dass der Container läuft.",
+			"invalid_auth": "Keine Cookies gefunden. Bitte zuerst über das Family-Link-Auth-Add-on oder den Container anmelden.",
+			"url_required": "URL ist erforderlich",
+			"no_cookies": "Der Server ist erreichbar, aber es wurden keine Cookies gefunden. Bitte zuerst über die Weboberfläche anmelden.",
+			"invalid_api_key": "Der Authentifizierungsserver hat den API-Schlüssel abgelehnt.",
+			"api_key_conflict": "Entweder einen neuen API-Schlüssel eingeben oder „API-Schlüssel löschen“ wählen, nicht beides.",
+			"api_key_required_for_new_url": "Beim Ändern der Server-URL deren API-Schlüssel eingeben oder „API-Schlüssel löschen“ wählen.",
+			"invalid_url": "Eine gültige HTTP- oder HTTPS-URL ohne Zugangsdaten, Abfrageparameter oder Fragmente eingeben.",
+			"unknown": "Unerwarteter Fehler"
+		},
+		"abort": {
+			"already_configured": "Die Integration ist bereits eingerichtet",
+			"invalid_config": "Ungültige Konfiguration",
+			"reconfigure_successful": "Authentifizierungsserver aktualisiert"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Bildschirmzeit heute"
+			},
+			"screen_time_formatted": {
+				"name": "Bildschirmzeit (formatiert)"
+			},
+			"installed_apps": {
+				"name": "Installierte Apps"
+			},
+			"blocked_apps": {
+				"name": "Gesperrte Apps"
+			},
+			"apps_with_time_limits": {
+				"name": "Apps mit Zeitlimit"
+			},
+			"device_count": {
+				"name": "Anzahl Geräte"
+			},
+			"child_info": {
+				"name": "Kind-Info"
+			},
+			"top_app": {
+				"name": "Top-App {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Gerätesperre"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Standort"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Bonuszeit: In Family Link hinzugefügte Boni werden aufgehoben",
+				"lock": "Gerätesperre: Sperren und Entsperren nur über Home Assistant",
+				"bedtime": "Schlafenszeit: Ein- und Ausschalten nur über Home Assistant",
+				"daily_limit": "Tageslimit: Ein- und Ausschalten nur über Home Assistant",
+				"school_time": "Schulzeit: Ein- und Ausschalten nur über Home Assistant",
+				"values": "Schlafenszeiten und Wochenkontingente: Werte nur über Home Assistant"
+			}
+		}
+	}
+}
