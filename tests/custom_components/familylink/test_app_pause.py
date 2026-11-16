@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -17,6 +18,7 @@ from custom_components.familylink.app_pause import (
     async_setup_app_pause_services,
 )
 from custom_components.familylink.const import DOMAIN
+from custom_components.familylink.exceptions import NetworkError
 
 CHILD = "child-1"
 OTHER_CHILD = "child-2"
@@ -53,14 +55,55 @@ def test_app_limit_setting_reads_the_supervision_setting(app, expected) -> None:
     assert app_limit_setting(app) == expected
 
 
+def _child_apps(coordinator, child_id: str) -> list[dict]:
+    for child in coordinator.data["children_data"]:
+        if child["child_id"] == child_id:
+            return child["apps"]
+    return []
+
+
+def _apply_limit(app: dict, minutes: int) -> None:
+    """Change an app's supervision setting as Google does for set_app_daily_limit."""
+    supervision = app.setdefault("supervisionSetting", {})
+    supervision.pop("alwaysAllowedAppInfo", None)
+    supervision.pop("usageLimit", None)
+    if minutes == UNLIMITED:
+        supervision["alwaysAllowedAppInfo"] = {"alwaysAllowedState": "alwaysAllowedStateEnabled"}
+    elif minutes >= 0:
+        supervision["usageLimit"] = {"dailyUsageLimitMins": minutes, "enabled": True}
+
+
+def _fake_google(coordinator) -> None:
+    """Writes change the coordinator's apps, reads return them: Google plus an instant refresh."""
+
+    async def write(package, minutes, account_id=None):
+        for app in _child_apps(coordinator, account_id):
+            if app["packageName"] == package:
+                _apply_limit(app, minutes)
+        return True
+
+    async def read(account_id=None):
+        return {"apps": copy.deepcopy(_child_apps(coordinator, account_id))}
+
+    coordinator.client.async_set_app_daily_limit = AsyncMock(side_effect=write)
+    coordinator.client.async_get_apps_and_usage = AsyncMock(side_effect=read)
+
+
+def _parent_sets(coordinator, package: str, minutes: int, child_id: str = CHILD) -> None:
+    """A parent changes an app's setting in the Family Link app."""
+    for app in _child_apps(coordinator, child_id):
+        if app["packageName"] == package:
+            _apply_limit(app, minutes)
+
+
 @pytest.fixture
 async def pause_services(hass):
-    client = SimpleNamespace(async_set_app_daily_limit=AsyncMock(return_value=True))
     coordinator = SimpleNamespace(
-        client=client,
-        data={"children_data": [{"child_id": CHILD, "apps": APPS}]},
+        client=SimpleNamespace(),
+        data={"children_data": [{"child_id": CHILD, "apps": copy.deepcopy(APPS)}]},
         async_request_refresh=AsyncMock(),
     )
+    _fake_google(coordinator)
     await async_setup_app_pause_services(hass, coordinator)
     return coordinator
 
@@ -129,11 +172,13 @@ async def test_the_saved_settings_survive_a_restart(hass, pause_services) -> Non
 
 
 async def test_a_failed_write_raises_and_the_setting_is_still_saved(hass, pause_services) -> None:
-    pause_services.client.async_set_app_daily_limit.return_value = False
+    working = pause_services.client.async_set_app_daily_limit
+    pause_services.client.async_set_app_daily_limit = AsyncMock(return_value=False)
     with pytest.raises(HomeAssistantError, match=CHROME):
         await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
 
-    pause_services.client.async_set_app_daily_limit.return_value = True
+    # Google kept 45 minutes, the setting saved: resuming puts the same back
+    pause_services.client.async_set_app_daily_limit = working
     result = await _call(hass, "resume_app", {"child_id": CHILD})
     assert result["resumed"] == {CHROME: 45}
 
@@ -148,16 +193,18 @@ async def test_a_pause_service_needs_a_child(hass, pause_services) -> None:
 def _slow_writes(coordinator) -> None:
     """Make every write yield to the event loop, as the network does."""
 
+    fast = coordinator.client.async_set_app_daily_limit.side_effect
+
     async def write(package, minutes, account_id=None):
         for _ in range(5):
             await asyncio.sleep(0)
-        return True
+        return await fast(package, minutes, account_id=account_id)
 
     coordinator.client.async_set_app_daily_limit = AsyncMock(side_effect=write)
 
 
 async def test_pauses_for_two_children_at_once_both_keep_their_saved_setting(hass, pause_services) -> None:
-    pause_services.data["children_data"].append({"child_id": OTHER_CHILD, "apps": APPS})
+    pause_services.data["children_data"].append({"child_id": OTHER_CHILD, "apps": copy.deepcopy(APPS)})
     _slow_writes(pause_services)
 
     await asyncio.gather(
@@ -194,7 +241,10 @@ async def test_a_pause_and_a_resume_of_one_app_never_leave_it_paused_with_nothin
 async def test_resume_leaves_a_blocked_app_blocked_and_keeps_its_saved_setting(hass, pause_services) -> None:
     await _call(hass, "pause_app", {"child_id": CHILD, "packages": [MESSAGES, CHROME]})
     # The parent blocks Chrome while it is paused
-    pause_services.data["children_data"][0]["apps"] = [_app(MESSAGES), _app(CHROME, hidden=True)]
+    pause_services.data["children_data"][0]["apps"] = [
+        _app(MESSAGES, usageLimit={"dailyUsageLimitMins": 1, "enabled": True}),
+        _app(CHROME, hidden=True),
+    ]
     pause_services.client.async_set_app_daily_limit.reset_mock()
 
     result = await _call(hass, "resume_app", {"child_id": CHILD})
@@ -208,3 +258,69 @@ async def test_resume_leaves_a_blocked_app_blocked_and_keeps_its_saved_setting(h
     again = await _call(hass, "resume_app", {"child_id": CHILD})
     assert again["resumed"] == {CHROME: 45}
     assert again["skipped"] == {}
+
+
+async def test_resume_restores_an_intact_pause_after_reading_google(hass, pause_services) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    pause_services.client.async_set_app_daily_limit.reset_mock()
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    assert result["resumed"] == {CHROME: 45}
+    assert result["kept_current"] == {}
+    assert _writes(pause_services) == [(CHROME, 45)]
+    pause_services.client.async_get_apps_and_usage.assert_awaited_with(account_id=CHILD)
+
+
+@pytest.mark.parametrize("parent_sets", [30, UNLIMITED, NO_LIMIT])
+async def test_resume_keeps_a_setting_a_parent_changed_since_the_pause(hass, pause_services, parent_sets) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    _parent_sets(pause_services, CHROME, parent_sets)
+    pause_services.client.async_set_app_daily_limit.reset_mock()
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    assert result["kept_current"] == {CHROME: parent_sets}
+    assert result["resumed"] == {}
+    assert _writes(pause_services) == []
+    # The saved setting is dropped: nothing is left to resume
+    again = await _call(hass, "resume_app", {"child_id": CHILD, "packages": [CHROME]})
+    assert again["not_paused"] == [CHROME]
+
+
+async def test_resume_restores_when_the_current_setting_cannot_be_read(hass, pause_services, caplog) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    _parent_sets(pause_services, CHROME, 30)
+    pause_services.client.async_get_apps_and_usage = AsyncMock(side_effect=NetworkError("503"))
+    pause_services.client.async_set_app_daily_limit.reset_mock()
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    # Restored as before (an app left paused would be worse), with a warning
+    assert result["resumed"] == {CHROME: 45}
+    assert _writes(pause_services) == [(CHROME, 45)]
+    assert "without checking" in caplog.text
+
+
+async def test_resume_reads_google_not_the_stale_coordinator_data(hass, pause_services) -> None:
+    """Right after a pause the coordinator can still show the old setting: not a parent's change."""
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    google_apps = copy.deepcopy(_child_apps(pause_services, CHILD))
+    pause_services.client.async_get_apps_and_usage = AsyncMock(return_value={"apps": google_apps})
+    # The coordinator has not refreshed yet: it still shows 45 minutes
+    pause_services.data = {"children_data": [{"child_id": CHILD, "apps": copy.deepcopy(APPS)}]}
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    assert result["resumed"] == {CHROME: 45}
+    assert _writes(pause_services)[-1] == (CHROME, 45)
+
+
+async def test_a_pause_after_a_parent_change_saves_the_parents_setting(hass, pause_services) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+    _parent_sets(pause_services, CHROME, 20)
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
+
+    result = await _call(hass, "resume_app", {"child_id": CHILD})
+
+    assert result["resumed"] == {CHROME: 20}

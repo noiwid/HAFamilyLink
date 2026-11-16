@@ -127,7 +127,7 @@ Enable it with the **Strict mode** option of the integration (default for every 
 |---------|---------|
 | `familylink.block_app` / `familylink.unblock_app` | Block or unblock a single app by package name |
 | `familylink.set_app_daily_limit` | Per-app daily limit: minutes, blocked, limit off, or unlimited time |
-| `familylink.pause_app` / `familylink.resume_app` | Pause apps with a 1-minute daily limit instead of blocking them (a paused Google Messages keeps the texts that arrive), then put each app's earlier setting back |
+| `familylink.pause_app` / `familylink.resume_app` | Pause apps with a 1-minute daily limit instead of blocking them (a paused Google Messages keeps the texts that arrive), then put each app's earlier setting back, unless a parent changed it in the Family Link app meanwhile |
 | `familylink.block_device_for_school` | Block every app except an essentials whitelist (dialer, messages, settings, maps, ...) plus your own additions |
 | `familylink.unblock_all_apps` | Unblock every hidden app |
 | `familylink.add_time_bonus` | Add 1 to 1440 bonus minutes to a device |

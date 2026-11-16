@@ -202,7 +202,7 @@ pause_app:
 
 resume_app:
   name: Resume App
-  description: "Put back the daily limit setting that apps had before pause_app (a limit, unlimited time, or no limit). Apps that pause_app did not pause are left alone, and so is an app blocked since the pause (its saved setting is kept for when it is unblocked). A child is required."
+  description: "Put back the daily limit setting that apps had before pause_app (a limit, unlimited time, or no limit). An app whose setting a parent changed in the Family Link app since the pause keeps that setting. Apps that pause_app did not pause are left alone, and so is an app blocked since the pause (its saved setting is kept for when it is unblocked). A child is required."
   fields:
     packages:
       name: Packages
