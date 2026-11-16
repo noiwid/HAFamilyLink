@@ -261,7 +261,9 @@ class ScreenTimeCard extends Base {
 		const live = S.filter((s) => !s.missing);
 		const used = live.map((s) => this._num(s.used)).filter((v) => !isNaN(v));
 		const total = sum(used);
-		const limits = live.map((s) => this._num(s.limit) + (this._num(s.bonus) || 0));
+		// Family Safety reports reason: no_limits when the limits are switched off: its remaining time is then the time to midnight and its limit is not applied
+		const noLimit = (s) => ((this._hass.states[s.remaining] || {}).attributes || {}).reason === 'no_limits';
+		const limits = live.map((s) => noLimit(s) ? NaN : this._num(s.limit) + (this._num(s.bonus) || 0));
 		const allLimited = live.length && limits.every((v) => v > 0);
 		// a limit, a remaining time or a lock of the child can be shared by several devices: it counts once
 		const first = (key) => { const seen = new Set(); return live.map((s) => !s[key] || (!seen.has(s[key]) && !!seen.add(s[key]))); };
@@ -275,9 +277,9 @@ class ScreenTimeCard extends Base {
 		const tiles = live.filter((s, i) => ownLock[i] && s.lock && this._hass.states[s.lock]).map((s) => {
 			const locked = this._hass.states[s.lock].state === s.lockedWhen;
 			const c = locked ? 'var(--error-color)' : 'var(--success-color)';
-			const r = this._num(s.remaining);
+			const r = noLimit(s) ? NaN : this._num(s.remaining);
 			const icon = locked && s.icon === 'mdi:cellphone' ? 'mdi:cellphone-lock' : s.icon || 'mdi:devices';
-			return `<div class="tile"><ha-icon icon="${icon}" style="color:${c}"></ha-icon><div class="tt"><b>${esc(s.name)}</b><small style="color:${c}">${locked ? t('locked') : t('unlocked')}</small></div>${isNaN(r) ? '' : `<div class="tr"><b>${hm(r)}</b><small>${t('left')}</small></div>`}</div>`;
+			return `<div class="tile"><ha-icon icon="${esc(icon)}" style="color:${c}"></ha-icon><div class="tt"><b>${esc(s.name)}</b><small style="color:${c}">${locked ? t('locked') : t('unlocked')}</small></div>${isNaN(r) ? '' : `<div class="tr"><b>${hm(r)}</b><small>${t('left')}</small></div>`}</div>`;
 		}).join('');
 		const missing = S.filter((s) => s.missing).map((s) => s.name);
 		this._shell(`

@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The Family Link card follows the restrictions in force: with the daily limit off, no "/ limit" and no time bar; with bedtime off, no allowed hours; and no "No restrictions" line.
 
 ### Fixed
+- **A device without limit no longer shows a remaining time on the screen time card.** Family Safety reports `reason: no_limits` when its limits are switched off, and its remaining time is then the time to midnight: the PC showed "Libre, 8 h 58 reste" and its saved limit was counted in the header. Such a device now counts as unlimited. The tile icon is escaped too.
 - **The screen time cards' editor shows the devices you renamed.** A device written as `{ device, name }` or `{ entity }` in the YAML showed as "[object Object]" (unknown device) in the visual editor; it now shows the device and keeps its name when you edit the list.
 - **Bedtime "today" ignores the overrides of earlier weeks.** Google keeps a "tonight only" change under its weekday: one made last Monday showed the bedtime switch off all this Monday while Google applied bedtime, and strict mode read it the same way. Only an override posted today counts now, as for school time since 2.7.0.
 - **Strict mode no longer turns a quota for today into the weekly quota.** `set_daily_limit` for a child without `day` changes today's quota only, but strict mode recorded it as that weekday's weekly reference and rewrote the weekly schedule at the next refresh. It is now kept per device, until midnight.
