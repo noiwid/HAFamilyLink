@@ -189,16 +189,15 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		time_data = self._get_device_time_data()
-		if not time_data:
-			return {}
-
 		attributes = {
 			"device_id": self._device_id,
 			"device_name": self._device_name,
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 		}
+		time_data = self._get_device_time_data()
+		if not time_data:
+			return attributes
 
 		bedtime_window = time_data.get("bedtime_window")
 		if bedtime_window:
@@ -255,16 +254,15 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		time_data = self._get_device_time_data()
-		if not time_data:
-			return {}
-
 		attributes = {
 			"device_id": self._device_id,
 			"device_name": self._device_name,
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 		}
+		time_data = self._get_device_time_data()
+		if not time_data:
+			return attributes
 
 		schooltime_window = time_data.get("schooltime_window")
 		if schooltime_window:
@@ -326,16 +324,15 @@ class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 	@property
 	def extra_state_attributes(self) -> dict[str, Any]:
 		"""Return extra state attributes."""
-		time_data = self._get_device_time_data()
-		if not time_data:
-			return {}
-
 		attributes = {
 			"device_id": self._device_id,
 			"device_name": self._device_name,
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 		}
+		time_data = self._get_device_time_data()
+		if not time_data:
+			return attributes
 
 		remaining_minutes = time_data.get("remaining_minutes")
 		if remaining_minutes is not None:
