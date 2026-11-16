@@ -10,10 +10,16 @@ Messages kept them. An app not used yet today gets its 1 minute, then pauses.
 The setting in force before the first pause (a limit, unlimited time, or no
 limit) is stored and put back by ``resume_app``, also after a restart. Limits
 count per device, so a pause applies on every device of the child. Google TV
-ignores app limits; there, only ``block_app`` works. A limit changed in the
-Family Link app while an app is paused is overwritten by ``resume_app``. An app
-blocked while it is paused is left blocked: ``resume_app`` skips it and keeps
-its saved setting for a later resume.
+ignores app limits; there, only ``block_app`` works. An app blocked while it
+is paused is left blocked: ``resume_app`` skips it and keeps its saved setting
+for a later resume.
+
+``resume_app`` reads the app's current setting from Google first and puts the
+saved one back only while the app is still at the 1-minute pause. A setting a
+parent changed in the Family Link app since the pause (another limit,
+unlimited time, no limit) is kept and the saved one dropped. When the current
+settings cannot be read, the saved setting is restored anyway and a warning
+logged: an app left paused would be the worse failure.
 
 The saved settings are one record shared by every child and changed across
 network writes, so the two services run one at a time.
@@ -121,8 +127,10 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 					skipped[package] = "blocked"
 					continue
 				# Keep the setting from before the first pause; a second pause must
-				# not record the pause itself as the setting to come back to
-				if package not in saved:
+				# not record the pause itself as the setting to come back to. A
+				# setting a parent put in place of an earlier pause is the one to
+				# come back to now.
+				if package not in saved or (app is not None and current not in (PAUSE_MINUTES, saved[package])):
 					saved[package] = current
 					# Saved before the write, so a failure part-way can still be resumed
 					await store.async_save(data)
@@ -132,14 +140,36 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 		_LOGGER.info(f"Paused apps for {child_id}: {paused}, skipped {skipped}")
 		return {"child_id": child_id, "paused": paused, "skipped": skipped}
 
+	async def _current_apps(child_id: str) -> dict[str, dict[str, Any]] | None:
+		"""The child's apps as Google has them now; None when they cannot be read.
+
+		Read fresh rather than from the coordinator: right after a pause its data
+		can still show the setting from before the pause, which would look like
+		a parent's change.
+		"""
+		client = _client()
+		try:
+			data = await client.async_get_apps_and_usage(account_id=child_id)
+		except Exception as err:  # noqa: BLE001 - any read failure falls back to a plain restore
+			_LOGGER.warning(f"Could not read the current app settings of {child_id}: {err}")
+			return None
+		apps = data.get("apps") if isinstance(data, dict) else None
+		if not isinstance(apps, list):
+			_LOGGER.warning(f"Could not read the current app settings of {child_id}: no app list")
+			return None
+		return {app.get("packageName"): app for app in apps if isinstance(app, dict) and app.get("packageName")}
+
 	async def handle_resume_app(call: ServiceCall) -> ServiceResponse:
 		child_id = _resolve_child(hass, call)
 		async with lock:
-			apps = _apps(child_id)
 			data = await store.async_load() or {}
 			saved: dict[str, int] = data.get(child_id, {})
 			packages = list(dict.fromkeys(call.data.get("packages") or saved))
+			current_apps = await _current_apps(child_id) if any(p in saved for p in packages) else {}
+			read = current_apps is not None
+			apps = current_apps if read else _apps(child_id)
 			resumed: dict[str, int] = {}
+			kept_current: dict[str, int] = {}
 			not_paused: list[str] = []
 			skipped: dict[str, str] = {}
 			for package in packages:
@@ -147,20 +177,35 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 					not_paused.append(package)
 					continue
 				app = apps.get(package)
-				if app is not None and app_limit_setting(app) is None:
+				current = app_limit_setting(app) if app is not None else None
+				if app is not None and current is None:
 					# Blocked since the pause: writing its limit back can lift the
 					# block. The saved setting stays for when it is unblocked.
 					_LOGGER.warning(f"Not resuming {package} for {child_id}: it is blocked, its saved setting is kept")
 					skipped[package] = "blocked"
 					continue
-				await _set_limit(child_id, package, saved[package])
-				resumed[package] = saved.pop(package)
+				if read and app is not None and current not in (PAUSE_MINUTES, saved[package]):
+					# A parent changed it in the Family Link app since the pause: theirs stays
+					_LOGGER.info(f"Not restoring {package} for {child_id}: it was changed to {current} since the pause")
+					kept_current[package] = current
+				else:
+					if not read or app is None:
+						_LOGGER.warning(f"Restoring {package} for {child_id} without checking its current setting")
+					await _set_limit(child_id, package, saved[package])
+					resumed[package] = saved[package]
+				saved.pop(package)
 				if not saved:
 					data.pop(child_id, None)
 				await store.async_save(data)
 			await coordinator.async_request_refresh()
-		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}, skipped {skipped}")
-		return {"child_id": child_id, "resumed": resumed, "not_paused": not_paused, "skipped": skipped}
+		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}, kept {kept_current}, skipped {skipped}")
+		return {
+			"child_id": child_id,
+			"resumed": resumed,
+			"kept_current": kept_current,
+			"not_paused": not_paused,
+			"skipped": skipped,
+		}
 
 	async_register_guarded_service(
 		hass, DOMAIN, SERVICE_PAUSE_APP, handle_pause_app, schema=SCHEMA_PAUSE_APP, supports_response=SupportsResponse.OPTIONAL
