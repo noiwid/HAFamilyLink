@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A bonus counts down.** Google ends a bonus at the time it was granted plus its duration, but the time left stayed at the granted amount (`Active Bonus`, `Screen Time Remaining`, the switch's `remaining_minutes`) until the bonus vanished, then fell to 0: at 57 minutes into a 60-minute bonus Home Assistant still read 60 while the Family Link app read 3 (#255, thanks to @Jam3s97). The time left is now counted down from the bonus's own timestamp at every refresh. `Active Bonus` has a new attribute `bonus_granted_minutes`, and `total_allowed_minutes` stays the granted amount.
+
+---
+
+## [2.9.0] - 2026-11-16
+
 ### Added
 - **Change the Google Play settings from Home Assistant** (#239): `select.<child>_play_purchase_approvals` (`all_content`, `paid_content`, `in_app_purchases`, `never`) and `select.<child>_play_apps_games_rating` (the ratings Google offers the child, e.g. `PEGI 12`). A change counts only once Google's answer shows it; the users allowed to control Family Link apply. The read-only sensors stay.
 - **A day of the history, hour by hour**: tap a bar of the daily history (screen time cards) to see that day's hourly chart in a dialog, from Home Assistant's statistics; arrows (and the left and right keys) move from day to day.
