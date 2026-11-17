@@ -92,3 +92,18 @@ async def test_the_allowed_time_stays_the_granted_bonus_while_the_rest_falls(mon
 
     assert device["total_allowed_minutes"] == 90
     assert device["remaining_minutes"] == 60
+
+
+async def test_the_sensors_read_the_countdown_with_the_daily_limit_on(monkeypatch) -> None:
+    """From Google's answer to what Home Assistant shows: Active Bonus and Screen Time Remaining."""
+    from custom_components.familylink.sensor import ActiveBonusSensor, ScreenTimeRemainingSensor
+
+    device = await _read(monkeypatch, NOW_S, 60, 57 * 60)
+    coordinator = MagicMock()
+    coordinator.data = {"children_data": [{"child_id": CHILD_ID, "devices_time_data": {DEVICE: device}}]}
+    args = (coordinator, CHILD_ID, "Alex", DEVICE, "Tablet")
+
+    assert device["daily_limit_enabled"] is True
+    assert ActiveBonusSensor(*args).native_value == 3
+    assert ScreenTimeRemainingSensor(*args).native_value == 3
+    assert ActiveBonusSensor(*args).extra_state_attributes["bonus_granted_minutes"] == 60
