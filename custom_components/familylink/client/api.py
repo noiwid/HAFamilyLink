@@ -1536,6 +1536,7 @@ class FamilyLinkClient:
 							"bedtime_active": False,
 							"schooltime_active": False,
 							"bonus_minutes": 0,
+							"bonus_granted_minutes": 0,
 							"bonus_override_id": None,
 							"lock_override": lock_override,
 							# Account that created the device's override (lock, unlock
@@ -1581,7 +1582,16 @@ class FamilyLinkClient:
 
 								if bonus_seconds is not None:
 									device_info["bonus_override_id"] = override_id
-									device_info["bonus_minutes"] = bonus_seconds // 60
+									device_info["bonus_granted_minutes"] = bonus_seconds // 60
+									# Google ends a bonus at its creation time plus its duration (#255):
+									# count the time left down from the override's own timestamp, so the
+									# sensors fall between two changes instead of staying at the granted
+									# amount until the override disappears
+									remaining_seconds = bonus_seconds
+									created = device_data[0][1]
+									if isinstance(created, str) and created.isdigit():
+										remaining_seconds = bonus_seconds - (time.time() * 1000 - int(created)) / 1000
+									device_info["bonus_minutes"] = max(0, -(-int(remaining_seconds) // 60))
 									_LOGGER.debug(
 										f"Device {override_device_id}: Found bonus override - "
 										f"id={override_id}, type={override_type}, "
@@ -1859,7 +1869,7 @@ class FamilyLinkClient:
 
 								if bonus_mins > 0:
 									# Bonus is active: bonus REPLACES normal time
-									device_info["total_allowed_minutes"] = bonus_mins
+									device_info["total_allowed_minutes"] = device_info.get("bonus_granted_minutes") or bonus_mins
 									device_info["remaining_minutes"] = bonus_mins
 									_LOGGER.debug(
 										f"Device {device_id}: BONUS ACTIVE - "

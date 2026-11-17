@@ -1623,6 +1623,7 @@ class ActiveBonusSensor(CoordinatorEntity, SensorEntity):
 						time_data = devices_time_data[self._device_id]
 						bonus_mins = time_data.get("bonus_minutes", 0)
 						attributes["has_bonus"] = bonus_mins > 0
+						attributes["bonus_granted_minutes"] = time_data.get("bonus_granted_minutes", 0)
 
 		return attributes
 
