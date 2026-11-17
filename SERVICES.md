@@ -149,6 +149,7 @@ data:
 - `resume_app` reads each app's current setting first and puts the saved one back only while the app is still at 1 minute. A setting a parent changed in the Family Link app during the pause (another limit, unlimited time, no limit) is kept, and the saved one is dropped. If the current settings can't be read, the saved setting is put back as before and a warning is logged.
 - Blocked apps are skipped: `pause_app` leaves them as they are, and `resume_app` leaves an app blocked since the pause blocked (writing its limit back could unblock it) and keeps its saved setting for a later `resume_app`. Calls run one at a time, so a pause and a resume overlapping cannot leave an app paused with nothing saved.
 - Both services require a child and return what they did (`paused`/`skipped`, `resumed`/`kept_current`/`not_paused`/`skipped`).
+- The child's `sensor.<child>_apps_with_time_limits` lists the apps paused this way in its `paused_apps` attribute: `package`, `pause_intact` (false once a parent changed the app's setting in the Family Link app) and `prior` (the setting `resume_app` puts back: minutes, `-1` no limit, `-2` unlimited time). A paused app's 1-minute limit also shows in that sensor's `apps`, so this is how to tell a pause from a 1-minute limit a parent set.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
