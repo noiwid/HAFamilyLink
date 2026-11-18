@@ -51,6 +51,21 @@ from ..schedules import (
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
+_unreadable_logged: dict[str, float] = {}
+
+
+def _warn_unreadable(key: str, message: str, raw: Any) -> None:
+	"""Warn, at most every 15 minutes per key, about an answer of Google that cannot be read.
+
+	The raw text is the only way to know what Google sent: a device that is not
+	read disappears from Home Assistant, and strict mode cannot see it.
+	"""
+	now = time.monotonic()
+	if now - _unreadable_logged.get(key, -1e9) < 900:
+		return
+	_unreadable_logged[key] = now
+	_LOGGER.warning("%s: %s", message, str(raw)[:3000])
+
 
 def _domain_priority(domain: str) -> int:
 	"""Rank of a cookie's domain, lowest first: google.com, then other domains, then regional TLDs.
@@ -1488,19 +1503,26 @@ class FamilyLinkClient:
 				bedtime_enabled_today = False
 				schooltime_enabled_today = False
 
+				if not (len(data) > 1 and isinstance(data[1], list) and data[1]):
+					_warn_unreadable(f"{account_id}:none", "Applied time limits list no device", data)
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
 						if not isinstance(device_data, list) or len(device_data) < 25:
+							_warn_unreadable(f"{account_id}:short", "Applied time limits: device row skipped, too short", device_data)
 							continue
 
-						# Extract device ID
+						# Extract device ID: the override names its device, the row
+						# does too. An override that names none must not drop the
+						# device: it then vanished from Home Assistant, lock and
+						# bedtime with it, and strict mode saw nothing (2026-11-17)
 						device_id = None
 						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
 							device_id = device_data[0][3]
-						elif len(device_data) > 25 and device_data[25]:
+						if not (isinstance(device_id, str) and device_id) and len(device_data) > 25:
 							device_id = device_data[25]
 
-						if not device_id:
+						if not (isinstance(device_id, str) and device_id):
+							_warn_unreadable(f"{account_id}:noid", "Applied time limits: device row skipped, no device id", device_data)
 							continue
 
 						# Parse lock state

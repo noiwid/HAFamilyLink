@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Strict mode puts a Home Assistant lock back on a device Google stops listing.** Google's applied limits sometimes answer without a child's devices: lock and bedtime are then no longer applied, the device switch reads "usable", and strict mode skipped its lock rule for a device without data. A phone locked from Home Assistant at 21:33 stayed free from 22:05 to the end of bedtime. Strict mode now locks such a device again when Home Assistant locked it today (three tries, then the usual warning and `last_try` event); it places or lifts no lock of its own without data. An override that names no device no longer drops the device from the reading, a device row that cannot be read is logged with what Google sent, and the device switch has a `limits_reported` attribute.
 - **A bonus counts down.** Google ends a bonus at the time it was granted plus its duration, but the time left stayed at the granted amount (`Active Bonus`, `Screen Time Remaining`, the switch's `remaining_minutes`) until the bonus vanished, then fell to 0: at 57 minutes into a 60-minute bonus Home Assistant still read 60 while the Family Link app read 3 (#255, thanks to @Jam3s97). The time left is now counted down from the bonus's own timestamp at every refresh. `Active Bonus` has a new attribute `bonus_granted_minutes`, and `total_allowed_minutes` stays the granted amount.
 
 ---
