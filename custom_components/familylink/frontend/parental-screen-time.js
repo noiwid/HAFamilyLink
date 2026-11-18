@@ -47,6 +47,16 @@ const STR = {
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mer.', Thu: 'jeu.', Fri: 'ven.', Sat: 'sam.', Sun: 'dim.' })[d]),
 		f_chart: 'Graphique par heure', f_days: 'Jours', f_history: 'Historique par jour en dessous (seconde carte)',
 	},
+	nl: {
+		today: 'Schermtijd vandaag', history: 'Laatste {n} dagen', left: 'over', no_limit: ' · geen limiet', locked: 'Vergrendeld', unlocked: 'Ontgrendeld',
+		loading: 'Laden…', close: 'Sluiten', prev_day: 'Vorige dag', next_day: 'Volgende dag', none: 'Kies minstens één apparaat of tijdsensor.', missing: 'Niet gevonden: ',
+		f_devices: 'Apparaten (Family Link, Family Safety)', f_entities: 'Andere tijdsensoren (minuten)', f_title: 'Titel', f_language: 'Taal',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Daglimiet bijna bereikt').replace('No restrictions', 'Geen limieten')
+			.replace('School time', 'Schooltijd').replace('Bedtime', 'Bedtijd').replace('(ends ', '(eindigt ').replace(/\bat (\d)/, 'om $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'ma', Tue: 'di', Wed: 'wo', Thu: 'do', Fri: 'vr', Sat: 'za', Sun: 'zo' })[d]),
+
+		f_chart: 'Grafiek per uur', f_days: 'Dagen', f_history: 'Dagelijkse geschiedenis hieronder (tweede kaart)',
+	},
 };
 STR.pl = {
     close: 'Zamknij', prev_day: 'Poprzedni dzień', next_day: 'Następny dzień',
@@ -426,7 +436,7 @@ class Editor extends HTMLElement {
 			...(history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }]
 				: [{ name: 'chart', selector: { boolean: {} } }, { name: 'history', selector: { boolean: {} } },
 					...(this._config.history ? [{ name: 'days', selector: { number: { min: 3, max: 31, mode: 'box' } } }] : [])]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }, { value: 'nl', label: 'Nederlands' }] } } },
 		];
 	}
 }
