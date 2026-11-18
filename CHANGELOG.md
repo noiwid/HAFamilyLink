@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - **A bonus counts down.** Google ends a bonus at the time it was granted plus its duration, but the time left stayed at the granted amount (`Active Bonus`, `Screen Time Remaining`, the switch's `remaining_minutes`) until the bonus vanished, then fell to 0: at 57 minutes into a 60-minute bonus Home Assistant still read 60 while the Family Link app read 3 (#255, thanks to @Jam3s97). The time left is now counted down from the bonus's own timestamp at every refresh. `Active Bonus` has a new attribute `bonus_granted_minutes`, and `total_allowed_minutes` stays the granted amount.
+- **Dutch** for the dashboard cards and the integration
 
 ---
 
