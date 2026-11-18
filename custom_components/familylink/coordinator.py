@@ -39,7 +39,7 @@ from .const import (
 	LOGGER_NAME,
 	WEBSITES_REFRESH,
 )
-from .exceptions import FamilyLinkException, SessionExpiredError
+from .exceptions import FamilyLinkException, NetworkError, SessionExpiredError
 from .schedules import morning_window_from_yesterday
 from .strict_mode import (
 	ACTION_CANCEL_BONUS,
@@ -107,6 +107,24 @@ def _strict_key(action: dict[str, Any]) -> str:
 
 class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	"""Class to manage fetching data from the Family Link API."""
+
+	_fail_logged: dict[str, float] | None = None  # failed read -> when it was last warned about
+
+	def _fetch_failed(self, message: str, err: Exception) -> None:
+		"""Warn about a failed read at most every 15 minutes, then log it at debug.
+
+		Google answers 503 in waves and every read is retried at the next refresh:
+		one warning per wave tells the story, the same line each minute buries the
+		log.
+		"""
+		if self._fail_logged is None:
+			self._fail_logged = {}
+		now = time.monotonic()
+		last = self._fail_logged.get(message)
+		quiet = last is not None and now - last < 900
+		if not quiet:
+			self._fail_logged[message] = now
+		_LOGGER.log(logging.DEBUG if quiet else logging.WARNING, "%s: %s", message, err)
 
 	def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
 		"""Initialize the coordinator."""
@@ -218,7 +236,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._is_retrying_auth = False  # Always reset flag
 
 		except FamilyLinkException as err:
-			_LOGGER.error("Error fetching Family Link data: %s", err)
+			if isinstance(err, NetworkError):
+				self._fetch_failed("Error fetching Family Link data", err)
+			else:
+				_LOGGER.error("Error fetching Family Link data: %s", err)
 			if (cached := self._recent_data()) is not None:
 				_LOGGER.info("Returning last known data due to FamilyLinkException: %s", err)
 				return cached
@@ -311,7 +332,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch apps and usage data for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch apps and usage data for {child_name}", err)
 				# Try to recover apps_usage_data from last known data cache.
 				# Note: deviceInfo is intentionally left out here — the cached
 				# child stores already-parsed `devices`, not raw deviceInfo, so
@@ -403,7 +424,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch time limit config for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch time limit config for {child_name}", err)
 				time_limit_fresh = False
 				# Try to recover from last known data cache
 				if self._last_known_data:
@@ -451,7 +472,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch applied time limits for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch applied time limits for {child_name}", err)
 				applied_limits_fresh = False
 				# Try to recover from last known data cache
 				if self._last_known_data:
@@ -583,7 +604,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch screen time data for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch screen time data for {child_name}", err)
 				# Try to recover from last known data cache
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
@@ -612,7 +633,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				except SessionExpiredError:
 					raise  # Re-raise to trigger auth notification
 				except Exception as err:
-					_LOGGER.warning(f"Failed to fetch location data for {child_name}: {err}")
+					self._fetch_failed(f"Failed to fetch location data for {child_name}", err)
 					# Keep the last position: a cleared one sends the tracker to
 					# unknown and fires zone automations on a Google hiccup
 					for cached_child in (self._last_known_data or {}).get("children_data", []):
@@ -628,7 +649,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch contact restriction for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch contact restriction for {child_name}", err)
 				if self._last_known_data:
 					for cached_child in self._last_known_data.get("children_data", []):
 						if cached_child.get("child_id") == child_id:
@@ -644,7 +665,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except SessionExpiredError:
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
-				_LOGGER.warning(f"Failed to fetch device batteries for {child_name}: {err}")
+				self._fetch_failed(f"Failed to fetch device batteries for {child_name}", err)
 				for cached_child in (self._last_known_data or {}).get("children_data", []):
 					if cached_child.get("child_id") == child_id:
 						device_batteries = cached_child.get("device_batteries", {})
