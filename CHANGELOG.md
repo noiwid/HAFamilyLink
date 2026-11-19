@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2.9.1] - 2026-11-19
 
 ### Added
+- **Dutch** for the integration and the dashboard cards (#258, thanks to @mmmmmarco).
 - **The integration settings in the Family Link card.** For an administrator, "Configure the integration" in the card's settings opens a dialog with the tamper protection rules, the lock that keeps the always allowed apps reachable and location tracking, worded as in Home Assistant's options screen. The server checks the administrator; the users allowed to control Family Link stay in Home Assistant's options screen. Strict mode rules and the lock option now apply without reloading the integration; location tracking still reloads it.
 
 ### Changed

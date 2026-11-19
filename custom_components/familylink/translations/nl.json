@@ -1,0 +1,141 @@
+{
+	"options": {
+		"step": {
+			"init": {
+				"title": "Family Link configureren",
+				"description": "Pas de instellingen van de integratie aan. Wijzigingen worden van kracht na het opslaan.",
+				"data": {
+					"update_interval": "Vernieuwingsinterval (seconden)",
+					"timeout": "Time-out voor verzoeken (seconden)",
+					"enable_location_tracking": "GPS-locatiebepaling inschakelen",
+					"strict_mode": "Omzeilbeveiliging (Home Assistant dwingt de limieten af)",
+					"strict_mode_rules": "Regels voor omzeilbeveiliging",
+					"lock_keeps_allowed_apps": "Vergrendeling: altijd toegestane apps bereikbaar houden",
+					"allowed_users": "Gebruikers die Family Link mogen bedienen"
+				},
+				"data_description": {
+					"update_interval": "Hoe vaak gegevens bij Google worden opgehaald (30-3600 seconden)",
+					"enable_location_tracking": "Indien ingeschakeld kan elke locatiebepaling een melding naar het apparaat van het kind sturen",
+					"strict_mode": "Dicht een gat aan de kant van Google dat veel kinderen weten te benutten: via de Family Link-app of de Google-interface kan een kind onder toezicht zichzelf bonustijd geven, een apparaat zonder resterende tijd ontgrendelen of bedtijd en de daglimiet uitschakelen. Met de omzeilbeveiliging wordt Home Assistant het enige controlepunt: bij elke update maakt het die wijzigingen ongedaan en herstelt het wat u hebt ingesteld. LET OP: zolang ze actief is, wordt elke wijziging in de Family Link-app ongedaan gemaakt, ook door een ouder. Instellingen gebeuren vanuit Home Assistant. Om de controle terug te geven aan Family Link, zet u de omzeilbeveiligingsschakelaar van het kind (Strict mode) uit: die volgt deze optie, het wijzigen van de ene werkt de andere bij.",
+					"strict_mode_rules": "Wat Home Assistant beschermt: op deze punten wordt elke wijziging via Family Link ongedaan gemaakt. Niets wordt geforceerd ingeschakeld, de in Home Assistant gekozen toestand is de referentie. Vink een regel uit om die in Family Link te kunnen wijzigen. Details in de README.",
+					"lock_keeps_allowed_apps": "Aan: een vanuit Home Assistant vergrendeld apparaat laat het kind de apps openen die in Family Link als \"altijd toegestaan\" zijn gemarkeerd, via de knop \"Beschikbare apps\" op het vergrendelscherm (zoals de Family Link-app doet als de instelling voor het vergrendelscherm is aangevinkt). Uit: volledige vergrendeling, alleen noodoproepen.",
+					"allowed_users": "Laat leeg om elke Home Assistant-gebruiker de knoppen, schakelaars en instellingen van Family Link te laten gebruiken (de standaard). Zodra je hier gebruikers aanvinkt, kunnen alleen zij en de beheerders dat nog: het account van een kind zonder beheerdersrechten wordt geweigerd bij elke Family Link-knop, -schakelaar, -limiet, -tijd en -selectie, en bij de familylink.*-acties. Automatiseringen en scripts die door Home Assistant zelf worden gestart, worden niet beïnvloed. Geef het kind een account zonder beheerdersrechten: een beheerder kan deze optie wijzigen."
+				}
+			}
+		}
+	},
+	"config": {
+		"step": {
+			"user": {
+				"title": "Google Family Link",
+				"description": "Kies hoe je verbinding maakt met de Family Link Auth-service.",
+				"menu_options": {
+					"auto_detect": "Automatisch detecteren (add-on of lokaal bestand)",
+					"manual_url": "Handmatige URL-configuratie (zelfstandige Docker)"
+				}
+			},
+			"manual_url": {
+				"title": "URL van de authenticatieserver",
+				"description": "Er is geen lokale authenticatiebron gevonden. Voer de basis-URL van de Family Link Auth-server in. Een eventueel pad-voorvoegsel van een reverse proxy blijft behouden. Als de zelfstandige container een API_KEY heeft ingesteld, voer deze dan apart in; laat de sleutel anders leeg.\n\nVoorbeeld-URL: `http://192.168.1.100:8099`",
+				"data": {
+					"auth_url": "URL van de authenticatieserver",
+					"api_key": "API-sleutel"
+				}
+			},
+			"configure": {
+				"title": "Family Link configureren",
+				"description": "Authenticatiebron: {auth_source}",
+				"data": {
+					"name": "Naam van de integratie",
+					"update_interval": "Vernieuwingsinterval (seconden)",
+					"timeout": "Time-out voor verzoeken (seconden)",
+					"enable_location_tracking": "GPS-locatiebepaling inschakelen",
+					"strict_mode": "Omzeilbeveiliging (Home Assistant dwingt de limieten af)",
+					"strict_mode_rules": "Regels voor omzeilbeveiliging",
+					"lock_keeps_allowed_apps": "Vergrendeling: altijd toegestane apps bereikbaar houden"
+				},
+				"data_description": {
+					"enable_location_tracking": "Indien ingeschakeld kan elke locatiebepaling een melding naar het apparaat van het kind sturen. Standaard uitgeschakeld vanwege privacy.",
+					"strict_mode": "Dicht een gat aan de kant van Google dat veel kinderen weten te benutten: via de Family Link-app of de Google-interface kan een kind onder toezicht zichzelf bonustijd geven, een apparaat zonder resterende tijd ontgrendelen of bedtijd en de daglimiet uitschakelen. Met de omzeilbeveiliging wordt Home Assistant het enige controlepunt: bij elke update maakt het die wijzigingen ongedaan en herstelt het wat u hebt ingesteld. LET OP: zolang ze actief is, wordt elke wijziging in de Family Link-app ongedaan gemaakt, ook door een ouder. Instellingen gebeuren vanuit Home Assistant. Om de controle terug te geven aan Family Link, zet u de omzeilbeveiligingsschakelaar van het kind (Strict mode) uit: die volgt deze optie, het wijzigen van de ene werkt de andere bij.",
+					"strict_mode_rules": "Wat Home Assistant beschermt: op deze punten wordt elke wijziging via Family Link ongedaan gemaakt. Niets wordt geforceerd ingeschakeld, de in Home Assistant gekozen toestand is de referentie. Vink een regel uit om die in Family Link te kunnen wijzigen. Details in de README.",
+					"lock_keeps_allowed_apps": "Aan: een vanuit Home Assistant vergrendeld apparaat laat het kind de apps openen die in Family Link als \"altijd toegestaan\" zijn gemarkeerd, via de knop \"Beschikbare apps\" op het vergrendelscherm (zoals de Family Link-app doet als de instelling voor het vergrendelscherm is aangevinkt). Uit: volledige vergrendeling, alleen noodoproepen."
+				}
+			},
+			"reconfigure": {
+				"title": "Authenticatieserver bijwerken",
+				"description": "Werk de server-URL en de API-sleutel bij. De bestaande sleutel wordt nooit getoond; laat de sleutel leeg om hem te behouden.",
+				"data": {
+					"auth_url": "URL van de authenticatieserver",
+					"api_key": "API-sleutel",
+					"clear_api_key": "API-sleutel wissen"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Kan geen verbinding maken met de authenticatieserver. Controleer de URL en zorg dat de container draait.",
+			"invalid_auth": "Geen cookies gevonden. Authenticeer eerst via de Family Link Auth-add-on of -container.",
+			"url_required": "URL is verplicht",
+			"no_cookies": "De server is bereikbaar, maar er zijn geen cookies gevonden. Authenticeer eerst via de webinterface.",
+			"invalid_api_key": "De authenticatieserver heeft de API-sleutel geweigerd.",
+			"api_key_conflict": "Voer een nieuwe API-sleutel in of kies API-sleutel wissen, niet allebei.",
+			"api_key_required_for_new_url": "Voer bij het wijzigen van de server-URL de bijbehorende API-sleutel in of kies API-sleutel wissen.",
+			"invalid_url": "Voer een geldige HTTP- of HTTPS-URL in zonder inloggegevens, queryparameters of fragmenten.",
+			"unknown": "Er is een onverwachte fout opgetreden"
+		},
+		"abort": {
+			"already_configured": "De integratie is al geconfigureerd",
+			"invalid_config": "Ongeldige configuratie",
+			"reconfigure_successful": "Authenticatieserver bijgewerkt"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"daily_screen_time": {
+				"name": "Dagelijkse schermtijd"
+			},
+			"screen_time_formatted": {
+				"name": "Schermtijd (opgemaakt)"
+			},
+			"installed_apps": {
+				"name": "Geïnstalleerde apps"
+			},
+			"blocked_apps": {
+				"name": "Geblokkeerde apps"
+			},
+			"apps_with_time_limits": {
+				"name": "Apps met tijdslimiet"
+			},
+			"device_count": {
+				"name": "Aantal apparaten"
+			},
+			"child_info": {
+				"name": "Kindinfo"
+			},
+			"top_app": {
+				"name": "Top-app {rank}"
+			}
+		},
+		"switch": {
+			"device_lock": {
+				"name": "Apparaatvergrendeling"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"name": "Locatie"
+			}
+		}
+	},
+	"selector": {
+		"strict_mode_rules": {
+			"options": {
+				"bonus": "Bonustijd: bonussen toegevoegd via Family Link",
+				"lock": "Apparaatvergrendeling: vergrendelen en ontgrendelen",
+				"bedtime": "Bedtijd: in- en uitschakelen",
+				"daily_limit": "Daglimiet: in- en uitschakelen",
+				"school_time": "Schooltijd: in- en uitschakelen",
+				"values": "Weekschema: bedtijden en het quotum van elke dag"
+			}
+		}
+	}
+}
