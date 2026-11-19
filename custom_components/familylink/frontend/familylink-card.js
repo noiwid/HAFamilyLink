@@ -392,13 +392,13 @@ class FamilyLinkCard extends HTMLElement {
 		this._open({
 			back: () => this._settingsDialog(), title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
 			fields: [
-				{ label: label('strict_mode_rules') },
-				...rules.map((r) => {
+				// the rules only matter while this child's strict mode is on (their values are kept)
+				...(this._c('strict_mode') && this._c('strict_mode').state === 'on' ? [{ label: label('strict_mode_rules') }, ...rules.map((r) => {
 					// "Bedtime: switching on and off reserved to Home Assistant" -> title and line below
 					const [title, ...rest] = (loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r).split(/\s?:\s/);
 					const sub = rest.join(': ');
 					return { key: r, toggle: true, flat: true, title, sub: sub && sub[0].toUpperCase() + sub.slice(1) };
-				}),
+				})] : []),
 				{ label: t('g_lock') },
 				{ key: 'keep', toggle: true, flat: true, title: label('lock_keeps_allowed_apps'), sub: '' },
 				{ label: t('g_location') },
