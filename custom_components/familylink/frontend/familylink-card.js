@@ -390,18 +390,18 @@ class FamilyLinkCard extends HTMLElement {
 		for (const r of rules) state[r] = current.strict_mode_rules.includes(r);
 		const now = { ...state };
 		this._open({
-			title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
+			back: () => this._settingsDialog(), title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
 			fields: [
 				{ label: label('strict_mode_rules') },
 				...rules.map((r) => {
 					// "Bedtime: switching on and off reserved to Home Assistant" -> title and line below
 					const [title, ...rest] = (loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r).split(/\s?:\s/);
 					const sub = rest.join(': ');
-					return { key: r, toggle: true, icon: 'mdi:shield-check-outline', title, sub: sub && sub[0].toUpperCase() + sub.slice(1) };
+					return { key: r, toggle: true, flat: true, title, sub: sub && sub[0].toUpperCase() + sub.slice(1) };
 				}),
-				{ key: 'keep', toggle: true, icon: 'mdi:lock-open-variant-outline', title: label('lock_keeps_allowed_apps'), sub: '' },
-				{ key: 'gps', toggle: true, icon: 'mdi:crosshairs-gps', title: label('enable_location_tracking'), sub: t('gps_reload') },
-				{ href: '/config/integrations/integration/familylink', icon: 'mdi:open-in-new', title: t('more'), sub: t('more_sub') },
+				{ key: 'keep', toggle: true, flat: true, sep: true, title: label('lock_keeps_allowed_apps'), sub: '' },
+				{ key: 'gps', toggle: true, flat: true, title: label('enable_location_tracking'), sub: t('gps_reload') },
+				{ href: '/config/integrations/integration/familylink', flat: true, sep: true, title: t('more'), sub: t('more_sub') },
 			],
 			save: async (s) => {
 				const set = {};
@@ -806,8 +806,8 @@ class FamilyLinkDialog extends HTMLElement {
 		const stepper = (st) => `<div class="step"><button data-dir="-1" data-key="${st.key}">&minus;</button><span>${st.fmt(this._state[st.key])}</span><button data-dir="1" data-key="${st.key}">+</button></div>`;
 		// a field is an option (key + value), a switch (toggle), a link (href), or a label between groups
 		const field = (f, i) => (f.label ? `<div class="lbl">${esc(f.label)}</div>` : `
-			<div class="opt${f.key && this._state[f.key] === (f.toggle ? true : f.value) ? ' on' : ''}${f.key || f.href || f.action ? ' pick' : ''}" data-i="${i}"${f.toggle ? ` role="switch" aria-checked="${!!this._state[f.key]}"` : ''}>
-				<div class="chip"><ha-icon icon="${f.icon}"></ha-icon></div>
+			<div class="opt${f.flat ? ' flat' : ''}${f.sep ? ' sep' : ''}${f.key && this._state[f.key] === (f.toggle ? true : f.value) ? ' on' : ''}${f.key || f.href || f.action ? ' pick' : ''}" data-i="${i}"${f.toggle ? ` role="switch" aria-checked="${!!this._state[f.key]}"` : ''}>
+				${f.flat ? '' : `<div class="chip"><ha-icon icon="${f.icon}"></ha-icon></div>`}
 				<div class="txt"><div>${esc(f.title)}</div>${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>${f.stepper ? stepper(f.stepper) : ''}
 				${f.toggle ? `<span class="sw${this._state[f.key] ? ' on' : ''}"></span>` : ''}${f.href || f.action ? '<ha-icon class="chev" icon="mdi:chevron-right"></ha-icon>' : ''}
 			</div>`);
@@ -815,7 +815,7 @@ class FamilyLinkDialog extends HTMLElement {
 			<style>${FamilyLinkDialog.css}</style>
 			<div class="veil"></div>
 			<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(s.title)}">
-				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="${this._inlineInCard ? 'mdi:chevron-left' : 'mdi:close'}"></ha-icon></button></div>
+				<div class="bar"><ha-icon icon="${s.icon}"></ha-icon><span>${esc(s.title)}</span><button class="x" aria-label="${esc(t('close'))}"><ha-icon icon="${this._inlineInCard || s.back ? 'mdi:chevron-left' : 'mdi:close'}"></ha-icon></button></div>
 				<div class="app"><div class="txt"><div class="big">${esc(s.name)}</div>${s.sub ? `<small>${esc(s.sub)}</small>` : ''}</div></div>
 				${s.input ? `<input class="in" data-input="${s.input.key}" placeholder="${esc(s.input.placeholder)}" autocomplete="off" value="${esc(this._state[s.input.key])}" ${this._busy ? 'disabled' : ''}>` : ''}
 				${s.fields.map(field).join('')}
@@ -834,7 +834,7 @@ class FamilyLinkDialog extends HTMLElement {
 			root.appendChild(style);
 		}
 		root.querySelector('.veil').addEventListener('click', () => this._busy || this._close());
-		root.querySelector('.x').addEventListener('click', () => this._busy || this._close());
+		root.querySelector('.x').addEventListener('click', () => { if (this._busy) return; this._close(); if (s.back) s.back(); });
 		root.querySelector('.save').addEventListener('click', () => this._busy || this._save());
 		const input = root.querySelector('[data-input]');
 		if (input) {
@@ -890,6 +890,8 @@ FamilyLinkDialog.css = `
 	.opt.on .chip { background: var(--accent-color, #ff9800); color: #1c1c1e; }
 	.lbl { margin: 14px 4px 8px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #a5a5ac; }
 	.chev { flex: none; color: #a5a5ac; }
+	.opt.flat { margin: 0; padding: 10px 6px; border: 0; border-radius: 0; background: none; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+	.opt.flat.sep { margin-top: 14px; }
 	.sw { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; background: rgba(255, 255, 255, 0.18); transition: background 0.15s; }
 	.sw::after { content: ''; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 12px; background: #ebebf0; transition: left 0.15s; }
 	.sw.on { background: var(--accent-color, #ff9800); } .sw.on::after { left: 24px; }
