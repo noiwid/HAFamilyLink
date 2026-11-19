@@ -20,6 +20,10 @@ from .const import (
 	CONF_AUTH_SOURCE,
 	CONF_AUTH_URL,
 	CONF_STRICT_MODE,
+	CONF_STRICT_MODE_RULES,
+	CONF_LOCK_KEEPS_ALLOWED_APPS,
+	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
+	DEFAULT_STRICT_MODE_RULES,
 	CONF_ALLOWED_USERS,
 	DEFAULT_STRICT_MODE,
 	DOMAIN,
@@ -326,11 +330,20 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
 		other_changed = any(
 			before.get(key) != after.get(key)
 			for key in set(before) | set(after)
-			if key not in (CONF_STRICT_MODE, CONF_ALLOWED_USERS)
+			if key not in (CONF_STRICT_MODE, CONF_ALLOWED_USERS, CONF_STRICT_MODE_RULES, CONF_LOCK_KEEPS_ALLOWED_APPS)
 		)
 		if not other_changed:
 			wanted = bool(after.get(CONF_STRICT_MODE, entry.data.get(CONF_STRICT_MODE, DEFAULT_STRICT_MODE)))
 			coordinator.applied_options = after
+			# Read at every refresh and every lock: applied without recreating the entities
+			coordinator.strict_rules = frozenset(after.get(
+				CONF_STRICT_MODE_RULES, entry.data.get(CONF_STRICT_MODE_RULES, DEFAULT_STRICT_MODE_RULES)
+			) or ())
+			if coordinator.client is not None:
+				coordinator.client.lock_keeps_allowed_apps = bool(after.get(
+					CONF_LOCK_KEEPS_ALLOWED_APPS,
+					entry.data.get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS),
+				))
 			if wanted != coordinator.strict_mode_default:
 				_LOGGER.info(f"Strict mode option set to {wanted}, applied to every child without reload")
 				coordinator.apply_strict_mode_option(wanted)

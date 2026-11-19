@@ -89,7 +89,8 @@ async def test_registered_once():
 		"/familylink_card/familylink-card.js?v=9.9.9-123",
 		"/familylink_card/parental-screen-time.js?v=9.9.9-123",
 	]
-	add_ws.assert_called_once()
+	# the card's entities and the integration settings, once each
+	assert [c.args[1] for c in add_ws.call_args_list] == [card.ws_card_entities, card.ws_settings]
 	if card.StaticPathConfig is None:  # Home Assistant before 2024.7
 		hass.http.register_static_path.assert_called_once()
 	else:

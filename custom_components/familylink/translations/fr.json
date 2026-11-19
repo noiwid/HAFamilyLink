@@ -8,17 +8,17 @@
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
 					"enable_location_tracking": "Activer le suivi GPS",
-					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
-					"strict_mode_rules": "Règles du mode strict",
-					"lock_keeps_allowed_apps": "Le verrouillage laisse accessibles les apps toujours autorisées",
+					"strict_mode": "Anti-contournement (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles anti-contournement",
+					"lock_keeps_allowed_apps": "Verrouillage : garder accessibles les apps toujours autorisées",
 					"allowed_users": "Utilisateurs autorisés à piloter Family Link"
 				},
 				"data_description": {
 					"update_interval": "Fréquence de récupération des données depuis Google (30-3600 secondes)",
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant",
-					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
-					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README.",
-					"lock_keeps_allowed_apps": "Quand c'est activé, un appareil verrouillé depuis Home Assistant laisse l'enfant ouvrir les apps marquées « toujours autorisées » dans Family Link, via un bouton « Applications disponibles » sur l'écran de verrouillage (ce que fait l'app Family Link quand son réglage d'écran de verrouillage est coché). Désactivez pour un verrouillage complet : appels d'urgence seulement.",
+					"strict_mode": "Comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut s'ajouter un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec l'anti-contournement, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et rétablit ce que vous avez défini. ATTENTION : tant qu'il est actif, tout changement fait dans l'application Family Link est annulé, même par un parent. Les réglages se font depuis Home Assistant. Pour redonner la main à Family Link, coupez l'interrupteur anti-contournement de l'enfant (Strict mode) : il reflète cette option, changer l'un met l'autre à jour.",
+					"strict_mode_rules": "Ce que Home Assistant protège : sur ces points, tout changement fait depuis Family Link est annulé. Rien n'est activé de force, l'état choisi dans Home Assistant fait référence. Décochez une règle pour pouvoir la modifier depuis Family Link. Détails dans le README.",
+					"lock_keeps_allowed_apps": "Activé : un appareil verrouillé depuis Home Assistant laisse l'enfant ouvrir les apps marquées « toujours autorisées » dans Family Link, via le bouton « Applications disponibles » de l'écran de verrouillage (comme le fait l'app Family Link quand son réglage d'écran de verrouillage est coché). Désactivé : verrouillage complet, appels d'urgence seulement.",
 					"allowed_users": "Laisser vide pour que tous les utilisateurs de Home Assistant puissent utiliser les boutons, interrupteurs et réglages Family Link (par défaut). Dès que des utilisateurs sont cochés, seuls eux et les administrateurs le peuvent : le compte non administrateur d'un enfant est refusé sur chaque bouton, interrupteur, limite, horaire et liste Family Link, et sur les actions familylink.*. Les automatisations et les scripts lancés par Home Assistant lui-même ne sont pas concernés. Donnez à l'enfant un compte non administrateur : un administrateur peut modifier cette option."
 				}
 			}
@@ -50,15 +50,15 @@
 					"update_interval": "Intervalle de mise à jour (secondes)",
 					"timeout": "Délai d'expiration des requêtes (secondes)",
 					"enable_location_tracking": "Activer le suivi GPS",
-					"strict_mode": "Mode strict (Home Assistant fait respecter les limites)",
-					"strict_mode_rules": "Règles du mode strict",
-					"lock_keeps_allowed_apps": "Le verrouillage laisse accessibles les apps toujours autorisées"
+					"strict_mode": "Anti-contournement (Home Assistant fait respecter les limites)",
+					"strict_mode_rules": "Règles anti-contournement",
+					"lock_keeps_allowed_apps": "Verrouillage : garder accessibles les apps toujours autorisées"
 				},
 				"data_description": {
 					"enable_location_tracking": "Lorsque activé, chaque interrogation de position peut envoyer une notification sur l'appareil de l'enfant. Désactivé par défaut pour la confidentialité.",
-					"strict_mode": "Le mode strict comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut se donner un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec le mode strict, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et impose aux réglages Family Link ce que vous avez défini depuis Home Assistant. ATTENTION : tant qu'il est actif, la gestion de Family Link se fait exclusivement depuis Home Assistant, les changements faits dans l'application Family Link sont annulés. Coupez l'interrupteur « Mode strict » de l'enfant pour redonner la main à Google. Le switch Mode strict de chaque enfant reflète cette option : changer l'un met l'autre à jour.",
-					"strict_mode_rules": "Ce que le mode strict fait respecter. Rien n'est activé de force : l'état choisi dans Home Assistant est la référence. Détails dans le README.",
-					"lock_keeps_allowed_apps": "Quand c'est activé, un appareil verrouillé depuis Home Assistant laisse l'enfant ouvrir les apps marquées « toujours autorisées » dans Family Link, via un bouton « Applications disponibles » sur l'écran de verrouillage (ce que fait l'app Family Link quand son réglage d'écran de verrouillage est coché). Désactivez pour un verrouillage complet : appels d'urgence seulement."
+					"strict_mode": "Comble une faille côté Google que beaucoup d'enfants savent exploiter : depuis l'application Family Link ou l'interface Google, un enfant supervisé peut s'ajouter un bonus de temps, déverrouiller un appareil sans temps restant, ou désactiver le coucher et la limite du jour. Avec l'anti-contournement, Home Assistant devient le seul point de contrôle : à chaque mise à jour, il annule ces changements et rétablit ce que vous avez défini. ATTENTION : tant qu'il est actif, tout changement fait dans l'application Family Link est annulé, même par un parent. Les réglages se font depuis Home Assistant. Pour redonner la main à Family Link, coupez l'interrupteur anti-contournement de l'enfant (Strict mode) : il reflète cette option, changer l'un met l'autre à jour.",
+					"strict_mode_rules": "Ce que Home Assistant protège : sur ces points, tout changement fait depuis Family Link est annulé. Rien n'est activé de force, l'état choisi dans Home Assistant fait référence. Décochez une règle pour pouvoir la modifier depuis Family Link. Détails dans le README.",
+					"lock_keeps_allowed_apps": "Activé : un appareil verrouillé depuis Home Assistant laisse l'enfant ouvrir les apps marquées « toujours autorisées » dans Family Link, via le bouton « Applications disponibles » de l'écran de verrouillage (comme le fait l'app Family Link quand son réglage d'écran de verrouillage est coché). Désactivé : verrouillage complet, appels d'urgence seulement."
 				}
 			},
 			"reconfigure": {
@@ -129,12 +129,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Bonus de temps : ceux ajoutés depuis Family Link sont annulés",
-				"lock": "Verrou de l'appareil : verrouiller et déverrouiller, réservé à Home Assistant",
-				"bedtime": "Coucher : activer et désactiver, réservé à Home Assistant",
-				"daily_limit": "Limite du jour : activer et désactiver, réservé à Home Assistant",
-				"school_time": "Temps scolaire : activer et désactiver, réservé à Home Assistant",
-				"values": "Horaires du coucher et quotas de la semaine : valeurs réservées à Home Assistant"
+				"bonus": "Bonus de temps : bonus ajoutés depuis Family Link",
+				"lock": "Verrouillage de l'appareil : verrouiller et déverrouiller",
+				"bedtime": "Coucher : activation",
+				"daily_limit": "Limite du jour : activation",
+				"school_time": "Temps scolaire : activation",
+				"values": "Programme de la semaine : horaires de coucher et quotas de chaque jour"
 			}
 		}
 	}

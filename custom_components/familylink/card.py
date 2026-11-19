@@ -19,7 +19,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN
+from .const import (
+	CONF_ENABLE_LOCATION_TRACKING,
+	CONF_LOCK_KEEPS_ALLOWED_APPS,
+	CONF_STRICT_MODE_RULES,
+	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
+	DEFAULT_STRICT_MODE_RULES,
+	DOMAIN,
+	STRICT_MODE_RULES,
+)
 
 try:
 	from homeassistant.components.http import StaticPathConfig
@@ -57,6 +65,7 @@ async def async_register_card(hass: HomeAssistant) -> None:
 		stamp = await hass.async_add_executor_job(_mtime, FRONTEND / name)
 		add_extra_js_url(hass, f"{URL_BASE}/{name}?v={version}-{stamp}")
 	websocket_api.async_register_command(hass, ws_card_entities)
+	websocket_api.async_register_command(hass, ws_settings)
 
 
 def card_entities(hass: HomeAssistant, entity_id: str) -> dict[str, Any] | None:
@@ -103,3 +112,39 @@ def ws_card_entities(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 		connection.send_error(msg["id"], "not_found", f"{msg['entity_id']} is not a Family Link entity")
 		return
 	connection.send_result(msg["id"], result)
+
+
+def card_settings(entry: Any) -> dict[str, Any]:
+	"""The integration options the card's settings show, with the defaults applied."""
+	def get(key: str, default: Any) -> Any:
+		return entry.options.get(key, entry.data.get(key, default))
+	return {
+		CONF_STRICT_MODE_RULES: list(get(CONF_STRICT_MODE_RULES, DEFAULT_STRICT_MODE_RULES) or []),
+		CONF_LOCK_KEEPS_ALLOWED_APPS: bool(get(CONF_LOCK_KEEPS_ALLOWED_APPS, DEFAULT_LOCK_KEEPS_ALLOWED_APPS)),
+		CONF_ENABLE_LOCATION_TRACKING: bool(get(CONF_ENABLE_LOCATION_TRACKING, False)),
+	}
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+	vol.Required("type"): "familylink/settings",
+	vol.Required("entity_id"): str,
+	# Only the options the card shows: the allowed users stay in Home Assistant's options screen
+	vol.Optional("set"): {
+		vol.Optional(CONF_STRICT_MODE_RULES): [vol.In(STRICT_MODE_RULES)],
+		vol.Optional(CONF_LOCK_KEEPS_ALLOWED_APPS): bool,
+		vol.Optional(CONF_ENABLE_LOCATION_TRACKING): bool,
+	},
+})
+@callback
+def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+	"""Read, and for an administrator change, the options of the entry ``entity_id`` belongs to."""
+	entity = er.async_get(hass).async_get(msg["entity_id"])
+	entry = hass.config_entries.async_get_entry(entity.config_entry_id) if entity and entity.config_entry_id else None
+	if entry is None or entry.domain != DOMAIN:
+		connection.send_error(msg["id"], "not_found", f"{msg['entity_id']} is not a Family Link entity")
+		return
+	if msg.get("set"):
+		# The options listener applies rules and lock live; the location option reloads the entry
+		hass.config_entries.async_update_entry(entry, options={**entry.options, **msg["set"]})
+	connection.send_result(msg["id"], card_settings(entry))

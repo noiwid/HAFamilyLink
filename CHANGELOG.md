@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-11-19
+
+### Added
+- **The integration settings in the Family Link card.** For an administrator, "Configure the integration" in the card's settings opens a dialog with the tamper protection rules, the lock that keeps the always allowed apps reachable and location tracking, worded as in Home Assistant's options screen. The server checks the administrator; the users allowed to control Family Link stay in Home Assistant's options screen. Strict mode rules and the lock option now apply without reloading the integration; location tracking still reloads it.
+
+### Changed
+- **Strict mode is now called "Tamper protection"** in the options screen and the cards, with a rewritten description. Each rule lists what it protects (bedtime, daily limit and school time: switching on and off; the weekly schedule: bedtime hours and each day's quota), and the card explains the rules: untick one to be able to change it from Family Link. The child's switch keeps its entity id (`..._strict_mode`), so automations are unchanged. In the card, the rules show only while the child's tamper protection is on.
+
 ### Fixed
 - **The screen time cards' editor names the YAML `sources`.** They count in the total but had no field in the visual editor: a PC listed both as a device and as a source was counted twice with nothing on screen to show it. The editor now shows them among the other time sensors, where they can be removed; one kept keeps its name, icon and limit.
 - **Strict mode puts a Home Assistant lock back on a device Google stops listing.** Google's applied limits sometimes answer without a child's devices: lock and bedtime are then no longer applied, the device switch reads "usable", and strict mode skipped its lock rule for a device without data. A phone locked from Home Assistant at 21:33 stayed free from 22:05 to the end of bedtime. Strict mode now locks such a device again when Home Assistant locked it today (three tries, then the usual warning and `last_try` event); it places or lifts no lock of its own without data. An override that names no device no longer drops the device from the reading, a device row that cannot be read is logged with what Google sent, and the device switch has a `limits_reported` attribute.
