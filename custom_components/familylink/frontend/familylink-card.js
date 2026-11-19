@@ -8,7 +8,7 @@
  *   compact: true                    # optional: header and bonus bar only (a second device of the child)
  *   bonus: true                      # optional, true by default (written in a new card): false hides the bonus bar (+15 / +30 / +60 buttons)
  *   inline_app_editor: true          # optional: edit apps inside this card (useful in popup containers)
- *   language: en                     # optional: en, fr, pl, de or es, else the language of Home Assistant
+ *   language: en                     # optional: en, fr, pl, de, es or nl, else the language of Home Assistant
  *   entities:                        # optional: replace an entity of a role, e.g. a school button of your own
  *     child: { school_time: automation.my_school_mode }
  *
@@ -118,6 +118,40 @@ const STR = {
 		lock_sub: "L'appareil ne peut plus être utilisé jusqu'à son déverrouillage.", unlock_sub: "L'appareil peut de nouveau être utilisé, dans ses limites.",
 		save: 'Enregistrer', saving: 'Enregistrement…', close: 'Fermer', loading: 'Chargement…', not_found: 'Entité Family Link introuvable : ',
 		days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+	},
+	nl: {
+		today: 'Vandaag', installed: 'geïnstalleerd', limited: 'beperkt', blocked: 'geblokkeerd', apps: 'Apps', week: 'Weeklimieten',
+		no_usage: 'Vandaag geen gebruik', no_app: 'Geen app', unlimited: 'Onbeperkt', per_day: ' / dag', allowed: 'Toegestane uren: {a} — {b}',
+		app: 'App', cur_blocked: 'Momenteel geblokkeerd', cur_always: 'Momenteel altijd toegestaan',
+		cur_limited: 'Momenteel beperkt tot {t} per dag', cur_none: 'Momenteel geen eigen limiet',
+		always: 'Altijd toegestaan', always_sub: 'Ook als de schermtijd op is', none: 'Geen limiet', none_sub: 'Alleen de totale schermtijd geldt',
+		limit: 'Beperkt', limit_sub: 'Per dag', block: 'Geblokkeerd', block_sub: 'Kan niet meer worden geopend',
+		reset: 'Herstellen', no_bonus: 'Geen bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuleer de actieve bonus', tip_add: '{n} min bonus vandaag',
+		tip_custom: 'Bonus met een eigen duur', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Toegevoegd aan de limiet van vandaag',
+		daily_limit: 'Daglimiet', bedtime: 'Bedtijd', school: 'School', day_settings: 'Daginstellingen', limit_day: 'Toegestane schermtijd op die dag',
+		bed_from: 'Bedtijd vanaf', bed_to: 'Bedtijd tot', steps: 'In stappen van 15 min', school_from: 'School vanaf', school_to: 'School tot',
+		pick_device: 'Kies een telefoon of tablet, niet het kind.',
+		pause: 'Gepauzeerd', pause_sub: 'Blijft geïnstalleerd, hervat met de vorige regel', cur_paused: 'Momenteel gepauzeerd',
+		web: 'Web', web_hint: 'Chrome op alle apparaten van het kind', f_approved: 'Alleen goedgekeurde sites', f_filtered: 'Probeer expliciete sites te blokkeren',
+		site_ph: 'voorbeeld.nl', allow: 'Toestaan', deny: 'Blokkeren', approved: 'Goedgekeurde sites', blocked_sites: 'Geblokkeerde sites', no_site: 'Geen',
+		remove: 'Verwijderen', sites: 'Websites', add_site: 'Website toevoegen', several: 'Eén domein, of meerdere gescheiden door spaties',
+		s_allow: 'Altijd toegestaan', s_allow_sub: 'Ook als het webfilter het zou blokkeren', s_block: 'Altijd geblokkeerd', s_block_sub: 'Chrome weigert de site te openen',
+		s_remove: 'Van de lijsten verwijderen', s_remove_sub: 'Het webfilter beslist weer', allowed_tag: 'toegestaan', blocked_tag: 'geblokkeerd',
+		lock: 'Vergrendelen', unlock: 'Ontgrendelen', lock_q: '{d} vergrendelen?', unlock_q: '{d} ontgrendelen?',
+		next_tr: (s) => s.replace('Daily limit soon reached', 'Daglimiet bijna bereikt').replace('No restrictions', 'Geen limieten')
+			.replace('School time', 'Schooltijd').replace('Bedtime', 'Bedtijd').replace('(ends ', '(eindigt ').replace(/\bat (\d)/, 'om $1').replace('tomorrow', 'morgen')
+			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'ma', Tue: 'di', Wed: 'wo', Thu: 'do', Fri: 'fr', Sat: 'za', Sun: 'zo' })[d]),
+		settings: 'Instellingen', strict: 'Strikte modus', strict_sub: 'Wat aan de Google-kant wordt gewijzigd, wordt teruggezet naar de waarde in Home Assistant',
+		unl: 'Onbeperkte apps tijdens bedtijd', unl_sub: 'Uit: ook de apps met onbeperkte tijd worden geblokkeerd', calls: 'Bellen en sms',
+		calls_opts: { 'Anyone': 'Iedereen', 'Only contacts I add': 'Alleen contacten die ik toevoeg', 'Contacts I add & limited groups': 'Contacten die ik toevoeg en beperkte groepen' },
+		configure: 'De integratie configureren', configure_sub: 'Toegestane gebruikers, regels voor de strikte modus, locatie',
+		not_confirmed: 'Het begin is opgeslagen, het einde niet: Google heeft het nog niet bevestigd. Probeer het opnieuw.',
+		ring: 'Laten overgaan', ring_q: '{d} laten overgaan?', ring_sub: 'Het apparaat gaat over zodat het gevonden kan worden.',
+		locked_by: 'Vergrendeld: {r}',
+		why: { manually_locked: 'Vergrendeld', bedtime_active: 'Vergrendeld: bedtijd', school_time_active: 'Vergrendeld: schooltijd', daily_limit_reached: 'Vergrendeld: daglimiet bereikt' },
+		lock_sub: 'Het apparaat kan niet meer worden gebruikt tot het wordt ontgrendeld.', unlock_sub: 'Het apparaat kan weer worden gebruikt, binnen de limieten.',
+		save: 'Opslaan', saving: 'Opslaan…', close: 'Sluiten', loading: 'Laden…', not_found: 'Family Link-entiteit niet gevonden: ',
+		days: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'],
 	},
 };
 STR.pl = {
@@ -955,7 +989,7 @@ class FamilyLinkCardEditor extends HTMLElement {
 			...(this._config.type === 'custom:familylink-location-card'
 				? [{ name: 'zoom', selector: { number: { min: 8, max: 19, mode: 'slider' } } }, { name: 'height', selector: { number: { min: 150, max: 800, step: 10, mode: 'box' } } }]
 				: [{ name: 'compact', selector: { boolean: {} } }, { name: 'bonus', selector: { boolean: {} } }]),
-			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }] } } },
+			{ name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'pl', label: 'Polski' }, { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }, { value: 'nl', label: 'Nederlands' }] } } },
 		];
 	}
 }
@@ -969,6 +1003,7 @@ const LOC = {
 	en: { title: 'Location', refresh: "Refresh the location (uses the phone's battery)", ago: '{t} ago', now: 'just now', off: 'Location tracking is off in the integration options' },
 	de: { title: 'Standort', refresh: 'Standort aktualisieren (kostet Akku am Handy)', ago: 'vor {t}', now: 'gerade eben', off: 'Die Standortverfolgung ist in den Optionen der Integration ausgeschaltet' },
 	fr: { title: 'Localisation', refresh: 'Actualiser la position (consomme la batterie du téléphone)', ago: 'il y a {t}', now: "à l'instant", off: "Le suivi de position est désactivé dans les options de l'intégration" },
+	nl: { title: 'Locatie', refresh: 'Locatie vernieuwen (verbruikt batterij van de telefoon)', ago: '{t} geleden', now: 'zojuist', off: 'Locatiebepaling staat uit in de opties van de integratie' },
 };
 
 LOC.pl = {
