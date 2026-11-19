@@ -141,10 +141,10 @@ const STR = {
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Daglimiet bijna bereikt').replace('No restrictions', 'Geen limieten')
 			.replace('School time', 'Schooltijd').replace('Bedtime', 'Bedtijd').replace('(ends ', '(eindigt ').replace(/\bat (\d)/, 'om $1').replace('tomorrow', 'morgen')
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'ma', Tue: 'di', Wed: 'wo', Thu: 'do', Fri: 'fr', Sat: 'za', Sun: 'zo' })[d]),
-		settings: 'Instellingen', strict: 'Strikte modus', strict_sub: 'Wat aan de Google-kant wordt gewijzigd, wordt teruggezet naar de waarde in Home Assistant',
+		settings: 'Instellingen', strict: 'Omzeilbeveiliging', strict_sub: 'Alleen Home Assistant beslist: een wijziging in Google Family Link wordt ongedaan gemaakt',
 		unl: 'Onbeperkte apps tijdens bedtijd', unl_sub: 'Uit: ook de apps met onbeperkte tijd worden geblokkeerd', calls: 'Bellen en sms',
 		calls_opts: { 'Anyone': 'Iedereen', 'Only contacts I add': 'Alleen contacten die ik toevoeg', 'Contacts I add & limited groups': 'Contacten die ik toevoeg en beperkte groepen' },
-		configure: 'De integratie configureren', configure_sub: 'Toegestane gebruikers, regels voor de strikte modus, locatie',
+		configure: 'De integratie configureren', configure_sub: 'Regels voor omzeilbeveiliging, locatie, vergrendeling', all_children: 'Deze instellingen gelden voor alle kinderen.', gps_reload: 'Wijzigen laadt de integratie een paar seconden opnieuw', more: 'Andere instellingen in Home Assistant', more_sub: 'Toegestane gebruikers, update-interval, time-out van verzoeken', g_lock: 'Vergrendeling', g_location: 'Locatie', g_all: 'Instellingen voor alle kinderen', rules_sub: 'Kies wat Home Assistant zelf herstelt. Vink een regel uit om die in Family Link te kunnen wijzigen.',
 		not_confirmed: 'Het begin is opgeslagen, het einde niet: Google heeft het nog niet bevestigd. Probeer het opnieuw.',
 		ring: 'Laten overgaan', ring_q: '{d} laten overgaan?', ring_sub: 'Het apparaat gaat over zodat het gevonden kan worden.',
 		locked_by: 'Vergrendeld: {r}',

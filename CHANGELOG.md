@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2.9.1] - 2026-11-19
 
 ### Added
+- **Dutch** for the integration and the dashboard cards (#258, thanks to @mmmmmarco).
 - **The integration settings in the Family Link card.** For an administrator, "Configure the integration" in the card's settings opens a dialog with the tamper protection rules, the lock that keeps the always allowed apps reachable and location tracking, worded as in Home Assistant's options screen. The server checks the administrator; the users allowed to control Family Link stay in Home Assistant's options screen. Strict mode rules and the lock option now apply without reloading the integration; location tracking still reloads it.
 
 ### Changed
@@ -21,7 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Strict mode puts a Home Assistant lock back on a device Google stops listing.** Google's applied limits sometimes answer without a child's devices: lock and bedtime are then no longer applied, the device switch reads "usable", and strict mode skipped its lock rule for a device without data. A phone locked from Home Assistant at 21:33 stayed free from 22:05 to the end of bedtime. Strict mode now locks such a device again when Home Assistant locked it today (three tries, then the usual warning and `last_try` event); it places or lifts no lock of its own without data. An override that names no device no longer drops the device from the reading, a device row that cannot be read is logged with what Google sent, and the device switch has a `limits_reported` attribute.
 - **Google's 503 no longer flood the log.** Google answers 429 and 5xx in waves and every read is retried at the next refresh with the last data kept, but one failed read wrote up to five error lines (the response body, the URL, the failure at two levels). The API layer now logs a 429, a 5xx, a timeout or a dropped connection at debug, and the coordinator warns once per read and per child, then at debug for 15 minutes before warning again if the outage lasts. A lasting refusal (403, for instance) is still an error. This covers every read: family members, apps and usage, time limit rules, applied limits, screen time, location, contact restriction and batteries.
 - **A bonus counts down.** Google ends a bonus at the time it was granted plus its duration, but the time left stayed at the granted amount (`Active Bonus`, `Screen Time Remaining`, the switch's `remaining_minutes`) until the bonus vanished, then fell to 0: at 57 minutes into a 60-minute bonus Home Assistant still read 60 while the Family Link app read 3 (#255, thanks to @Jam3s97). The time left is now counted down from the bonus's own timestamp at every refresh. `Active Bonus` has a new attribute `bonus_granted_minutes`, and `total_allowed_minutes` stays the granted amount.
-- **Dutch** for the dashboard cards and the integration
 
 ---
 
