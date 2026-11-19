@@ -393,8 +393,12 @@ class FamilyLinkCard extends HTMLElement {
 			title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
 			fields: [
 				{ label: label('strict_mode_rules') },
-				...rules.map((r) => ({ key: r, toggle: true, icon: 'mdi:shield-check-outline', title: loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r, sub: '' })),
-				{ label: '' },
+				...rules.map((r) => {
+					// "Bedtime: switching on and off reserved to Home Assistant" -> title and line below
+					const [title, ...rest] = (loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r).split(/\s?:\s/);
+					const sub = rest.join(': ');
+					return { key: r, toggle: true, icon: 'mdi:shield-check-outline', title, sub: sub && sub[0].toUpperCase() + sub.slice(1) };
+				}),
 				{ key: 'keep', toggle: true, icon: 'mdi:lock-open-variant-outline', title: label('lock_keeps_allowed_apps'), sub: '' },
 				{ key: 'gps', toggle: true, icon: 'mdi:crosshairs-gps', title: label('enable_location_tracking'), sub: t('gps_reload') },
 				{ href: '/config/integrations/integration/familylink', icon: 'mdi:open-in-new', title: t('more'), sub: t('more_sub') },
