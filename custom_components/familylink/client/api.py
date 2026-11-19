@@ -51,6 +51,44 @@ from ..schedules import (
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
 
+_unreadable_logged: dict[str, float] = {}
+
+
+def _warn_unreadable(key: str, message: str, raw: Any) -> None:
+	"""Warn, at most every 15 minutes per key, about an answer of Google that cannot be read.
+
+	The raw text is the only way to know what Google sent: a device that is not
+	read disappears from Home Assistant, and strict mode cannot see it.
+	"""
+	now = time.monotonic()
+	if now - _unreadable_logged.get(key, -1e9) < 900:
+		return
+	_unreadable_logged[key] = now
+	_LOGGER.warning("%s: %s", message, str(raw)[:3000])
+
+
+def _transient(err_or_status: Any) -> bool:
+	"""Google's own hiccups (429, 5xx, a timeout, a dropped connection).
+
+	They are retried at the next refresh and come in waves, so the API layer logs
+	them at debug and the coordinator warns once.
+	"""
+	status = err_or_status if isinstance(err_or_status, int) else getattr(err_or_status, "status", None)
+	return (isinstance(status, int) and (status == 429 or status >= 500)) or isinstance(
+		err_or_status, (asyncio.TimeoutError, aiohttp.ClientConnectionError)
+	)
+
+
+def _http_error(message: str, status: int) -> NetworkError:
+	"""A NetworkError that remembers the HTTP status, for _transient."""
+	err = NetworkError(message)
+	err.status = status
+	return err
+
+
+def _log_failure(err_or_status: Any, msg: str, *args: Any) -> None:
+	_LOGGER.log(logging.DEBUG if _transient(err_or_status) else logging.ERROR, msg, *args)
+
 
 def _domain_priority(domain: str) -> int:
 	"""Rank of a cookie's domain, lowest first: google.com, then other domains, then regional TLDs.
@@ -367,7 +405,7 @@ class FamilyLinkClient:
 
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text[:500]}")
+					_log_failure(response.status, "API Error %s: %s", response.status, response_text[:500])
 
 				response.raise_for_status()
 				data = await response.json()
@@ -378,10 +416,10 @@ class FamilyLinkClient:
 			if err.status == 401:
 				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
-			_LOGGER.error("Failed to fetch family members: %s", err)
+			_log_failure(err, "Failed to fetch family members: %s", err)
 			raise NetworkError(f"Failed to fetch family members: {err}") from err
 		except Exception as err:
-			_LOGGER.error("Unexpected error fetching family members: %s", err)
+			_log_failure(err, "Unexpected error fetching family members: %s", err)
 			raise NetworkError(f"Failed to fetch family members: {err}") from err
 
 	async def async_get_supervised_child_id(self) -> str:
@@ -476,8 +514,8 @@ class FamilyLinkClient:
 				_LOGGER.debug(f"Response status: {response.status}")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"API Error {response.status}: {response_text}")
-					_LOGGER.error(f"Request URL was: {url}")
+					_log_failure(response.status, "API Error %s: %s", response.status, response_text)
+					_log_failure(response.status, "Request URL was: %s", url)
 
 				response.raise_for_status()
 				data = await response.json()
@@ -492,10 +530,10 @@ class FamilyLinkClient:
 			if err.status == 401:
 				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
-			_LOGGER.error("Failed to fetch apps and usage: %s", err)
+			_log_failure(err, "Failed to fetch apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
 		except Exception as err:
-			_LOGGER.error("Unexpected error fetching apps and usage: %s", err)
+			_log_failure(err, "Unexpected error fetching apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
 
 	async def async_get_daily_screen_time(
@@ -672,7 +710,7 @@ class FamilyLinkClient:
 		except SessionExpiredError:
 			raise  # Re-raise to trigger auth notification
 		except Exception as err:
-			_LOGGER.error("Failed to fetch daily screen time: %s", err)
+			_log_failure(err, "Failed to fetch daily screen time: %s", err)
 			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
 
 	async def async_get_location(
@@ -740,10 +778,10 @@ class FamilyLinkClient:
 					return None
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch location (HTTP {response.status}): {response_text}")
+					_log_failure(response.status, "Failed to fetch location (HTTP %s): %s", response.status, response_text)
 					if response.status == 429 or response.status >= 500:
 						# Transient: the caller keeps the last position
-						raise NetworkError(f"Location request failed with HTTP {response.status}")
+						raise _http_error(f"Location request failed with HTTP {response.status}", response.status)
 					# Lasting (sharing turned off, access refused): no position, not a frozen one
 					return None
 
@@ -839,7 +877,7 @@ class FamilyLinkClient:
 		except (SessionExpiredError, NetworkError):
 			raise  # Session refresh / the caller keeps the last position
 		except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-			_LOGGER.error(f"Failed to fetch location for child {account_id}: {err}")
+			_log_failure(err, "Failed to fetch location for child %s: %s", account_id, err)
 			raise NetworkError(f"Failed to fetch location: {err}") from err
 		except Exception as err:
 			# An answer that no longer parses is lasting: no position rather than a frozen one
@@ -1471,8 +1509,8 @@ class FamilyLinkClient:
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch applied time limits {response.status}: {response_text}")
-					raise NetworkError(f"Failed to fetch applied time limits: HTTP {response.status}")
+					_log_failure(response.status, "Failed to fetch applied time limits %s: %s", response.status, response_text)
+					raise _http_error(f"Failed to fetch applied time limits: HTTP {response.status}", response.status)
 
 				data = await response.json()
 				_LOGGER.debug(f"Applied time limits response (first 500 chars): {str(data)[:500]}")
@@ -1488,19 +1526,26 @@ class FamilyLinkClient:
 				bedtime_enabled_today = False
 				schooltime_enabled_today = False
 
+				if not (len(data) > 1 and isinstance(data[1], list) and data[1]):
+					_warn_unreadable(f"{account_id}:none", "Applied time limits list no device", data)
 				if len(data) > 1 and isinstance(data[1], list):
 					for device_data in data[1]:
 						if not isinstance(device_data, list) or len(device_data) < 25:
+							_warn_unreadable(f"{account_id}:short", "Applied time limits: device row skipped, too short", device_data)
 							continue
 
-						# Extract device ID
+						# Extract device ID: the override names its device, the row
+						# does too. An override that names none must not drop the
+						# device: it then vanished from Home Assistant, lock and
+						# bedtime with it, and strict mode saw nothing (2026-11-17)
 						device_id = None
 						if device_data[0] and isinstance(device_data[0], list) and len(device_data[0]) > 3:
 							device_id = device_data[0][3]
-						elif len(device_data) > 25 and device_data[25]:
+						if not (isinstance(device_id, str) and device_id) and len(device_data) > 25:
 							device_id = device_data[25]
 
-						if not device_id:
+						if not (isinstance(device_id, str) and device_id):
+							_warn_unreadable(f"{account_id}:noid", "Applied time limits: device row skipped, no device id", device_data)
 							continue
 
 						# Parse lock state
@@ -1911,7 +1956,7 @@ class FamilyLinkClient:
 		except SessionExpiredError:
 			raise
 		except Exception as err:
-			_LOGGER.error("Failed to fetch applied time limits: %s", err)
+			_log_failure(err, "Failed to fetch applied time limits: %s", err)
 			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
 
 	async def async_add_time_bonus(
@@ -4093,16 +4138,14 @@ class FamilyLinkClient:
 					)
 				elif response.status != 200:
 					response_text = await response.text()
-					# Use warning for temporary errors (503), error for others
-					log_method = _LOGGER.warning if response.status == 503 else _LOGGER.error
-					log_method(f"Failed to fetch time limit rules (HTTP {response.status}): {response_text}")
+					_log_failure(response.status, "Failed to fetch time limit rules (HTTP %s): %s", response.status, response_text)
 				if response.status != 200:
 					# Raise rather than return "everything off, no schedule": a
 					# default result looked like a real answer, the coordinator
 					# never fell back to its cache, and strict mode read it as
 					# bedtime switched off and seven bedtime slots missing (a
 					# single 503 on 2026-09-26 triggered nine corrections)
-					raise NetworkError(f"Failed to fetch time limit rules: HTTP {response.status}")
+					raise _http_error(f"Failed to fetch time limit rules: HTTP {response.status}", response.status)
 
 				response_data = await response.json()
 				_LOGGER.debug(f"Time limit rules response: {response_data}")
@@ -4402,7 +4445,7 @@ class FamilyLinkClient:
 		except SessionExpiredError:
 			raise
 		except Exception as err:
-			_LOGGER.error("Failed to fetch time limit rules: %s", err)
+			_log_failure(err, "Failed to fetch time limit rules: %s", err)
 			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
 
 	async def async_cleanup(self) -> None:
@@ -4451,8 +4494,8 @@ class FamilyLinkClient:
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
 					response_text = await response.text()
-					_LOGGER.error(f"Failed to fetch contact restriction {response.status}: {response_text}")
-					raise NetworkError(f"Failed to fetch contact restriction: HTTP {response.status}")
+					_log_failure(response.status, "Failed to fetch contact restriction %s: %s", response.status, response_text)
+					raise _http_error(f"Failed to fetch contact restriction: HTTP {response.status}", response.status)
 
 				data = await response.json()
 				_LOGGER.debug(f"Contact restriction response: {data}")
@@ -4465,7 +4508,7 @@ class FamilyLinkClient:
 		except (SessionExpiredError, NetworkError):
 			raise
 		except Exception as err:
-			_LOGGER.error(f"Error fetching contact restriction: {err}")
+			_log_failure(err, "Error fetching contact restriction: %s", err)
 			raise NetworkError(f"Error fetching contact restriction: {err}") from err
 
 	@staticmethod
@@ -4508,7 +4551,7 @@ class FamilyLinkClient:
 					_LOGGER.error("✗ 401 Unauthorized - Session expired fetching device batteries")
 					raise SessionExpiredError("Session expired, please re-authenticate")
 				if response.status != 200:
-					raise NetworkError(f"Failed to fetch device batteries: HTTP {response.status}")
+					raise _http_error(f"Failed to fetch device batteries: HTTP {response.status}", response.status)
 				return self._parse_device_batteries(await response.json())
 
 		except (SessionExpiredError, NetworkError):
@@ -4634,7 +4677,7 @@ class FamilyLinkClient:
 			text = await response.text()
 			if response.status != 200:
 				_LOGGER.error(f"Website restrictions {suffix} failed {response.status}: {text[:300]}")
-				raise NetworkError(f"Website restrictions {suffix} failed: HTTP {response.status}")
+				raise _http_error(f"Website restrictions {suffix} failed: HTTP {response.status}", response.status)
 		try:
 			return json.loads(text) if text.strip() else {}
 		except ValueError as err:
@@ -4676,7 +4719,7 @@ class FamilyLinkClient:
 			text = await response.text()
 			if response.status != 200:
 				_LOGGER.error(f"Web filter level change to {level} failed {response.status}: {text[:300]}")
-				raise NetworkError(f"Web filter level change failed: HTTP {response.status}")
+				raise _http_error(f"Web filter level change failed: HTTP {response.status}", response.status)
 		lists = await self.async_get_website_restrictions(account_id)
 		_LOGGER.info(f"Web filter level set to {level} for {account_id} (Google reads {lists.get('filter_level')!r})")
 		return lists
@@ -4761,7 +4804,7 @@ class FamilyLinkClient:
 				raise SessionExpiredError("Session expired, please re-authenticate")
 			text = await response.text()
 			if response.status != 200:
-				raise NetworkError(f"{path} failed: HTTP {response.status}")
+				raise _http_error(f"{path} failed: HTTP {response.status}", response.status)
 		try:
 			return json.loads(text)
 		except ValueError as err:

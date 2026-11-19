@@ -213,6 +213,9 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		# Get time restrictions
 		time_data = self._get_device_time_data()
+		# False when Google's applied limits no longer list the device: its lock
+		# and restrictions are then unknown, and the switch reads "usable"
+		attributes["limits_reported"] = bool(time_data)
 		if time_data:
 			attributes["bedtime_active"] = time_data.get("bedtime_active", False)
 			attributes["school_time_active"] = time_data.get("schooltime_active", False)
