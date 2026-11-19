@@ -41,7 +41,7 @@ const STR = {
 		settings: 'Settings', strict: 'Strict mode', strict_sub: 'What is changed on the Google side is put back as in Home Assistant',
 		unl: 'Unlimited apps during bedtime', unl_sub: 'Off: the apps with unlimited time are blocked too', calls: 'Calls and texts',
 		calls_opts: { 'Anyone': 'Anyone', 'Only contacts I add': 'Only contacts I add', 'Contacts I add & limited groups': 'Contacts I add and limited groups' },
-		configure: 'Configure the integration', configure_sub: 'Users allowed, strict mode rules, location',
+		configure: 'Configure the integration', configure_sub: 'Strict mode rules, location, lock', all_children: 'These settings apply to every child.', gps_reload: 'Changing it reloads the integration for a few seconds', more: 'Other settings in Home Assistant', more_sub: 'Users allowed, update interval, request timeout',
 		not_confirmed: 'The start is saved, the end is not: Google has not confirmed it yet. Try again.',
 		ring: 'Ring', ring_q: 'Ring {d}?', ring_sub: 'The device rings so it can be found.',
 		locked_by: 'Locked: {r}',
@@ -76,7 +76,7 @@ const STR = {
 		settings: 'Einstellungen', strict: 'Strenger Modus', strict_sub: 'Änderungen auf der Google-Seite werden auf den Stand in Home Assistant zurückgesetzt',
 		unl: 'Unbegrenzte Apps in der Schlafenszeit', unl_sub: 'Aus: Auch die Apps ohne Zeitlimit werden gesperrt', calls: 'Anrufe und Nachrichten',
 		calls_opts: { 'Anyone': 'Alle', 'Only contacts I add': 'Nur von mir hinzugefügte Kontakte', 'Contacts I add & limited groups': 'Von mir hinzugefügte Kontakte und begrenzte Gruppen' },
-		configure: 'Integration konfigurieren', configure_sub: 'Berechtigte Benutzer, Regeln des strengen Modus, Standort',
+		configure: 'Integration konfigurieren', configure_sub: 'Regeln des strengen Modus, Standort, Sperre', all_children: 'Diese Einstellungen gelten für alle Kinder.', gps_reload: 'Eine Änderung lädt die Integration einige Sekunden neu', more: 'Weitere Einstellungen in Home Assistant', more_sub: 'Berechtigte Benutzer, Aktualisierungsintervall, Zeitlimit',
 		not_confirmed: 'Der Beginn ist gespeichert, das Ende noch nicht: Google hat es noch nicht bestätigt. Bitte erneut versuchen.',
 		ring: 'Klingeln', ring_q: '{d} klingeln lassen?', ring_sub: 'Das Gerät klingelt, damit man es findet.',
 		why: { manually_locked: 'Gesperrt', bedtime_active: 'Gesperrt: Schlafenszeit', school_time_active: 'Gesperrt: Schulzeit', daily_limit_reached: 'Gesperrt: Tageslimit erreicht' },
@@ -110,7 +110,7 @@ const STR = {
 		settings: 'Réglages', strict: 'Mode strict', strict_sub: 'Ce qui est changé côté Google est remis comme dans Home Assistant',
 		unl: 'Apps illimitées pendant le coucher', unl_sub: 'Désactivé : les apps à temps illimité sont bloquées aussi', calls: 'Appels et SMS',
 		calls_opts: { 'Anyone': 'Tout le monde', 'Only contacts I add': 'Seulement mes contacts ajoutés', 'Contacts I add & limited groups': 'Mes contacts ajoutés et groupes limités' },
-		configure: "Configurer l'intégration", configure_sub: 'Utilisateurs autorisés, règles du mode strict, position',
+		configure: "Configurer l'intégration", configure_sub: 'Règles du mode strict, position, verrouillage', all_children: 'Ces réglages valent pour tous les enfants.', gps_reload: "Le changer recharge l'intégration quelques secondes", more: 'Autres réglages dans Home Assistant', more_sub: 'Utilisateurs autorisés, intervalle de mise à jour, délai des requêtes',
 		not_confirmed: "Le début est enregistré, pas la fin : Google ne l'a pas encore confirmé. Réessayez.",
 		ring: 'Faire sonner', ring_q: 'Faire sonner {d} ?', ring_sub: "L'appareil sonne pour qu'on le retrouve.",
 		locked_by: 'Bloqué : {r}',
@@ -159,7 +159,7 @@ STR.pl = {
     unl: 'Aplikacje bez limitu podczas pory snu', unl_sub: 'Wyłączone: także aplikacje bez limitu są wtedy blokowane',
     calls: 'Połączenia i SMS-y',
     calls_opts: {'Anyone': 'Wszyscy', 'Only contacts I add': 'Tylko dodane kontakty', 'Contacts I add & limited groups': 'Dodane kontakty i wybrane grupy'},
-    configure: 'Konfiguruj integrację', configure_sub: 'Uprawnieni użytkownicy, zasady trybu ścisłego i lokalizacja',
+    configure: 'Konfiguruj integrację', configure_sub: 'Zasady trybu ścisłego, lokalizacja i blokada', all_children: 'Te ustawienia dotyczą wszystkich dzieci.', gps_reload: 'Zmiana przeładowuje integrację na kilka sekund', more: 'Inne ustawienia w Home Assistant', more_sub: 'Uprawnieni użytkownicy, interwał aktualizacji, limit czasu żądań',
     not_confirmed: 'Początek zapisano, ale Google nie potwierdził końca. Spróbuj ponownie.',
     ring: 'Zadzwoń', ring_q: 'Uruchomić dzwonek na {d}?', ring_sub: 'Telefon zacznie dzwonić, aby łatwiej go znaleźć.',
     why: {manually_locked: 'Zablokowany', bedtime_active: 'Zablokowany: pora snu', school_time_active: 'Zablokowany: szkoła', daily_limit_reached: 'Zablokowany: wyczerpany limit'},
@@ -193,7 +193,7 @@ STR.es = {
 	settings: 'Ajustes', strict: 'Modo estricto', strict_sub: 'Lo que se cambia en Google se restablece como en Home Assistant',
 	unl: 'Apps sin límite durante la hora de dormir', unl_sub: 'Desactivado: las apps sin límite de tiempo también se bloquean', calls: 'Llamadas y mensajes',
 	calls_opts: { 'Anyone': 'Cualquiera', 'Only contacts I add': 'Solo los contactos que añado', 'Contacts I add & limited groups': 'Los contactos que añado y grupos limitados' },
-	configure: 'Configurar la integración', configure_sub: 'Usuarios autorizados, reglas del modo estricto, ubicación',
+	configure: 'Configurar la integración', configure_sub: 'Reglas del modo estricto, ubicación, bloqueo', all_children: 'Estos ajustes valen para todos los niños.', gps_reload: 'Cambiarlo recarga la integración unos segundos', more: 'Otros ajustes en Home Assistant', more_sub: 'Usuarios autorizados, intervalo de actualización, tiempo de espera',
 	not_confirmed: 'El inicio está guardado, el final no: Google aún no lo ha confirmado. Inténtalo de nuevo.',
 	ring: 'Hacer sonar', ring_q: '¿Hacer sonar {d}?', ring_sub: 'El dispositivo suena para poder encontrarlo.',
 	locked_by: 'Bloqueado: {r}',
@@ -375,6 +375,40 @@ class FamilyLinkCard extends HTMLElement {
 	}
 
 	/** Locking is never one tap away: on a phone a scroll can land on the icon. */
+	async _integrationDialog() {
+		const t = (k) => this._t(k), entity = this._map.device.lock || Object.values(this._map.device)[0];
+		const current = await this._hass.callWS({ type: 'familylink/settings', entity_id: entity });
+		// the wording of Home Assistant's options screen, in the language of Home Assistant
+		let loc = () => '';
+		try {
+			const [options, selector] = await Promise.all(['options', 'selector'].map((c) => this._hass.loadBackendTranslation(c, 'familylink')));
+			loc = (k) => options(k) || selector(k);
+		} catch (err) { /* older frontend: the keys are shown */ }
+		const label = (k) => loc(`component.familylink.options.step.init.data.${k}`) || k;
+		const rules = ['bonus', 'lock', 'bedtime', 'daily_limit', 'school_time', 'values'];
+		const state = { keep: current.lock_keeps_allowed_apps, gps: current.enable_location_tracking };
+		for (const r of rules) state[r] = current.strict_mode_rules.includes(r);
+		const now = { ...state };
+		this._open({
+			title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
+			fields: [
+				{ label: label('strict_mode_rules') },
+				...rules.map((r) => ({ key: r, toggle: true, icon: 'mdi:shield-check-outline', title: loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r, sub: '' })),
+				{ label: '' },
+				{ key: 'keep', toggle: true, icon: 'mdi:lock-open-variant-outline', title: label('lock_keeps_allowed_apps'), sub: '' },
+				{ key: 'gps', toggle: true, icon: 'mdi:crosshairs-gps', title: label('enable_location_tracking'), sub: t('gps_reload') },
+				{ href: '/config/integrations/integration/familylink', icon: 'mdi:open-in-new', title: t('more'), sub: t('more_sub') },
+			],
+			save: async (s) => {
+				const set = {};
+				if (rules.some((r) => s[r] !== now[r])) set.strict_mode_rules = rules.filter((r) => s[r]);
+				if (s.keep !== now.keep) set.lock_keeps_allowed_apps = s.keep;
+				if (s.gps !== now.gps) set.enable_location_tracking = s.gps;
+				if (Object.keys(set).length) await this._hass.callWS({ type: 'familylink/settings', entity_id: entity, set });
+			},
+		});
+	}
+
 	_settingsDialog() {
 		const t = (k) => this._t(k), strict = this._c('strict_mode'), unl = this._c('downtime_unlimited_apps'), calls = this._c('allowed_calls_texts');
 		const fields = [], state = {};
@@ -386,8 +420,8 @@ class FamilyLinkCard extends HTMLElement {
 			fields.push({ label: t('calls') });
 			for (const o of calls.attributes.options || []) fields.push({ key: 'calls', value: o, icon: 'mdi:phone-outline', title: t('calls_opts')[o] || o, sub: '' });
 		}
-		// the options flow is for administrators only
-		if (this._hass.user && this._hass.user.is_admin) fields.push({ href: '/config/integrations/integration/familylink', icon: 'mdi:cog-outline', title: t('configure'), sub: t('configure_sub') });
+		// the integration's options are for administrators only (the server checks it too)
+		if (this._hass.user && this._hass.user.is_admin) fields.push({ action: () => this._integrationDialog(), icon: 'mdi:tune-variant', title: t('configure'), sub: t('configure_sub') });
 		const child = this._map.child, now = { ...state };
 		this._open({
 			title: t('settings'), icon: 'mdi:cog-outline', name: ((this._c('screen_time_total') || {}).attributes || {}).child_name || '', sub: '',
@@ -768,10 +802,10 @@ class FamilyLinkDialog extends HTMLElement {
 		const stepper = (st) => `<div class="step"><button data-dir="-1" data-key="${st.key}">&minus;</button><span>${st.fmt(this._state[st.key])}</span><button data-dir="1" data-key="${st.key}">+</button></div>`;
 		// a field is an option (key + value), a switch (toggle), a link (href), or a label between groups
 		const field = (f, i) => (f.label ? `<div class="lbl">${esc(f.label)}</div>` : `
-			<div class="opt${f.key && this._state[f.key] === (f.toggle ? true : f.value) ? ' on' : ''}${f.key || f.href ? ' pick' : ''}" data-i="${i}"${f.toggle ? ` role="switch" aria-checked="${!!this._state[f.key]}"` : ''}>
+			<div class="opt${f.key && this._state[f.key] === (f.toggle ? true : f.value) ? ' on' : ''}${f.key || f.href || f.action ? ' pick' : ''}" data-i="${i}"${f.toggle ? ` role="switch" aria-checked="${!!this._state[f.key]}"` : ''}>
 				<div class="chip"><ha-icon icon="${f.icon}"></ha-icon></div>
 				<div class="txt"><div>${esc(f.title)}</div>${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>${f.stepper ? stepper(f.stepper) : ''}
-				${f.toggle ? `<span class="sw${this._state[f.key] ? ' on' : ''}"></span>` : ''}${f.href ? '<ha-icon class="chev" icon="mdi:chevron-right"></ha-icon>' : ''}
+				${f.toggle ? `<span class="sw${this._state[f.key] ? ' on' : ''}"></span>` : ''}${f.href || f.action ? '<ha-icon class="chev" icon="mdi:chevron-right"></ha-icon>' : ''}
 			</div>`);
 		this.shadowRoot.innerHTML = `
 			<style>${FamilyLinkDialog.css}</style>
@@ -808,6 +842,11 @@ class FamilyLinkDialog extends HTMLElement {
 		root.querySelectorAll('.pick').forEach((o) => o.addEventListener('click', () => {
 			if (this._busy) return;
 			const f = s.fields[o.dataset.i];
+			if (f.action) {
+				this._close();
+				Promise.resolve(f.action()).catch((err) => console.error('Family Link:', err));
+				return;
+			}
 			if (f.href) {
 				this._close();
 				history.pushState(null, '', f.href);
