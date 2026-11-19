@@ -410,14 +410,20 @@ class FamilyLinkCard extends HTMLElement {
 
 	/** Locking is never one tap away: on a phone a scroll can land on the icon. */
 	async _integrationDialog() {
-		const t = (k) => this._t(k), entity = this._map.device.lock || Object.values(this._map.device)[0];
-		const current = await this._hass.callWS({ type: 'familylink/settings', entity_id: entity });
-		// the wording of Home Assistant's options screen, in the language of Home Assistant
-		let loc = () => '';
+		const t = (k) => this._t(k), device = (this._map && this._map.device) || {}, entity = device.lock || Object.values(device)[0];
+		// an entity outside the registry (a demo, a YAML template) cannot reach the options: the screen opens
+		// with the defaults and saving shows the server's answer
+		let current, refused;
+		try { current = await this._hass.callWS({ type: 'familylink/settings', entity_id: entity }); } catch (err) { refused = err; }
+		current = current || { strict_mode_rules: ['bonus', 'lock', 'bedtime', 'daily_limit', 'school_time', 'values'], lock_keeps_allowed_apps: true, enable_location_tracking: false };
+		// the wording of Home Assistant's options screen, in the card's language (a card set to English on a French Home Assistant)
+		let words = {};
 		try {
-			const [options, selector] = await Promise.all(['options', 'selector'].map((c) => this._hass.loadBackendTranslation(c, 'familylink')));
-			loc = (k) => options(k) || selector(k);
-		} catch (err) { /* older frontend: the keys are shown */ }
+			const language = (this._config.language || this._hass.language || 'en').slice(0, 2);
+			const got = await Promise.all(['options', 'selector'].map((category) => this._hass.callWS({ type: 'frontend/get_translations', language, category, integration: ['familylink'] })));
+			words = Object.assign({}, ...got.map((r) => r.resources || {}));
+		} catch (err) { /* the keys are shown */ }
+		const loc = (k) => words[k] || '';
 		const label = (k) => loc(`component.familylink.options.step.init.data.${k}`) || k;
 		const rules = ['bonus', 'lock', 'bedtime', 'daily_limit', 'school_time', 'values'];
 		const state = { keep: current.lock_keeps_allowed_apps, gps: current.enable_location_tracking };
@@ -440,6 +446,7 @@ class FamilyLinkCard extends HTMLElement {
 				{ href: '/config/integrations/integration/familylink', flat: true, sep: true, title: t('more'), sub: t('more_sub') },
 			],
 			save: async (s) => {
+				if (refused) throw new Error(refused.message || String(refused));
 				const set = {};
 				if (rules.some((r) => s[r] !== now[r])) set.strict_mode_rules = rules.filter((r) => s[r]);
 				if (s.keep !== now.keep) set.lock_keeps_allowed_apps = s.keep;

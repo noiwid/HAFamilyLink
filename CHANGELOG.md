@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.9.2] - 2026-11-19
+
+### Fixed
+- **The integration settings of the Family Link card open for any card.** A card built on entities outside the entity registry (a demo, template entities) did not open the second screen: it now opens with the default values, and saving shows why it cannot be saved. Its labels follow the card's language instead of Home Assistant's.
+
 ## [2.9.1] - 2026-11-19
 
 ### Added
