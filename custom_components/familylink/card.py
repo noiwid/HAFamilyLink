@@ -26,6 +26,7 @@ from .const import (
 	DEFAULT_LOCK_KEEPS_ALLOWED_APPS,
 	DEFAULT_STRICT_MODE_RULES,
 	DOMAIN,
+	STRICT_MODE_RULES,
 )
 
 try:
@@ -130,7 +131,7 @@ def card_settings(entry: Any) -> dict[str, Any]:
 	vol.Required("entity_id"): str,
 	# Only the options the card shows: the allowed users stay in Home Assistant's options screen
 	vol.Optional("set"): {
-		vol.Optional(CONF_STRICT_MODE_RULES): [vol.In(DEFAULT_STRICT_MODE_RULES)],
+		vol.Optional(CONF_STRICT_MODE_RULES): [vol.In(STRICT_MODE_RULES)],
 		vol.Optional(CONF_LOCK_KEEPS_ALLOWED_APPS): bool,
 		vol.Optional(CONF_ENABLE_LOCATION_TRACKING): bool,
 	},
