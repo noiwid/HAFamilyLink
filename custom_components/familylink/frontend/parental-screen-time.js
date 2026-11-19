@@ -26,7 +26,7 @@ const STR = {
 		loading: 'Loading…', close: 'Close', prev_day: 'Previous day', next_day: 'Next day', none: 'Choose at least one device or time sensor.', missing: 'Not found: ',
 		f_devices: 'Devices (Family Link, Family Safety)', f_entities: 'Other time sensors (minutes)', f_title: 'Title', f_language: 'Language',
 		next_tr: (s) => s,
-		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)', f_sources: 'Also counted in the total, from the YAML (sources): ',
+		f_chart: 'Hourly chart', f_days: 'Days', f_history: 'Daily history below (second card)',
 	},
 	de: {
 		close: 'Schließen', prev_day: 'Vorheriger Tag', next_day: 'Nächster Tag',
@@ -36,7 +36,7 @@ const STR = {
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
 			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
-		f_chart: 'Stundendiagramm', f_days: 'Tage', f_history: 'Tagesverlauf darunter (zweite Karte)', f_sources: 'Zählt ebenfalls zur Summe, aus dem YAML (sources): ',
+		f_chart: 'Stundendiagramm', f_days: 'Tage', f_history: 'Tagesverlauf darunter (zweite Karte)',
 	},
 	fr: {
 		today: "Temps d'écran aujourd'hui", history: '{n} derniers jours', left: 'reste', no_limit: ' · sans limite', locked: 'Verrouillé', unlocked: 'Libre',
@@ -45,7 +45,7 @@ const STR = {
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Limite du jour bientôt atteinte').replace('No restrictions', 'Aucune restriction')
 			.replace('School time', 'École').replace('Bedtime', 'Coucher').replace('(ends ', '(fin ').replace(/\bat (\d)/, 'à $1').replace('tomorrow', 'demain')
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mer.', Thu: 'jeu.', Fri: 'ven.', Sat: 'sam.', Sun: 'dim.' })[d]),
-		f_chart: 'Graphique par heure', f_days: 'Jours', f_history: 'Historique par jour en dessous (seconde carte)', f_sources: 'Compté aussi dans le total, depuis le YAML (sources) : ',
+		f_chart: 'Graphique par heure', f_days: 'Jours', f_history: 'Historique par jour en dessous (seconde carte)',
 	},
 };
 STR.pl = {
@@ -64,7 +64,7 @@ STR.pl = {
         .replace(/\bat (\d)/, 'o $1')
         .replace('tomorrow', 'jutro')
         .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
-    f_chart: 'Wykres godzinowy', f_days: 'Dni', f_history: 'Historia dni poniżej (druga karta)', f_sources: 'Liczone także do sumy, z YAML (sources): ',
+    f_chart: 'Wykres godzinowy', f_days: 'Dni', f_history: 'Historia dni poniżej (druga karta)',
 };
 STR.es = {
 	today: 'Tiempo de pantalla hoy', history: 'Últimos {n} días', left: 'restante', no_limit: ' · sin límite', locked: 'Bloqueado', unlocked: 'Libre',
@@ -74,7 +74,7 @@ STR.es = {
 	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
 		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
 		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
-	f_chart: 'Gráfico por horas', f_days: 'Días', f_history: 'Historial por día debajo (segunda tarjeta)', f_sources: 'También cuenta en el total, desde el YAML (sources): ',
+	f_chart: 'Gráfico por horas', f_days: 'Días', f_history: 'Historial por día debajo (segunda tarjeta)',
 };
 
 const PLATFORMS = ['familylink', 'microsoft_family_safety'];
@@ -409,21 +409,25 @@ class Editor extends HTMLElement {
 					const prev = new Map((this._config.devices || []).map((i) => [this._devId(i), i]));
 					config.devices = config.devices.map((id) => prev.get(id) || id);
 				}
+				// the sources of the YAML ({ entity, name, limit... }) are shown among the time sensors: one kept
+				// in the list keeps its object, one removed leaves sources, and a new sensor goes to entities
+				const sources = new Map((this._config.sources || []).map((x) => [x.entity, x]));
+				const picked = config.entities || [];
+				config.sources = picked.filter((id) => sources.has(id)).map((id) => sources.get(id));
+				config.entities = picked.filter((id) => !sources.has(id));
 				Object.keys(config).forEach((k) => ((config[k] === '' || config[k] === undefined || (Array.isArray(config[k]) && !config[k].length)) && delete config[k]));
 				this._config = config;
 				this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }));
 			});
 			this.appendChild(this._form);
-			this._note = this.appendChild(document.createElement('p'));
-			this._note.style.cssText = 'margin:12px 0 0;color:var(--secondary-text-color);font-size:.9em';
 		}
-		// the form has no field for sources: name them, or a time counted twice cannot be seen from here
-		const extra = (this._config.sources || []).map((x) => x.name || ((this._hass.states[x.entity] || {}).attributes || {}).friendly_name || x.entity);
-		this._note.textContent = extra.length ? (t.f_sources || STR.en.f_sources) + extra.join(', ') : '';
-		this._note.hidden = !extra.length;
 		this._form.hass = this._hass;
 		// the card shows the chart unless chart is false: show the switch on when the option is absent
-		const shown = this._config.devices ? { ...this._config, devices: this._config.devices.map((i) => this._devId(i)) } : this._config;
+		const shown = { ...this._config };
+		if (shown.devices) shown.devices = shown.devices.map((i) => this._devId(i));
+		// the sources count in the total like the time sensors: shown and removable there, or a time counted twice is invisible
+		const sourceIds = (shown.sources || []).map((x) => x.entity).filter(Boolean);
+		if (sourceIds.length) shown.entities = [...new Set([...(shown.entities || []), ...sourceIds])];
 		this._form.data = history ? shown : { chart: true, ...shown };
 		this._form.schema = [
 			{ name: 'devices', selector: { device: { multiple: true, filter: PLATFORMS.map((integration) => ({ integration })) } } },
