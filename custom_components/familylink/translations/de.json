@@ -8,17 +8,17 @@
 					"update_interval": "Aktualisierungsintervall (Sekunden)",
 					"timeout": "Zeitlimit für Anfragen (Sekunden)",
 					"enable_location_tracking": "GPS-Standortverfolgung aktivieren",
-					"strict_mode": "Strenger Modus (Home Assistant setzt die Limits durch)",
-					"strict_mode_rules": "Regeln des strengen Modus",
-					"lock_keeps_allowed_apps": "Gerätesperre lässt die immer erlaubten Apps erreichbar",
+					"strict_mode": "Umgehungsschutz (Home Assistant setzt die Limits durch)",
+					"strict_mode_rules": "Regeln des Umgehungsschutzes",
+					"lock_keeps_allowed_apps": "Sperre: immer erlaubte Apps erreichbar lassen",
 					"allowed_users": "Benutzer, die Family Link steuern dürfen"
 				},
 				"data_description": {
 					"update_interval": "Wie oft Daten von Google abgerufen werden (30–3600 Sekunden)",
 					"enable_location_tracking": "Wenn aktiviert, kann jede Standortabfrage eine Benachrichtigung auf dem Gerät des Kindes auslösen",
-					"strict_mode": "Der strenge Modus schließt eine Lücke auf der Google-Seite, die viele Kinder zu nutzen wissen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind selbst Bonuszeit geben, ein Gerät ohne verbleibende Zeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit strengem Modus wird Home Assistant zur einzigen Steuerstelle: Nach jeder Aktualisierung macht es solche Änderungen rückgängig und überschreibt die Family-Link-Einstellungen mit dem, was in Home Assistant eingestellt ist. ACHTUNG: Solange er aktiv ist, Family Link nur über Home Assistant verwalten, Änderungen in der Family-Link-App werden zurückgesetzt. Den Schalter „Strenger Modus“ des Kindes ausschalten, um die Steuerung an Google zurückzugeben. Dieser Schalter spiegelt diese Option: Eine Änderung an einem aktualisiert das andere.",
-					"strict_mode_rules": "Was der strenge Modus durchsetzt. Nichts wird zwangsweise eingeschaltet: Maßgeblich ist der in Home Assistant gewählte Zustand. Details im README.",
-					"lock_keeps_allowed_apps": "Wenn aktiviert, kann das Kind auf einem aus Home Assistant gesperrten Gerät weiterhin die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ auf dem Sperrbildschirm (so wie die Family-Link-App, wenn deren Sperrbildschirm-Einstellung aktiv ist). Ausschalten für eine reine Sperre: nur Notrufe.",
+					"strict_mode": "Schließt eine Lücke auf der Google-Seite, die viele Kinder kennen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind Bonuszeit geben, ein Gerät ohne Restzeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit dem Umgehungsschutz wird Home Assistant zur einzigen Steuerstelle: Bei jeder Aktualisierung macht es diese Änderungen rückgängig und stellt Ihre Einstellungen wieder her. ACHTUNG: Solange er aktiv ist, wird jede Änderung in der Family-Link-App rückgängig gemacht, auch durch ein Elternteil. Einstellungen erfolgen in Home Assistant. Um Family Link die Kontrolle zurückzugeben, schalten Sie den Umgehungsschutz-Schalter des Kindes (Strict mode) aus: Er spiegelt diese Option, eine Änderung aktualisiert die andere.",
+					"strict_mode_rules": "Was Home Assistant schützt: In diesen Punkten wird jede Änderung über Family Link rückgängig gemacht. Nichts wird zwangsweise eingeschaltet, der in Home Assistant gewählte Zustand ist maßgeblich. Entfernen Sie den Haken bei einer Regel, um sie in Family Link ändern zu können. Details im README.",
+					"lock_keeps_allowed_apps": "Ein: Ein aus Home Assistant gesperrtes Gerät lässt das Kind die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ des Sperrbildschirms (wie die Family-Link-App, wenn ihre Sperrbildschirm-Einstellung aktiv ist). Aus: vollständige Sperre, nur Notrufe.",
 					"allowed_users": "Leer lassen, damit alle Home-Assistant-Benutzer die Family-Link-Schaltflächen, -Schalter und -Einstellungen nutzen können (Standard). Sobald hier Benutzer ausgewählt sind, können das nur noch sie und die Administratoren: Ein Konto eines Kindes ohne Administratorrechte wird bei jeder Family-Link-Schaltfläche, jedem Schalter, Limit, jeder Zeit und Auswahl sowie bei den familylink.*-Aktionen abgewiesen. Automationen und Skripte, die Home Assistant selbst startet, sind davon nicht betroffen. Dem Kind ein Konto ohne Administratorrechte geben: Ein Administrator kann diese Option ändern."
 				}
 			}
@@ -50,15 +50,15 @@
 					"update_interval": "Aktualisierungsintervall (Sekunden)",
 					"timeout": "Zeitlimit für Anfragen (Sekunden)",
 					"enable_location_tracking": "GPS-Standortverfolgung aktivieren",
-					"strict_mode": "Strenger Modus (Home Assistant setzt die Limits durch)",
-					"strict_mode_rules": "Regeln des strengen Modus",
-					"lock_keeps_allowed_apps": "Gerätesperre lässt die immer erlaubten Apps erreichbar"
+					"strict_mode": "Umgehungsschutz (Home Assistant setzt die Limits durch)",
+					"strict_mode_rules": "Regeln des Umgehungsschutzes",
+					"lock_keeps_allowed_apps": "Sperre: immer erlaubte Apps erreichbar lassen"
 				},
 				"data_description": {
 					"enable_location_tracking": "Wenn aktiviert, kann jede Standortabfrage eine Benachrichtigung auf dem Gerät des Kindes auslösen. Aus Datenschutzgründen standardmäßig deaktiviert.",
-					"strict_mode": "Der strenge Modus schließt eine Lücke auf der Google-Seite, die viele Kinder zu nutzen wissen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind selbst Bonuszeit geben, ein Gerät ohne verbleibende Zeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit strengem Modus wird Home Assistant zur einzigen Steuerstelle: Nach jeder Aktualisierung macht es solche Änderungen rückgängig und überschreibt die Family-Link-Einstellungen mit dem, was in Home Assistant eingestellt ist. ACHTUNG: Solange er aktiv ist, Family Link nur über Home Assistant verwalten, Änderungen in der Family-Link-App werden zurückgesetzt. Den Schalter „Strenger Modus“ des Kindes ausschalten, um die Steuerung an Google zurückzugeben. Dieser Schalter spiegelt diese Option: Eine Änderung an einem aktualisiert das andere.",
-					"strict_mode_rules": "Was der strenge Modus durchsetzt. Nichts wird zwangsweise eingeschaltet: Maßgeblich ist der in Home Assistant gewählte Zustand. Details im README.",
-					"lock_keeps_allowed_apps": "Wenn aktiviert, kann das Kind auf einem aus Home Assistant gesperrten Gerät weiterhin die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ auf dem Sperrbildschirm (so wie die Family-Link-App, wenn deren Sperrbildschirm-Einstellung aktiv ist). Ausschalten für eine reine Sperre: nur Notrufe."
+					"strict_mode": "Schließt eine Lücke auf der Google-Seite, die viele Kinder kennen: Über die Family-Link-App oder die Google-Oberfläche kann sich ein beaufsichtigtes Kind Bonuszeit geben, ein Gerät ohne Restzeit entsperren oder Schlafenszeit und Tageslimit ausschalten. Mit dem Umgehungsschutz wird Home Assistant zur einzigen Steuerstelle: Bei jeder Aktualisierung macht es diese Änderungen rückgängig und stellt Ihre Einstellungen wieder her. ACHTUNG: Solange er aktiv ist, wird jede Änderung in der Family-Link-App rückgängig gemacht, auch durch ein Elternteil. Einstellungen erfolgen in Home Assistant. Um Family Link die Kontrolle zurückzugeben, schalten Sie den Umgehungsschutz-Schalter des Kindes (Strict mode) aus: Er spiegelt diese Option, eine Änderung aktualisiert die andere.",
+					"strict_mode_rules": "Was Home Assistant schützt: In diesen Punkten wird jede Änderung über Family Link rückgängig gemacht. Nichts wird zwangsweise eingeschaltet, der in Home Assistant gewählte Zustand ist maßgeblich. Entfernen Sie den Haken bei einer Regel, um sie in Family Link ändern zu können. Details im README.",
+					"lock_keeps_allowed_apps": "Ein: Ein aus Home Assistant gesperrtes Gerät lässt das Kind die in Family Link als „immer erlaubt“ markierten Apps öffnen, über die Schaltfläche „Verfügbare Apps“ des Sperrbildschirms (wie die Family-Link-App, wenn ihre Sperrbildschirm-Einstellung aktiv ist). Aus: vollständige Sperre, nur Notrufe."
 				}
 			},
 			"reconfigure": {
@@ -129,12 +129,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Bonuszeit: In Family Link hinzugefügte Boni werden aufgehoben",
-				"lock": "Gerätesperre: Sperren und Entsperren nur über Home Assistant",
-				"bedtime": "Schlafenszeit: Ein- und Ausschalten nur über Home Assistant",
-				"daily_limit": "Tageslimit: Ein- und Ausschalten nur über Home Assistant",
-				"school_time": "Schulzeit: Ein- und Ausschalten nur über Home Assistant",
-				"values": "Schlafenszeiten und Wochenkontingente: Werte nur über Home Assistant"
+				"bonus": "Bonuszeit: in Family Link hinzugefügte Boni",
+				"lock": "Gerätesperre: sperren und entsperren",
+				"bedtime": "Schlafenszeit: ein- und ausschalten",
+				"daily_limit": "Tageslimit: ein- und ausschalten",
+				"school_time": "Schulzeit: ein- und ausschalten",
+				"values": "Wochenplan: Schlafenszeiten und Kontingent jedes Tages"
 			}
 		}
 	}

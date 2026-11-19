@@ -8,17 +8,17 @@
 					"update_interval": "Intervalo de actualización (segundos)",
 					"timeout": "Tiempo de espera de las solicitudes (segundos)",
 					"enable_location_tracking": "Activar el seguimiento de ubicación GPS",
-					"strict_mode": "Modo estricto (Home Assistant hace cumplir los límites)",
-					"strict_mode_rules": "Reglas del modo estricto",
-					"lock_keeps_allowed_apps": "El bloqueo del dispositivo deja accesibles las apps siempre permitidas",
+					"strict_mode": "Antielusión (Home Assistant hace cumplir los límites)",
+					"strict_mode_rules": "Reglas de antielusión",
+					"lock_keeps_allowed_apps": "Bloqueo: mantener accesibles las apps siempre permitidas",
 					"allowed_users": "Usuarios autorizados a controlar Family Link"
 				},
 				"data_description": {
 					"update_interval": "Con qué frecuencia se obtienen los datos de Google (30-3600 segundos)",
 					"enable_location_tracking": "Si se activa, cada consulta de ubicación puede enviar una notificación al dispositivo del niño",
-					"strict_mode": "El modo estricto cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse a sí mismo tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con el modo estricto activado, Home Assistant se convierte en el único punto de control: tras cada actualización revierte esos cambios y sobrescribe los ajustes de Family Link con lo que hayas definido en Home Assistant. ATENCIÓN: mientras esté activado, gestiona Family Link solo desde Home Assistant, los cambios hechos en la app Family Link se deshacen. Desactiva el interruptor Modo estricto del niño para devolver el control a Google. El interruptor Modo estricto del niño refleja esta opción: cambiar uno actualiza el otro.",
-					"strict_mode_rules": "Lo que hace cumplir el modo estricto. Nada se activa por la fuerza: el estado elegido en Home Assistant es la referencia. Detalles en el README.",
-					"lock_keeps_allowed_apps": "Si se activa, en un dispositivo bloqueado desde Home Assistant el niño aún puede abrir las apps marcadas como «siempre permitidas» en Family Link, mediante un botón «Apps disponibles» en la pantalla de bloqueo (lo que hace la app Family Link cuando su ajuste de pantalla de bloqueo está activado). Desactívalo para un bloqueo total: solo llamadas de emergencia.",
+					"strict_mode": "Cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con la antielusión, Home Assistant pasa a ser el único punto de control: en cada actualización deshace esos cambios y restablece lo que usted definió. ATENCIÓN: mientras está activa, cualquier cambio hecho en la app Family Link se deshace, incluso por un padre. Los ajustes se hacen desde Home Assistant. Para devolver el control a Family Link, apague el interruptor de antielusión del niño (Strict mode): refleja esta opción, cambiar uno actualiza el otro.",
+					"strict_mode_rules": "Lo que Home Assistant protege: en estos puntos, cualquier cambio hecho desde Family Link se deshace. Nada se activa por la fuerza, el estado elegido en Home Assistant es la referencia. Desmarque una regla para poder cambiarla desde Family Link. Detalles en el README.",
+					"lock_keeps_allowed_apps": "Activado: un dispositivo bloqueado desde Home Assistant deja al niño abrir las apps marcadas como «siempre permitidas» en Family Link, mediante el botón «Apps disponibles» de la pantalla de bloqueo (como hace la app Family Link cuando su ajuste de pantalla de bloqueo está marcado). Desactivado: bloqueo completo, solo llamadas de emergencia.",
 					"allowed_users": "Déjalo vacío para que todos los usuarios de Home Assistant puedan usar los botones, interruptores y ajustes de Family Link (valor predeterminado). Cuando marques usuarios aquí, solo ellos y los administradores podrán: la cuenta de un niño sin permisos de administrador es rechazada en todos los botones, interruptores, límites, horas y selectores de Family Link, y en las acciones familylink.*. Las automatizaciones y scripts que inicia el propio Home Assistant no se ven afectados. Da al niño una cuenta sin permisos de administrador: un administrador puede cambiar esta opción."
 				}
 			}
@@ -50,15 +50,15 @@
 					"update_interval": "Intervalo de actualización (segundos)",
 					"timeout": "Tiempo de espera de las solicitudes (segundos)",
 					"enable_location_tracking": "Activar el seguimiento de ubicación GPS",
-					"strict_mode": "Modo estricto (Home Assistant hace cumplir los límites)",
-					"strict_mode_rules": "Reglas del modo estricto",
-					"lock_keeps_allowed_apps": "El bloqueo del dispositivo deja accesibles las apps siempre permitidas"
+					"strict_mode": "Antielusión (Home Assistant hace cumplir los límites)",
+					"strict_mode_rules": "Reglas de antielusión",
+					"lock_keeps_allowed_apps": "Bloqueo: mantener accesibles las apps siempre permitidas"
 				},
 				"data_description": {
 					"enable_location_tracking": "Si se activa, cada consulta de ubicación puede enviar una notificación al dispositivo del niño. Desactivado por defecto por privacidad.",
-					"strict_mode": "El modo estricto cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse a sí mismo tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con el modo estricto activado, Home Assistant se convierte en el único punto de control: tras cada actualización revierte esos cambios y sobrescribe los ajustes de Family Link con lo que hayas definido en Home Assistant. ATENCIÓN: mientras esté activado, gestiona Family Link solo desde Home Assistant, los cambios hechos en la app Family Link se deshacen. Desactiva el interruptor Modo estricto del niño para devolver el control a Google. El interruptor Modo estricto del niño refleja esta opción: cambiar uno actualiza el otro.",
-					"strict_mode_rules": "Lo que hace cumplir el modo estricto. Nada se activa por la fuerza: el estado elegido en Home Assistant es la referencia. Detalles en el README.",
-					"lock_keeps_allowed_apps": "Si se activa, en un dispositivo bloqueado desde Home Assistant el niño aún puede abrir las apps marcadas como «siempre permitidas» en Family Link, mediante un botón «Apps disponibles» en la pantalla de bloqueo (lo que hace la app Family Link cuando su ajuste de pantalla de bloqueo está activado). Desactívalo para un bloqueo total: solo llamadas de emergencia."
+					"strict_mode": "Cierra una brecha del lado de Google que muchos niños saben aprovechar: desde la app Family Link o la interfaz de Google, un niño supervisado puede darse tiempo extra, desbloquear un dispositivo sin tiempo restante o desactivar la hora de dormir y el límite diario. Con la antielusión, Home Assistant pasa a ser el único punto de control: en cada actualización deshace esos cambios y restablece lo que usted definió. ATENCIÓN: mientras está activa, cualquier cambio hecho en la app Family Link se deshace, incluso por un padre. Los ajustes se hacen desde Home Assistant. Para devolver el control a Family Link, apague el interruptor de antielusión del niño (Strict mode): refleja esta opción, cambiar uno actualiza el otro.",
+					"strict_mode_rules": "Lo que Home Assistant protege: en estos puntos, cualquier cambio hecho desde Family Link se deshace. Nada se activa por la fuerza, el estado elegido en Home Assistant es la referencia. Desmarque una regla para poder cambiarla desde Family Link. Detalles en el README.",
+					"lock_keeps_allowed_apps": "Activado: un dispositivo bloqueado desde Home Assistant deja al niño abrir las apps marcadas como «siempre permitidas» en Family Link, mediante el botón «Apps disponibles» de la pantalla de bloqueo (como hace la app Family Link cuando su ajuste de pantalla de bloqueo está marcado). Desactivado: bloqueo completo, solo llamadas de emergencia."
 				}
 			},
 			"reconfigure": {
@@ -129,12 +129,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Tiempo extra: el añadido desde Family Link se cancela",
-				"lock": "Bloqueo del dispositivo: bloquear y desbloquear reservado a Home Assistant",
-				"bedtime": "Hora de dormir: activar y desactivar reservado a Home Assistant",
-				"daily_limit": "Límite diario: activar y desactivar reservado a Home Assistant",
-				"school_time": "Horario escolar: activar y desactivar reservado a Home Assistant",
-				"values": "Horas de dormir y cuotas semanales: valores reservados a Home Assistant"
+				"bonus": "Tiempo extra: el añadido desde Family Link",
+				"lock": "Bloqueo del dispositivo: bloquear y desbloquear",
+				"bedtime": "Hora de dormir: activación",
+				"daily_limit": "Límite diario: activación",
+				"school_time": "Horario escolar: activación",
+				"values": "Programa semanal: horas de dormir y cuota de cada día"
 			}
 		}
 	}

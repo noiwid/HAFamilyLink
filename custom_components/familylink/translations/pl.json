@@ -8,17 +8,17 @@
 					"update_interval": "Interwał aktualizacji (sekundy)",
 					"timeout": "Limit czasu żądania (sekundy)",
 					"enable_location_tracking": "Włącz śledzenie lokalizacji GPS",
-					"strict_mode": "Tryb ścisły (Home Assistant egzekwuje ograniczenia)",
-					"strict_mode_rules": "Zasady trybu ścisłego",
-					"lock_keeps_allowed_apps": "Blokada urządzenia pozwala korzystać z zawsze dozwolonych aplikacji",
+					"strict_mode": "Ochrona przed obejściem (Home Assistant egzekwuje ograniczenia)",
+					"strict_mode_rules": "Zasady ochrony przed obejściem",
+					"lock_keeps_allowed_apps": "Blokada: zawsze dozwolone aplikacje pozostają dostępne",
 					"allowed_users": "Użytkownicy uprawnieni do sterowania Family Link"
 				},
 				"data_description": {
 					"update_interval": "Jak często pobierać dane z Google (30–3600 sekund)",
 					"enable_location_tracking": "Każde odpytywanie o lokalizację może spowodować powiadomienie na urządzeniu dziecka",
-					"strict_mode": "Tryb ścisły zapobiega obchodzeniu ograniczeń po stronie Google, np. przez samodzielne przyznanie dodatkowego czasu, odblokowanie urządzenia po wyczerpaniu limitu lub wyłączenie pory snu i limitu dziennego. Gdy jest włączony, ustawienia Home Assistanta są nadrzędne: przy każdej aktualizacji integracja przywraca ograniczenia ustawione w Home Assistant. UWAGA: w tym trybie zarządzaj Family Link wyłącznie z poziomu Home Assistanta. Zmiany dokonane w aplikacji Google Family Link będą cofane. Aby ponownie zarządzać ustawieniami z poziomu Google, wyłącz przełącznik trybu ścisłego dziecka. Ten przełącznik jest zsynchronizowany z niniejszą opcją.",
-					"strict_mode_rules": "Wybierz ograniczenia egzekwowane przez tryb ścisły. Nic nie jest włączane na siłę; punktem odniesienia są ustawienia Home Assistanta. Szczegóły w pliku README.",
-					"lock_keeps_allowed_apps": "Po włączeniu tej opcji dziecko nadal może uruchamiać aplikacje oznaczone w Google Family Link jako „Zawsze dozwolone” z przycisku „Dostępne aplikacje” na ekranie blokady urządzenia. Wyłącz tę opcję, aby uzyskać pełną blokadę z wyjątkiem połączeń alarmowych.",
+					"strict_mode": "Zamyka lukę po stronie Google, którą zna wiele dzieci: z aplikacji Family Link lub interfejsu Google nadzorowane dziecko może dodać sobie dodatkowy czas, odblokować urządzenie bez pozostałego czasu albo wyłączyć porę snu i dzienny limit. Z ochroną przed obejściem Home Assistant staje się jedynym punktem kontroli: przy każdej aktualizacji cofa te zmiany i przywraca Twoje ustawienia. UWAGA: dopóki jest włączona, każda zmiana w aplikacji Family Link jest cofana, także przez rodzica. Ustawienia zmienia się w Home Assistant. Aby oddać kontrolę Family Link, wyłącz przełącznik ochrony przed obejściem dziecka (Strict mode): odzwierciedla tę opcję, zmiana jednego aktualizuje drugi.",
+					"strict_mode_rules": "Co chroni Home Assistant: w tych punktach każda zmiana z Family Link jest cofana. Nic nie jest włączane na siłę, punktem odniesienia jest stan wybrany w Home Assistant. Odznacz zasadę, aby móc ją zmieniać z Family Link. Szczegóły w README.",
+					"lock_keeps_allowed_apps": "Włączone: urządzenie zablokowane z Home Assistant pozwala dziecku otwierać aplikacje oznaczone w Family Link jako „zawsze dozwolone”, przyciskiem „Dostępne aplikacje” na ekranie blokady (jak aplikacja Family Link, gdy jej ustawienie ekranu blokady jest zaznaczone). Wyłączone: pełna blokada, tylko połączenia alarmowe.",
 					"allowed_users": "Pozostaw puste, aby wszyscy użytkownicy Home Assistanta mogli korzystać z przycisków, przełączników i ustawień Family Link (domyślnie). Jeśli wybierzesz użytkowników, tylko oni oraz administratorzy będą mogli zmieniać ustawienia. Konto dziecka bez uprawnień administratora nie będzie mogło wywoływać akcji Family Link, nawet za pomocą odpowiednich encji. Automatyzacje i skrypty uruchamiane przez sam Home Assistant nie podlegają temu ograniczeniu. Nadaj dziecku konto bez uprawnień administratora, ponieważ administrator może zmienić to ustawienie."
 				}
 			}
@@ -50,15 +50,15 @@
 					"update_interval": "Interwał aktualizacji (sekundy)",
 					"timeout": "Limit czasu żądania (sekundy)",
 					"enable_location_tracking": "Włącz śledzenie lokalizacji GPS",
-					"strict_mode": "Tryb ścisły (Home Assistant egzekwuje ograniczenia)",
-					"strict_mode_rules": "Zasady trybu ścisłego",
-					"lock_keeps_allowed_apps": "Blokada urządzenia pozwala korzystać z zawsze dozwolonych aplikacji"
+					"strict_mode": "Ochrona przed obejściem (Home Assistant egzekwuje ograniczenia)",
+					"strict_mode_rules": "Zasady ochrony przed obejściem",
+					"lock_keeps_allowed_apps": "Blokada: zawsze dozwolone aplikacje pozostają dostępne"
 				},
 				"data_description": {
 					"enable_location_tracking": "Każde odpytywanie o lokalizację może spowodować powiadomienie na urządzeniu dziecka. Domyślnie wyłączone ze względu na prywatność.",
-					"strict_mode": "Tryb ścisły zapobiega obchodzeniu ograniczeń po stronie Google, np. przez samodzielne przyznanie dodatkowego czasu, odblokowanie urządzenia po wyczerpaniu limitu lub wyłączenie pory snu i limitu dziennego. Gdy jest włączony, ustawienia Home Assistanta są nadrzędne: przy każdej aktualizacji integracja przywraca ograniczenia ustawione w Home Assistant. UWAGA: w tym trybie zarządzaj Family Link wyłącznie z poziomu Home Assistanta. Zmiany dokonane w aplikacji Google Family Link będą cofane. Aby ponownie zarządzać ustawieniami z poziomu Google, wyłącz przełącznik trybu ścisłego dziecka. Ten przełącznik jest zsynchronizowany z niniejszą opcją.",
-					"strict_mode_rules": "Wybierz ograniczenia egzekwowane przez tryb ścisły. Nic nie jest włączane na siłę; punktem odniesienia są ustawienia Home Assistanta. Szczegóły w pliku README.",
-					"lock_keeps_allowed_apps": "Po włączeniu tej opcji dziecko nadal może uruchamiać aplikacje oznaczone w Google Family Link jako „Zawsze dozwolone” z przycisku „Dostępne aplikacje” na ekranie blokady urządzenia. Wyłącz tę opcję, aby uzyskać pełną blokadę z wyjątkiem połączeń alarmowych."
+					"strict_mode": "Zamyka lukę po stronie Google, którą zna wiele dzieci: z aplikacji Family Link lub interfejsu Google nadzorowane dziecko może dodać sobie dodatkowy czas, odblokować urządzenie bez pozostałego czasu albo wyłączyć porę snu i dzienny limit. Z ochroną przed obejściem Home Assistant staje się jedynym punktem kontroli: przy każdej aktualizacji cofa te zmiany i przywraca Twoje ustawienia. UWAGA: dopóki jest włączona, każda zmiana w aplikacji Family Link jest cofana, także przez rodzica. Ustawienia zmienia się w Home Assistant. Aby oddać kontrolę Family Link, wyłącz przełącznik ochrony przed obejściem dziecka (Strict mode): odzwierciedla tę opcję, zmiana jednego aktualizuje drugi.",
+					"strict_mode_rules": "Co chroni Home Assistant: w tych punktach każda zmiana z Family Link jest cofana. Nic nie jest włączane na siłę, punktem odniesienia jest stan wybrany w Home Assistant. Odznacz zasadę, aby móc ją zmieniać z Family Link. Szczegóły w README.",
+					"lock_keeps_allowed_apps": "Włączone: urządzenie zablokowane z Home Assistant pozwala dziecku otwierać aplikacje oznaczone w Family Link jako „zawsze dozwolone”, przyciskiem „Dostępne aplikacje” na ekranie blokady (jak aplikacja Family Link, gdy jej ustawienie ekranu blokady jest zaznaczone). Wyłączone: pełna blokada, tylko połączenia alarmowe."
 				}
 			},
 			"reconfigure": {
@@ -129,12 +129,12 @@
 	"selector": {
 		"strict_mode_rules": {
 			"options": {
-				"bonus": "Dodatkowy czas: anuluj bonusy dodane z Family Link",
-				"lock": "Blokada urządzenia: odblokowanie i blokowanie tylko z Home Assistanta",
-				"bedtime": "Pora snu: włączanie i wyłączanie tylko z Home Assistanta",
-				"daily_limit": "Dzienny limit: włączanie i wyłączanie tylko z Home Assistanta",
-				"school_time": "Szkoła: włączanie i wyłączanie tylko z Home Assistanta",
-				"values": "Pora snu i limity tygodniowe: wartości ustawiane tylko z Home Assistanta"
+				"bonus": "Dodatkowy czas: bonusy dodane z Family Link",
+				"lock": "Blokada urządzenia: blokowanie i odblokowanie",
+				"bedtime": "Pora snu: włączanie i wyłączanie",
+				"daily_limit": "Dzienny limit: włączanie i wyłączanie",
+				"school_time": "Czas szkolny: włączanie i wyłączanie",
+				"values": "Plan tygodnia: godziny snu i limit każdego dnia"
 			}
 		}
 	}

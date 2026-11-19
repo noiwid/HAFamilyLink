@@ -38,10 +38,10 @@ const STR = {
 		s_remove: 'Remove from the lists', s_remove_sub: 'The web filter decides again', allowed_tag: 'allowed', blocked_tag: 'blocked',
 		lock: 'Lock', unlock: 'Unlock', lock_q: 'Lock {d}?', unlock_q: 'Unlock {d}?',
 		next_tr: (s) => s,
-		settings: 'Settings', strict: 'Strict mode', strict_sub: 'Only Home Assistant decides: a change made in Google Family Link is undone',
+		settings: 'Settings', strict: 'Tamper protection', strict_sub: 'Only Home Assistant decides: a change made in Google Family Link is undone',
 		unl: 'Unlimited apps during bedtime', unl_sub: 'Off: the apps with unlimited time are blocked too', calls: 'Calls and texts',
 		calls_opts: { 'Anyone': 'Anyone', 'Only contacts I add': 'Only contacts I add', 'Contacts I add & limited groups': 'Contacts I add and limited groups' },
-		configure: 'Configure the integration', configure_sub: 'Strict mode rules, location, lock', all_children: 'These settings apply to every child.', gps_reload: 'Changing it reloads the integration for a few seconds', more: 'Other settings in Home Assistant', more_sub: 'Users allowed, update interval, request timeout', g_lock: 'Lock', g_all: 'Settings for every child', g_location: 'Location',
+		configure: 'Configure the integration', configure_sub: 'Tamper protection rules, location, lock', rules_sub: 'Choose what Home Assistant puts back by itself. Untick a rule to be able to change it from Family Link.', all_children: 'These settings apply to every child.', gps_reload: 'Changing it reloads the integration for a few seconds', more: 'Other settings in Home Assistant', more_sub: 'Users allowed, update interval, request timeout', g_lock: 'Lock', g_all: 'Settings for every child', g_location: 'Location',
 		not_confirmed: 'The start is saved, the end is not: Google has not confirmed it yet. Try again.',
 		ring: 'Ring', ring_q: 'Ring {d}?', ring_sub: 'The device rings so it can be found.',
 		locked_by: 'Locked: {r}',
@@ -73,10 +73,10 @@ const STR = {
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Tageslimit bald erreicht').replace('No restrictions', 'Keine Einschränkungen')
 			.replace('School time', 'Schulzeit').replace('Bedtime', 'Schlafenszeit').replace('(ends ', '(endet ').replace(/\bat (\d)/, 'um $1').replace('tomorrow', 'morgen')
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'Mo.', Tue: 'Di.', Wed: 'Mi.', Thu: 'Do.', Fri: 'Fr.', Sat: 'Sa.', Sun: 'So.' })[d]),
-		settings: 'Einstellungen', strict: 'Strenger Modus', strict_sub: 'Nur Home Assistant entscheidet: Eine Änderung in Google Family Link wird rückgängig gemacht',
+		settings: 'Einstellungen', strict: 'Umgehungsschutz', strict_sub: 'Nur Home Assistant entscheidet: Eine Änderung in Google Family Link wird rückgängig gemacht',
 		unl: 'Unbegrenzte Apps in der Schlafenszeit', unl_sub: 'Aus: Auch die Apps ohne Zeitlimit werden gesperrt', calls: 'Anrufe und Nachrichten',
 		calls_opts: { 'Anyone': 'Alle', 'Only contacts I add': 'Nur von mir hinzugefügte Kontakte', 'Contacts I add & limited groups': 'Von mir hinzugefügte Kontakte und begrenzte Gruppen' },
-		configure: 'Integration konfigurieren', configure_sub: 'Regeln des strengen Modus, Standort, Sperre', all_children: 'Diese Einstellungen gelten für alle Kinder.', gps_reload: 'Eine Änderung lädt die Integration einige Sekunden neu', more: 'Weitere Einstellungen in Home Assistant', more_sub: 'Berechtigte Benutzer, Aktualisierungsintervall, Zeitlimit', g_lock: 'Sperre', g_all: 'Einstellungen für alle Kinder', g_location: 'Standort',
+		configure: 'Integration konfigurieren', configure_sub: 'Regeln des Umgehungsschutzes, Standort, Sperre', rules_sub: 'Wählen Sie, was Home Assistant selbst wiederherstellt. Entfernen Sie den Haken bei einer Regel, um sie in Family Link ändern zu können.', all_children: 'Diese Einstellungen gelten für alle Kinder.', gps_reload: 'Eine Änderung lädt die Integration einige Sekunden neu', more: 'Weitere Einstellungen in Home Assistant', more_sub: 'Berechtigte Benutzer, Aktualisierungsintervall, Zeitlimit', g_lock: 'Sperre', g_all: 'Einstellungen für alle Kinder', g_location: 'Standort',
 		not_confirmed: 'Der Beginn ist gespeichert, das Ende noch nicht: Google hat es noch nicht bestätigt. Bitte erneut versuchen.',
 		ring: 'Klingeln', ring_q: '{d} klingeln lassen?', ring_sub: 'Das Gerät klingelt, damit man es findet.',
 		why: { manually_locked: 'Gesperrt', bedtime_active: 'Gesperrt: Schlafenszeit', school_time_active: 'Gesperrt: Schulzeit', daily_limit_reached: 'Gesperrt: Tageslimit erreicht' },
@@ -107,10 +107,10 @@ const STR = {
 		next_tr: (s) => s.replace('Daily limit soon reached', 'Limite du jour bientôt atteinte').replace('No restrictions', 'Aucune restriction')
 			.replace('School time', 'École').replace('Bedtime', 'Coucher').replace('(ends ', '(fin ').replace(/\bat (\d)/, 'à $1').replace('tomorrow', 'demain')
 			.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mer.', Thu: 'jeu.', Fri: 'ven.', Sat: 'sam.', Sun: 'dim.' })[d]),
-		settings: 'Réglages', strict: 'Mode strict', strict_sub: "Seul Home Assistant décide : un changement fait dans Google Family Link est annulé",
+		settings: 'Réglages', strict: 'Anti-contournement', strict_sub: "Seul Home Assistant décide : un changement fait dans Google Family Link est annulé",
 		unl: 'Apps illimitées pendant le coucher', unl_sub: 'Désactivé : les apps à temps illimité sont bloquées aussi', calls: 'Appels et SMS',
 		calls_opts: { 'Anyone': 'Tout le monde', 'Only contacts I add': 'Seulement mes contacts ajoutés', 'Contacts I add & limited groups': 'Mes contacts ajoutés et groupes limités' },
-		configure: "Configurer l'intégration", configure_sub: 'Règles du mode strict, position, verrouillage', all_children: 'Ces réglages valent pour tous les enfants.', gps_reload: "Le changer recharge l'intégration quelques secondes", more: 'Autres réglages dans Home Assistant', more_sub: 'Utilisateurs autorisés, intervalle de mise à jour, délai des requêtes', g_lock: 'Verrouillage', g_all: 'Réglages communs à tous les enfants', g_location: 'Localisation',
+		configure: "Configurer l'intégration", configure_sub: 'Règles anti-contournement, position, verrouillage', rules_sub: 'Choisissez ce que Home Assistant rétablit automatiquement. Décochez une règle pour pouvoir la modifier depuis Family Link.', all_children: 'Ces réglages valent pour tous les enfants.', gps_reload: "Le changer recharge l'intégration quelques secondes", more: 'Autres réglages dans Home Assistant', more_sub: 'Utilisateurs autorisés, intervalle de mise à jour, délai des requêtes', g_lock: 'Verrouillage', g_all: 'Réglages communs à tous les enfants', g_location: 'Localisation',
 		not_confirmed: "Le début est enregistré, pas la fin : Google ne l'a pas encore confirmé. Réessayez.",
 		ring: 'Faire sonner', ring_q: 'Faire sonner {d} ?', ring_sub: "L'appareil sonne pour qu'on le retrouve.",
 		locked_by: 'Bloqué : {r}',
@@ -154,12 +154,12 @@ STR.pl = {
         .replace(/\bat (\d)/, 'o $1')
         .replace('tomorrow', 'jutro')
         .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g, (d) => ({Mon:'pon.',Tue:'wt.',Wed:'śr.',Thu:'czw.',Fri:'pt.',Sat:'sob.',Sun:'niedz.'})[d]),
-    settings: 'Ustawienia', strict: 'Tryb ścisły',
+    settings: 'Ustawienia', strict: 'Ochrona przed obejściem',
     strict_sub: 'Decyduje tylko Home Assistant: zmiana w Google Family Link jest cofana',
     unl: 'Aplikacje bez limitu podczas pory snu', unl_sub: 'Wyłączone: także aplikacje bez limitu są wtedy blokowane',
     calls: 'Połączenia i SMS-y',
     calls_opts: {'Anyone': 'Wszyscy', 'Only contacts I add': 'Tylko dodane kontakty', 'Contacts I add & limited groups': 'Dodane kontakty i wybrane grupy'},
-    configure: 'Konfiguruj integrację', configure_sub: 'Zasady trybu ścisłego, lokalizacja i blokada', all_children: 'Te ustawienia dotyczą wszystkich dzieci.', gps_reload: 'Zmiana przeładowuje integrację na kilka sekund', more: 'Inne ustawienia w Home Assistant', more_sub: 'Uprawnieni użytkownicy, interwał aktualizacji, limit czasu żądań', g_lock: 'Blokada', g_all: 'Ustawienia wspólne dla wszystkich dzieci', g_location: 'Lokalizacja',
+    configure: 'Konfiguruj integrację', configure_sub: 'Zasady ochrony przed obejściem, lokalizacja i blokada', rules_sub: 'Wybierz, co Home Assistant przywraca samodzielnie. Odznacz zasadę, aby móc ją zmieniać z Family Link.', all_children: 'Te ustawienia dotyczą wszystkich dzieci.', gps_reload: 'Zmiana przeładowuje integrację na kilka sekund', more: 'Inne ustawienia w Home Assistant', more_sub: 'Uprawnieni użytkownicy, interwał aktualizacji, limit czasu żądań', g_lock: 'Blokada', g_all: 'Ustawienia wspólne dla wszystkich dzieci', g_location: 'Lokalizacja',
     not_confirmed: 'Początek zapisano, ale Google nie potwierdził końca. Spróbuj ponownie.',
     ring: 'Zadzwoń', ring_q: 'Uruchomić dzwonek na {d}?', ring_sub: 'Telefon zacznie dzwonić, aby łatwiej go znaleźć.',
     why: {manually_locked: 'Zablokowany', bedtime_active: 'Zablokowany: pora snu', school_time_active: 'Zablokowany: szkoła', daily_limit_reached: 'Zablokowany: wyczerpany limit'},
@@ -190,10 +190,10 @@ STR.es = {
 	next_tr: (s) => s.replace('Daily limit soon reached', 'Límite diario a punto de agotarse').replace('No restrictions', 'Sin restricciones')
 		.replace('School time', 'Horario escolar').replace('Bedtime', 'Hora de dormir').replace('(ends ', '(termina ').replace(/\bat (\d)/, 'a las $1').replace('tomorrow', 'mañana')
 		.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/, (d) => ({ Mon: 'lun.', Tue: 'mar.', Wed: 'mié.', Thu: 'jue.', Fri: 'vie.', Sat: 'sáb.', Sun: 'dom.' })[d]),
-	settings: 'Ajustes', strict: 'Modo estricto', strict_sub: 'Solo decide Home Assistant: un cambio hecho en Google Family Link se deshace',
+	settings: 'Ajustes', strict: 'Antielusión', strict_sub: 'Solo decide Home Assistant: un cambio hecho en Google Family Link se deshace',
 	unl: 'Apps sin límite durante la hora de dormir', unl_sub: 'Desactivado: las apps sin límite de tiempo también se bloquean', calls: 'Llamadas y mensajes',
 	calls_opts: { 'Anyone': 'Cualquiera', 'Only contacts I add': 'Solo los contactos que añado', 'Contacts I add & limited groups': 'Los contactos que añado y grupos limitados' },
-	configure: 'Configurar la integración', configure_sub: 'Reglas del modo estricto, ubicación, bloqueo', all_children: 'Estos ajustes valen para todos los niños.', gps_reload: 'Cambiarlo recarga la integración unos segundos', more: 'Otros ajustes en Home Assistant', more_sub: 'Usuarios autorizados, intervalo de actualización, tiempo de espera', g_lock: 'Bloqueo', g_all: 'Ajustes comunes a todos los niños', g_location: 'Ubicación',
+	configure: 'Configurar la integración', configure_sub: 'Reglas de antielusión, ubicación, bloqueo', rules_sub: 'Elija lo que Home Assistant restablece por sí solo. Desmarque una regla para poder cambiarla desde Family Link.', all_children: 'Estos ajustes valen para todos los niños.', gps_reload: 'Cambiarlo recarga la integración unos segundos', more: 'Otros ajustes en Home Assistant', more_sub: 'Usuarios autorizados, intervalo de actualización, tiempo de espera', g_lock: 'Bloqueo', g_all: 'Ajustes comunes a todos los niños', g_location: 'Ubicación',
 	not_confirmed: 'El inicio está guardado, el final no: Google aún no lo ha confirmado. Inténtalo de nuevo.',
 	ring: 'Hacer sonar', ring_q: '¿Hacer sonar {d}?', ring_sub: 'El dispositivo suena para poder encontrarlo.',
 	locked_by: 'Bloqueado: {r}',
@@ -393,7 +393,7 @@ class FamilyLinkCard extends HTMLElement {
 			back: () => this._settingsDialog(), title: t('configure'), icon: 'mdi:tune-variant', name: 'Family Link', sub: t('all_children'), state,
 			fields: [
 				// the rules only matter while this child's strict mode is on (their values are kept)
-				...(this._c('strict_mode') && this._c('strict_mode').state === 'on' ? [{ label: label('strict_mode_rules') }, ...rules.map((r) => {
+				...(this._c('strict_mode') && this._c('strict_mode').state === 'on' ? [{ label: label('strict_mode_rules'), sub: t('rules_sub') }, ...rules.map((r) => {
 					// "Bedtime: switching on and off reserved to Home Assistant" -> title and line below
 					const [title, ...rest] = (loc(`component.familylink.selector.strict_mode_rules.options.${r}`) || r).split(/\s?:\s/);
 					const sub = rest.join(': ');
@@ -807,7 +807,7 @@ class FamilyLinkDialog extends HTMLElement {
 		const s = this._s, t = s.t;
 		const stepper = (st) => `<div class="step"><button data-dir="-1" data-key="${st.key}">&minus;</button><span>${st.fmt(this._state[st.key])}</span><button data-dir="1" data-key="${st.key}">+</button></div>`;
 		// a field is an option (key + value), a switch (toggle), a link (href), or a label between groups
-		const field = (f, i) => (f.label ? `<div class="lbl">${esc(f.label)}</div>` : `
+		const field = (f, i) => (f.label ? `<div class="lbl">${esc(f.label)}</div>${f.sub ? `<div class="lsub">${esc(f.sub)}</div>` : ''}` : `
 			<div class="opt${f.flat ? ' flat' : ''}${f.sep ? ' sep' : ''}${f.key && this._state[f.key] === (f.toggle ? true : f.value) ? ' on' : ''}${f.key || f.href || f.action ? ' pick' : ''}" data-i="${i}"${f.toggle ? ` role="switch" aria-checked="${!!this._state[f.key]}"` : ''}>
 				${f.flat ? '' : `<div class="chip"><ha-icon icon="${f.icon}"></ha-icon></div>`}
 				<div class="txt"><div>${esc(f.title)}</div>${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>${f.stepper ? stepper(f.stepper) : ''}
@@ -894,6 +894,7 @@ FamilyLinkDialog.css = `
 	.chev { flex: none; color: #a5a5ac; }
 	.opt.flat { margin: 0; padding: 10px 6px; border: 0; border-radius: 0; background: none; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 	.opt.flat.sep { margin-top: 14px; }
+	.lsub { margin: -4px 4px 8px; font-size: 12px; color: #a5a5ac; }
 	.sw { flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px; background: rgba(255, 255, 255, 0.18); transition: background 0.15s; }
 	.sw::after { content: ''; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 12px; background: #ebebf0; transition: left 0.15s; }
 	.sw.on { background: var(--accent-color, #ff9800); } .sw.on::after { left: 24px; }
