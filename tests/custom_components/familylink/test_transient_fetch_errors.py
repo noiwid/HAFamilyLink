@@ -73,7 +73,7 @@ async def test_failed_reads_keep_the_lock_state_and_the_position() -> None:
 
 @pytest.mark.parametrize(("cached_at", "served"), [(timedelta(minutes=5), True), (timedelta(days=1), False)])
 async def test_a_failed_read_does_not_serve_yesterday_as_today(cached_at: timedelta, served: bool) -> None:
-    """Every fallback reads the cache through _recent_data(): yesterday's bedtime is not today's."""
+    """The values of the day fall back on _recent_data() only: yesterday's bedtime is not today's."""
     coordinator = _coordinator()
     coordinator.client.async_get_time_limit = AsyncMock(side_effect=NetworkError("503"))
     coordinator._last_known_data = {"children_data": [{
@@ -87,7 +87,11 @@ async def test_a_failed_read_does_not_serve_yesterday_as_today(cached_at: timede
 
     assert child["bedtime_enabled_today"] is (True if served else None)
     assert child["school_time_enabled_today"] is (True if served else None)
-    assert child["location"] == (HOME if served else None)
+    # What does not depend on the day is kept whatever its age: a cleared
+    # position fires zone automations, a lock read as lifted fires relocks
+    assert child["location"] == HOME
+    assert [d["locked"] for d in child["devices"]] == [True]
+    assert child["devices_time_data"] == (LAST_KNOWN["children_data"][0]["devices_time_data"] if served else {})
 
 
 async def test_a_failed_apps_and_usage_read_keeps_the_cached_devices() -> None:

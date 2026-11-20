@@ -270,17 +270,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return None
 		return self._last_known_data
 
-	def _cached_child(self, child_id: str) -> dict[str, Any]:
-		"""The child in _recent_data(), {} without one: what a failed read falls back to.
+	def _cached_child(self, child_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+		"""What a failed read falls back to: (the child in the last good data, the same if recent).
 
-		Read through _recent_data() so that a read failing at the first refresh
-		of the day, or after an outage, does not serve yesterday's values
-		(bedtime_enabled_today, screen time) as today's.
+		Devices, lock states, position and batteries keep the last values
+		whatever their age (a cleared position fires zone automations). The
+		values of the day (bedtime / school time today, screen time, time per
+		device) come from the second one, {} unless _recent_data() still
+		stands: yesterday's are not served as today's.
 		"""
-		return next(
-			(c for c in (self._recent_data() or {}).get("children_data", []) if c.get("child_id") == child_id),
+		child = next(
+			(c for c in (self._last_known_data or {}).get("children_data", []) if c.get("child_id") == child_id),
 			{},
 		)
+		return child, (child if self._recent_data() is not None else {})
 
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
@@ -338,7 +341,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
 			# What each failed read below falls back to
-			cached_child = self._cached_child(child_id)
+			cached_child, cached_today = self._cached_child(child_id)
 
 			# Fetch complete apps and usage data for this child
 			apps_usage_data = None
@@ -448,8 +451,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				if cached_child:
 					bedtime_enabled = cached_child.get("bedtime_enabled")
 					school_time_enabled = cached_child.get("school_time_enabled")
-					bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
-					school_time_enabled_today_from_rules = cached_child.get("school_time_enabled_today")
+					bedtime_enabled_today_from_rules = cached_today.get("bedtime_enabled_today")
+					school_time_enabled_today_from_rules = cached_today.get("school_time_enabled_today")
 					bedtime_schedule = cached_child.get("bedtime_schedule")
 					school_time_schedule = cached_child.get("school_time_schedule")
 					daily_limit_week_rows = cached_child.get("daily_limit_week")
@@ -491,15 +494,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				applied_limits_fresh = False
 				# Try to recover from last known data cache
 				if cached_child:
-					devices_time_data = cached_child.get("devices_time_data", {})
+					devices_time_data = cached_today.get("devices_time_data", {})
 					# Without it every device would read unlocked for this poll
 					device_lock_states = {
 						device["id"]: device.get("locked", False)
 						for device in cached_child.get("devices") or []
 						if device.get("id")
 					}
-					bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
-					schooltime_enabled_today = cached_child.get("school_time_enabled_today")
+					bedtime_enabled_today = cached_today.get("bedtime_enabled_today")
+					schooltime_enabled_today = cached_today.get("school_time_enabled_today")
 					_LOGGER.debug(f"Using cached applied time limits for {child_name}")
 
 			# The timeLimit response carries the authoritative per-day bedtime
@@ -618,7 +621,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch screen time data for {child_name}", err)
 				# Try to recover from last known data cache
-				screen_time = cached_child.get("screen_time")
+				screen_time = cached_today.get("screen_time")
 				if screen_time:
 					_LOGGER.debug(f"Using cached screen time for {child_name}")
 
