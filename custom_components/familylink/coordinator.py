@@ -1185,6 +1185,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			self._ha_bonus_until[device_id] = previous
 		self._save_strict_intents()
 
+	def ha_bonus_allowance(self, device_id: str) -> float | None:
+		"""Until when an HA-granted bonus is protected on the device, None if none."""
+		return self._ha_bonus_until.get(device_id)
+
+	def drop_ha_bonus(self, device_id: str, seen: float | None) -> None:
+		"""End the protection after a reset, unless a bonus was granted meanwhile.
+
+		A bonus pressed while the reset runs registers a new allowance: dropping
+		it would leave that bonus unprotected, and strict mode would cancel it
+		as one added from Family Link.
+		"""
+		if self._ha_bonus_until.get(device_id) == seen:
+			self.restore_ha_bonus(device_id, None)
+
 	def register_ha_bonus(self, device_id: str, minutes: int) -> float | None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
 
