@@ -2530,6 +2530,8 @@ class FamilyLinkClient:
 				params={"$httpMethod": "PUT"},
 			) as response:
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					_LOGGER.error(
 						"Failed to set the weekly daily limit for day %s to %s min (HTTP %s): %s",
 						day, daily_minutes, response.status, await response.text(),
@@ -2538,6 +2540,8 @@ class FamilyLinkClient:
 			_LOGGER.info(f"Weekly daily limit for day {day} set to {daily_minutes} min (slot {slot})")
 			self._weekly_slot_cache.pop(account_id, None)
 			return True
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error(f"Error setting the weekly daily limit for day {day}: {err}")
 			return False

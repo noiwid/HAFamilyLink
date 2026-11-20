@@ -213,6 +213,23 @@ async def test_number_restores_the_reference_when_the_write_raises() -> None:
     assert calls == [("record", 400, _today()), ("restore", _today(), 300)]
 
 
+async def test_weekly_quota_write_does_not_hide_an_expired_session() -> None:
+    """A 401 returned False: the parent read "not applied" instead of "session expired"."""
+    from custom_components.familylink.client.api import FamilyLinkClient
+
+    from test_transient_fetch_errors import _Response
+
+    client = FamilyLinkClient.__new__(FamilyLinkClient)
+    session = MagicMock()
+    session.put = MagicMock(return_value=_Response(401))
+    client._get_session = AsyncMock(return_value=session)
+    client._get_cookie_header = MagicMock(return_value="SID=x")
+    client._async_get_daily_limit_slot_id = AsyncMock(return_value="slot-1")
+
+    with pytest.raises(SessionExpiredError):
+        await client.async_set_weekly_daily_limit(1, 120, CHILD_ID)
+
+
 async def test_service_writes_another_weekday_for_a_child_without_time_limit_devices(hass, services) -> None:
     """A weekly row needs no device: a child with only a Google TV gets it written."""
     calls: list = []
