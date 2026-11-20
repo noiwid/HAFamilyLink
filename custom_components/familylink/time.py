@@ -152,14 +152,17 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 			raise HomeAssistantError(f"Cannot set the {DAY_NAMES[self._day]} bedtime of {self._child_name}: the other bound is unknown")
 		start_text, end_text = start.strftime("%H:%M"), end.strftime("%H:%M")
 		_LOGGER.info(f"Setting the {DAY_NAMES[self._day]} bedtime of {self._child_name} to {start_text}-{end_text}")
-		success = await client.async_set_bedtime(
-			start_text, end_text, day=self._day, account_id=self._child_id, scope="weekly"
-		)
-		if success:
-			# The hours chosen in Home Assistant are the reference for strict mode
-			self.coordinator.record_bedtime_hours(
-				self._child_id, self._day, [start.hour, start.minute], [end.hour, end.minute]
+		# Strict mode leaves the hours alone while they are written (they are
+		# the reference only once Google took them)
+		async with self.coordinator._ha_write(f"{self._child_id}:bedtime_hours"):
+			success = await client.async_set_bedtime(
+				start_text, end_text, day=self._day, account_id=self._child_id, scope="weekly"
 			)
+			if success:
+				# The hours chosen in Home Assistant are the reference for strict mode
+				self.coordinator.record_bedtime_hours(
+					self._child_id, self._day, [start.hour, start.minute], [end.hour, end.minute]
+				)
 		await self.coordinator.async_request_refresh()
 		if not success:
 			raise HomeAssistantError(f"Failed to set the {DAY_NAMES[self._day]} bedtime of {self._child_name}")

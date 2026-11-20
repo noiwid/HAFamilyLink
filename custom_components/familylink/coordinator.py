@@ -1323,6 +1323,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
 			return
+		# Bedtime hours set from HA become the reference once Google took them
+		if name == ACTION_SET_BEDTIME and self._ha_write_recent(f"{child_id}:bedtime_hours"):
+			return
 		# The parent's own clicks: a write from HA still running or just
 		# done (the refresh may predate it), or a decision taken after this
 		# plan was made (earlier actions take seconds each)

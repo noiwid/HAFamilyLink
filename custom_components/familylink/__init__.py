@@ -836,22 +836,25 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		_LOGGER.info(f"Service called: set_bedtime ({start_time}-{end_time}) for day={day or 'today'} scope={scope}")
 
-		try:
-			success = await coordinator.client.async_set_bedtime(
-				start_time=start_time,
-				end_time=end_time,
-				day=day,
-				account_id=child_id,
-				scope=scope,
-			)
-		except Exception as err:
-			_LOGGER.error(f"Error setting bedtime: {err}")
-			raise
-		if not success:
-			raise HomeAssistantError(f"Family Link rejected bedtime {start_time}-{end_time} (see the log for details)")
-		_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
-		if scope == "weekly":
-			coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
+		# Strict mode leaves the hours alone while they are written (they are
+		# the reference only once Google took them)
+		async with coordinator._ha_write(f"{child_id}:bedtime_hours"):
+			try:
+				success = await coordinator.client.async_set_bedtime(
+					start_time=start_time,
+					end_time=end_time,
+					day=day,
+					account_id=child_id,
+					scope=scope,
+				)
+			except Exception as err:
+				_LOGGER.error(f"Error setting bedtime: {err}")
+				raise
+			if not success:
+				raise HomeAssistantError(f"Family Link rejected bedtime {start_time}-{end_time} (see the log for details)")
+			_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+			if scope == "weekly":
+				coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
 		await coordinator.async_request_refresh()
 
 	async def handle_set_school_time(call: ServiceCall) -> None:

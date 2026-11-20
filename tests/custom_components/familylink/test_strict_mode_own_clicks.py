@@ -84,6 +84,42 @@ async def test_no_correction_while_a_click_is_being_written() -> None:
     assert coordinator._intents_for(CHILD)["policies"]["daily_limit"] is False
 
 
+async def test_no_bedtime_correction_while_hours_set_from_ha_are_written() -> None:
+    """The reference was recorded after the write, unguarded: a refresh in between put the old hours back."""
+    from datetime import time as dtime
+
+    from custom_components.familylink.strict_mode import ACTION_SET_BEDTIME
+    from custom_components.familylink.time import BOUND_START, FamilyLinkBedtimeTime
+
+    coordinator = _coordinator()
+    coordinator.async_request_refresh = AsyncMock()
+    release = asyncio.Event()
+    writes = []
+
+    async def set_bedtime(start, end, **kwargs):
+        writes.append((start, end))
+        if len(writes) == 1:
+            await release.wait()
+        return True
+
+    coordinator.client.async_set_bedtime = set_bedtime
+    entity = FamilyLinkBedtimeTime(coordinator, CHILD, "Child", 1, BOUND_START)
+    entity._slot = lambda: {"start": [21, 0], "end": [7, 0]}
+    revert = {"action": ACTION_SET_BEDTIME, "child_id": CHILD, "day": 1, "start": [21, 0], "end": [7, 0], "reason": "hours changed"}
+
+    setting = asyncio.create_task(entity.async_set_value(dtime(20, 30)))
+    await asyncio.sleep(0)
+    # Running: the refresh may show Google before the new hours
+    await coordinator._async_run_strict_action(CHILD_DATA, revert)
+    release.set()
+    await setting
+    # Just done: the refresh may still predate it
+    await coordinator._async_run_strict_action(CHILD_DATA, revert)
+
+    assert writes == [("20:30", "07:00")]
+    assert coordinator._intents_for(CHILD)["values"]["bedtime"]["1"] == [[20, 30], [7, 0]]
+
+
 async def test_a_change_from_family_link_is_still_reverted() -> None:
     coordinator = _coordinator()
     coordinator._intents_for(CHILD)["policies"]["daily_limit"] = True

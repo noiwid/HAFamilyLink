@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -71,5 +72,6 @@ def coordinator():
         record_daily_limit_minutes=MagicMock(return_value=None),
         restore_daily_limit_minutes=MagicMock(),
         record_bedtime_hours=MagicMock(),
+        _ha_write=lambda key: nullcontext(),
     )
     return fake
