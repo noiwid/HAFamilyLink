@@ -240,6 +240,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		# the most recent one: cancel every bonus of the day, and fall back to
 		# the reported id when the override block could not be read (#142)
 		_LOGGER.info(f"Cancelling the time bonuses of the day for device {self._device_name}")
+		allowance = self.coordinator.ha_bonus_allowance(self._device_id)
 
 		cancelled = await self.coordinator.client.async_cancel_all_time_bonuses(
 			device_id=self._device_id,
@@ -257,7 +258,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 				f"Successfully cancelled time bonus for device {self._device_name}"
 			)
 			# The parent took the bonus back: strict mode no longer protects one on this device
-			self.coordinator.restore_ha_bonus(self._device_id, None)
+			self.coordinator.drop_ha_bonus(self._device_id, allowance)
 			# Refresh to update sensors
 			await self.coordinator.async_request_refresh()
 

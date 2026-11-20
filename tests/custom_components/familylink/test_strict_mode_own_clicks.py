@@ -130,6 +130,21 @@ def test_a_second_ha_bonus_extends_the_protection(monkeypatch) -> None:
     assert "phone" not in coordinator._ha_bonus_until
 
 
+def test_a_reset_keeps_a_bonus_granted_while_it_ran(monkeypatch) -> None:
+    """Reset then +15 pressed before the reset ends: the +15 stays protected (2026-11-20 21:16)."""
+    clock = [1000.0]
+    monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(time=lambda: clock[0], monotonic=lambda: clock[0]))
+    coordinator = _coordinator()
+    coordinator.register_ha_bonus("phone", 30)
+    seen = coordinator.ha_bonus_allowance("phone")
+    coordinator.register_ha_bonus("phone", 15)  # pressed while the reset runs
+    coordinator.drop_ha_bonus("phone", seen)
+    assert "phone" in coordinator._ha_bonus_until
+    # a reset with nothing granted meanwhile ends the protection
+    coordinator.drop_ha_bonus("phone", coordinator.ha_bonus_allowance("phone"))
+    assert "phone" not in coordinator._ha_bonus_until
+
+
 def test_a_new_bonus_gets_tries_of_its_own() -> None:
     """A bonus posted again after each cancel must not use up the tries and win for the day."""
     from custom_components.familylink.coordinator import _strict_key

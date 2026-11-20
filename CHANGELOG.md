@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Family Link card: a bonus button shows that it worked.** Google takes a few seconds to confirm a bonus, and nothing moved meanwhile. The tapped button now waits (greyed, pulsing), the phone vibrates in the companion app, and a toast says "15 min bonus added", "Bonus cancelled" or the error. Tooltips no longer show on touch screens, where they stayed after a tap.
 
 ### Fixed
+- **Tamper protection cancelled a bonus just given from Home Assistant** when it was given while a reset was running: the end of the reset dropped the protection of the new bonus too, which then looked added from Family Link and was cancelled with a notification naming the parent. The reset now keeps a bonus granted meanwhile.
 - **Family Link card: Reset could not cancel a bonus** until the reset button had been pressed once: the card took the button's "unknown" state (never pressed) for "unavailable".
 
 ## [2.9.2] - 2026-11-19
