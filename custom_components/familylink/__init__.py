@@ -273,6 +273,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	"""Set up Google Family Link from a config entry."""
 	_LOGGER.debug("Setting up Family Link integration")
 
+	coordinator: FamilyLinkDataUpdateCoordinator | None = None
 	try:
 		# Create coordinator for data updates
 		coordinator = FamilyLinkDataUpdateCoordinator(hass, entry)
@@ -307,10 +308,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		_LOGGER.info("Successfully set up Family Link integration")
 		return True
 
-	except FamilyLinkException as err:
-		_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
-		raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
 	except Exception as err:
+		# Each retry builds a new client: close this one's aiohttp session
+		if coordinator is not None:
+			await coordinator.async_cleanup()
+		if isinstance(err, FamilyLinkException):
+			_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
+			raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
 		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
 		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
 
