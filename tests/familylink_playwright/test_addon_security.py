@@ -5,6 +5,7 @@ not inside the Home Assistant harness.
 """
 import asyncio
 import importlib
+import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -43,6 +44,45 @@ def test_standalone_cookie_endpoint_requires_the_generated_key(standalone_app):
     assert client.delete("/api/cookies").status_code == 403
     # No cookies stored yet: past the key check
     assert client.get("/api/cookies", headers={"X-API-Key": key}).status_code == 404
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_generated_key_is_owner_only_from_creation(tmp_path, monkeypatch):
+    """Written then chmod-ed: readable by others for a moment."""
+    modes = []
+    real_open = os.open
+
+    def recording_open(path, flags, mode=0o777, **kwargs):
+        if Path(path).name == "api_key":
+            modes.append(mode)
+        return real_open(path, flags, mode, **kwargs)
+
+    monkeypatch.setattr(os, "open", recording_open)
+    for var in ("API_KEY", "ADDON_MODE", "SUPERVISOR_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(addon_config, "get_config", lambda: addon_config.Config(share_dir=str(tmp_path)))
+    sys.modules.pop("app.main", None)
+    importlib.import_module("app.main")
+    sys.modules.pop("app.main", None)
+
+    assert modes == [0o600]
+    assert (tmp_path / "api_key").stat().st_mode & 0o077 == 0
+
+
+def test_the_browser_manager_starts_and_stops_with_the_app(standalone_app, monkeypatch):
+    """Startup and shutdown run from the lifespan (on_event is deprecated)."""
+    from fastapi.testclient import TestClient
+
+    main, _, _ = standalone_app
+    manager = MagicMock()
+    manager.initialize = AsyncMock()
+    manager.cleanup = AsyncMock()
+    monkeypatch.setattr(main, "BrowserAuthManager", MagicMock(return_value=manager))
+
+    with TestClient(main.app):
+        manager.initialize.assert_awaited_once()
+        manager.cleanup.assert_not_awaited()
+    manager.cleanup.assert_awaited_once()
 
 
 def test_generated_key_survives_a_restart(standalone_app, monkeypatch):

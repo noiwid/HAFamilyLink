@@ -1,6 +1,7 @@
 """Main FastAPI application for Family Link Auth."""
 import logging
 import os
+from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 import secrets
 import sys
@@ -27,11 +28,20 @@ logging.basicConfig(
 
 _LOGGER = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Start the browser manager, and clean it up on shutdown."""
+    await startup_event()
+    yield
+    await shutdown_event()
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Google Family Link Auth Service",
     description="Authentication service for Google Family Link integration",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration — restrict to local HA origins
@@ -81,8 +91,11 @@ def _load_or_create_cookie_api_key() -> str:
         pass
     if not key:
         key = secrets.token_urlsafe(32)
-        key_path.write_text(key)
-        os.chmod(key_path, 0o600)
+        # Created owner-only: no window where the key is readable by others
+        fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(key)
+        os.chmod(key_path, 0o600)  # an existing empty file keeps its old mode otherwise
         _LOGGER.info(f"Generated cookie API key at {key_path}")
     if not _ADDON_MODE:
         # The container log is only readable by whoever runs Docker on the host
@@ -121,7 +134,6 @@ def _verify_cookie_api_key(request: Request):
     _check_key(request, _COOKIE_API_KEY)
 
 
-@app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
     global browser_manager
@@ -147,7 +159,6 @@ async def startup_event():
         raise
 
 
-@app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
     _LOGGER.info("Shutting down Family Link Auth Service")
