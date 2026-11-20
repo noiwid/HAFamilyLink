@@ -67,6 +67,18 @@ async def test_without_a_saved_state_the_option_applies(hass) -> None:
     assert coordinator.is_strict_mode_enabled("kid_b") is False
 
 
+async def test_the_first_refresh_waits_for_the_restored_switches() -> None:
+    """It ran before the switches existed: a child left unprotected got one round of corrections per restart."""
+    coordinator = _coordinator(option=True)
+    coordinator.client = MagicMock()
+    coordinator.data = None  # first refresh of this setup
+    coordinator._intents_for = MagicMock()
+
+    await coordinator._async_enforce_strict_mode({"children_data": [{"child_id": "kid_b"}]})
+
+    coordinator._intents_for.assert_not_called()
+
+
 def test_the_option_in_force_is_saved_with_the_state() -> None:
     switch = FamilyLinkStrictModeSwitch(_coordinator(option=True), "kid_a", "kid_a")
 

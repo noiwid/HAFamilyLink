@@ -1262,7 +1262,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		Runs after every successful refresh. Never raises: a failed corrective
 		action is logged and retried at the next poll, after the cooldown.
 		"""
-		if not data or self.client is None:
+		if not data or self.client is None or self.data is None:
+			# self.data None: the first refresh of a setup. The per-child switches,
+			# restored right after it, decide who is protected; until then every
+			# child would read the option's state
 			return
 		for child_data in data.get("children_data", []):
 			child_id = child_data.get("child_id")
