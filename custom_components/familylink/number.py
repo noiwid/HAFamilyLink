@@ -152,14 +152,21 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		# phone during a week without limit (2026-11-09)
 		limit_on = not await client.async_is_daily_limit_off(self._child_id)
 		previous = self.coordinator.record_daily_limit_minutes(self._child_id, minutes, self._day, limit_on)
-		results = [await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id, limit_on)]
-		if results[0] and self._day == today and limit_on:
-			# Not on a Google TV: it takes no time limits and never confirms
-			# the override, which made the whole write fail (#173)
-			for device_id in time_limit_device_ids(self.coordinator.data, self._child_id):
-				results.append(await client.async_set_daily_limit(
-					daily_minutes=minutes, device_id=device_id, account_id=self._child_id
-				))
+		results: list[bool] = []
+		try:
+			results.append(await client.async_set_weekly_daily_limit(self._day, minutes, self._child_id, limit_on))
+			if results[0] and self._day == today and limit_on:
+				# Not on a Google TV: it takes no time limits and never confirms
+				# the override, which made the whole write fail (#173)
+				for device_id in time_limit_device_ids(self.coordinator.data, self._child_id):
+					results.append(await client.async_set_daily_limit(
+						daily_minutes=minutes, device_id=device_id, account_id=self._child_id
+					))
+		except Exception:
+			# A write that raised (expired session, network) took nothing either
+			if not any(results):
+				self.coordinator.restore_daily_limit_minutes(self._child_id, self._day, previous)
+			raise
 		if not any(results):
 			# Nothing was taken: the reference goes back to what it was. A write
 			# taken in part keeps the new one, as the service does: strict mode

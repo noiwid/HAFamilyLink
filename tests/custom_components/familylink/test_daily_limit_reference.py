@@ -18,6 +18,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.familylink import async_setup_services
 from custom_components.familylink.const import DOMAIN
+from custom_components.familylink.exceptions import NetworkError, SessionExpiredError
 from custom_components.familylink.number import FamilyLinkDailyLimitNumber
 
 CHILD_ID = "child-1"
@@ -171,6 +172,45 @@ async def test_service_restores_the_reference_only_when_nothing_was_taken(hass, 
 
     assert calls[0] == ("record", 400, _today())
     assert calls[-1] == ("restore", _today(), 300)
+
+
+async def test_service_restores_the_reference_when_a_write_raises(hass, services) -> None:
+    """An expired session or a network error left the new quota as strict mode's reference."""
+    calls: list = []
+    _tracking(services, calls)
+    services.client.async_set_daily_limit = AsyncMock(side_effect=SessionExpiredError("expired"))
+
+    with pytest.raises(SessionExpiredError):
+        await hass.services.async_call(
+            DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400}, blocking=True
+        )
+
+    assert [c for c in calls if c[0] == "restore"] == [("restore", _today(), 300), ("restore", _today(), 300)]
+
+
+async def test_service_keeps_the_weekly_reference_google_took_when_the_override_raises(hass, services) -> None:
+    calls: list = []
+    _tracking(services, calls)
+    services.client.async_set_daily_limit = AsyncMock(side_effect=NetworkError("503"))
+
+    with pytest.raises(NetworkError):
+        await hass.services.async_call(
+            DOMAIN, "set_daily_limit", {"child_id": CHILD_ID, "daily_minutes": 400, "day": _today()}, blocking=True
+        )
+
+    assert ("weekly", _today(), 400) in calls
+    assert not [c for c in calls if c[0] == "restore"]
+
+
+async def test_number_restores_the_reference_when_the_write_raises() -> None:
+    calls: list = []
+    number = _number(calls, _today())
+    number.coordinator.client.async_set_weekly_daily_limit = AsyncMock(side_effect=NetworkError("503"))
+
+    with pytest.raises(NetworkError):
+        await number.async_set_native_value(400)
+
+    assert calls == [("record", 400, _today()), ("restore", _today(), 300)]
 
 
 async def test_service_writes_another_weekday_for_a_child_without_time_limit_devices(hass, services) -> None:

@@ -735,12 +735,26 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			f"child {child_id}, {len(device_ids)} device(s): {', '.join(device_ids)}"
 		)
 
+		results: dict[str, bool] = {}
+		# Declared to strict mode BEFORE the writes: the client verifies
+		# each override for several seconds, and a refresh in between must
+		# not find the old reference and put the old quota back
+		recorded: dict[int, tuple[int | None, bool | None] | None] = {}
+		recorded_devices: dict[str, tuple[int | None, bool | None] | None] = {}
+
+		def restore_references() -> None:
+			"""Put back the references of the writes Google did not take.
+
+			Last recorded first, so the daily limit reference ends as before.
+			"""
+			for target_device_id, previous in reversed(list(recorded_devices.items())):
+				if not results.get(target_device_id):
+					coordinator.restore_daily_limit_minutes(child_id, today, previous, device_id=target_device_id)
+			if not results.get("weekly"):
+				for ref_day, previous in reversed(list(recorded.items())):
+					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
+
 		try:
-			results = {}
-			# Declared to strict mode BEFORE the writes: the client verifies
-			# each override for several seconds, and a refresh in between must
-			# not find the old reference and put the old quota back
-			recorded: dict[int, int | None] = {}
 			if day is not None:
 				# A weekday: the weekly quota of that day, as the app's weekly
 				# screen writes it. Today also gets the override below so the
@@ -752,7 +766,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			# Today's quota is an override per device, for today only: strict mode
 			# keeps it per device until midnight and leaves the weekly row alone
 			# (a child-wide reference for today rewrote the weekday's weekly quota)
-			recorded_devices: dict[str, tuple[int | None, bool | None] | None] = {}
 			if posts_override:
 				if today not in recorded:
 					for target_device_id in device_ids:
@@ -769,12 +782,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
 			if failed and len(failed) == len(results):
-				# Nothing was taken: the references go back to what they were,
-				# last recorded first so the daily limit reference ends as before
-				for target_device_id, previous in reversed(list(recorded_devices.items())):
-					coordinator.restore_daily_limit_minutes(child_id, today, previous, device_id=target_device_id)
-				for ref_day, previous in reversed(list(recorded.items())):
-					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
+				# Nothing was taken: the references go back to what they were
+				restore_references()
 			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "
@@ -804,6 +813,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					"the slot used and the value observed."
 				)
 		except Exception as err:
+			if not isinstance(err, HomeAssistantError):
+				# A write that raised (expired session, network): its reference
+				# goes back too. A HomeAssistantError reports failed results,
+				# whose references were handled above.
+				restore_references()
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise
 
