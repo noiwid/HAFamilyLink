@@ -90,6 +90,16 @@ async def test_a_failed_read_does_not_serve_yesterday_as_today(cached_at: timede
     assert child["location"] == (HOME if served else None)
 
 
+async def test_a_failed_apps_and_usage_read_keeps_the_cached_devices() -> None:
+    """The cache holds parsed devices, not deviceInfo: they are restored as they are."""
+    coordinator = _coordinator()
+    coordinator.client.async_get_apps_and_usage = AsyncMock(side_effect=NetworkError("503"))
+
+    child = (await coordinator._async_fetch_data())["children_data"][0]
+
+    assert [(d["id"], d["locked"]) for d in child["devices"]] == [(DEVICE_ID, True)]
+
+
 class _Response:
     def __init__(self, status: int) -> None:
         self.status = status
