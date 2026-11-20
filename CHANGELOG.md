@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Locking or unlocking a device with an expired session said "Failed to lock"**: it now says the session expired.
 - **A daily limit write that failed on an expired session or a network error kept the new quota as tamper protection's reference**, which then pushed it at the next refresh. The previous reference is put back, as when Google refuses the write.
 - **Tamper protection could put the old bedtime hours back while Home Assistant was writing new ones** (bedtime time entities and the set_bedtime action): it now waits for the write to end.
-- **After an outage, or at the first refresh of the day, a failed read could show yesterday's values as today's** (bedtime or school time on today, screen time, position): a failed read now falls back only on data read today, less than 15 minutes ago.
+- **After an outage, or at the first refresh of the day, a failed read could show yesterday's values as today's** (bedtime or school time on today, screen time, time used per device): these now fall back only on data read today, less than 15 minutes ago. Devices, lock states, position and batteries keep their last values as before.
 - **A 503 on the family members read was logged as an error at every refresh**, its prefix written twice: it is now one warning per wave, like the other reads. Failed reads also name the error type, which tells a changed Google answer from an outage.
 - **Error messages of a timeout ended on an empty colon**: they now name the timeout.
 
