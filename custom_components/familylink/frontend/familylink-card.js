@@ -328,7 +328,11 @@ class FamilyLinkCard extends HTMLElement {
 	/** A bonus button: Google takes a few seconds, so the tap vibrates, the button waits, and a toast says how it went. */
 	async _press(b) {
 		const t = (k) => this._t(k), n = (b.dataset.press.match(/\d+/) || [])[0];
-		const haptic = (kind) => window.dispatchEvent(new CustomEvent('haptic', { detail: kind }));
+		// the companion app vibrates on "haptic" when it supports it; Android's web view also takes navigator.vibrate
+		const haptic = (kind) => {
+			window.dispatchEvent(new CustomEvent('haptic', { detail: kind }));
+			try { if (navigator.vibrate) navigator.vibrate(kind === 'failure' ? [40, 60, 40] : kind === 'success' ? 30 : 15); } catch (err) { /* not allowed */ }
+		};
 		const toast = (message) => this.dispatchEvent(new CustomEvent('hass-notification', { detail: { message }, bubbles: true, composed: true }));
 		haptic('light');
 		b.disabled = true; b.classList.add('busy');
@@ -771,6 +775,8 @@ FamilyLinkCard.css = `
 	[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 2; white-space: nowrap; pointer-events: none;
 		padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 400; color: #fff; background: rgba(40, 40, 40, 0.92); }
 	.round.big[data-tip]:hover::after { right: auto; left: 0; }
+	/* a touch screen keeps :hover after a tap: no tooltip there */
+	@media (hover: none) { [data-tip]:hover::after { display: none; } }
 	.tiles { display: flex; border-top: 1px solid var(--divider-color); }
 	.tile { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px; font-size: 13px; font-weight: 600; }
 	.tile + .tile { border-left: 1px solid var(--divider-color); }
