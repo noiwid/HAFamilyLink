@@ -21,6 +21,9 @@ unlimited time, no limit) is kept and the saved one dropped. When the current
 settings cannot be read, the saved setting is restored anyway and a warning
 logged: an app left paused would be the worse failure.
 
+The saved settings are mirrored on ``coordinator.paused_apps`` so the apps
+with time limits sensor can show which apps this integration paused.
+
 The saved settings are one record shared by every child and changed across
 network writes, so the two services run one at a time.
 """
@@ -70,6 +73,11 @@ def app_limit_setting(app: dict[str, Any]) -> int | None:
 	return NO_LIMIT
 
 
+def pause_intact(app: dict[str, Any] | None) -> bool:
+	"""True while an app is still at the limit pause_app set."""
+	return app is not None and app_limit_setting(app) == PAUSE_MINUTES
+
+
 def _resolve_child(hass: HomeAssistant, call: ServiceCall) -> str:
 	from . import extract_ids_from_entity  # late import: __init__ imports this module
 
@@ -92,6 +100,19 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 	# setting the resume is about to put back, skip saving it, and leave the app
 	# at 1 minute with nothing to resume once the resume has dropped the record
 	lock = asyncio.Lock()
+
+	def _mirror(data: dict[str, dict[str, int]]) -> None:
+		"""Show the saved settings on the coordinator, for the apps sensor."""
+		coordinator.paused_apps = {child: dict(saved) for child, saved in data.items() if saved}
+		update = getattr(coordinator, "async_update_listeners", None)
+		if callable(update):
+			update()
+
+	async def _save(data: dict[str, dict[str, int]]) -> None:
+		await store.async_save(data)
+		_mirror(data)
+
+	_mirror(await store.async_load() or {})
 
 	def _client():
 		if coordinator.client is None:
@@ -133,7 +154,7 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 				if package not in saved or (app is not None and current not in (PAUSE_MINUTES, saved[package])):
 					saved[package] = current
 					# Saved before the write, so a failure part-way can still be resumed
-					await store.async_save(data)
+					await _save(data)
 				await _set_limit(child_id, package, PAUSE_MINUTES)
 				paused.append(package)
 			await coordinator.async_request_refresh()
@@ -196,7 +217,7 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 				saved.pop(package)
 				if not saved:
 					data.pop(child_id, None)
-				await store.async_save(data)
+				await _save(data)
 			await coordinator.async_request_refresh()
 		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}, kept {kept_current}, skipped {skipped}")
 		return {

@@ -160,6 +160,7 @@ async def test_resume_only_touches_apps_it_paused(hass, pause_services) -> None:
     assert again["resumed"] == {}
 
 
+
 async def test_the_saved_settings_survive_a_restart(hass, pause_services) -> None:
     await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
     hass.services.async_remove(DOMAIN, "pause_app")
@@ -324,3 +325,14 @@ async def test_a_pause_after_a_parent_change_saves_the_parents_setting(hass, pau
     result = await _call(hass, "resume_app", {"child_id": CHILD})
 
     assert result["resumed"] == {CHROME: 20}
+
+
+async def test_the_saved_settings_are_mirrored_on_the_coordinator(hass, pause_services) -> None:
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME, YOUTUBE]})
+    assert pause_services.paused_apps == {CHILD: {CHROME: 45, YOUTUBE: UNLIMITED}}
+
+    await _call(hass, "resume_app", {"child_id": CHILD, "packages": [CHROME]})
+    assert pause_services.paused_apps == {CHILD: {YOUTUBE: UNLIMITED}}
+
+    await _call(hass, "resume_app", {"child_id": CHILD})
+    assert pause_services.paused_apps == {}

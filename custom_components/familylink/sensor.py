@@ -29,6 +29,7 @@ from .const import (
     LOGGER_NAME,
 )
 from .client.api import FamilyLinkClient
+from .app_pause import pause_intact
 from .coordinator import FamilyLinkDataUpdateCoordinator
 from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 from .schedules import WINDOW_BEDTIME, describe_time_at, next_scheduled_window
@@ -1078,12 +1079,28 @@ class FamilyLinkAppsWithLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEn
 			"child_id": self._child_id,
 			"child_name": self._child_name,
 			"count": len(apps_with_limits),
+			"paused_apps": self._paused_apps(apps),
 		}
 		truncated_apps, was_truncated = _truncate_app_list(apps_with_limits, base_attrs)
 		base_attrs["apps"] = truncated_apps
 		if was_truncated:
 			base_attrs["truncated"] = True
 		return base_attrs
+
+	def _paused_apps(self, apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+		"""Apps pause_app paused for this child, also those a parent changed since.
+
+		``pause_intact`` is False once the app's setting is no longer the pause
+		limit (a parent changed it in the Family Link app); ``prior`` is the
+		setting resume_app puts back while the pause is intact (minutes, -1 no
+		limit, -2 unlimited).
+		"""
+		saved = (getattr(self.coordinator, "paused_apps", None) or {}).get(self._child_id) or {}
+		by_package = {app.get("packageName"): app for app in apps}
+		return [
+			{"package": package, "pause_intact": pause_intact(by_package.get(package)), "prior": prior}
+			for package, prior in saved.items()
+		]
 
 
 class FamilyLinkAppsWithoutLimitsSensor(ChildDataMixin, CoordinatorEntity, SensorEntity):
