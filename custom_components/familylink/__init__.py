@@ -640,20 +640,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
-			# Declared to strict mode BEFORE the call (the client verifies the
-			# bonus for several seconds, a poll in between must not cancel it)
-			previous_bonus = coordinator.register_ha_bonus(device_id, bonus_minutes)
-			success = await coordinator.client.async_add_time_bonus(
-				bonus_minutes=bonus_minutes,
-				device_id=device_id,
-				account_id=child_id
-			)
+			success = await coordinator.async_add_ha_bonus(device_id, bonus_minutes, child_id)
 		except Exception as err:
-			coordinator.restore_ha_bonus(device_id, previous_bonus)
 			_LOGGER.error(f"Error adding time bonus: {err}")
 			raise
 		if not success:
-			coordinator.restore_ha_bonus(device_id, previous_bonus)
 			raise HomeAssistantError(f"Family Link did not add the time bonus to device {device_id} (see the log for details)")
 		_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
 		await coordinator.async_request_refresh()

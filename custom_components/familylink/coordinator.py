@@ -1214,6 +1214,25 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
 		return previous
 
+	async def async_add_ha_bonus(self, device_id: str, minutes: int, child_id: str) -> bool:
+		"""Grant a bonus from HA (button or add_time_bonus action), protected from strict mode.
+
+		Declared BEFORE the call: the client verifies the bonus for several
+		seconds, and a poll in that window would cancel it as a Google-side
+		bonus. The declaration is withdrawn when Google does not take it.
+		"""
+		previous = self.register_ha_bonus(device_id, minutes)
+		try:
+			success = await self.client.async_add_time_bonus(
+				bonus_minutes=minutes, device_id=device_id, account_id=child_id
+			)
+		except Exception:
+			self.restore_ha_bonus(device_id, previous)
+			raise
+		if not success:
+			self.restore_ha_bonus(device_id, previous)
+		return success
+
 	def _ha_bonus_devices(self) -> frozenset[str]:
 		"""Devices whose HA-granted bonus is still running (expired entries pruned)."""
 		now = time.time()

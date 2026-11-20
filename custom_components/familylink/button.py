@@ -131,22 +131,9 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			f"Adding {self._bonus_minutes} minutes bonus to device {self._device_name} for {self._child_name}"
 		)
 
-		# Declare the bonus to strict mode BEFORE posting it: the client
-		# verifies the bonus for several seconds and a coordinator poll in
-		# that window would otherwise cancel it as a Google-side bonus.
-		previous = self.coordinator.register_ha_bonus(self._device_id, self._bonus_minutes)
-		try:
-			success = await self.coordinator.client.async_add_time_bonus(
-				bonus_minutes=self._bonus_minutes,
-				device_id=self._device_id,
-				account_id=self._child_id,
-			)
-		except Exception:
-			self.coordinator.restore_ha_bonus(self._device_id, previous)
-			raise
+		success = await self.coordinator.async_add_ha_bonus(self._device_id, self._bonus_minutes, self._child_id)
 
 		if not success:
-			self.coordinator.restore_ha_bonus(self._device_id, previous)
 			raise HomeAssistantError(f"Failed to add {self._bonus_minutes} minutes bonus to device {self._device_name}")
 		else:
 			_LOGGER.info(

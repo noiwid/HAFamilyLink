@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
@@ -59,9 +61,14 @@ def coordinator():
         fake.record_policy_intent(child_id, policy, enable)
         return True
 
+    async def async_add_ha_bonus(device_id, minutes, child_id):
+        # The coordinator's own sequence, on the mocked client and hooks
+        return await FamilyLinkDataUpdateCoordinator.async_add_ha_bonus(fake, device_id, minutes, child_id)
+
     fake = SimpleNamespace(
         client=client,
         async_set_policy=async_set_policy,
+        async_add_ha_bonus=async_add_ha_bonus,
         # One supervised child: services without a child target resolve to it
         data={"children_data": [{"child_id": "child-1", "devices": []}]},
         async_request_refresh=AsyncMock(),
