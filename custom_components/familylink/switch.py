@@ -31,6 +31,7 @@ from .const import (
 )
 from .permissions import async_check_entity_action
 from .coordinator import FamilyLinkDataUpdateCoordinator
+from .exceptions import SessionExpiredError
 from .devices import async_prune_entities, device_supports, ensure_child_device, via_child
 
 _LOGGER = logging.getLogger(LOGGER_NAME)
@@ -243,15 +244,20 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		return attributes
 
+	async def _async_control(self, action: str) -> bool:
+		"""Lock or unlock through the coordinator; an expired session is an error the parent can read."""
+		try:
+			return await self.coordinator.async_control_device(self._device_id, action, self._child_id)
+		except SessionExpiredError as err:
+			raise HomeAssistantError(f"Cannot {action} device {self._device_id}: {err}") from err
+
 	async def async_turn_on(self) -> None:
 		"""Unlock device (bypass restrictions without disabling bedtime/daily_limit)."""
 		await async_check_entity_action(self)
 		_LOGGER.info("Unlocking device %s for child %s (bypass restrictions)", self._device_id, self._child_name)
 
 		# Note: coordinator.async_control_device already schedules a refresh on success
-		success = await self.coordinator.async_control_device(
-			self._device_id, DEVICE_UNLOCK_ACTION, self._child_id
-		)
+		success = await self._async_control(DEVICE_UNLOCK_ACTION)
 
 		if not success:
 			raise HomeAssistantError(f"Failed to unlock device {self._device_id}")
@@ -283,9 +289,7 @@ class FamilyLinkDeviceSwitch(CoordinatorEntity, SwitchEntity):
 
 		# Then lock the device
 		# Note: coordinator.async_control_device already schedules a refresh on success
-		success = await self.coordinator.async_control_device(
-			self._device_id, DEVICE_LOCK_ACTION, self._child_id
-		)
+		success = await self._async_control(DEVICE_LOCK_ACTION)
 
 		if not success:
 			raise HomeAssistantError(f"Failed to lock device {self._device_id}")

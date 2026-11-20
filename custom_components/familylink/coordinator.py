@@ -808,6 +808,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			return success
 
+		except SessionExpiredError:
+			raise  # "Session expired" to the parent, not "Failed to lock"
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			return False
