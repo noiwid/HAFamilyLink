@@ -110,3 +110,13 @@ async def test_a_refused_app_block_raises(hass, services) -> None:
 
     with pytest.raises(HomeAssistantError):
         await _call(hass, "block_app", {"package_name": "com.example.app", "child_id": SECOND})
+
+
+async def test_refresh_location_of_an_entity_outside_any_child_is_refused(hass, services) -> None:
+    """It refreshed every child: the entity named none of them."""
+    hass.states.async_set("sensor.outside", "1")
+
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, "refresh_location", {"entity_id": "sensor.outside"})
+
+    services.client.async_get_location.assert_not_called()

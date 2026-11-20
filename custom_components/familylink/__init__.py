@@ -947,8 +947,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		# If entity_id provided, extract child_id from entity attributes
 		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+			_, child_id = extract_ids_from_entity(hass, entity_id)
+			if not child_id:
+				# Not every child: a wrong entity must not refresh them all
+				raise ServiceValidationError(
+					f"Entity {entity_id} does not belong to a Family Link child. Select an "
+					"entity of the child, or pass child_id."
+				)
 
 		if child_id:
 			targets = [(child_id, f"child {child_id}")]
