@@ -7,11 +7,12 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.restore_state import RestoredExtraData, RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -749,9 +750,30 @@ class FamilyLinkStrictModeSwitch(CoordinatorEntity, SwitchEntity, RestoreEntity)
 		self._attr_entity_category = EntityCategory.CONFIG
 
 	async def async_added_to_hass(self) -> None:
-		"""The Strict mode option of the integration is the state at every (re)load."""
+		"""The last state when the option did not change since, else the option.
+
+		The option mirrors the switches only while every child is in the same
+		state: with one child strict and the other not, the option alone would
+		put both in the same state at every restart. A changed option (options
+		screen) still wins: the option in force is kept with the state.
+		"""
 		await super().async_added_to_hass()
-		self.coordinator.set_strict_mode(self._child_id, self.coordinator.strict_mode_default, enforce_now=False)
+		enabled = self.coordinator.strict_mode_default
+		last_state = await self.async_get_last_state()
+		last_extra = await self.async_get_last_extra_data()
+		if (
+			last_state is not None
+			and last_state.state in (STATE_ON, STATE_OFF)
+			and last_extra is not None
+			and last_extra.as_dict().get("option") == enabled
+		):
+			enabled = last_state.state == STATE_ON
+		self.coordinator.set_strict_mode(self._child_id, enabled, enforce_now=False)
+
+	@property
+	def extra_restore_state_data(self) -> RestoredExtraData:
+		"""The option in force alongside the state, to tell a changed option at the next start."""
+		return RestoredExtraData({"option": self.coordinator.strict_mode_default})
 
 	def _write_option(self) -> None:
 		"""Mirror the switches into the option: all on -> on, all off -> off, mixed -> unchanged."""
