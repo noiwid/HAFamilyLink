@@ -293,6 +293,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 		# Forward setup to platforms
 		await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+		# The strict mode switches are restored: the pass the first refresh
+		# skipped runs now, not one update interval later
+		entry.async_create_background_task(
+			hass, coordinator._async_enforce_strict_mode(coordinator.data), "familylink strict mode first pass"
+		)
 
 		# Register services
 		await async_setup_services(hass, coordinator)
