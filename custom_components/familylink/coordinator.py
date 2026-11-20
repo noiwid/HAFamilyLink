@@ -124,7 +124,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		quiet = last is not None and now - last < 900
 		if not quiet:
 			self._fail_logged[message] = now
-		_LOGGER.log(logging.DEBUG if quiet else logging.WARNING, "%s: %s", message, err)
+		# The type tells a Google answer that no longer parses (an IndexError or
+		# TypeError behind the client's NetworkError) from an outage
+		cause = err.__cause__ or err
+		_LOGGER.log(logging.DEBUG if quiet else logging.WARNING, "%s (%s): %s", message, type(cause).__name__, err)
 
 	def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
 		"""Initialize the coordinator."""
@@ -287,8 +290,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					supervised_children.append(member)
 
 			_LOGGER.debug(f"Fetched {len(family_members)} family members, {len(supervised_children)} supervised children")
-		except SessionExpiredError:
-			raise  # Re-raise to trigger auth notification
+		except (SessionExpiredError, NetworkError):
+			# A session to refresh, or a Google hiccup that _async_update_data
+			# warns about through _fetch_failed (its message names the read)
+			raise
 		except Exception as err:
 			# Fail the refresh instead of continuing with zero children. An empty
 			# result creates no entities at startup and blanks every child's data
@@ -1431,7 +1436,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		) if device_id and name in (ACTION_CANCEL_BONUS, ACTION_LOCK_DEVICE) else None
 		status["last_created_by"] = created_by
 		if created_by:
-			_LOGGER.warning(f"Strict mode: the override countered by {name} was created by {created_by}")
+			_LOGGER.info(f"Strict mode: the override countered by {name} was created by {created_by}")
 		self.hass.bus.async_fire(EVENT_STRICT_MODE_ACTION, {
 			"child_id": child_id,
 			"child_name": child_data.get("child_name"),

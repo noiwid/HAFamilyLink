@@ -7,6 +7,7 @@ created until a manual reload, and later refreshes blanked every child's data.
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,7 +16,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
-from custom_components.familylink.exceptions import FamilyLinkException, SessionExpiredError
+from custom_components.familylink.exceptions import FamilyLinkException, NetworkError, SessionExpiredError
 
 
 def _coordinator(members_error: Exception) -> FamilyLinkDataUpdateCoordinator:
@@ -74,3 +75,33 @@ def test_last_known_data_stands_in_only_while_recent() -> None:
     assert coordinator._recent_data() is None
     coordinator._last_known_at = dt_util.start_of_local_day() - timedelta(minutes=1)
     assert coordinator._recent_data() is None
+
+
+async def test_a_503_on_the_members_read_is_a_rate_limited_warning(caplog) -> None:
+    """It was wrapped in FamilyLinkException: an ERROR at every refresh, prefix doubled."""
+    coordinator = _coordinator(NetworkError("Failed to fetch family members: 503"))
+    coordinator._last_known_data = {"children_data": []}
+    caplog.set_level(logging.WARNING)
+
+    with pytest.raises(NetworkError):
+        await coordinator._async_fetch_data()
+    for _ in range(2):
+        await coordinator._async_update_data()
+
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == ["Error fetching Family Link data (NetworkError): Failed to fetch family members: 503"]
+
+
+def test_a_failed_read_names_the_underlying_error_type(caplog) -> None:
+    """A parser broken by a changed Google answer is told apart from an outage."""
+    coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
+    try:
+        try:
+            [][20]
+        except IndexError as cause:
+            raise NetworkError("Failed to fetch applied time limits: list index out of range") from cause
+    except NetworkError as err:
+        coordinator._fetch_failed("Failed to fetch applied time limits for Kid", err)
+
+    assert "(IndexError)" in caplog.records[-1].getMessage()
