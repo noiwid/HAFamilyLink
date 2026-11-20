@@ -16,12 +16,8 @@ class Config(BaseModel):
 
     # Paths
     share_dir: str = "/share/familylink"
-    cookie_file: str = "cookies.enc"
-    key_file: str = ".key"
 
     # Browser settings
-    browser_timeout: int = 300000  # 5 minutes in milliseconds
-    browser_navigation_timeout: int = 30000  # 30 seconds
     language: str = "en-US"  # Browser locale (e.g., fr-FR, en-GB, de-DE)
     timezone: str = "Europe/Paris"  # Browser timezone (e.g., America/New_York)
     vnc_password: str = ""  # VNC password (mirrors add-on option; empty = generated at start)

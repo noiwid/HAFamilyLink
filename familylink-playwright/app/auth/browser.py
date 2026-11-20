@@ -319,13 +319,8 @@ class BrowserAuthManager:
 
             _LOGGER.info(f"Extracted {len(google_cookies)} Google cookies")
 
-            # Save to shared storage (use injected instance to avoid config mismatch)
-            if self._storage:
-                await self._storage.save_cookies(google_cookies)
-            else:
-                from app.storage.file_storage import SharedStorage
-                storage = SharedStorage()
-                await storage.save_cookies(google_cookies)
+            # Save to the storage main.py injects (its share_dir, not a default one)
+            await self._storage.save_cookies(google_cookies)
 
             # Update session
             session['status'] = 'completed'

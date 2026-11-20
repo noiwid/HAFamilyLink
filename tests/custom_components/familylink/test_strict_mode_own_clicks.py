@@ -120,6 +120,17 @@ async def test_no_bedtime_correction_while_hours_set_from_ha_are_written() -> No
     assert coordinator._intents_for(CHILD)["values"]["bedtime"]["1"] == [[20, 30], [7, 0]]
 
 
+def test_a_reference_without_a_child_is_refused_not_given_to_the_first_child() -> None:
+    import pytest
+
+    coordinator = _coordinator()
+    coordinator.data = {"children_data": [{"child_id": CHILD}, {"child_id": "child-2"}]}
+
+    with pytest.raises(ValueError, match="No child"):
+        coordinator.record_policy_intent(None, "bedtime", True)
+    assert "bedtime" not in coordinator._intents_for(CHILD)["policies"]
+
+
 async def test_a_change_from_family_link_is_still_reverted() -> None:
     coordinator = _coordinator()
     coordinator._intents_for(CHILD)["policies"]["daily_limit"] = True

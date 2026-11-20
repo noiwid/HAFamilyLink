@@ -860,10 +860,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			del self._pending_time_limit_states[child_id][limit_type]
 			return None
 
-	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
-		"""Get device data by ID."""
-		return self._devices.get(device_id)
-
 	async def _create_auth_notification(self) -> None:
 		"""Create a persistent notification when authentication fails (only once)."""
 		if self._auth_notification_sent:
@@ -966,13 +962,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		entry.setdefault("values", {})
 		return entry
 
-	def _resolve_child_id(self, child_id: str | None) -> str | None:
-		"""Actions without a child target apply to the first supervised child."""
-		if child_id:
-			return child_id
-		for child_data in (self.data or {}).get("children_data", []):
-			return child_data.get("child_id")
-		return None
+	@staticmethod
+	def _resolve_child_id(child_id: str | None) -> str:
+		"""The child a strict mode reference belongs to, never guessed among several."""
+		if not child_id:
+			raise ValueError("No child given for a strict mode reference")
+		return child_id
 
 	@asynccontextmanager
 	async def _ha_write(self, key: str):
@@ -1000,8 +995,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_policy_intent(self, child_id: str | None, policy: str, enabled: bool) -> None:
 		"""Remember that bedtime / daily limit / school time was set from HA today."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		self._intents_for(child_id)["policies"][policy] = bool(enabled)
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: {policy} set to {enabled} from HA for child {child_id} (kept for today)")
@@ -1009,7 +1002,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_device_intent(self, child_id: str | None, device_id: str, action: str) -> None:
 		"""Remember that a device was locked or unlocked from HA today."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id or not device_id:
+		if not device_id:
 			return
 		entry = self._intents_for(child_id)
 		entry["devices"][device_id] = action
@@ -1022,8 +1015,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_bedtime_hours(self, child_id: str | None, day: int, start: list[int], end: list[int]) -> None:
 		"""A weekly bedtime slot set from HA becomes the reference for that day (strict mode)."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		if day is None:
 			day = dt_util.now().isoweekday()
 		values = self._intents_for(child_id).setdefault("values", {})
@@ -1096,21 +1087,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_daily_limit_minutes(
 		self, child_id: str | None, minutes: int, day: int | None = None, limit_on: bool = True,
 		device_id: str | None = None,
-	) -> tuple[int | None, bool | None] | None:
+	) -> tuple[int | None, bool | None]:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
 
 		Call it BEFORE writing to Google: the write verifies the applied value
 		for several seconds, and a refresh in between must not find the old
 		reference and put the old quota back. Returns what it replaced (the
 		weekday quota and the daily limit reference, None when absent) for
-		restore_daily_limit_minutes; None without a child.
+		restore_daily_limit_minutes.
 
 		With ``device_id`` the quota is today's, for that device alone: the
 		other devices and the weekly quota keep the child's reference.
 		"""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return None
 		today = dt_util.now().isoweekday()
 		if not (isinstance(day, int) and 1 <= day <= 7):
 			day = today
@@ -1138,7 +1127,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	) -> None:
 		"""Undo record_daily_limit_minutes after a write Google did not take."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id or previous is None:
+		if previous is None:
 			return
 		minutes, limit_on = previous
 		intents = self._intents_for(child_id)
@@ -1158,8 +1147,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
 		"""Forget the decision of the day for a device (strict mode lock lifted)."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		self._intents_for(child_id)["devices"].pop(device_id, None)
 		self._save_strict_intents()
 
