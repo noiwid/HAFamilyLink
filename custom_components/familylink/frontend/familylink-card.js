@@ -392,7 +392,7 @@ class FamilyLinkCard extends HTMLElement {
 			${isNaN(total) ? '' : `<div class="track big"><div style="width:${pct}%"></div></div>`}
 			${window || status ? `<div class="window">${esc(window)}${window && status ? ' · ' : ''}${status ? `<span class="${locked ? 'why' : ''}">${esc(status)}</span>` : ''}</div>` : ''}
 			${cfg.bonus === false ? '' : `<div class="bonus">
-				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${this._on(reset) ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
+				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${reset && reset.state !== 'unavailable' ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
 				<div class="btxt"><div>${t('reset')}</div><small>${bonus > 0 ? t('bonus_on').replace('{t}', hm(bonus)) : t('no_bonus')}</small></div>
 				${press('bonus_15min', 15, t('tip_add').replace('{n}', 15))}${press('bonus_30min', 30, t('tip_add').replace('{n}', 30))}${press('bonus_60min', 60, t('tip_add').replace('{n}', 60))}
 				<button class="round" data-dialog="bonus" data-tip="${esc(t('tip_custom'))}"><ha-icon icon="mdi:timer-edit-outline"></ha-icon></button>
