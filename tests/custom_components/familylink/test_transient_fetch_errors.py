@@ -8,9 +8,11 @@ automations fired.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.familylink.client.api import FamilyLinkClient
 from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
@@ -52,6 +54,7 @@ def _coordinator() -> FamilyLinkDataUpdateCoordinator:
     client.async_get_contact_restriction = AsyncMock(return_value=None)
     coordinator.client = client
     coordinator._last_known_data = LAST_KNOWN
+    coordinator._last_known_at = dt_util.now()
     coordinator._location_tracking_enabled = True
     coordinator._pending_lock_states = {}
     coordinator._pending_time_limit_states = {}
@@ -66,6 +69,25 @@ async def test_failed_reads_keep_the_lock_state_and_the_position() -> None:
     child = data["children_data"][0]
     assert [d["locked"] for d in child["devices"] if d["id"] == DEVICE_ID] == [True]
     assert child["location"] == HOME
+
+
+@pytest.mark.parametrize(("cached_at", "served"), [(timedelta(minutes=5), True), (timedelta(days=1), False)])
+async def test_a_failed_read_does_not_serve_yesterday_as_today(cached_at: timedelta, served: bool) -> None:
+    """Every fallback reads the cache through _recent_data(): yesterday's bedtime is not today's."""
+    coordinator = _coordinator()
+    coordinator.client.async_get_time_limit = AsyncMock(side_effect=NetworkError("503"))
+    coordinator._last_known_data = {"children_data": [{
+        **LAST_KNOWN["children_data"][0],
+        "bedtime_enabled_today": True,
+        "school_time_enabled_today": True,
+    }]}
+    coordinator._last_known_at = dt_util.now() - cached_at
+
+    child = (await coordinator._async_fetch_data())["children_data"][0]
+
+    assert child["bedtime_enabled_today"] is (True if served else None)
+    assert child["school_time_enabled_today"] is (True if served else None)
+    assert child["location"] == (HOME if served else None)
 
 
 class _Response:

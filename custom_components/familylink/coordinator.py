@@ -109,6 +109,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	"""Class to manage fetching data from the Family Link API."""
 
 	_fail_logged: dict[str, float] | None = None  # failed read -> when it was last warned about
+	_last_known_data: dict[str, Any] | None = None  # set in __init__, here for coordinators built bare
+	_last_known_at: datetime | None = None
 
 	def _fetch_failed(self, message: str, err: Exception) -> None:
 		"""Warn about a failed read at most every 15 minutes, then log it at debug.
@@ -268,6 +270,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return None
 		return self._last_known_data
 
+	def _cached_child(self, child_id: str) -> dict[str, Any]:
+		"""The child in _recent_data(), {} without one: what a failed read falls back to.
+
+		Read through _recent_data() so that a read failing at the first refresh
+		of the day, or after an outage, does not serve yesterday's values
+		(bedtime_enabled_today, screen time) as today's.
+		"""
+		return next(
+			(c for c in (self._recent_data() or {}).get("children_data", []) if c.get("child_id") == child_id),
+			{},
+		)
+
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
 		if self.client is None:
@@ -323,6 +337,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
 			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
+			# What each failed read below falls back to
+			cached_child = self._cached_child(child_id)
 
 			# Fetch complete apps and usage data for this child
 			apps_usage_data = None
@@ -344,17 +360,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# we restore the device list directly below (cached_devices)
 				# rather than re-deriving it from an empty deviceInfo (which
 				# would otherwise wipe every device on a transient 503).
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							apps_usage_data = {
-								"apps": cached_child.get("apps", []),
-								"deviceInfo": [],
-								"appUsageSessions": cached_child.get("app_usage_sessions", []),
-							}
-							cached_devices = cached_child.get("devices")
-							_LOGGER.debug(f"Using cached apps/usage data for {child_name}")
-							break
+				if cached_child:
+					apps_usage_data = {
+						"apps": cached_child.get("apps", []),
+						"deviceInfo": [],
+						"appUsageSessions": cached_child.get("app_usage_sessions", []),
+					}
+					cached_devices = cached_child.get("devices")
+					_LOGGER.debug(f"Using cached apps/usage data for {child_name}")
 
 			# Extract devices from apps_usage_data
 			devices = []
@@ -432,20 +445,17 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._fetch_failed(f"Failed to fetch time limit config for {child_name}", err)
 				time_limit_fresh = False
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							bedtime_enabled = cached_child.get("bedtime_enabled")
-							school_time_enabled = cached_child.get("school_time_enabled")
-							bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
-							school_time_enabled_today_from_rules = cached_child.get("school_time_enabled_today")
-							bedtime_schedule = cached_child.get("bedtime_schedule")
-							school_time_schedule = cached_child.get("school_time_schedule")
-							daily_limit_week_rows = cached_child.get("daily_limit_week")
-							daily_limit_switch = cached_child.get("daily_limit_enabled")
-							downtime_unlimited_apps = cached_child.get("downtime_unlimited_apps")
-							_LOGGER.debug(f"Using cached time limit config for {child_name}")
-							break
+				if cached_child:
+					bedtime_enabled = cached_child.get("bedtime_enabled")
+					school_time_enabled = cached_child.get("school_time_enabled")
+					bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
+					school_time_enabled_today_from_rules = cached_child.get("school_time_enabled_today")
+					bedtime_schedule = cached_child.get("bedtime_schedule")
+					school_time_schedule = cached_child.get("school_time_schedule")
+					daily_limit_week_rows = cached_child.get("daily_limit_week")
+					daily_limit_switch = cached_child.get("daily_limit_enabled")
+					downtime_unlimited_apps = cached_child.get("downtime_unlimited_apps")
+					_LOGGER.debug(f"Using cached time limit config for {child_name}")
 
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
@@ -480,20 +490,17 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._fetch_failed(f"Failed to fetch applied time limits for {child_name}", err)
 				applied_limits_fresh = False
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							devices_time_data = cached_child.get("devices_time_data", {})
-							# Without it every device would read unlocked for this poll
-							device_lock_states = {
-								device["id"]: device.get("locked", False)
-								for device in cached_child.get("devices") or []
-								if device.get("id")
-							}
-							bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
-							schooltime_enabled_today = cached_child.get("school_time_enabled_today")
-							_LOGGER.debug(f"Using cached applied time limits for {child_name}")
-							break
+				if cached_child:
+					devices_time_data = cached_child.get("devices_time_data", {})
+					# Without it every device would read unlocked for this poll
+					device_lock_states = {
+						device["id"]: device.get("locked", False)
+						for device in cached_child.get("devices") or []
+						if device.get("id")
+					}
+					bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
+					schooltime_enabled_today = cached_child.get("school_time_enabled_today")
+					_LOGGER.debug(f"Using cached applied time limits for {child_name}")
 
 			# The timeLimit response carries the authoritative per-day bedtime
 			# override (issue #113): action 2/1 for today's day_code directly
@@ -611,13 +618,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch screen time data for {child_name}", err)
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							screen_time = cached_child.get("screen_time")
-							if screen_time:
-								_LOGGER.debug(f"Using cached screen time for {child_name}")
-							break
+				screen_time = cached_child.get("screen_time")
+				if screen_time:
+					_LOGGER.debug(f"Using cached screen time for {child_name}")
 
 			# Fetch location data for this child (if enabled)
 			location = None
@@ -641,10 +644,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					self._fetch_failed(f"Failed to fetch location data for {child_name}", err)
 					# Keep the last position: a cleared one sends the tracker to
 					# unknown and fires zone automations on a Google hiccup
-					for cached_child in (self._last_known_data or {}).get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							location = cached_child.get("location")
-							break
+					location = cached_child.get("location")
 
 			# Who can call and text the child (select entity). One call per
 			# child; on a transient error keep the last known level.
@@ -655,12 +655,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch contact restriction for {child_name}", err)
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							contact_restriction = cached_child.get("contact_restriction")
-							_LOGGER.debug(f"Using cached contact restriction for {child_name}")
-							break
+				contact_restriction = cached_child.get("contact_restriction")
 
 			# Battery of each device. One call per child; on a transient error
 			# keep the last readings.
@@ -671,10 +666,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch device batteries for {child_name}", err)
-				for cached_child in (self._last_known_data or {}).get("children_data", []):
-					if cached_child.get("child_id") == child_id:
-						device_batteries = cached_child.get("device_batteries", {})
-						break
+				device_batteries = cached_child.get("device_batteries", {})
 
 			websites = await self._async_child_websites(child_id, child_name)
 			play_settings = await self._async_child_play_settings(child_id, child_name)

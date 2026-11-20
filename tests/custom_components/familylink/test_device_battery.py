@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.familylink.client.api import FamilyLinkClient
 from custom_components.familylink.const import DOMAIN
@@ -66,6 +67,7 @@ def _coordinator(batteries: AsyncMock) -> FamilyLinkDataUpdateCoordinator:
     client.async_get_device_batteries = batteries
     coordinator.client = client
     coordinator._last_known_data = {"children_data": [{"child_id": CHILD_ID, "device_batteries": {"phone": 42}}]}
+    coordinator._last_known_at = dt_util.now()
     coordinator._location_tracking_enabled = False
     coordinator._pending_lock_states = {}
     coordinator._pending_time_limit_states = {}
