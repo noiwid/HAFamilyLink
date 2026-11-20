@@ -138,7 +138,7 @@ def card_settings(entry: Any) -> dict[str, Any]:
 })
 @callback
 def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-	"""Read, and for an administrator change, the options of the entry ``entity_id`` belongs to."""
+	"""Read or change the options of the entry ``entity_id`` belongs to, administrators only (both)."""
 	entity = er.async_get(hass).async_get(msg["entity_id"])
 	entry = hass.config_entries.async_get_entry(entity.config_entry_id) if entity and entity.config_entry_id else None
 	if entry is None or entry.domain != DOMAIN:
