@@ -364,6 +364,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			cached_devices = None  # Populated from cache only if the fetch fails
 			try:
 				apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
+				self._read_ok(child_id, "screen")  # the screen time is computed from these sessions
 				_LOGGER.debug(
 					f"Fetched for {child_name}: {len(apps_usage_data.get('apps', []))} apps, "
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
@@ -632,7 +633,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				screen_time = await self.client.async_get_daily_screen_time(
 					account_id=child_id, data=apps_usage_data
 				)
-				self._read_ok(child_id, "screen")
+				# computed from cached sessions: only while they are recent
+				if cached_devices is not None and not self._day_cache(child_id, "screen", cached_today):
+					screen_time = None
 				_LOGGER.debug(
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"

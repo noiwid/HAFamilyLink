@@ -108,6 +108,18 @@ async def test_a_read_failing_for_long_is_not_kept_fresh_by_the_others() -> None
     assert child["bedtime_enabled_today"] is None
 
 
+async def test_screen_time_from_old_cached_sessions_is_not_served() -> None:
+    """apps/usage failing for 20 min: the screen time computed from the cached sessions is dropped."""
+    coordinator = _coordinator()
+    coordinator.client.async_get_apps_and_usage = AsyncMock(side_effect=NetworkError("503"))
+    coordinator.client.async_get_daily_screen_time = AsyncMock(return_value={"total_seconds": 600, "formatted": "00:10:00", "app_breakdown": {}})
+    coordinator._read_at = {f"{CHILD_ID}:screen": dt_util.now() - timedelta(minutes=20)}
+
+    child = (await coordinator._async_fetch_data())["children_data"][0]
+
+    assert child.get("screen_time") is None
+
+
 async def test_a_failed_apps_and_usage_read_keeps_the_cached_devices() -> None:
     """The cache holds parsed devices, not deviceInfo: they are restored as they are."""
     coordinator = _coordinator()
