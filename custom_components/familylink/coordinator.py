@@ -285,6 +285,22 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		)
 		return child, (child if self._recent_data() is not None else {})
 
+	def _day_cache(self, child_id: str, read: str, cached_today: dict[str, Any]) -> dict[str, Any]:
+		"""cached_today while that read itself is recent: today, less than 15 min ago.
+
+		Every refresh that succeeds renews _last_known_at even when one read keeps
+		failing, so each read keeps its own time: the one of its last success, or
+		of the cache it first fell back on.
+		"""
+		at = self.__dict__.setdefault("_read_at", {}).setdefault(f"{child_id}:{read}", self._last_known_at)
+		now = dt_util.now()
+		if at is None or at.date() != now.date() or now - at > LAST_KNOWN_DATA_MAX_AGE:
+			return {}
+		return cached_today
+
+	def _read_ok(self, child_id: str, read: str) -> None:
+		self.__dict__.setdefault("_read_at", {})[f"{child_id}:{read}"] = dt_util.now()
+
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
 		if self.client is None:
@@ -436,6 +452,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				daily_limit_week_rows = time_limit_config.get("daily_limit_week")
 				daily_limit_switch = time_limit_config.get("daily_limit_enabled")
 				downtime_unlimited_apps = time_limit_config.get("downtime_unlimited_apps")
+				self._read_ok(child_id, "rules")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
@@ -451,8 +468,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				if cached_child:
 					bedtime_enabled = cached_child.get("bedtime_enabled")
 					school_time_enabled = cached_child.get("school_time_enabled")
-					bedtime_enabled_today_from_rules = cached_today.get("bedtime_enabled_today")
-					school_time_enabled_today_from_rules = cached_today.get("school_time_enabled_today")
+					rules_today = self._day_cache(child_id, "rules", cached_today)
+					bedtime_enabled_today_from_rules = rules_today.get("bedtime_enabled_today")
+					school_time_enabled_today_from_rules = rules_today.get("school_time_enabled_today")
 					bedtime_schedule = cached_child.get("bedtime_schedule")
 					school_time_schedule = cached_child.get("school_time_schedule")
 					daily_limit_week_rows = cached_child.get("daily_limit_week")
@@ -481,6 +499,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				devices_time_data = applied_limits_data.get("devices", {})
 				bedtime_enabled_today = applied_limits_data.get("bedtime_enabled_today")
 				schooltime_enabled_today = applied_limits_data.get("schooltime_enabled_today")
+				self._read_ok(child_id, "applied")
 				_LOGGER.debug(
 					f"Fetched applied time limits for {child_name}: "
 					f"{len(device_lock_states)} device lock states, "
@@ -494,15 +513,16 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				applied_limits_fresh = False
 				# Try to recover from last known data cache
 				if cached_child:
-					devices_time_data = cached_today.get("devices_time_data", {})
+					applied_today = self._day_cache(child_id, "applied", cached_today)
+					devices_time_data = applied_today.get("devices_time_data", {})
 					# Without it every device would read unlocked for this poll
 					device_lock_states = {
 						device["id"]: device.get("locked", False)
 						for device in cached_child.get("devices") or []
 						if device.get("id")
 					}
-					bedtime_enabled_today = cached_today.get("bedtime_enabled_today")
-					schooltime_enabled_today = cached_today.get("school_time_enabled_today")
+					bedtime_enabled_today = applied_today.get("bedtime_enabled_today")
+					schooltime_enabled_today = applied_today.get("school_time_enabled_today")
 					_LOGGER.debug(f"Using cached applied time limits for {child_name}")
 
 			# The timeLimit response carries the authoritative per-day bedtime
@@ -612,6 +632,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				screen_time = await self.client.async_get_daily_screen_time(
 					account_id=child_id, data=apps_usage_data
 				)
+				self._read_ok(child_id, "screen")
 				_LOGGER.debug(
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"
@@ -621,7 +642,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch screen time data for {child_name}", err)
 				# Try to recover from last known data cache
-				screen_time = cached_today.get("screen_time")
+				screen_time = self._day_cache(child_id, "screen", cached_today).get("screen_time")
 				if screen_time:
 					_LOGGER.debug(f"Using cached screen time for {child_name}")
 

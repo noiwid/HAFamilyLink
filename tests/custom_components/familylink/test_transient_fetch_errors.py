@@ -94,6 +94,20 @@ async def test_a_failed_read_does_not_serve_yesterday_as_today(cached_at: timede
     assert child["devices_time_data"] == (LAST_KNOWN["children_data"][0]["devices_time_data"] if served else {})
 
 
+async def test_a_read_failing_for_long_is_not_kept_fresh_by_the_others() -> None:
+    """The other reads succeed and renew the cache every minute: the reads of the day failing for 20 min still lose their values."""
+    coordinator = _coordinator()
+    coordinator.client.async_get_time_limit = AsyncMock(side_effect=NetworkError("503"))
+    coordinator._last_known_data = {"children_data": [{**LAST_KNOWN["children_data"][0], "bedtime_enabled_today": True}]}
+    coordinator._last_known_at = dt_util.now()
+    stale = dt_util.now() - timedelta(minutes=20)
+    coordinator._read_at = {f"{CHILD_ID}:rules": stale, f"{CHILD_ID}:applied": stale}
+
+    child = (await coordinator._async_fetch_data())["children_data"][0]
+
+    assert child["bedtime_enabled_today"] is None
+
+
 async def test_a_failed_apps_and_usage_read_keeps_the_cached_devices() -> None:
     """The cache holds parsed devices, not deviceInfo: they are restored as they are."""
     coordinator = _coordinator()
