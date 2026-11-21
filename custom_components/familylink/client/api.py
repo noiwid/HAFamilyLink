@@ -422,7 +422,7 @@ class FamilyLinkClient:
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("✗ 401 Unauthorized - Session expired")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_log_failure(err, "Failed to fetch family members: %s", err)
 			raise NetworkError(f"Failed to fetch family members: {_describe(err)}") from err
@@ -536,7 +536,7 @@ class FamilyLinkClient:
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("✗ 401 Unauthorized - Session expired")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_log_failure(err, "Failed to fetch apps and usage: %s", err)
 			raise NetworkError(f"Failed to fetch apps and usage: {_describe(err)}") from err
