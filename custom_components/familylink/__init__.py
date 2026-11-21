@@ -273,6 +273,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	"""Set up Google Family Link from a config entry."""
 	_LOGGER.debug("Setting up Family Link integration")
 
+	coordinator: FamilyLinkDataUpdateCoordinator | None = None
 	try:
 		# Create coordinator for data updates
 		coordinator = FamilyLinkDataUpdateCoordinator(hass, entry)
@@ -292,6 +293,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 		# Forward setup to platforms
 		await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+		# The strict mode switches are restored: the pass the first refresh
+		# skipped runs now, not one update interval later
+		entry.async_create_background_task(
+			hass, coordinator._async_enforce_strict_mode(coordinator.data), "familylink strict mode first pass"
+		)
 
 		# Register services
 		await async_setup_services(hass, coordinator)
@@ -307,10 +313,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 		_LOGGER.info("Successfully set up Family Link integration")
 		return True
 
-	except FamilyLinkException as err:
-		_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
-		raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
 	except Exception as err:
+		# Each retry builds a new client: close this one's aiohttp session
+		if coordinator is not None:
+			await coordinator.async_cleanup()
+		if isinstance(err, FamilyLinkException):
+			_LOGGER.debug("Failed to set up Family Link, will retry: %s", err)
+			raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
 		_LOGGER.debug("Unexpected error setting up Family Link, will retry: %s", err)
 		raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
 
@@ -636,20 +645,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 		_LOGGER.info(f"Service called: add_time_bonus ({bonus_minutes} minutes) for device {device_id}")
 
 		try:
-			# Declared to strict mode BEFORE the call (the client verifies the
-			# bonus for several seconds, a poll in between must not cancel it)
-			previous_bonus = coordinator.register_ha_bonus(device_id, bonus_minutes)
-			success = await coordinator.client.async_add_time_bonus(
-				bonus_minutes=bonus_minutes,
-				device_id=device_id,
-				account_id=child_id
-			)
+			success = await coordinator.async_add_ha_bonus(device_id, bonus_minutes, child_id)
 		except Exception as err:
-			coordinator.restore_ha_bonus(device_id, previous_bonus)
 			_LOGGER.error(f"Error adding time bonus: {err}")
 			raise
 		if not success:
-			coordinator.restore_ha_bonus(device_id, previous_bonus)
 			raise HomeAssistantError(f"Family Link did not add the time bonus to device {device_id} (see the log for details)")
 		_LOGGER.info(f"Successfully added {bonus_minutes} minutes bonus to device {device_id}")
 		await coordinator.async_request_refresh()
@@ -731,12 +731,26 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			f"child {child_id}, {len(device_ids)} device(s): {', '.join(device_ids)}"
 		)
 
+		results: dict[str, bool] = {}
+		# Declared to strict mode BEFORE the writes: the client verifies
+		# each override for several seconds, and a refresh in between must
+		# not find the old reference and put the old quota back
+		recorded: dict[int, tuple[int | None, bool | None] | None] = {}
+		recorded_devices: dict[str, tuple[int | None, bool | None] | None] = {}
+
+		def restore_references() -> None:
+			"""Put back the references of the writes Google did not take.
+
+			Last recorded first, so the daily limit reference ends as before.
+			"""
+			for target_device_id, previous in reversed(list(recorded_devices.items())):
+				if not results.get(target_device_id):
+					coordinator.restore_daily_limit_minutes(child_id, today, previous, device_id=target_device_id)
+			if not results.get("weekly"):
+				for ref_day, previous in reversed(list(recorded.items())):
+					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
+
 		try:
-			results = {}
-			# Declared to strict mode BEFORE the writes: the client verifies
-			# each override for several seconds, and a refresh in between must
-			# not find the old reference and put the old quota back
-			recorded: dict[int, int | None] = {}
 			if day is not None:
 				# A weekday: the weekly quota of that day, as the app's weekly
 				# screen writes it. Today also gets the override below so the
@@ -748,7 +762,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			# Today's quota is an override per device, for today only: strict mode
 			# keeps it per device until midnight and leaves the weekly row alone
 			# (a child-wide reference for today rewrote the weekday's weekly quota)
-			recorded_devices: dict[str, tuple[int | None, bool | None] | None] = {}
 			if posts_override:
 				if today not in recorded:
 					for target_device_id in device_ids:
@@ -765,12 +778,8 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 			if failed:
 				_LOGGER.error(f"Failed to set daily limit for device(s): {', '.join(failed)}")
 			if failed and len(failed) == len(results):
-				# Nothing was taken: the references go back to what they were,
-				# last recorded first so the daily limit reference ends as before
-				for target_device_id, previous in reversed(list(recorded_devices.items())):
-					coordinator.restore_daily_limit_minutes(child_id, today, previous, device_id=target_device_id)
-				for ref_day, previous in reversed(list(recorded.items())):
-					coordinator.restore_daily_limit_minutes(child_id, ref_day, previous)
+				# Nothing was taken: the references go back to what they were
+				restore_references()
 			if len(failed) < len(results):
 				_LOGGER.info(
 					f"Successfully set daily limit to {daily_minutes} minutes for "
@@ -800,6 +809,11 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 					"the slot used and the value observed."
 				)
 		except Exception as err:
+			if not isinstance(err, HomeAssistantError):
+				# A write that raised (expired session, network): its reference
+				# goes back too. A HomeAssistantError reports failed results,
+				# whose references were handled above.
+				restore_references()
 			_LOGGER.error(f"Error setting daily limit: {err}")
 			raise
 
@@ -818,22 +832,25 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		_LOGGER.info(f"Service called: set_bedtime ({start_time}-{end_time}) for day={day or 'today'} scope={scope}")
 
-		try:
-			success = await coordinator.client.async_set_bedtime(
-				start_time=start_time,
-				end_time=end_time,
-				day=day,
-				account_id=child_id,
-				scope=scope,
-			)
-		except Exception as err:
-			_LOGGER.error(f"Error setting bedtime: {err}")
-			raise
-		if not success:
-			raise HomeAssistantError(f"Family Link rejected bedtime {start_time}-{end_time} (see the log for details)")
-		_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
-		if scope == "weekly":
-			coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
+		# Strict mode leaves the hours alone while they are written (they are
+		# the reference only once Google took them)
+		async with coordinator._ha_write(f"{child_id}:bedtime_hours"):
+			try:
+				success = await coordinator.client.async_set_bedtime(
+					start_time=start_time,
+					end_time=end_time,
+					day=day,
+					account_id=child_id,
+					scope=scope,
+				)
+			except Exception as err:
+				_LOGGER.error(f"Error setting bedtime: {err}")
+				raise
+			if not success:
+				raise HomeAssistantError(f"Family Link rejected bedtime {start_time}-{end_time} (see the log for details)")
+			_LOGGER.info(f"Successfully set bedtime {start_time}-{end_time}")
+			if scope == "weekly":
+				coordinator.record_bedtime_hours(child_id, day, parse_time_string(start_time), parse_time_string(end_time))
 		await coordinator.async_request_refresh()
 
 	async def handle_set_school_time(call: ServiceCall) -> None:
@@ -935,8 +952,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator: FamilyLinkDataU
 
 		# If entity_id provided, extract child_id from entity attributes
 		if entity_id and not child_id:
-			_, extracted_child_id = extract_ids_from_entity(hass, entity_id)
-			child_id = extracted_child_id
+			_, child_id = extract_ids_from_entity(hass, entity_id)
+			if not child_id:
+				# Not every child: a wrong entity must not refresh them all
+				raise ServiceValidationError(
+					f"Entity {entity_id} does not belong to a Family Link child. Select an "
+					"entity of the child, or pass child_id."
+				)
 
 		if child_id:
 			targets = [(child_id, f"child {child_id}")]
@@ -1215,9 +1237,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 			_LOGGER.debug("Family Link services unregistered")
 
 	return unload_ok
-
-
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-	"""Reload config entry."""
-	await async_unload_entry(hass, entry)
-	await async_setup_entry(hass, entry)

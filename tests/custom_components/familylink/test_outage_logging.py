@@ -7,11 +7,14 @@ coordinator warns once.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 
 from custom_components.familylink.client.api import _transient
+from custom_components.familylink.exceptions import NetworkError
 
 from test_transient_fetch_errors import CHILD_ID, _client, _coordinator
 
@@ -78,3 +81,12 @@ async def test_no_read_logs_a_google_hiccup_as_an_error(caplog, read: str, statu
         await getattr(_client(status), read)(account_id=CHILD_ID)
 
     assert not [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+async def test_a_timeout_names_itself_in_the_error() -> None:
+    """str(asyncio.TimeoutError()) is empty: the message ended with a bare colon."""
+    client = _client(200)
+    client._get_session.return_value.get = MagicMock(side_effect=asyncio.TimeoutError())
+
+    with pytest.raises(NetworkError, match="Failed to fetch family members: TimeoutError$"):
+        await client.async_get_family_members()

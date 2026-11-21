@@ -109,6 +109,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	"""Class to manage fetching data from the Family Link API."""
 
 	_fail_logged: dict[str, float] | None = None  # failed read -> when it was last warned about
+	_last_known_data: dict[str, Any] | None = None  # set in __init__, here for coordinators built bare
+	_last_known_at: datetime | None = None
 
 	def _fetch_failed(self, message: str, err: Exception) -> None:
 		"""Warn about a failed read at most every 15 minutes, then log it at debug.
@@ -124,7 +126,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		quiet = last is not None and now - last < 900
 		if not quiet:
 			self._fail_logged[message] = now
-		_LOGGER.log(logging.DEBUG if quiet else logging.WARNING, "%s: %s", message, err)
+		# The type tells a Google answer that no longer parses (an IndexError or
+		# TypeError behind the client's NetworkError) from an outage
+		cause = err.__cause__ or err
+		_LOGGER.log(logging.DEBUG if quiet else logging.WARNING, "%s (%s): %s", message, type(cause).__name__, err)
 
 	def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
 		"""Initialize the coordinator."""
@@ -265,6 +270,37 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			return None
 		return self._last_known_data
 
+	def _cached_child(self, child_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+		"""What a failed read falls back to: (the child in the last good data, the same if recent).
+
+		Devices, lock states, position and batteries keep the last values
+		whatever their age (a cleared position fires zone automations). The
+		values of the day (bedtime / school time today, screen time, time per
+		device) come from the second one, {} unless _recent_data() still
+		stands: yesterday's are not served as today's.
+		"""
+		child = next(
+			(c for c in (self._last_known_data or {}).get("children_data", []) if c.get("child_id") == child_id),
+			{},
+		)
+		return child, (child if self._recent_data() is not None else {})
+
+	def _day_cache(self, child_id: str, read: str, cached_today: dict[str, Any]) -> dict[str, Any]:
+		"""cached_today while that read itself is recent: today, less than 15 min ago.
+
+		Every refresh that succeeds renews _last_known_at even when one read keeps
+		failing, so each read keeps its own time: the one of its last success, or
+		of the cache it first fell back on.
+		"""
+		at = self.__dict__.setdefault("_read_at", {}).setdefault(f"{child_id}:{read}", self._last_known_at)
+		now = dt_util.now()
+		if at is None or at.date() != now.date() or now - at > LAST_KNOWN_DATA_MAX_AGE:
+			return {}
+		return cached_today
+
+	def _read_ok(self, child_id: str, read: str) -> None:
+		self.__dict__.setdefault("_read_at", {})[f"{child_id}:{read}"] = dt_util.now()
+
 	async def _async_fetch_data(self) -> dict[str, Any]:
 		"""Perform the actual data fetch from Family Link API."""
 		if self.client is None:
@@ -287,8 +323,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					supervised_children.append(member)
 
 			_LOGGER.debug(f"Fetched {len(family_members)} family members, {len(supervised_children)} supervised children")
-		except SessionExpiredError:
-			raise  # Re-raise to trigger auth notification
+		except (SessionExpiredError, NetworkError):
+			# A session to refresh, or a Google hiccup that _async_update_data
+			# warns about through _fetch_failed (its message names the read)
+			raise
 		except Exception as err:
 			# Fail the refresh instead of continuing with zero children. An empty
 			# result creates no entities at startup and blanks every child's data
@@ -318,12 +356,15 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			child_name = child.get("profile", {}).get("displayName", "Unknown")
 
 			_LOGGER.debug(f"Fetching data for child: {child_name} (ID: {child_id})")
+			# What each failed read below falls back to
+			cached_child, cached_today = self._cached_child(child_id)
 
 			# Fetch complete apps and usage data for this child
 			apps_usage_data = None
 			cached_devices = None  # Populated from cache only if the fetch fails
 			try:
 				apps_usage_data = await self.client.async_get_apps_and_usage(account_id=child_id)
+				self._read_ok(child_id, "screen")  # the screen time is computed from these sessions
 				_LOGGER.debug(
 					f"Fetched for {child_name}: {len(apps_usage_data.get('apps', []))} apps, "
 					f"{len(apps_usage_data.get('deviceInfo', []))} devices, "
@@ -339,17 +380,14 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				# we restore the device list directly below (cached_devices)
 				# rather than re-deriving it from an empty deviceInfo (which
 				# would otherwise wipe every device on a transient 503).
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							apps_usage_data = {
-								"apps": cached_child.get("apps", []),
-								"deviceInfo": [],
-								"appUsageSessions": cached_child.get("app_usage_sessions", []),
-							}
-							cached_devices = cached_child.get("devices")
-							_LOGGER.debug(f"Using cached apps/usage data for {child_name}")
-							break
+				if cached_child:
+					apps_usage_data = {
+						"apps": cached_child.get("apps", []),
+						"deviceInfo": [],
+						"appUsageSessions": cached_child.get("app_usage_sessions", []),
+					}
+					cached_devices = cached_child.get("devices")
+					_LOGGER.debug(f"Using cached apps/usage data for {child_name}")
 
 			# Extract devices from apps_usage_data
 			devices = []
@@ -415,6 +453,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				daily_limit_week_rows = time_limit_config.get("daily_limit_week")
 				daily_limit_switch = time_limit_config.get("daily_limit_enabled")
 				downtime_unlimited_apps = time_limit_config.get("downtime_unlimited_apps")
+				self._read_ok(child_id, "rules")
 				_LOGGER.debug(
 					f"Fetched time limit config for {child_name}: "
 					f"bedtime={bedtime_enabled}, bedtime_today={bedtime_enabled_today_from_rules}, "
@@ -427,20 +466,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._fetch_failed(f"Failed to fetch time limit config for {child_name}", err)
 				time_limit_fresh = False
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							bedtime_enabled = cached_child.get("bedtime_enabled")
-							school_time_enabled = cached_child.get("school_time_enabled")
-							bedtime_enabled_today_from_rules = cached_child.get("bedtime_enabled_today")
-							school_time_enabled_today_from_rules = cached_child.get("school_time_enabled_today")
-							bedtime_schedule = cached_child.get("bedtime_schedule")
-							school_time_schedule = cached_child.get("school_time_schedule")
-							daily_limit_week_rows = cached_child.get("daily_limit_week")
-							daily_limit_switch = cached_child.get("daily_limit_enabled")
-							downtime_unlimited_apps = cached_child.get("downtime_unlimited_apps")
-							_LOGGER.debug(f"Using cached time limit config for {child_name}")
-							break
+				if cached_child:
+					bedtime_enabled = cached_child.get("bedtime_enabled")
+					school_time_enabled = cached_child.get("school_time_enabled")
+					rules_today = self._day_cache(child_id, "rules", cached_today)
+					bedtime_enabled_today_from_rules = rules_today.get("bedtime_enabled_today")
+					school_time_enabled_today_from_rules = rules_today.get("school_time_enabled_today")
+					bedtime_schedule = cached_child.get("bedtime_schedule")
+					school_time_schedule = cached_child.get("school_time_schedule")
+					daily_limit_week_rows = cached_child.get("daily_limit_week")
+					daily_limit_switch = cached_child.get("daily_limit_enabled")
+					downtime_unlimited_apps = cached_child.get("downtime_unlimited_apps")
+					_LOGGER.debug(f"Using cached time limit config for {child_name}")
 
 			# Fetch applied time limits (lock states and per-device time data)
 			device_lock_states = {}
@@ -463,6 +500,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				devices_time_data = applied_limits_data.get("devices", {})
 				bedtime_enabled_today = applied_limits_data.get("bedtime_enabled_today")
 				schooltime_enabled_today = applied_limits_data.get("schooltime_enabled_today")
+				self._read_ok(child_id, "applied")
 				_LOGGER.debug(
 					f"Fetched applied time limits for {child_name}: "
 					f"{len(device_lock_states)} device lock states, "
@@ -475,20 +513,18 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				self._fetch_failed(f"Failed to fetch applied time limits for {child_name}", err)
 				applied_limits_fresh = False
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							devices_time_data = cached_child.get("devices_time_data", {})
-							# Without it every device would read unlocked for this poll
-							device_lock_states = {
-								device["id"]: device.get("locked", False)
-								for device in cached_child.get("devices") or []
-								if device.get("id")
-							}
-							bedtime_enabled_today = cached_child.get("bedtime_enabled_today")
-							schooltime_enabled_today = cached_child.get("school_time_enabled_today")
-							_LOGGER.debug(f"Using cached applied time limits for {child_name}")
-							break
+				if cached_child:
+					applied_today = self._day_cache(child_id, "applied", cached_today)
+					devices_time_data = applied_today.get("devices_time_data", {})
+					# Without it every device would read unlocked for this poll
+					device_lock_states = {
+						device["id"]: device.get("locked", False)
+						for device in cached_child.get("devices") or []
+						if device.get("id")
+					}
+					bedtime_enabled_today = applied_today.get("bedtime_enabled_today")
+					schooltime_enabled_today = applied_today.get("school_time_enabled_today")
+					_LOGGER.debug(f"Using cached applied time limits for {child_name}")
 
 			# The timeLimit response carries the authoritative per-day bedtime
 			# override (issue #113): action 2/1 for today's day_code directly
@@ -597,6 +633,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				screen_time = await self.client.async_get_daily_screen_time(
 					account_id=child_id, data=apps_usage_data
 				)
+				# computed from cached sessions: only while they are recent
+				if cached_devices is not None and not self._day_cache(child_id, "screen", cached_today):
+					screen_time = None
 				_LOGGER.debug(
 					f"Successfully fetched screen time for {child_name}: {screen_time['formatted']} "
 					f"({len(screen_time['app_breakdown'])} apps)"
@@ -606,13 +645,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch screen time data for {child_name}", err)
 				# Try to recover from last known data cache
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							screen_time = cached_child.get("screen_time")
-							if screen_time:
-								_LOGGER.debug(f"Using cached screen time for {child_name}")
-							break
+				screen_time = self._day_cache(child_id, "screen", cached_today).get("screen_time")
+				if screen_time:
+					_LOGGER.debug(f"Using cached screen time for {child_name}")
 
 			# Fetch location data for this child (if enabled)
 			location = None
@@ -636,10 +671,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 					self._fetch_failed(f"Failed to fetch location data for {child_name}", err)
 					# Keep the last position: a cleared one sends the tracker to
 					# unknown and fires zone automations on a Google hiccup
-					for cached_child in (self._last_known_data or {}).get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							location = cached_child.get("location")
-							break
+					location = cached_child.get("location")
 
 			# Who can call and text the child (select entity). One call per
 			# child; on a transient error keep the last known level.
@@ -650,12 +682,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch contact restriction for {child_name}", err)
-				if self._last_known_data:
-					for cached_child in self._last_known_data.get("children_data", []):
-						if cached_child.get("child_id") == child_id:
-							contact_restriction = cached_child.get("contact_restriction")
-							_LOGGER.debug(f"Using cached contact restriction for {child_name}")
-							break
+				contact_restriction = cached_child.get("contact_restriction")
 
 			# Battery of each device. One call per child; on a transient error
 			# keep the last readings.
@@ -666,10 +693,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 				raise  # Re-raise to trigger auth notification
 			except Exception as err:
 				self._fetch_failed(f"Failed to fetch device batteries for {child_name}", err)
-				for cached_child in (self._last_known_data or {}).get("children_data", []):
-					if cached_child.get("child_id") == child_id:
-						device_batteries = cached_child.get("device_batteries", {})
-						break
+				device_batteries = cached_child.get("device_batteries", {})
 
 			websites = await self._async_child_websites(child_id, child_name)
 			play_settings = await self._async_child_play_settings(child_id, child_name)
@@ -811,6 +835,8 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 
 			return success
 
+		except SessionExpiredError:
+			raise  # "Session expired" to the parent, not "Failed to lock"
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
 			return False
@@ -860,10 +886,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			# Expired, clean up
 			del self._pending_time_limit_states[child_id][limit_type]
 			return None
-
-	async def async_get_device(self, device_id: str) -> dict[str, Any] | None:
-		"""Get device data by ID."""
-		return self._devices.get(device_id)
 
 	async def _create_auth_notification(self) -> None:
 		"""Create a persistent notification when authentication fails (only once)."""
@@ -967,13 +989,12 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		entry.setdefault("values", {})
 		return entry
 
-	def _resolve_child_id(self, child_id: str | None) -> str | None:
-		"""Actions without a child target apply to the first supervised child."""
-		if child_id:
-			return child_id
-		for child_data in (self.data or {}).get("children_data", []):
-			return child_data.get("child_id")
-		return None
+	@staticmethod
+	def _resolve_child_id(child_id: str | None) -> str:
+		"""The child a strict mode reference belongs to, never guessed among several."""
+		if not child_id:
+			raise ValueError("No child given for a strict mode reference")
+		return child_id
 
 	@asynccontextmanager
 	async def _ha_write(self, key: str):
@@ -1001,8 +1022,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_policy_intent(self, child_id: str | None, policy: str, enabled: bool) -> None:
 		"""Remember that bedtime / daily limit / school time was set from HA today."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		self._intents_for(child_id)["policies"][policy] = bool(enabled)
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: {policy} set to {enabled} from HA for child {child_id} (kept for today)")
@@ -1010,7 +1029,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_device_intent(self, child_id: str | None, device_id: str, action: str) -> None:
 		"""Remember that a device was locked or unlocked from HA today."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id or not device_id:
+		if not device_id:
 			return
 		entry = self._intents_for(child_id)
 		entry["devices"][device_id] = action
@@ -1023,8 +1042,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_bedtime_hours(self, child_id: str | None, day: int, start: list[int], end: list[int]) -> None:
 		"""A weekly bedtime slot set from HA becomes the reference for that day (strict mode)."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		if day is None:
 			day = dt_util.now().isoweekday()
 		values = self._intents_for(child_id).setdefault("values", {})
@@ -1097,21 +1114,19 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def record_daily_limit_minutes(
 		self, child_id: str | None, minutes: int, day: int | None = None, limit_on: bool = True,
 		device_id: str | None = None,
-	) -> tuple[int | None, bool | None] | None:
+	) -> tuple[int | None, bool | None]:
 		"""A weekday quota set from HA becomes the reference for that weekday (strict mode).
 
 		Call it BEFORE writing to Google: the write verifies the applied value
 		for several seconds, and a refresh in between must not find the old
 		reference and put the old quota back. Returns what it replaced (the
 		weekday quota and the daily limit reference, None when absent) for
-		restore_daily_limit_minutes; None without a child.
+		restore_daily_limit_minutes.
 
 		With ``device_id`` the quota is today's, for that device alone: the
 		other devices and the weekly quota keep the child's reference.
 		"""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return None
 		today = dt_util.now().isoweekday()
 		if not (isinstance(day, int) and 1 <= day <= 7):
 			day = today
@@ -1139,7 +1154,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	) -> None:
 		"""Undo record_daily_limit_minutes after a write Google did not take."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id or previous is None:
+		if previous is None:
 			return
 		minutes, limit_on = previous
 		intents = self._intents_for(child_id)
@@ -1159,8 +1174,6 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 	def clear_device_intent(self, child_id: str | None, device_id: str) -> None:
 		"""Forget the decision of the day for a device (strict mode lock lifted)."""
 		child_id = self._resolve_child_id(child_id)
-		if not child_id:
-			return
 		self._intents_for(child_id)["devices"].pop(device_id, None)
 		self._save_strict_intents()
 
@@ -1185,6 +1198,20 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 			self._ha_bonus_until[device_id] = previous
 		self._save_strict_intents()
 
+	def ha_bonus_allowance(self, device_id: str) -> float | None:
+		"""Until when an HA-granted bonus is protected on the device, None if none."""
+		return self._ha_bonus_until.get(device_id)
+
+	def drop_ha_bonus(self, device_id: str, seen: float | None) -> None:
+		"""End the protection after a reset, unless a bonus was granted meanwhile.
+
+		A bonus pressed while the reset runs registers a new allowance: dropping
+		it would leave that bonus unprotected, and strict mode would cancel it
+		as one added from Family Link.
+		"""
+		if self._ha_bonus_until.get(device_id) == seen:
+			self.restore_ha_bonus(device_id, None)
+
 	def register_ha_bonus(self, device_id: str, minutes: int) -> float | None:
 		"""Record a bonus granted from Home Assistant so strict mode leaves it alone.
 
@@ -1200,6 +1227,25 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._save_strict_intents()
 		_LOGGER.debug(f"Strict mode: bonus of {minutes} min granted from HA on {device_id}, protected")
 		return previous
+
+	async def async_add_ha_bonus(self, device_id: str, minutes: int, child_id: str) -> bool:
+		"""Grant a bonus from HA (button or add_time_bonus action), protected from strict mode.
+
+		Declared BEFORE the call: the client verifies the bonus for several
+		seconds, and a poll in that window would cancel it as a Google-side
+		bonus. The declaration is withdrawn when Google does not take it.
+		"""
+		previous = self.register_ha_bonus(device_id, minutes)
+		try:
+			success = await self.client.async_add_time_bonus(
+				bonus_minutes=minutes, device_id=device_id, account_id=child_id
+			)
+		except Exception:
+			self.restore_ha_bonus(device_id, previous)
+			raise
+		if not success:
+			self.restore_ha_bonus(device_id, previous)
+		return success
 
 	def _ha_bonus_devices(self) -> frozenset[str]:
 		"""Devices whose HA-granted bonus is still running (expired entries pruned)."""
@@ -1243,7 +1289,10 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		Runs after every successful refresh. Never raises: a failed corrective
 		action is logged and retried at the next poll, after the cooldown.
 		"""
-		if not data or self.client is None:
+		if not data or self.client is None or self.data is None:
+			# self.data None: the first refresh of a setup. The per-child switches,
+			# restored right after it, decide who is protected; until then every
+			# child would read the option's state
 			return
 		for child_data in data.get("children_data", []):
 			child_id = child_data.get("child_id")
@@ -1309,6 +1358,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		if policy and self.get_pending_time_limit_state(child_id, policy) is not None:
 			return
 		if name in (ACTION_LOCK_DEVICE, ACTION_UNLOCK_DEVICE) and device_id in self._pending_lock_states:
+			return
+		# Bedtime hours set from HA become the reference once Google took them
+		if name == ACTION_SET_BEDTIME and self._ha_write_recent(f"{child_id}:bedtime_hours"):
 			return
 		# The parent's own clicks: a write from HA still running or just
 		# done (the refresh may predate it), or a decision taken after this
@@ -1417,7 +1469,7 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		) if device_id and name in (ACTION_CANCEL_BONUS, ACTION_LOCK_DEVICE) else None
 		status["last_created_by"] = created_by
 		if created_by:
-			_LOGGER.warning(f"Strict mode: the override countered by {name} was created by {created_by}")
+			_LOGGER.info(f"Strict mode: the override countered by {name} was created by {created_by}")
 		self.hass.bus.async_fire(EVENT_STRICT_MODE_ACTION, {
 			"child_id": child_id,
 			"child_name": child_data.get("child_name"),

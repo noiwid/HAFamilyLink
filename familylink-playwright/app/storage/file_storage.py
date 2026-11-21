@@ -35,8 +35,10 @@ class SharedStorage:
 
         # Generate new key
         key = Fernet.generate_key()
-        self.key_file.write_bytes(key)
-        os.chmod(self.key_file, 0o600)
+        # Created owner-only: no window where the key is readable by others
+        fd = os.open(self.key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
 
         _LOGGER.info("Generated new encryption key")
         return key

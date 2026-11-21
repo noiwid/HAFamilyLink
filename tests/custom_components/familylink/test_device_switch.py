@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
+from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
+from custom_components.familylink.exceptions import SessionExpiredError
 from custom_components.familylink.switch import FamilyLinkDeviceSwitch
 
 CHILD_ID = "child-1"
@@ -69,3 +73,18 @@ def test_school_time_is_exposed_as_an_attribute_too() -> None:
     assert attributes["school_time_active"] is True
     assert attributes["bedtime_active"] is False
     assert attributes["daily_limit_reached"] is False
+
+
+async def test_an_expired_session_reaches_the_parent_as_such() -> None:
+    """async_control_device returned False on it: the parent read "Failed to lock"."""
+    coordinator = FamilyLinkDataUpdateCoordinator.__new__(FamilyLinkDataUpdateCoordinator)
+    coordinator.client = MagicMock()
+    coordinator.client.async_control_device = AsyncMock(side_effect=SessionExpiredError("Session expired, please re-authenticate"))
+    coordinator._ha_writes_running, coordinator._ha_write_ended = {}, {}
+    with pytest.raises(SessionExpiredError):
+        await coordinator.async_control_device(DEVICE_ID, "lock", CHILD_ID)
+
+    switch = _switch()
+    switch.coordinator.async_control_device = coordinator.async_control_device
+    with pytest.raises(HomeAssistantError, match="Session expired"):
+        await switch.async_turn_on()

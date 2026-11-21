@@ -131,22 +131,9 @@ class FamilyLinkTimeBonusButton(CoordinatorEntity, ButtonEntity):
 			f"Adding {self._bonus_minutes} minutes bonus to device {self._device_name} for {self._child_name}"
 		)
 
-		# Declare the bonus to strict mode BEFORE posting it: the client
-		# verifies the bonus for several seconds and a coordinator poll in
-		# that window would otherwise cancel it as a Google-side bonus.
-		previous = self.coordinator.register_ha_bonus(self._device_id, self._bonus_minutes)
-		try:
-			success = await self.coordinator.client.async_add_time_bonus(
-				bonus_minutes=self._bonus_minutes,
-				device_id=self._device_id,
-				account_id=self._child_id,
-			)
-		except Exception:
-			self.coordinator.restore_ha_bonus(self._device_id, previous)
-			raise
+		success = await self.coordinator.async_add_ha_bonus(self._device_id, self._bonus_minutes, self._child_id)
 
 		if not success:
-			self.coordinator.restore_ha_bonus(self._device_id, previous)
 			raise HomeAssistantError(f"Failed to add {self._bonus_minutes} minutes bonus to device {self._device_name}")
 		else:
 			_LOGGER.info(
@@ -240,6 +227,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 		# the most recent one: cancel every bonus of the day, and fall back to
 		# the reported id when the override block could not be read (#142)
 		_LOGGER.info(f"Cancelling the time bonuses of the day for device {self._device_name}")
+		allowance = self.coordinator.ha_bonus_allowance(self._device_id)
 
 		cancelled = await self.coordinator.client.async_cancel_all_time_bonuses(
 			device_id=self._device_id,
@@ -257,7 +245,7 @@ class CancelTimeBonusButton(CoordinatorEntity, ButtonEntity):
 				f"Successfully cancelled time bonus for device {self._device_name}"
 			)
 			# The parent took the bonus back: strict mode no longer protects one on this device
-			self.coordinator.restore_ha_bonus(self._device_id, None)
+			self.coordinator.drop_ha_bonus(self._device_id, allowance)
 			# Refresh to update sensors
 			await self.coordinator.async_request_refresh()
 

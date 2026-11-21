@@ -79,6 +79,14 @@ def _transient(err_or_status: Any) -> bool:
 	)
 
 
+def _describe(err: BaseException) -> str:
+	"""The error's text, or its type when it has none (a timeout).
+
+	Never repr(): a ClientResponseError's repr carries the request headers, Cookie included.
+	"""
+	return str(err) or type(err).__name__
+
+
 def _http_error(message: str, status: int) -> NetworkError:
 	"""A NetworkError that remembers the HTTP status, for _transient."""
 	err = NetworkError(message)
@@ -414,13 +422,13 @@ class FamilyLinkClient:
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("✗ 401 Unauthorized - Session expired")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_log_failure(err, "Failed to fetch family members: %s", err)
-			raise NetworkError(f"Failed to fetch family members: {err}") from err
+			raise NetworkError(f"Failed to fetch family members: {_describe(err)}") from err
 		except Exception as err:
 			_log_failure(err, "Unexpected error fetching family members: %s", err)
-			raise NetworkError(f"Failed to fetch family members: {err}") from err
+			raise NetworkError(f"Failed to fetch family members: {_describe(err)}") from err
 
 	async def async_get_supervised_child_id(self) -> str:
 		"""Get the user ID of the first supervised child.
@@ -528,13 +536,13 @@ class FamilyLinkClient:
 
 		except aiohttp.ClientResponseError as err:
 			if err.status == 401:
-				_LOGGER.error(f"✗ 401 Unauthorized - Session expired. Response headers: {err.headers}")
+				_LOGGER.error("✗ 401 Unauthorized - Session expired")
 				raise SessionExpiredError("Session expired, please re-authenticate") from err
 			_log_failure(err, "Failed to fetch apps and usage: %s", err)
-			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
+			raise NetworkError(f"Failed to fetch apps and usage: {_describe(err)}") from err
 		except Exception as err:
 			_log_failure(err, "Unexpected error fetching apps and usage: %s", err)
-			raise NetworkError(f"Failed to fetch apps and usage: {err}") from err
+			raise NetworkError(f"Failed to fetch apps and usage: {_describe(err)}") from err
 
 	async def async_get_daily_screen_time(
 		self,
@@ -711,7 +719,7 @@ class FamilyLinkClient:
 			raise  # Re-raise to trigger auth notification
 		except Exception as err:
 			_log_failure(err, "Failed to fetch daily screen time: %s", err)
-			raise NetworkError(f"Failed to fetch daily screen time: {err}") from err
+			raise NetworkError(f"Failed to fetch daily screen time: {_describe(err)}") from err
 
 	async def async_get_location(
 		self,
@@ -878,7 +886,7 @@ class FamilyLinkClient:
 			raise  # Session refresh / the caller keeps the last position
 		except (aiohttp.ClientError, asyncio.TimeoutError) as err:
 			_log_failure(err, "Failed to fetch location for child %s: %s", account_id, err)
-			raise NetworkError(f"Failed to fetch location: {err}") from err
+			raise NetworkError(f"Failed to fetch location: {_describe(err)}") from err
 		except Exception as err:
 			# An answer that no longer parses is lasting: no position rather than a frozen one
 			_LOGGER.error(f"Failed to read the location of child {account_id}: {err}")
@@ -1268,7 +1276,7 @@ class FamilyLinkClient:
 			raise
 		except Exception as err:
 			_LOGGER.error("Failed to control device %s: %s", device_id, err)
-			raise DeviceControlError(f"Failed to control device: {err}") from err
+			raise DeviceControlError(f"Failed to control device: {_describe(err)}") from err
 
 	async def async_ring_device(self, device_id: str, child_id: str | None = None) -> bool:
 		"""Ring a Family Link device (make it sound to help locate it).
@@ -1333,7 +1341,7 @@ class FamilyLinkClient:
 
 		except Exception as err:
 			_LOGGER.error("Failed to ring device %s: %s", device_id, err)
-			raise DeviceControlError(f"Failed to ring device: {err}") from err
+			raise DeviceControlError(f"Failed to ring device: {_describe(err)}") from err
 
 	# Policy ids observed at item[7] of every window row (timeLimit and
 	# appliedTimeLimits alike). They match the revision ids returned by
@@ -1957,7 +1965,7 @@ class FamilyLinkClient:
 			raise
 		except Exception as err:
 			_log_failure(err, "Failed to fetch applied time limits: %s", err)
-			raise NetworkError(f"Failed to fetch applied time limits: {err}") from err
+			raise NetworkError(f"Failed to fetch applied time limits: {_describe(err)}") from err
 
 	async def async_add_time_bonus(
 		self,
@@ -2522,6 +2530,8 @@ class FamilyLinkClient:
 				params={"$httpMethod": "PUT"},
 			) as response:
 				if response.status != 200:
+					if response.status == 401:  # a write must not hide an expired session behind False
+						raise SessionExpiredError("Session expired, please re-authenticate")
 					_LOGGER.error(
 						"Failed to set the weekly daily limit for day %s to %s min (HTTP %s): %s",
 						day, daily_minutes, response.status, await response.text(),
@@ -2530,6 +2540,8 @@ class FamilyLinkClient:
 			_LOGGER.info(f"Weekly daily limit for day {day} set to {daily_minutes} min (slot {slot})")
 			self._weekly_slot_cache.pop(account_id, None)
 			return True
+		except SessionExpiredError:
+			raise
 		except Exception as err:
 			_LOGGER.error(f"Error setting the weekly daily limit for day {day}: {err}")
 			return False
@@ -4446,7 +4458,7 @@ class FamilyLinkClient:
 			raise
 		except Exception as err:
 			_log_failure(err, "Failed to fetch time limit rules: %s", err)
-			raise NetworkError(f"Failed to fetch time limit rules: {err}") from err
+			raise NetworkError(f"Failed to fetch time limit rules: {_describe(err)}") from err
 
 	async def async_cleanup(self) -> None:
 		"""Clean up client resources."""
@@ -4509,7 +4521,7 @@ class FamilyLinkClient:
 			raise
 		except Exception as err:
 			_log_failure(err, "Error fetching contact restriction: %s", err)
-			raise NetworkError(f"Error fetching contact restriction: {err}") from err
+			raise NetworkError(f"Error fetching contact restriction: {_describe(err)}") from err
 
 	@staticmethod
 	def _parse_device_batteries(data: Any) -> dict[str, int]:
@@ -4557,7 +4569,7 @@ class FamilyLinkClient:
 		except (SessionExpiredError, NetworkError):
 			raise
 		except Exception as err:
-			raise NetworkError(f"Error fetching device batteries: {err}") from err
+			raise NetworkError(f"Error fetching device batteries: {_describe(err)}") from err
 
 	async def async_set_contact_restriction(
 		self, restriction_level: int, account_id: str | None = None

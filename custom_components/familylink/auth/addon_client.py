@@ -458,19 +458,3 @@ class AddonCookieClient:
 
         _LOGGER.debug("API not available, trying file fallback")
         return await self._load_cookies_from_file()
-
-    async def cookies_available(self) -> bool:
-        """Check if cookies are available from any source."""
-        source_type, _ = await self.detect_auth_source()
-        if source_type == "none":
-            return False
-
-        # Actually try to load cookies to verify they exist
-        cookies = await self.load_cookies()
-        return cookies is not None and len(cookies) > 0
-
-    async def clear_cookies(self) -> None:
-        """Clear stored cookies (file only, API doesn't support this)."""
-        if await self.hass.async_add_executor_job(self.storage_path.exists):
-            await self.hass.async_add_executor_job(self.storage_path.unlink)
-            _LOGGER.info("Cleared addon cookies")

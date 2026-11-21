@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Family Link card: a bonus button shows that it worked.** Google takes a few seconds to confirm a bonus, and nothing moved meanwhile. The tapped button now waits (greyed, pulsing), the phone vibrates in the companion app, and a toast says "15 min bonus added", "Bonus cancelled" or the error. Tooltips no longer show on touch screens, where they stayed after a tap.
+
+### Fixed
+- **A read that keeps failing no longer passes for fresh.** Each read of the day (time rules, applied limits, screen time) keeps its own age: when one fails for more than 15 minutes while the others succeed, its values of the day are dropped instead of being served as current. A 401 is logged without Google's response headers.
+- **Tamper protection cancelled a bonus just given from Home Assistant** when it was given while a reset was running: the end of the reset dropped the protection of the new bonus too, which then looked added from Family Link and was cancelled with a notification naming the parent. The reset now keeps a bonus granted meanwhile.
+- **Family Link card: Reset could not cancel a bonus** until the reset button had been pressed once: the card took the button's "unknown" state (never pressed) for "unavailable".
+- **The tamper protection switch of each child came back from a restart with the option's state**: with two children, one protected and the other not, both ended in the same state. Each child now keeps its own state while the option is unchanged; a change made in the options screen still applies to every child.
+- **Locking or unlocking a device with an expired session said "Failed to lock"**: it now says the session expired.
+- **A daily limit write that failed on an expired session or a network error kept the new quota as tamper protection's reference**, which then pushed it at the next refresh. The previous reference is put back, as when Google refuses the write.
+- **Tamper protection could put the old bedtime hours back while Home Assistant was writing new ones** (bedtime time entities and the set_bedtime action): it now waits for the write to end.
+- **After an outage, or at the first refresh of the day, a failed read could show yesterday's values as today's** (bedtime or school time on today, screen time, time used per device): these now fall back only on data read today, less than 15 minutes ago. Devices, lock states, position and batteries keep their last values as before.
+- **A 503 on the family members read was logged as an error at every refresh**, its prefix written twice: it is now one warning per wave, like the other reads. Failed reads also name the error type, which tells a changed Google answer from an outage.
+- **Error messages of a timeout ended on an empty colon**: they now name the timeout.
+
 ## [2.9.2] - 2026-11-19
 
 ### Fixed

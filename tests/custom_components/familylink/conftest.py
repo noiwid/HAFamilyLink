@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+from custom_components.familylink.coordinator import FamilyLinkDataUpdateCoordinator
 
 
 @pytest.fixture(autouse=True)
@@ -58,9 +61,14 @@ def coordinator():
         fake.record_policy_intent(child_id, policy, enable)
         return True
 
+    async def async_add_ha_bonus(device_id, minutes, child_id):
+        # The coordinator's own sequence, on the mocked client and hooks
+        return await FamilyLinkDataUpdateCoordinator.async_add_ha_bonus(fake, device_id, minutes, child_id)
+
     fake = SimpleNamespace(
         client=client,
         async_set_policy=async_set_policy,
+        async_add_ha_bonus=async_add_ha_bonus,
         # One supervised child: services without a child target resolve to it
         data={"children_data": [{"child_id": "child-1", "devices": []}]},
         async_request_refresh=AsyncMock(),
@@ -71,5 +79,6 @@ def coordinator():
         record_daily_limit_minutes=MagicMock(return_value=None),
         restore_daily_limit_minutes=MagicMock(),
         record_bedtime_hours=MagicMock(),
+        _ha_write=lambda key: nullcontext(),
     )
     return fake

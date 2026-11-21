@@ -25,7 +25,7 @@ const STR = {
 		cur_limited: 'Currently limited to {t} per day', cur_none: 'Currently no limit of its own',
 		always: 'Always allowed', always_sub: 'Even when screen time has run out', none: 'No limit', none_sub: 'Only the overall screen time applies',
 		limit: 'Limited', limit_sub: 'Per day', block: 'Blocked', block_sub: 'Can no longer be opened',
-		reset: 'Reset', no_bonus: 'No bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Cancel the active bonus', tip_add: '{n} min bonus today',
+		reset: 'Reset', no_bonus: 'No bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Cancel the active bonus', bonus_sent: '{n} min bonus added', bonus_cancelled: 'Bonus cancelled', tip_add: '{n} min bonus today',
 		tip_custom: 'Bonus of a custom duration', bonus: 'Bonus', bonus_min: 'Bonus minutes', bonus_sub: "Added to today's limit",
 		daily_limit: 'Daily limit', bedtime: 'Bedtime', school: 'School', day_settings: 'Day settings', limit_day: 'Screen time allowed that day',
 		bed_from: 'Bedtime from', bed_to: 'Bedtime until', steps: 'In 15 min steps', school_from: 'School from', school_to: 'School until',
@@ -58,7 +58,7 @@ const STR = {
 		cur_limited: 'Derzeit begrenzt auf {t} pro Tag', cur_none: 'Derzeit kein eigenes Limit',
 		always: 'Immer erlaubt', always_sub: 'Auch wenn die Bildschirmzeit aufgebraucht ist', none: 'Kein Limit', none_sub: 'Es gilt nur die gesamte Bildschirmzeit',
 		limit: 'Begrenzt', limit_sub: 'Pro Tag', block: 'Gesperrt', block_sub: 'Lässt sich nicht mehr öffnen',
-		reset: 'Zurücksetzen', no_bonus: 'Kein Bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Aktiven Bonus beenden', tip_add: '{n} min Bonus für heute',
+		reset: 'Zurücksetzen', no_bonus: 'Kein Bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Aktiven Bonus beenden', bonus_sent: '{n} min Bonus hinzugefügt', bonus_cancelled: 'Bonus beendet', tip_add: '{n} min Bonus für heute',
 		tip_custom: 'Bonus mit eigener Dauer', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Wird zum heutigen Limit addiert',
 		daily_limit: 'Tageslimit', bedtime: 'Schlafenszeit', school: 'Schule', day_settings: 'Einstellungen für den Tag', limit_day: 'Erlaubte Bildschirmzeit an diesem Tag',
 		bed_from: 'Schlafenszeit ab', bed_to: 'Schlafenszeit bis', steps: 'In 15-Minuten-Schritten', school_from: 'Schule ab', school_to: 'Schule bis',
@@ -92,7 +92,7 @@ const STR = {
 		cur_limited: 'Actuellement limitée à {t} par jour', cur_none: 'Actuellement sans limite propre',
 		always: 'Toujours autorisée', always_sub: "Même quand le temps d'écran est écoulé", none: 'Sans limite', none_sub: "Seul le temps d'écran global s'applique",
 		limit: 'Limitée', limit_sub: 'Par jour', block: 'Bloquée', block_sub: 'Ne peut plus être ouverte',
-		reset: 'Reset', no_bonus: 'Aucun bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuler le bonus en cours', tip_add: "Bonus de {n} min aujourd'hui",
+		reset: 'Reset', no_bonus: 'Aucun bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuler le bonus en cours', bonus_sent: 'Bonus de {n} min ajouté', bonus_cancelled: 'Bonus annulé', tip_add: "Bonus de {n} min aujourd'hui",
 		tip_custom: "Bonus d'une durée au choix", bonus: 'Bonus', bonus_min: 'Minutes de bonus', bonus_sub: "Ajoutées à la limite d'aujourd'hui",
 		daily_limit: 'Limite du jour', bedtime: 'Coucher', school: 'École', day_settings: 'Réglage du jour', limit_day: "Temps d'écran autorisé ce jour-là",
 		bed_from: 'Coucher à partir de', bed_to: "Coucher jusqu'à", steps: 'Par pas de 15 min', school_from: 'École à partir de', school_to: "École jusqu'à",
@@ -126,7 +126,7 @@ const STR = {
 		cur_limited: 'Momenteel beperkt tot {t} per dag', cur_none: 'Momenteel geen eigen limiet',
 		always: 'Altijd toegestaan', always_sub: 'Ook als de schermtijd op is', none: 'Geen limiet', none_sub: 'Alleen de totale schermtijd geldt',
 		limit: 'Beperkt', limit_sub: 'Per dag', block: 'Geblokkeerd', block_sub: 'Kan niet meer worden geopend',
-		reset: 'Herstellen', no_bonus: 'Geen bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuleer de actieve bonus', tip_add: '{n} min bonus vandaag',
+		reset: 'Herstellen', no_bonus: 'Geen bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuleer de actieve bonus', bonus_sent: 'Bonus van {n} min toegevoegd', bonus_cancelled: 'Bonus geannuleerd', tip_add: '{n} min bonus vandaag',
 		tip_custom: 'Bonus met een eigen duur', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Toegevoegd aan de limiet van vandaag',
 		daily_limit: 'Daglimiet', bedtime: 'Bedtijd', school: 'School', day_settings: 'Daginstellingen', limit_day: 'Toegestane schermtijd op die dag',
 		bed_from: 'Bedtijd vanaf', bed_to: 'Bedtijd tot', steps: 'In stappen van 15 min', school_from: 'School vanaf', school_to: 'School tot',
@@ -164,7 +164,7 @@ STR.pl = {
     none: 'Bez osobnego limitu', none_sub: 'Obowiązuje tylko ogólny limit czasu ekranowego',
     limit: 'Z limitem', limit_sub: 'Dziennie', block: 'Zablokowana', block_sub: 'Nie można jej uruchomić',
     reset: 'Resetuj', no_bonus: 'Brak dodatkowego czasu', bonus_on: 'Dodatkowy czas +{t}',
-    tip_reset: 'Anuluj dodatkowy czas', tip_add: 'Dodaj dziś {n} min',
+    tip_reset: 'Anuluj dodatkowy czas', bonus_sent: 'Dodano {n} min dodatkowego czasu', bonus_cancelled: 'Dodatkowy czas anulowany', tip_add: 'Dodaj dziś {n} min',
     tip_custom: 'Dodaj dowolną liczbę minut', bonus: 'Dodatkowy czas', bonus_min: 'Liczba minut', bonus_sub: 'Dodawane do dzisiejszego limitu',
     daily_limit: 'Dzienny limit', bedtime: 'Pora snu', school: 'Szkoła', day_settings: 'Ustawienia dnia',
     limit_day: 'Dozwolony czas ekranowy tego dnia', bed_from: 'Pora snu od', bed_to: 'Pora snu do',
@@ -209,7 +209,7 @@ STR.es = {
 	cur_limited: 'Limitada actualmente a {t} al día', cur_none: 'Sin límite propio actualmente',
 	always: 'Siempre permitida', always_sub: 'Incluso cuando se agota el tiempo de pantalla', none: 'Sin límite', none_sub: 'Solo se aplica el tiempo de pantalla total',
 	limit: 'Limitada', limit_sub: 'Por día', block: 'Bloqueada', block_sub: 'Ya no se puede abrir',
-	reset: 'Restablecer', no_bonus: 'Sin tiempo extra', bonus_on: 'Tiempo extra +{t}', tip_reset: 'Cancelar el tiempo extra activo', tip_add: '{n} min de tiempo extra hoy',
+	reset: 'Restablecer', no_bonus: 'Sin tiempo extra', bonus_on: 'Tiempo extra +{t}', tip_reset: 'Cancelar el tiempo extra activo', bonus_sent: '{n} min de tiempo extra añadidos', bonus_cancelled: 'Tiempo extra cancelado', tip_add: '{n} min de tiempo extra hoy',
 	tip_custom: 'Tiempo extra de duración personalizada', bonus: 'Tiempo extra', bonus_min: 'Minutos extra', bonus_sub: 'Se suma al límite de hoy',
 	daily_limit: 'Límite diario', bedtime: 'Hora de dormir', school: 'Colegio', day_settings: 'Ajustes del día', limit_day: 'Tiempo de pantalla permitido ese día',
 	bed_from: 'Hora de dormir desde', bed_to: 'Hora de dormir hasta', steps: 'En pasos de 15 min', school_from: 'Colegio desde', school_to: 'Colegio hasta',
@@ -325,6 +325,29 @@ class FamilyLinkCard extends HTMLElement {
 
 	_call(domain, service, data) { return this._hass.callService(domain, service, data); }
 
+	/** A bonus button: Google takes a few seconds, so the tap vibrates, the button waits, and a toast says how it went. */
+	async _press(b) {
+		const t = (k) => this._t(k), n = (b.dataset.press.match(/\d+/) || [])[0];
+		// the companion app vibrates on "haptic" when it supports it; Android's web view also takes navigator.vibrate
+		const haptic = (kind) => {
+			window.dispatchEvent(new CustomEvent('haptic', { detail: kind }));
+			try { if (navigator.vibrate) navigator.vibrate(kind === 'failure' ? [40, 60, 40] : kind === 'success' ? 30 : 15); } catch (err) { /* not allowed */ }
+		};
+		const toast = (message) => this.dispatchEvent(new CustomEvent('hass-notification', { detail: { message }, bubbles: true, composed: true }));
+		haptic('light');
+		b.disabled = true; b.classList.add('busy');
+		try {
+			await this._call('button', 'press', { entity_id: this._map.device[b.dataset.press] });
+			haptic('success');
+			toast(n ? t('bonus_sent').replace('{n}', n) : t('bonus_cancelled'));
+		} catch (err) {
+			haptic('failure');
+			toast((err && err.message) || String(err));
+		} finally {
+			b.disabled = false; b.classList.remove('busy');
+		}
+	}
+
 	/** Every app of the child with its rule: block / always / limit (minutes) / none. */
 	_rules() {
 		const rules = new Map();
@@ -373,7 +396,7 @@ class FamilyLinkCard extends HTMLElement {
 			${isNaN(total) ? '' : `<div class="track big"><div style="width:${pct}%"></div></div>`}
 			${window || status ? `<div class="window">${esc(window)}${window && status ? ' · ' : ''}${status ? `<span class="${locked ? 'why' : ''}">${esc(status)}</span>` : ''}</div>` : ''}
 			${cfg.bonus === false ? '' : `<div class="bonus">
-				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${this._on(reset) ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
+				<button class="round big" data-press="reset_bonus" data-tip="${esc(t('tip_reset'))}" ${reset && reset.state !== 'unavailable' ? '' : 'disabled'}><ha-icon icon="mdi:restart"></ha-icon></button>
 				<div class="btxt"><div>${t('reset')}</div><small>${bonus > 0 ? t('bonus_on').replace('{t}', hm(bonus)) : t('no_bonus')}</small></div>
 				${press('bonus_15min', 15, t('tip_add').replace('{n}', 15))}${press('bonus_30min', 30, t('tip_add').replace('{n}', 30))}${press('bonus_60min', 60, t('tip_add').replace('{n}', 60))}
 				<button class="round" data-dialog="bonus" data-tip="${esc(t('tip_custom'))}"><ha-icon icon="mdi:timer-edit-outline"></ha-icon></button>
@@ -390,7 +413,7 @@ class FamilyLinkCard extends HTMLElement {
 		root.querySelectorAll('[data-site]').forEach((r) => r.addEventListener('click', () => this._siteDialog(r.dataset.site, r.dataset.kind)));
 		const addSite = root.querySelector('[data-add-site]');
 		if (addSite) addSite.addEventListener('click', () => this._siteDialog('', ''));
-		root.querySelectorAll('[data-press]').forEach((b) => b.addEventListener('click', () => this._call('button', 'press', { entity_id: this._map.device[b.dataset.press] })));
+		root.querySelectorAll('[data-press]').forEach((b) => b.addEventListener('click', () => this._press(b)));
 		root.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', () => this._call('homeassistant', 'toggle', { entity_id: this._map.child[b.dataset.toggle] })));
 		root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { this._tab = b.dataset.tab; this._render(); }));
 		root.querySelectorAll('[data-pkg]').forEach((r) => r.addEventListener('click', () => { const rule = this._rules().get(r.dataset.pkg); if (rule) this._appDialog(rule); }));
@@ -745,11 +768,15 @@ FamilyLinkCard.css = `
 	.round { position: relative; width: 36px; height: 36px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center;
 		background: rgba(var(--rgb-primary-text-color, 255, 255, 255), 0.08); opacity: 0.75; }
 	.round.big { width: 40px; height: 40px; border-radius: 20px; }
+	.round.busy { opacity: 0.5; animation: fl-pulse 0.8s ease-in-out infinite alternate; }
+	@keyframes fl-pulse { to { transform: scale(0.88); } }
 	.round[disabled] { opacity: 0.3; cursor: default; }
 	.round ha-icon { --mdc-icon-size: 20px; }
 	[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 2; white-space: nowrap; pointer-events: none;
 		padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 400; color: #fff; background: rgba(40, 40, 40, 0.92); }
 	.round.big[data-tip]:hover::after { right: auto; left: 0; }
+	/* a touch screen keeps :hover after a tap: no tooltip there */
+	@media (hover: none) { [data-tip]:hover::after { display: none; } }
 	.tiles { display: flex; border-top: 1px solid var(--divider-color); }
 	.tile { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px; font-size: 13px; font-weight: 600; }
 	.tile + .tile { border-left: 1px solid var(--divider-color); }

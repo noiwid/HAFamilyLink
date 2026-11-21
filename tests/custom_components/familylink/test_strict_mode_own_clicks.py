@@ -84,6 +84,53 @@ async def test_no_correction_while_a_click_is_being_written() -> None:
     assert coordinator._intents_for(CHILD)["policies"]["daily_limit"] is False
 
 
+async def test_no_bedtime_correction_while_hours_set_from_ha_are_written() -> None:
+    """The reference was recorded after the write, unguarded: a refresh in between put the old hours back."""
+    from datetime import time as dtime
+
+    from custom_components.familylink.strict_mode import ACTION_SET_BEDTIME
+    from custom_components.familylink.time import BOUND_START, FamilyLinkBedtimeTime
+
+    coordinator = _coordinator()
+    coordinator.async_request_refresh = AsyncMock()
+    release = asyncio.Event()
+    writes = []
+
+    async def set_bedtime(start, end, **kwargs):
+        writes.append((start, end))
+        if len(writes) == 1:
+            await release.wait()
+        return True
+
+    coordinator.client.async_set_bedtime = set_bedtime
+    entity = FamilyLinkBedtimeTime(coordinator, CHILD, "Child", 1, BOUND_START)
+    entity._slot = lambda: {"start": [21, 0], "end": [7, 0]}
+    revert = {"action": ACTION_SET_BEDTIME, "child_id": CHILD, "day": 1, "start": [21, 0], "end": [7, 0], "reason": "hours changed"}
+
+    setting = asyncio.create_task(entity.async_set_value(dtime(20, 30)))
+    await asyncio.sleep(0)
+    # Running: the refresh may show Google before the new hours
+    await coordinator._async_run_strict_action(CHILD_DATA, revert)
+    release.set()
+    await setting
+    # Just done: the refresh may still predate it
+    await coordinator._async_run_strict_action(CHILD_DATA, revert)
+
+    assert writes == [("20:30", "07:00")]
+    assert coordinator._intents_for(CHILD)["values"]["bedtime"]["1"] == [[20, 30], [7, 0]]
+
+
+def test_a_reference_without_a_child_is_refused_not_given_to_the_first_child() -> None:
+    import pytest
+
+    coordinator = _coordinator()
+    coordinator.data = {"children_data": [{"child_id": CHILD}, {"child_id": "child-2"}]}
+
+    with pytest.raises(ValueError, match="No child"):
+        coordinator.record_policy_intent(None, "bedtime", True)
+    assert "bedtime" not in coordinator._intents_for(CHILD)["policies"]
+
+
 async def test_a_change_from_family_link_is_still_reverted() -> None:
     coordinator = _coordinator()
     coordinator._intents_for(CHILD)["policies"]["daily_limit"] = True
@@ -127,6 +174,21 @@ def test_a_second_ha_bonus_extends_the_protection(monkeypatch) -> None:
     assert coordinator._ha_bonus_until["phone"] == first_end + 15 * 60 + STRICT_MODE_BONUS_GRACE
     # Taken back from HA (reset button, lock): nothing protected any more
     coordinator.restore_ha_bonus("phone", None)
+    assert "phone" not in coordinator._ha_bonus_until
+
+
+def test_a_reset_keeps_a_bonus_granted_while_it_ran(monkeypatch) -> None:
+    """Reset then +15 pressed before the reset ends: the +15 stays protected (2026-11-20 21:16)."""
+    clock = [1000.0]
+    monkeypatch.setattr("custom_components.familylink.coordinator.time", SimpleNamespace(time=lambda: clock[0], monotonic=lambda: clock[0]))
+    coordinator = _coordinator()
+    coordinator.register_ha_bonus("phone", 30)
+    seen = coordinator.ha_bonus_allowance("phone")
+    coordinator.register_ha_bonus("phone", 15)  # pressed while the reset runs
+    coordinator.drop_ha_bonus("phone", seen)
+    assert "phone" in coordinator._ha_bonus_until
+    # a reset with nothing granted meanwhile ends the protection
+    coordinator.drop_ha_bonus("phone", coordinator.ha_bonus_allowance("phone"))
     assert "phone" not in coordinator._ha_bonus_until
 
 
