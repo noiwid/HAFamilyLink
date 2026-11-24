@@ -564,7 +564,10 @@ class FamilyLinkCard extends HTMLElement {
 			const lim = this._c(`daily_limit_${day}`);
 			if (!lim) return '';
 			const s = toMin((this._c(`bedtime_${day}_start`) || {}).state), e = toMin((this._c(`bedtime_${day}_end`) || {}).state);
-			return `<button class="day${day === today ? ' on' : ''}" data-day="${day}"><small>${shortDays[i]}</small><b>${isNaN(this._n(lim)) ? '–' : hShort(this._n(lim))}</b><i>${!isNaN(s) && !isNaN(e) ? `${hour(s)}-${hour(e)}` : ''}</i></button>`;
+			// today's limit is per device (an override can differ between devices): this card's device, the child's quota otherwise
+			const own = day === today ? this._n(this._d('daily_limit')) : NaN;
+			const min = isNaN(own) ? this._n(lim) : own;
+			return `<button class="day${day === today ? ' on' : ''}" data-day="${day}"><small>${shortDays[i]}</small><b>${isNaN(min) ? '–' : hShort(min)}</b><i>${!isNaN(s) && !isNaN(e) ? `${hour(s)}-${hour(e)}` : ''}</i></button>`;
 		}).join('');
 		return `
 			${toggles ? `<div class="tiles">${toggles}</div>` : ''}
