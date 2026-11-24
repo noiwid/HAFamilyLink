@@ -27,7 +27,7 @@ const STR = {
 		limit: 'Limited', limit_sub: 'Per day', block: 'Blocked', block_sub: 'Can no longer be opened',
 		reset: 'Reset', no_bonus: 'No bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Cancel the active bonus', bonus_sent: '{n} min bonus added', bonus_cancelled: 'Bonus cancelled', tip_add: '{n} min bonus today',
 		tip_custom: 'Bonus of a custom duration', bonus: 'Bonus', bonus_min: 'Bonus minutes', bonus_sub: "Added to today's limit",
-		daily_limit: 'Daily limit', bedtime: 'Bedtime', school: 'School', day_settings: 'Day settings', limit_day: 'Screen time allowed that day',
+		daily_limit: 'Daily limit', bedtime: 'Bedtime', school: 'School', day_settings: 'Day settings', limit_day: 'Screen time allowed that day', today_only: 'Only today, on this device', today_only_sub: 'Off: every {d}, all devices',
 		bed_from: 'Bedtime from', bed_to: 'Bedtime until', steps: 'In 15 min steps', school_from: 'School from', school_to: 'School until',
 		pick_device: 'Choose a phone or tablet, not the child.',
 		pause: 'Paused', pause_sub: 'Stays installed, resumes with its previous rule', cur_paused: 'Currently paused',
@@ -60,7 +60,7 @@ const STR = {
 		limit: 'Begrenzt', limit_sub: 'Pro Tag', block: 'Gesperrt', block_sub: 'Lässt sich nicht mehr öffnen',
 		reset: 'Zurücksetzen', no_bonus: 'Kein Bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Aktiven Bonus beenden', bonus_sent: '{n} min Bonus hinzugefügt', bonus_cancelled: 'Bonus beendet', tip_add: '{n} min Bonus für heute',
 		tip_custom: 'Bonus mit eigener Dauer', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Wird zum heutigen Limit addiert',
-		daily_limit: 'Tageslimit', bedtime: 'Schlafenszeit', school: 'Schule', day_settings: 'Einstellungen für den Tag', limit_day: 'Erlaubte Bildschirmzeit an diesem Tag',
+		daily_limit: 'Tageslimit', bedtime: 'Schlafenszeit', school: 'Schule', day_settings: 'Einstellungen für den Tag', limit_day: 'Erlaubte Bildschirmzeit an diesem Tag', today_only: 'Nur heute, auf diesem Gerät', today_only_sub: 'Aus: jeden {d}, alle Geräte',
 		bed_from: 'Schlafenszeit ab', bed_to: 'Schlafenszeit bis', steps: 'In 15-Minuten-Schritten', school_from: 'Schule ab', school_to: 'Schule bis',
 		pick_device: 'Bitte ein Handy oder Tablet wählen, nicht das Kind.',
 		pause: 'Pausiert', pause_sub: 'Bleibt installiert und gilt danach wieder mit der vorherigen Regel', cur_paused: 'Derzeit pausiert',
@@ -94,7 +94,7 @@ const STR = {
 		limit: 'Limitée', limit_sub: 'Par jour', block: 'Bloquée', block_sub: 'Ne peut plus être ouverte',
 		reset: 'Reset', no_bonus: 'Aucun bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuler le bonus en cours', bonus_sent: 'Bonus de {n} min ajouté', bonus_cancelled: 'Bonus annulé', tip_add: "Bonus de {n} min aujourd'hui",
 		tip_custom: "Bonus d'une durée au choix", bonus: 'Bonus', bonus_min: 'Minutes de bonus', bonus_sub: "Ajoutées à la limite d'aujourd'hui",
-		daily_limit: 'Limite du jour', bedtime: 'Coucher', school: 'École', day_settings: 'Réglage du jour', limit_day: "Temps d'écran autorisé ce jour-là",
+		daily_limit: 'Limite du jour', bedtime: 'Coucher', school: 'École', day_settings: 'Réglage du jour', limit_day: "Temps d'écran autorisé ce jour-là", today_only: "Aujourd'hui seulement, sur cet appareil", today_only_sub: 'Désactivé : chaque {d}, tous les appareils',
 		bed_from: 'Coucher à partir de', bed_to: "Coucher jusqu'à", steps: 'Par pas de 15 min', school_from: 'École à partir de', school_to: "École jusqu'à",
 		pick_device: "Choisissez un téléphone ou une tablette, pas l'enfant.",
 		pause: 'En pause', pause_sub: "Reste installée, reprend avec sa règle d'avant", cur_paused: 'Actuellement en pause',
@@ -128,7 +128,7 @@ const STR = {
 		limit: 'Beperkt', limit_sub: 'Per dag', block: 'Geblokkeerd', block_sub: 'Kan niet meer worden geopend',
 		reset: 'Herstellen', no_bonus: 'Geen bonus', bonus_on: 'Bonus +{t}', tip_reset: 'Annuleer de actieve bonus', bonus_sent: 'Bonus van {n} min toegevoegd', bonus_cancelled: 'Bonus geannuleerd', tip_add: '{n} min bonus vandaag',
 		tip_custom: 'Bonus met een eigen duur', bonus: 'Bonus', bonus_min: 'Bonusminuten', bonus_sub: 'Toegevoegd aan de limiet van vandaag',
-		daily_limit: 'Daglimiet', bedtime: 'Bedtijd', school: 'School', day_settings: 'Daginstellingen', limit_day: 'Toegestane schermtijd op die dag',
+		daily_limit: 'Daglimiet', bedtime: 'Bedtijd', school: 'School', day_settings: 'Daginstellingen', limit_day: 'Toegestane schermtijd op die dag', today_only: 'Alleen vandaag, op dit apparaat', today_only_sub: 'Uit: elke {d}, alle apparaten',
 		bed_from: 'Bedtijd vanaf', bed_to: 'Bedtijd tot', steps: 'In stappen van 15 min', school_from: 'School vanaf', school_to: 'School tot',
 		pick_device: 'Kies een telefoon of tablet, niet het kind.',
 		pause: 'Gepauzeerd', pause_sub: 'Blijft geïnstalleerd, hervat met de vorige regel', cur_paused: 'Momenteel gepauzeerd',
@@ -167,7 +167,7 @@ STR.pl = {
     tip_reset: 'Anuluj dodatkowy czas', bonus_sent: 'Dodano {n} min dodatkowego czasu', bonus_cancelled: 'Dodatkowy czas anulowany', tip_add: 'Dodaj dziś {n} min',
     tip_custom: 'Dodaj dowolną liczbę minut', bonus: 'Dodatkowy czas', bonus_min: 'Liczba minut', bonus_sub: 'Dodawane do dzisiejszego limitu',
     daily_limit: 'Dzienny limit', bedtime: 'Pora snu', school: 'Szkoła', day_settings: 'Ustawienia dnia',
-    limit_day: 'Dozwolony czas ekranowy tego dnia', bed_from: 'Pora snu od', bed_to: 'Pora snu do',
+    limit_day: 'Dozwolony czas ekranowy tego dnia', today_only: 'Tylko dzisiaj, na tym urządzeniu', today_only_sub: 'Wyłączone: każdy {d}, wszystkie urządzenia', bed_from: 'Pora snu od', bed_to: 'Pora snu do',
     steps: 'Co 15 minut', school_from: 'Zajęcia od', school_to: 'Zajęcia do',
     pick_device: 'Wybierz telefon lub tablet, a nie profil dziecka.',
     pause: 'Wstrzymana', pause_sub: 'Pozostaje zainstalowana; później wróci do poprzednich ustawień', cur_paused: 'Obecnie wstrzymana',
@@ -211,7 +211,7 @@ STR.es = {
 	limit: 'Limitada', limit_sub: 'Por día', block: 'Bloqueada', block_sub: 'Ya no se puede abrir',
 	reset: 'Restablecer', no_bonus: 'Sin tiempo extra', bonus_on: 'Tiempo extra +{t}', tip_reset: 'Cancelar el tiempo extra activo', bonus_sent: '{n} min de tiempo extra añadidos', bonus_cancelled: 'Tiempo extra cancelado', tip_add: '{n} min de tiempo extra hoy',
 	tip_custom: 'Tiempo extra de duración personalizada', bonus: 'Tiempo extra', bonus_min: 'Minutos extra', bonus_sub: 'Se suma al límite de hoy',
-	daily_limit: 'Límite diario', bedtime: 'Hora de dormir', school: 'Colegio', day_settings: 'Ajustes del día', limit_day: 'Tiempo de pantalla permitido ese día',
+	daily_limit: 'Límite diario', bedtime: 'Hora de dormir', school: 'Colegio', day_settings: 'Ajustes del día', limit_day: 'Tiempo de pantalla permitido ese día', today_only: 'Solo hoy, en este dispositivo', today_only_sub: 'Desactivado: cada {d}, todos los dispositivos',
 	bed_from: 'Hora de dormir desde', bed_to: 'Hora de dormir hasta', steps: 'En pasos de 15 min', school_from: 'Colegio desde', school_to: 'Colegio hasta',
 	pick_device: 'Elige un teléfono o una tableta, no al niño.',
 	pause: 'En pausa', pause_sub: 'Sigue instalada y vuelve a su regla anterior', cur_paused: 'En pausa actualmente',
@@ -702,6 +702,14 @@ class FamilyLinkCard extends HTMLElement {
 		const at = (k) => toMin((this._hass.states[ids[k]] || {}).state);
 		const now = { limit: this._n(this._hass.states[ids.limit]), start: at('start'), end: at('end'), sstart: at('sstart'), send: at('send') };
 		const fields = [{ icon: 'mdi:timer-sand', title: t('daily_limit'), sub: t('limit_day'), stepper: { key: 'limit', min: 0, max: 1440, step: 15, fmt: hm } }];
+		// Today, with the daily limit on: extra time for today on this device only (Google's per-device override, #246);
+		// the weekly row of that weekday stays as it is. Off, the weekly row as before
+		const device = this._n(this._d('daily_limit'));
+		const todayOnly = Number(day) === (new Date().getDay() || 7) && (this._c('daily_limit') || {}).state === 'on' && !isNaN(device);
+		if (todayOnly) {
+			now.only = true; now.weekly = now.limit; now.limit = device;
+			fields.push({ key: 'only', toggle: true, icon: 'mdi:calendar-today', title: t('today_only'), sub: t('today_only_sub').replace('{d}', t('days')[Number(day) - 1].toLowerCase()) });
+		}
 		if (!isNaN(now.start)) fields.push({ icon: 'mdi:clock-start', title: t('bed_from'), sub: t('steps'), stepper: { key: 'start', step: 15, wrap: 1440, fmt: clock } });
 		if (!isNaN(now.end)) fields.push({ icon: 'mdi:clock-end', title: t('bed_to'), sub: t('steps'), stepper: { key: 'end', step: 15, wrap: 1440, fmt: clock } });
 		// a weekday without school time has these entities unavailable: no field, school time is switched on in Family Link
@@ -713,7 +721,9 @@ class FamilyLinkCard extends HTMLElement {
 			save: async (s) => {
 				// only what changed: each write is a request to Google, and strict mode takes it as the new reference
 				const moved = (k) => !isNaN(now[k]) && s[k] !== now[k];  // NaN: no such entity that day
-				if (moved('limit')) await this._call('number', 'set_value', { entity_id: ids.limit, value: s.limit });
+				if (todayOnly && s.only) {
+					if (moved('limit')) await this._call('familylink', 'set_daily_limit', { entity_id: this._map.device.lock, daily_minutes: s.limit });
+				} else if (todayOnly ? s.limit !== now.weekly : moved('limit')) await this._call('number', 'set_value', { entity_id: ids.limit, value: s.limit });
 				const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`;
 				// each bound rewrites its slot with the other bound as the integration knows it: when both move,
 				// the end waits for the new start to be read back, or it would put the old start back
