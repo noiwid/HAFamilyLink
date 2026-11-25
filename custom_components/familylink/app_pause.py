@@ -8,7 +8,9 @@ blocking it (``block_app``), which hides the app, and for the default SMS app
 Messages kept them. An app not used yet today gets its 1 minute, then pauses.
 
 The setting in force before the first pause (a limit, unlimited time, or no
-limit) is stored and put back by ``resume_app``, also after a restart. Limits
+limit) is stored and put back by ``resume_app``, also after a restart. It is
+read from Google at the pause, not from the coordinator, which can still show
+the 1-minute pause right after a resume. Limits
 count per device, so a pause applies on every device of the child. Google TV
 ignores app limits; there, only ``block_app`` works. An app blocked while it
 is paused is left blocked: ``resume_app`` skips it and keeps its saved setting
@@ -136,9 +138,14 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 		# right behind this one may still read the previous settings, so the blocked check
 		# in resume_app is best effort
 		async with lock:
-			apps = _apps(child_id)
 			data = await store.async_load() or {}
 			saved: dict[str, int] = data.setdefault(child_id, {})
+			# The setting to come back to is read from Google, as resume_app does: right after a
+			# resume the coordinator can still show the 1-minute pause, and saving that would leave
+			# the app paused after the next resume. The coordinator's copy only when Google can't
+			# be read.
+			current_apps = await _current_apps(child_id)
+			apps = current_apps if current_apps is not None else _apps(child_id)
 			paused: list[str] = []
 			skipped: dict[str, str] = {}
 			for package in dict.fromkeys(call.data["packages"]):

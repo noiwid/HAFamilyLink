@@ -317,6 +317,22 @@ async def test_resume_reads_google_not_the_stale_coordinator_data(hass, pause_se
     assert _writes(pause_services)[-1] == (CHROME, 45)
 
 
+async def test_a_pause_right_after_a_resume_saves_google_s_setting_not_the_stale_pause(hass, pause_services) -> None:
+    """Right after a resume the coordinator can still show the 1-minute pause. A pause then must not save the pause
+    itself as the setting to come back to, or the next resume leaves the app paused for good."""
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME, MESSAGES]})
+    stale = copy.deepcopy(_child_apps(pause_services, CHILD))
+    await _call(hass, "resume_app", {"child_id": CHILD})
+    google_apps = copy.deepcopy(_child_apps(pause_services, CHILD))
+    # The coordinator has not refreshed since the resume: it still shows both apps at 1 minute
+    pause_services.data = {"children_data": [{"child_id": CHILD, "apps": stale}]}
+    pause_services.client.async_get_apps_and_usage = AsyncMock(return_value={"apps": google_apps})
+
+    await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME, MESSAGES]})
+
+    assert pause_services.paused_apps == {CHILD: {CHROME: 45, MESSAGES: NO_LIMIT}}
+
+
 async def test_a_pause_after_a_parent_change_saves_the_parents_setting(hass, pause_services) -> None:
     await _call(hass, "pause_app", {"child_id": CHILD, "packages": [CHROME]})
     _parent_sets(pause_services, CHROME, 20)
