@@ -11,6 +11,7 @@ RUN apt-get update \
         python3-pip \
         python3-dev \
         curl \
+        libatomic1 \
         ca-certificates \
         fonts-liberation \
         libnss3 \
