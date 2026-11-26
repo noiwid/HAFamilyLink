@@ -1,0 +1,91 @@
+{
+	"sensor": [
+		"always_allowed_apps",
+		"apps_with_limits",
+		"apps_without_limits",
+		"blocked_apps",
+		"child_battery_level",
+		"child_info",
+		"device_active_bonus",
+		"device_battery_level",
+		"device_count",
+		"device_daily_limit",
+		"device_daily_screen_time",
+		"device_next_restriction",
+		"device_screen_time_remaining",
+		"installed_apps",
+		"play_apps_rating",
+		"play_purchase_approvals",
+		"screen_time",
+		"screen_time_formatted",
+		"top_app",
+		"websites_approved",
+		"websites_blocked"
+	],
+	"switch": [
+		"bedtime",
+		"daily_limit",
+		"device_lock",
+		"downtime_unlimited_apps",
+		"school_time",
+		"strict_mode"
+	],
+	"select": [
+		"allowed_calls_texts",
+		"play_apps_rating",
+		"play_purchase_approvals",
+		"web_filter"
+	],
+	"number": [
+		"daily_limit_friday",
+		"daily_limit_monday",
+		"daily_limit_saturday",
+		"daily_limit_sunday",
+		"daily_limit_thursday",
+		"daily_limit_tuesday",
+		"daily_limit_wednesday"
+	],
+	"time": [
+		"bedtime_friday_end",
+		"bedtime_friday_start",
+		"bedtime_monday_end",
+		"bedtime_monday_start",
+		"bedtime_saturday_end",
+		"bedtime_saturday_start",
+		"bedtime_sunday_end",
+		"bedtime_sunday_start",
+		"bedtime_thursday_end",
+		"bedtime_thursday_start",
+		"bedtime_tuesday_end",
+		"bedtime_tuesday_start",
+		"bedtime_wednesday_end",
+		"bedtime_wednesday_start",
+		"school_time_friday_end",
+		"school_time_friday_start",
+		"school_time_monday_end",
+		"school_time_monday_start",
+		"school_time_saturday_end",
+		"school_time_saturday_start",
+		"school_time_sunday_end",
+		"school_time_sunday_start",
+		"school_time_thursday_end",
+		"school_time_thursday_start",
+		"school_time_tuesday_end",
+		"school_time_tuesday_start",
+		"school_time_wednesday_end",
+		"school_time_wednesday_start"
+	],
+	"binary_sensor": [
+		"bedtime_active",
+		"daily_limit_reached",
+		"school_time_active"
+	],
+	"button": [
+		"add_bonus",
+		"reset_bonus",
+		"ring"
+	],
+	"device_tracker": [
+		"location"
+	]
+}

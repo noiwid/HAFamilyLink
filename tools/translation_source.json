@@ -1,0 +1,405 @@
+{
+	"_comment": "Translation source data: English base plus Polish overlay. Keys match translation_key values used by the code.",
+	"weekdays": {
+		"monday": {
+			"en": "Monday",
+			"pl": "pn"
+		},
+		"tuesday": {
+			"en": "Tuesday",
+			"pl": "wt"
+		},
+		"wednesday": {
+			"en": "Wednesday",
+			"pl": "śr"
+		},
+		"thursday": {
+			"en": "Thursday",
+			"pl": "czw"
+		},
+		"friday": {
+			"en": "Friday",
+			"pl": "pt"
+		},
+		"saturday": {
+			"en": "Saturday",
+			"pl": "sob"
+		},
+		"sunday": {
+			"en": "Sunday",
+			"pl": "nie"
+		}
+	},
+	"entity": {
+		"sensor": {
+			"device_daily_screen_time": {
+				"en": "Daily Screen Time",
+				"pl": "Dzienny czas ekranowy"
+			},
+			"device_screen_time_remaining": {
+				"en": "Screen Time Remaining",
+				"pl": "Pozostały czas ekranowy"
+			},
+			"device_next_restriction": {
+				"en": "Next Restriction",
+				"pl": "Następne ograniczenie"
+			},
+			"device_daily_limit": {
+				"en": "Daily Limit",
+				"pl": "Limit dzienny"
+			},
+			"device_active_bonus": {
+				"en": "Active Bonus",
+				"pl": "Aktywny bonus czasowy"
+			},
+			"device_battery_level": {
+				"en": "Battery Level",
+				"pl": "Poziom baterii"
+			},
+			"screen_time": {
+				"en": "Daily Screen Time",
+				"pl": "Dzienny czas ekranowy"
+			},
+			"screen_time_formatted": {
+				"en": "Screen Time (formatted)",
+				"pl": "Czas ekranowy (sformatowany)"
+			},
+			"installed_apps": {
+				"en": "Installed Apps",
+				"pl": "Zainstalowane aplikacje"
+			},
+			"blocked_apps": {
+				"en": "Blocked Apps",
+				"pl": "Zablokowane aplikacje"
+			},
+			"websites_blocked": {
+				"en": "Blocked Sites",
+				"pl": "Zablokowane strony"
+			},
+			"websites_approved": {
+				"en": "Approved Sites",
+				"pl": "Dozwolone strony"
+			},
+			"play_purchase_approvals": {
+				"en": "Play Purchase Approvals",
+				"pl": "Zatwierdzanie zakupów w Play"
+			},
+			"play_apps_rating": {
+				"en": "Play Apps & Games Rating",
+				"pl": "Ocena aplikacji i gier w Play"
+			},
+			"apps_with_limits": {
+				"en": "Apps with Time Limits",
+				"pl": "Aplikacje z limitami czasu"
+			},
+			"apps_without_limits": {
+				"en": "Apps Without Limits",
+				"pl": "Aplikacje bez limitów czasu"
+			},
+			"always_allowed_apps": {
+				"en": "Always Allowed Apps",
+				"pl": "Aplikacje zawsze dozwolone"
+			},
+			"top_app": {
+				"en": "Top App {rank}",
+				"pl": "Najczęściej używana aplikacja {rank}"
+			},
+			"device_count": {
+				"en": "Device Count",
+				"pl": "Liczba urządzeń"
+			},
+			"child_info": {
+				"en": "Child Info",
+				"pl": "Informacje o dziecku"
+			},
+			"child_battery_level": {
+				"en": "Battery Level",
+				"pl": "Poziom baterii"
+			}
+		},
+		"switch": {
+			"bedtime": {
+				"en": "Bedtime",
+				"pl": "Pora snu"
+			},
+			"school_time": {
+				"en": "School Time",
+				"pl": "Czas szkolny"
+			},
+			"daily_limit": {
+				"en": "Daily Limit",
+				"pl": "Limit dzienny"
+			},
+			"downtime_unlimited_apps": {
+				"en": "Unlimited apps during downtime",
+				"pl": "Aplikacje bez limitów w czasie bez dostępu"
+			},
+			"strict_mode": {
+				"en": "Strict mode",
+				"pl": "Tryb ścisły"
+			},
+			"device_lock": {
+				"en": "Device Lock",
+				"pl": "Blokada urządzenia"
+			}
+		},
+		"select": {
+			"web_filter": {
+				"en": "Web Filter",
+				"pl": "Filtr stron w Chrome"
+			},
+			"allowed_calls_texts": {
+				"en": "Allowed Calls & Texts",
+				"pl": "Dozwolone połączenia i SMS-y"
+			},
+			"play_purchase_approvals": {
+				"en": "Play Purchase Approvals",
+				"pl": "Zatwierdzanie zakupów w Play"
+			},
+			"play_apps_rating": {
+				"en": "Play Apps & Games Rating",
+				"pl": "Ocena aplikacji i gier w Play"
+			}
+		},
+		"number": {
+			"daily_limit_monday": {
+				"en": "Monday limit",
+				"pl": "Limit dzienny — pn"
+			},
+			"daily_limit_tuesday": {
+				"en": "Tuesday limit",
+				"pl": "Limit dzienny — wt"
+			},
+			"daily_limit_wednesday": {
+				"en": "Wednesday limit",
+				"pl": "Limit dzienny — śr"
+			},
+			"daily_limit_thursday": {
+				"en": "Thursday limit",
+				"pl": "Limit dzienny — czw"
+			},
+			"daily_limit_friday": {
+				"en": "Friday limit",
+				"pl": "Limit dzienny — pt"
+			},
+			"daily_limit_saturday": {
+				"en": "Saturday limit",
+				"pl": "Limit dzienny — sob"
+			},
+			"daily_limit_sunday": {
+				"en": "Sunday limit",
+				"pl": "Limit dzienny — nie"
+			}
+		},
+		"time": {
+			"bedtime_monday_start": {
+				"en": "Monday bedtime start",
+				"pl": "Pora snu — pn: początek"
+			},
+			"bedtime_monday_end": {
+				"en": "Monday bedtime end",
+				"pl": "Pora snu — pn: koniec"
+			},
+			"school_time_monday_start": {
+				"en": "Monday school time start",
+				"pl": "Czas szkolny — pn: początek"
+			},
+			"school_time_monday_end": {
+				"en": "Monday school time end",
+				"pl": "Czas szkolny — pn: koniec"
+			},
+			"bedtime_tuesday_start": {
+				"en": "Tuesday bedtime start",
+				"pl": "Pora snu — wt: początek"
+			},
+			"bedtime_tuesday_end": {
+				"en": "Tuesday bedtime end",
+				"pl": "Pora snu — wt: koniec"
+			},
+			"school_time_tuesday_start": {
+				"en": "Tuesday school time start",
+				"pl": "Czas szkolny — wt: początek"
+			},
+			"school_time_tuesday_end": {
+				"en": "Tuesday school time end",
+				"pl": "Czas szkolny — wt: koniec"
+			},
+			"bedtime_wednesday_start": {
+				"en": "Wednesday bedtime start",
+				"pl": "Pora snu — śr: początek"
+			},
+			"bedtime_wednesday_end": {
+				"en": "Wednesday bedtime end",
+				"pl": "Pora snu — śr: koniec"
+			},
+			"school_time_wednesday_start": {
+				"en": "Wednesday school time start",
+				"pl": "Czas szkolny — śr: początek"
+			},
+			"school_time_wednesday_end": {
+				"en": "Wednesday school time end",
+				"pl": "Czas szkolny — śr: koniec"
+			},
+			"bedtime_thursday_start": {
+				"en": "Thursday bedtime start",
+				"pl": "Pora snu — czw: początek"
+			},
+			"bedtime_thursday_end": {
+				"en": "Thursday bedtime end",
+				"pl": "Pora snu — czw: koniec"
+			},
+			"school_time_thursday_start": {
+				"en": "Thursday school time start",
+				"pl": "Czas szkolny — czw: początek"
+			},
+			"school_time_thursday_end": {
+				"en": "Thursday school time end",
+				"pl": "Czas szkolny — czw: koniec"
+			},
+			"bedtime_friday_start": {
+				"en": "Friday bedtime start",
+				"pl": "Pora snu — pt: początek"
+			},
+			"bedtime_friday_end": {
+				"en": "Friday bedtime end",
+				"pl": "Pora snu — pt: koniec"
+			},
+			"school_time_friday_start": {
+				"en": "Friday school time start",
+				"pl": "Czas szkolny — pt: początek"
+			},
+			"school_time_friday_end": {
+				"en": "Friday school time end",
+				"pl": "Czas szkolny — pt: koniec"
+			},
+			"bedtime_saturday_start": {
+				"en": "Saturday bedtime start",
+				"pl": "Pora snu — sob: początek"
+			},
+			"bedtime_saturday_end": {
+				"en": "Saturday bedtime end",
+				"pl": "Pora snu — sob: koniec"
+			},
+			"school_time_saturday_start": {
+				"en": "Saturday school time start",
+				"pl": "Czas szkolny — sob: początek"
+			},
+			"school_time_saturday_end": {
+				"en": "Saturday school time end",
+				"pl": "Czas szkolny — sob: koniec"
+			},
+			"bedtime_sunday_start": {
+				"en": "Sunday bedtime start",
+				"pl": "Pora snu — nie: początek"
+			},
+			"bedtime_sunday_end": {
+				"en": "Sunday bedtime end",
+				"pl": "Pora snu — nie: koniec"
+			},
+			"school_time_sunday_start": {
+				"en": "Sunday school time start",
+				"pl": "Czas szkolny — nie: początek"
+			},
+			"school_time_sunday_end": {
+				"en": "Sunday school time end",
+				"pl": "Czas szkolny — nie: koniec"
+			}
+		},
+		"binary_sensor": {
+			"bedtime_active": {
+				"en": "Bedtime Active",
+				"pl": "Pora snu aktywna"
+			},
+			"school_time_active": {
+				"en": "School Time Active",
+				"pl": "Czas szkolny aktywny"
+			},
+			"daily_limit_reached": {
+				"en": "Daily Limit Reached",
+				"pl": "Limit dzienny wykorzystany"
+			}
+		},
+		"button": {
+			"add_bonus": {
+				"en": "+{minutes} min",
+				"pl": "+{minutes} min"
+			},
+			"reset_bonus": {
+				"en": "Reset Bonus",
+				"pl": "Zeruj bonus czasowy"
+			},
+			"ring": {
+				"en": "Ring",
+				"pl": "Zadzwoń"
+			}
+		},
+		"device_tracker": {
+			"location": {
+				"en": "Location",
+				"pl": "Lokalizacja"
+			}
+		}
+	},
+	"states": {
+		"select.web_filter": {
+			"Only approved sites": {
+				"en": "Only approved sites",
+				"pl": "Tylko zatwierdzone strony"
+			},
+			"Try to block explicit sites": {
+				"en": "Try to block explicit sites",
+				"pl": "Blokowanie stron dla dorosłych"
+			}
+		},
+		"select.allowed_calls_texts": {
+			"Anyone": {
+				"en": "Anyone",
+				"pl": "Wszyscy"
+			},
+			"Only contacts I add": {
+				"en": "Only contacts I add",
+				"pl": "Tylko dodane kontakty"
+			},
+			"Contacts I add & limited groups": {
+				"en": "Contacts I add & limited groups",
+				"pl": "Dodane kontakty i wybrane grupy"
+			}
+		},
+		"select.play_purchase_approvals": {
+			"all_content": {
+				"en": "All content",
+				"pl": "Wszystkie treści"
+			},
+			"paid_content": {
+				"en": "Paid content only",
+				"pl": "Treści płatne"
+			},
+			"in_app_purchases": {
+				"en": "In-app purchases only",
+				"pl": "Zakupy w aplikacjach"
+			},
+			"never": {
+				"en": "Never",
+				"pl": "Nigdy"
+			}
+		},
+		"sensor.play_purchase_approvals": {
+			"all_content": {
+				"en": "All content",
+				"pl": "Wszystkie treści"
+			},
+			"paid_content": {
+				"en": "Paid content only",
+				"pl": "Treści płatne"
+			},
+			"in_app_purchases": {
+				"en": "In-app purchases only",
+				"pl": "Zakupy w aplikacjach"
+			},
+			"never": {
+				"en": "Never",
+				"pl": "Nigdy"
+			}
+		}
+	}
+}

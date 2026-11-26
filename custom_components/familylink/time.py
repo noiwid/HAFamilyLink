@@ -77,7 +77,7 @@ class FamilyLinkBedtimeTime(CoordinatorEntity, TimeEntity):
 		self._day = day
 		self._bound = bound
 		label = "start" if bound == BOUND_START else "end"
-		self._attr_name = f"{DAY_NAMES[day]} bedtime {label}"
+		self._attr_translation_key = f"bedtime_{DAY_NAMES[day].lower()}_{label}"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_bedtime_{day}_{bound}"
 		self._attr_icon = "mdi:weather-night" if bound == BOUND_START else "mdi:weather-sunny"
 
@@ -190,7 +190,7 @@ class FamilyLinkSchoolTimeTime(FamilyLinkBedtimeTime):
 		"""Initialize the time entity."""
 		super().__init__(coordinator, child_id, child_name, day, bound)
 		label = "start" if bound == BOUND_START else "end"
-		self._attr_name = f"{DAY_NAMES[day]} school time {label}"
+		self._attr_translation_key = f"school_time_{DAY_NAMES[day].lower()}_{label}"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_schooltime_{day}_{bound}"
 		self._attr_icon = "mdi:school" if bound == BOUND_START else "mdi:school-outline"
 
