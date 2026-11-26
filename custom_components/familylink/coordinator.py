@@ -146,6 +146,9 @@ class FamilyLinkDataUpdateCoordinator(DataUpdateCoordinator):
 		self._last_known_data: dict[str, Any] | None = None  # Cache for last successful fetch
 		self._last_known_at: datetime | None = None  # when it was fetched (local time)
 		self.child_device_ids: dict[str, str] = {}  # child_id -> registry id of the child's hub device
+		# Apps paused by pause_app and the setting each had before: {child_id: {package: setting}}
+		# (kept by app_pause.py, shown by the apps with time limits sensor)
+		self.paused_apps: dict[str, dict[str, int]] = {}
 		# Chrome site lists change rarely: read every WEBSITES_REFRESH seconds,
 		# and taken from the answer of a change made from Home Assistant (store_websites).
 		self._websites: dict[str, tuple[float, dict[str, Any] | None]] = {}  # child_id -> (read at, lists)

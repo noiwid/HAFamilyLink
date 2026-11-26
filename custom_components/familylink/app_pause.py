@@ -8,7 +8,9 @@ blocking it (``block_app``), which hides the app, and for the default SMS app
 Messages kept them. An app not used yet today gets its 1 minute, then pauses.
 
 The setting in force before the first pause (a limit, unlimited time, or no
-limit) is stored and put back by ``resume_app``, also after a restart. Limits
+limit) is stored and put back by ``resume_app``, also after a restart. It is
+read from Google at the pause, not from the coordinator, which can still show
+the 1-minute pause right after a resume. Limits
 count per device, so a pause applies on every device of the child. Google TV
 ignores app limits; there, only ``block_app`` works. An app blocked while it
 is paused is left blocked: ``resume_app`` skips it and keeps its saved setting
@@ -20,6 +22,9 @@ parent changed in the Family Link app since the pause (another limit,
 unlimited time, no limit) is kept and the saved one dropped. When the current
 settings cannot be read, the saved setting is restored anyway and a warning
 logged: an app left paused would be the worse failure.
+
+The saved settings are mirrored on ``coordinator.paused_apps`` so the apps
+with time limits sensor can show which apps this integration paused.
 
 The saved settings are one record shared by every child and changed across
 network writes, so the two services run one at a time.
@@ -70,6 +75,11 @@ def app_limit_setting(app: dict[str, Any]) -> int | None:
 	return NO_LIMIT
 
 
+def pause_intact(app: dict[str, Any] | None) -> bool:
+	"""True while an app is still at the limit pause_app set."""
+	return app is not None and app_limit_setting(app) == PAUSE_MINUTES
+
+
 def _resolve_child(hass: HomeAssistant, call: ServiceCall) -> str:
 	from . import extract_ids_from_entity  # late import: __init__ imports this module
 
@@ -93,6 +103,19 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 	# at 1 minute with nothing to resume once the resume has dropped the record
 	lock = asyncio.Lock()
 
+	def _mirror(data: dict[str, dict[str, int]]) -> None:
+		"""Show the saved settings on the coordinator, for the apps sensor."""
+		coordinator.paused_apps = {child: dict(saved) for child, saved in data.items() if saved}
+		update = getattr(coordinator, "async_update_listeners", None)
+		if callable(update):
+			update()
+
+	async def _save(data: dict[str, dict[str, int]]) -> None:
+		await store.async_save(data)
+		_mirror(data)
+
+	_mirror(await store.async_load() or {})
+
 	def _client():
 		if coordinator.client is None:
 			raise HomeAssistantError("Family Link client is not connected. Please re-authenticate via the add-on.")
@@ -115,9 +138,14 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 		# right behind this one may still read the previous settings, so the blocked check
 		# in resume_app is best effort
 		async with lock:
-			apps = _apps(child_id)
 			data = await store.async_load() or {}
 			saved: dict[str, int] = data.setdefault(child_id, {})
+			# The setting to come back to is read from Google, as resume_app does: right after a
+			# resume the coordinator can still show the 1-minute pause, and saving that would leave
+			# the app paused after the next resume. The coordinator's copy only when Google can't
+			# be read.
+			current_apps = await _current_apps(child_id)
+			apps = current_apps if current_apps is not None else _apps(child_id)
 			paused: list[str] = []
 			skipped: dict[str, str] = {}
 			for package in dict.fromkeys(call.data["packages"]):
@@ -133,7 +161,7 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 				if package not in saved or (app is not None and current not in (PAUSE_MINUTES, saved[package])):
 					saved[package] = current
 					# Saved before the write, so a failure part-way can still be resumed
-					await store.async_save(data)
+					await _save(data)
 				await _set_limit(child_id, package, PAUSE_MINUTES)
 				paused.append(package)
 			await coordinator.async_request_refresh()
@@ -196,7 +224,7 @@ async def async_setup_app_pause_services(hass: HomeAssistant, coordinator: Any) 
 				saved.pop(package)
 				if not saved:
 					data.pop(child_id, None)
-				await store.async_save(data)
+				await _save(data)
 			await coordinator.async_request_refresh()
 		_LOGGER.info(f"Resumed apps for {child_id}: {resumed}, kept {kept_current}, skipped {skipped}")
 		return {
