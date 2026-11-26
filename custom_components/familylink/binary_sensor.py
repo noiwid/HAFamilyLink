@@ -169,7 +169,8 @@ class BedtimeActiveBinarySensor(DeviceTimeBinarySensor):
 		"""Initialize the bedtime active sensor."""
 		super().__init__(coordinator, device_id, device_name, device, child_id, child_name)
 
-		self._attr_name = f"{device_name} Bedtime Active"
+		self._attr_has_entity_name = True
+		self._attr_translation_key = "bedtime_active"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_bedtime_active"
 
 	@property
@@ -234,7 +235,8 @@ class SchoolTimeActiveBinarySensor(DeviceTimeBinarySensor):
 		"""Initialize the school time active sensor."""
 		super().__init__(coordinator, device_id, device_name, device, child_id, child_name)
 
-		self._attr_name = f"{device_name} School Time Active"
+		self._attr_has_entity_name = True
+		self._attr_translation_key = "school_time_active"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_schooltime_active"
 
 	@property
@@ -299,7 +301,8 @@ class DailyLimitReachedBinarySensor(DeviceTimeBinarySensor):
 		"""Initialize the daily limit reached sensor."""
 		super().__init__(coordinator, device_id, device_name, device, child_id, child_name)
 
-		self._attr_name = f"{device_name} Daily Limit Reached"
+		self._attr_has_entity_name = True
+		self._attr_translation_key = "daily_limit_reached"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_{device_id}_daily_limit_reached"
 
 	@property

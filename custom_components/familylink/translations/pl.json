@@ -90,7 +90,25 @@
 	},
 	"entity": {
 		"sensor": {
-			"daily_screen_time": {
+			"device_daily_screen_time": {
+				"name": "Dzienny czas ekranowy"
+			},
+			"device_screen_time_remaining": {
+				"name": "Pozostały czas ekranowy"
+			},
+			"device_next_restriction": {
+				"name": "Następne ograniczenie"
+			},
+			"device_daily_limit": {
+				"name": "Limit dzienny"
+			},
+			"device_active_bonus": {
+				"name": "Aktywny bonus czasowy"
+			},
+			"device_battery_level": {
+				"name": "Poziom baterii"
+			},
+			"screen_time": {
 				"name": "Dzienny czas ekranowy"
 			},
 			"screen_time_formatted": {
@@ -102,8 +120,35 @@
 			"blocked_apps": {
 				"name": "Zablokowane aplikacje"
 			},
-			"apps_with_time_limits": {
+			"websites_blocked": {
+				"name": "Zablokowane strony"
+			},
+			"websites_approved": {
+				"name": "Dozwolone strony"
+			},
+			"play_purchase_approvals": {
+				"name": "Zatwierdzanie zakupów w Play",
+				"state": {
+					"all_content": "Wszystkie treści",
+					"paid_content": "Treści płatne",
+					"in_app_purchases": "Zakupy w aplikacjach",
+					"never": "Nigdy"
+				}
+			},
+			"play_apps_rating": {
+				"name": "Ocena aplikacji i gier w Play"
+			},
+			"apps_with_limits": {
 				"name": "Aplikacje z limitami czasu"
+			},
+			"apps_without_limits": {
+				"name": "Aplikacje bez limitów czasu"
+			},
+			"always_allowed_apps": {
+				"name": "Aplikacje zawsze dozwolone"
+			},
+			"top_app": {
+				"name": "Najczęściej używana aplikacja {rank}"
 			},
 			"device_count": {
 				"name": "Liczba urządzeń"
@@ -111,13 +156,188 @@
 			"child_info": {
 				"name": "Informacje o dziecku"
 			},
-			"top_app": {
-				"name": "Najczęściej używana aplikacja {rank}"
+			"child_battery_level": {
+				"name": "Poziom baterii"
 			}
 		},
 		"switch": {
+			"bedtime": {
+				"name": "Pora snu"
+			},
+			"school_time": {
+				"name": "Czas szkolny"
+			},
+			"daily_limit": {
+				"name": "Limit dzienny"
+			},
+			"downtime_unlimited_apps": {
+				"name": "Aplikacje bez limitów w czasie bez dostępu"
+			},
+			"strict_mode": {
+				"name": "Tryb ścisły"
+			},
 			"device_lock": {
 				"name": "Blokada urządzenia"
+			}
+		},
+		"select": {
+			"web_filter": {
+				"name": "Filtr stron w Chrome",
+				"state": {
+					"Only approved sites": "Tylko zatwierdzone strony",
+					"Try to block explicit sites": "Blokowanie stron dla dorosłych"
+				}
+			},
+			"allowed_calls_texts": {
+				"name": "Dozwolone połączenia i SMS-y",
+				"state": {
+					"Anyone": "Wszyscy",
+					"Only contacts I add": "Tylko dodane kontakty",
+					"Contacts I add & limited groups": "Dodane kontakty i wybrane grupy"
+				}
+			},
+			"play_purchase_approvals": {
+				"name": "Zatwierdzanie zakupów w Play",
+				"state": {
+					"all_content": "Wszystkie treści",
+					"paid_content": "Treści płatne",
+					"in_app_purchases": "Zakupy w aplikacjach",
+					"never": "Nigdy"
+				}
+			},
+			"play_apps_rating": {
+				"name": "Ocena aplikacji i gier w Play"
+			}
+		},
+		"number": {
+			"daily_limit_monday": {
+				"name": "Limit dzienny — pn"
+			},
+			"daily_limit_tuesday": {
+				"name": "Limit dzienny — wt"
+			},
+			"daily_limit_wednesday": {
+				"name": "Limit dzienny — śr"
+			},
+			"daily_limit_thursday": {
+				"name": "Limit dzienny — czw"
+			},
+			"daily_limit_friday": {
+				"name": "Limit dzienny — pt"
+			},
+			"daily_limit_saturday": {
+				"name": "Limit dzienny — sob"
+			},
+			"daily_limit_sunday": {
+				"name": "Limit dzienny — nie"
+			}
+		},
+		"time": {
+			"bedtime_monday_start": {
+				"name": "Pora snu — pn: początek"
+			},
+			"bedtime_monday_end": {
+				"name": "Pora snu — pn: koniec"
+			},
+			"school_time_monday_start": {
+				"name": "Czas szkolny — pn: początek"
+			},
+			"school_time_monday_end": {
+				"name": "Czas szkolny — pn: koniec"
+			},
+			"bedtime_tuesday_start": {
+				"name": "Pora snu — wt: początek"
+			},
+			"bedtime_tuesday_end": {
+				"name": "Pora snu — wt: koniec"
+			},
+			"school_time_tuesday_start": {
+				"name": "Czas szkolny — wt: początek"
+			},
+			"school_time_tuesday_end": {
+				"name": "Czas szkolny — wt: koniec"
+			},
+			"bedtime_wednesday_start": {
+				"name": "Pora snu — śr: początek"
+			},
+			"bedtime_wednesday_end": {
+				"name": "Pora snu — śr: koniec"
+			},
+			"school_time_wednesday_start": {
+				"name": "Czas szkolny — śr: początek"
+			},
+			"school_time_wednesday_end": {
+				"name": "Czas szkolny — śr: koniec"
+			},
+			"bedtime_thursday_start": {
+				"name": "Pora snu — czw: początek"
+			},
+			"bedtime_thursday_end": {
+				"name": "Pora snu — czw: koniec"
+			},
+			"school_time_thursday_start": {
+				"name": "Czas szkolny — czw: początek"
+			},
+			"school_time_thursday_end": {
+				"name": "Czas szkolny — czw: koniec"
+			},
+			"bedtime_friday_start": {
+				"name": "Pora snu — pt: początek"
+			},
+			"bedtime_friday_end": {
+				"name": "Pora snu — pt: koniec"
+			},
+			"school_time_friday_start": {
+				"name": "Czas szkolny — pt: początek"
+			},
+			"school_time_friday_end": {
+				"name": "Czas szkolny — pt: koniec"
+			},
+			"bedtime_saturday_start": {
+				"name": "Pora snu — sob: początek"
+			},
+			"bedtime_saturday_end": {
+				"name": "Pora snu — sob: koniec"
+			},
+			"school_time_saturday_start": {
+				"name": "Czas szkolny — sob: początek"
+			},
+			"school_time_saturday_end": {
+				"name": "Czas szkolny — sob: koniec"
+			},
+			"bedtime_sunday_start": {
+				"name": "Pora snu — nie: początek"
+			},
+			"bedtime_sunday_end": {
+				"name": "Pora snu — nie: koniec"
+			},
+			"school_time_sunday_start": {
+				"name": "Czas szkolny — nie: początek"
+			},
+			"school_time_sunday_end": {
+				"name": "Czas szkolny — nie: koniec"
+			}
+		},
+		"binary_sensor": {
+			"bedtime_active": {
+				"name": "Pora snu aktywna"
+			},
+			"school_time_active": {
+				"name": "Czas szkolny aktywny"
+			},
+			"daily_limit_reached": {
+				"name": "Limit dzienny wykorzystany"
+			}
+		},
+		"button": {
+			"add_bonus": {
+				"name": "+{minutes} min"
+			},
+			"reset_bonus": {
+				"name": "Zeruj bonus czasowy"
+			},
+			"ring": {
+				"name": "Zadzwoń"
 			}
 		},
 		"device_tracker": {
@@ -135,6 +355,526 @@
 				"daily_limit": "Dzienny limit: włączanie i wyłączanie",
 				"school_time": "Czas szkolny: włączanie i wyłączanie",
 				"values": "Plan tygodnia: godziny snu i limit każdego dnia"
+			}
+		}
+	},
+	"services": {
+		"block_device_for_school": {
+			"name": "Blokada urządzenia na czas szkolny",
+			"description": "Blokuje wszystkie aplikacje poza niezbędnymi, symulując blokadę urządzenia w godzinach szkolnych. Wymaga wskazania dziecka (encja lub child_id) albo all_children: true dla wszystkich nadzorowanych dzieci.",
+			"fields": {
+				"whitelist": {
+					"name": "Dodatkowa lista dozwolonych",
+					"description": "Dodatkowe nazwy pakietów, które mają pozostać dozwolone (poza domyślnymi aplikacjami niezbędnymi). Podaj jedną nazwę pakietu w wierszu."
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"all_children": {
+					"name": "Wszystkie dzieci",
+					"description": "Zastosuj do każdego nadzorowanego dziecka. Wymagane, gdy nie wskazano dziecka (encja lub child_id)."
+				}
+			}
+		},
+		"unblock_all_apps": {
+			"name": "Odblokuj wszystkie aplikacje",
+			"description": "Odblokowuje wszystkie aplikacje, kończąc tryb szkolny i przywracając normalne korzystanie z urządzenia. Wymaga wskazania dziecka (encja lub child_id) albo all_children: true dla wszystkich nadzorowanych dzieci.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"all_children": {
+					"name": "Wszystkie dzieci",
+					"description": "Zastosuj do każdego nadzorowanego dziecka. Wymagane, gdy nie wskazano dziecka (encja lub child_id)."
+				}
+			}
+		},
+		"block_app": {
+			"name": "Zablokuj aplikację",
+			"description": "Blokuje wskazaną aplikację według nazwy pakietu. Wymaga wskazania dziecka (encja lub child_id) albo all_children: true dla wszystkich nadzorowanych dzieci.",
+			"fields": {
+				"package_name": {
+					"name": "Nazwa pakietu",
+					"description": "Nazwa pakietu Android do zablokowania (np. com.youtube.android)"
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"all_children": {
+					"name": "Wszystkie dzieci",
+					"description": "Zastosuj do każdego nadzorowanego dziecka. Wymagane, gdy nie wskazano dziecka (encja lub child_id)."
+				}
+			}
+		},
+		"unblock_app": {
+			"name": "Odblokuj aplikację",
+			"description": "Odblokowuje wskazaną aplikację według nazwy pakietu. Wymaga wskazania dziecka (encja lub child_id) albo all_children: true dla wszystkich nadzorowanych dzieci.",
+			"fields": {
+				"package_name": {
+					"name": "Nazwa pakietu",
+					"description": "Nazwa pakietu Android do odblokowania"
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"all_children": {
+					"name": "Wszystkie dzieci",
+					"description": "Zastosuj do każdego nadzorowanego dziecka. Wymagane, gdy nie wskazano dziecka (encja lub child_id)."
+				}
+			}
+		},
+		"set_app_daily_limit": {
+			"name": "Ustaw limit dzienny aplikacji",
+			"description": "Ustawia dzienny limit czasu dla wskazanej aplikacji. Wartość -2 oznacza czas nieograniczony (pomija limity urządzenia), -1 wyłącza limit aplikacji (obowiązują limity urządzenia), 0 oznacza całkowitą blokadę. Wymaga wskazania dziecka (encja lub child_id) albo all_children: true dla wszystkich nadzorowanych dzieci.",
+			"fields": {
+				"package_name": {
+					"name": "Nazwa pakietu",
+					"description": "Nazwa pakietu Android (np. com.zhiliaoapp.musically dla TikTok)"
+				},
+				"minutes": {
+					"name": "Limit dzienny (minuty)",
+					"description": "Dzienny limit czasu: -2 = czas nieograniczony (pomija limity urządzenia), -1 = limit aplikacji wyłączony (obowiązują limity urządzenia), 0 = zablokowana, 1-1440 = limit w minutach"
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"all_children": {
+					"name": "Wszystkie dzieci",
+					"description": "Zastosuj do każdego nadzorowanego dziecka. Wymagane, gdy nie wskazano dziecka (encja lub child_id)."
+				}
+			}
+		},
+		"pause_app": {
+			"name": "Wstrzymaj aplikację",
+			"description": "Wstrzymuje aplikacje u jednego dziecka, ustawiając ich limit dzienny na 1 minutę. Aplikacja pozostaje zainstalowana (blokada ją ukrywa, a zablokowane Google Messages traci przychodzące wiadomości). Aplikacja używana już dziś zostaje wstrzymana od razu; aplikacja jeszcze dziś nieużywana najpierw zużywa swoją 1 minutę. Poprzednie ustawienie jest zapisywane i przywracane przez resume_app. Nie działa na Google TV, które ignoruje limity aplikacji. Wymagane jest wskazanie dziecka.",
+			"fields": {
+				"packages": {
+					"name": "Pakiety",
+					"description": "Nazwy pakietów Android do wstrzymania"
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Dowolna encja Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"resume_app": {
+			"name": "Wznów aplikację",
+			"description": "Przywraca ustawienie limitu dziennego, jakie aplikacje miały przed wywołaniem pause_app (limit, czas nieograniczony lub brak limitu). Aplikacja, której ustawienie rodzic zmienił po wstrzymaniu w aplikacji Family Link, zachowuje to ustawienie. Aplikacje, których pause_app nie wstrzymała, pozostają bez zmian, podobnie jak aplikacja zablokowana po wstrzymaniu (jej zapisane ustawienie jest zachowane na czas odblokowania). Wymagane jest wskazanie dziecka.",
+			"fields": {
+				"packages": {
+					"name": "Pakiety",
+					"description": "Nazwy pakietów Android do wznowienia. Pozostaw puste, aby wznowić wszystkie aplikacje wstrzymane dla dziecka."
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Dowolna encja Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"add_time_bonus": {
+			"name": "Dodaj bonus czasowy",
+			"description": "Dodaje urządzeniu dodatkowy bonus czasu ekranowego (np. 30 minut). Można wybrać encję urządzenia ALBO podać device_id/child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja urządzenia",
+					"description": "Wybierz przełącznik urządzenia Family Link (zalecane — automatycznie wyodrębnia device_id i child_id)"
+				},
+				"bonus_minutes": {
+					"name": "Minuty bonusu",
+					"description": "Liczba minut do dodania jako bonus czasowy (1-1440)"
+				},
+				"device_id": {
+					"name": "ID urządzenia (ręcznie)",
+					"description": "Identyfikator urządzenia (token urządzenia) — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"enable_bedtime": {
+			"name": "Włącz porę snu",
+			"description": "Włącza ograniczenia pory snu (downtime) dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"disable_bedtime": {
+			"name": "Wyłącz porę snu",
+			"description": "Wyłącza ograniczenia pory snu (downtime) dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka. Podany samodzielnie (bez encji i device_id) powoduje zastosowanie limitu do każdego urządzenia tego dziecka."
+				}
+			}
+		},
+		"set_bedtime": {
+			"name": "Ustaw porę snu",
+			"description": "Ustawia godzinę początku i końca pory snu. Domyślnie edytuje powtarzalny harmonogram TYGODNIOWY dla wskazanego dnia (jak „Weekly schedule” w Family Link); wpisanie scope „today” pozwala jednorazowo nadpisać porę snu tylko na najbliższą noc, bez zmiany harmonogramu tygodniowego. Jeśli nie podano dnia, ustawienie dotyczy dzisiaj.",
+			"fields": {
+				"start_time": {
+					"name": "Godzina rozpoczęcia",
+					"description": "Godzina rozpoczęcia pory snu (np. 20:45)"
+				},
+				"end_time": {
+					"name": "Godzina zakończenia",
+					"description": "Godzina zakończenia pory snu, zwykle następnego ranka (np. 07:30)"
+				},
+				"day": {
+					"name": "Dzień",
+					"description": "Dzień tygodnia. Jeśli nie podano, ustawienie dotyczy dzisiaj."
+				},
+				"scope": {
+					"name": "Zakres",
+					"description": "„weekly” (domyślnie) edytuje powtarzalny harmonogram tygodniowy dla tego dnia. „today” ustawia jednorazowe nadpisanie tylko na ten dzień, bez zmiany harmonogramu tygodniowego."
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"set_downtime_unlimited_apps": {
+			"name": "Ustaw aplikacje bez limitu w porze snu",
+			"description": "Zezwala aplikacjom z nieograniczonym czasem na działanie w porze snu (downtime) albo je blokuje — odpowiada ustawieniu „Allow apps with unlimited time during downtime” w Family Link. Ustawienie należy do dziecka i dotyczy wszystkich jego urządzeń. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"allow": {
+					"name": "Zezwalaj",
+					"description": "Włączone: aplikacje z nieograniczonym czasem pozostają dostępne w porze snu. Wyłączone: są blokowane także w porze snu."
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"enable_school_time": {
+			"name": "Włącz czas szkolny",
+			"description": "Włącza ograniczenia czasu szkolnego (limit wieczorny) dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"disable_school_time": {
+			"name": "Wyłącz czas szkolny",
+			"description": "Wyłącza ograniczenia czasu szkolnego (limit wieczorny) dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"set_school_time": {
+			"name": "Ustaw czas szkolny",
+			"description": "Ustawia początek i koniec czasu szkolnego dla wskazanego dnia. Domyślnie edytuje powtarzalne TYGODNIOWE okno czasu szkolnego tego dnia (dzień musi już mieć okno czasu szkolnego w Family Link). Wpisanie scope „today” pozwala jednorazowo nadpisać dzisiejszy czas szkolny bez zmiany harmonogramu tygodniowego. Jeśli nie podano dnia, ustawienie dotyczy dzisiaj. Dla dnia szkolnego z przerwą podaj wszystkie okna dnia w „windows” zamiast początku i końca.",
+			"fields": {
+				"start_time": {
+					"name": "Godzina rozpoczęcia",
+					"description": "Początek czasu szkolnego (np. 08:00). Nie łączyć z „windows”."
+				},
+				"end_time": {
+					"name": "Godzina zakończenia",
+					"description": "Koniec czasu szkolnego, tego samego dnia i po godzinie rozpoczęcia (np. 13:15). Nie łączyć z „windows”."
+				},
+				"windows": {
+					"name": "Okna",
+					"description": "Wszystkie okna dnia po kolei, każde w formacie „HH:MM-HH:MM”, dla dnia szkolnego z przerwą (np. 08:00-12:00 i 13:30-15:00) — ta sama lista co atrybut windows encji czasu szkolnego. Dwa okna w dniu, który ma jedno, dodają przerwę; jedno okno w dniu, który ma dwa, usuwa ją (Family Link dopuszcza jedną przerwę dziennie). Zastępuje początek i koniec. Tylko zakres tygodniowy; dzień musi mieć czas szkolny w Family Link."
+				},
+				"enabled": {
+					"name": "Włączone",
+					"description": "Włącza lub wyłącza czas szkolny danego dnia w harmonogramie tygodniowym, zachowując jego godziny (pole wyboru dnia w edytorze tygodniowym Family Link). Działa samodzielnie, bez początku, końca i okien. Tylko zakres tygodniowy."
+				},
+				"day": {
+					"name": "Dzień",
+					"description": "Dzień tygodnia. Jeśli nie podano, ustawienie dotyczy dzisiaj."
+				},
+				"scope": {
+					"name": "Zakres",
+					"description": "„weekly” (domyślnie) edytuje powtarzalne tygodniowe okno czasu szkolnego tego dnia. „today” ustawia jednorazowe okno czasu szkolnego tylko na dziś."
+				},
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"enable_daily_limit": {
+			"name": "Włącz limit dzienny",
+			"description": "Włącza dzienny limit czasu dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"disable_daily_limit": {
+			"name": "Wyłącz limit dzienny",
+			"description": "Wyłącza dzienny limit czasu dla dziecka. Można wybrać encję ALBO podać child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (zalecane — automatycznie wyodrębnia child_id)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"set_daily_limit": {
+			"name": "Ustaw limit dzienny",
+			"description": "Ustawia długość dziennego limitu czasu dla urządzenia (np. 120 minut na 2 godziny). Wybierz encję urządzenia, podaj device_id albo samo child_id, aby zastosować limit do każdego urządzenia dziecka, które obsługuje limity czasu (poza Google TV). Gdy dzienny limit dziecka jest wyłączony, zapisywany jest tylko limit tygodniowy, a limit pozostaje wyłączony.",
+			"fields": {
+				"day": {
+					"name": "Dzień tygodnia",
+					"description": "Dzień tygodnia, którego dotyczy limit (1 = poniedziałek ... 7 = niedziela). Domyślnie dzisiaj. Wskazanie innego dnia ustawia limit dla tego dnia tygodnia, tak jak ekran limitów tygodniowych w Family Link."
+				},
+				"entity_id": {
+					"name": "Encja urządzenia",
+					"description": "Wybierz przełącznik urządzenia Family Link (zalecane — automatycznie wyodrębnia device_id i child_id)"
+				},
+				"daily_minutes": {
+					"name": "Minuty dziennie",
+					"description": "Liczba minut dozwolonych na dzień (0-1440). Wartość 0 wyłącza urządzenie na dany dzień bez jego pełnej blokady."
+				},
+				"device_id": {
+					"name": "ID urządzenia (ręcznie)",
+					"description": "Identyfikator urządzenia (token urządzenia) — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"refresh_location": {
+			"name": "Odśwież lokalizację",
+			"description": "Żąda świeżej aktualizacji lokalizacji z urządzenia dziecka. Wymusza przesłanie przez urządzenie bieżącej pozycji GPS (zużywa więcej baterii niż lokalizacja z pamięci podręcznej). Jeśli nie wskazano dziecka, odświeża lokalizację WSZYSTKICH nadzorowanych dzieci.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link tego dziecka (opcjonalnie — bez wskazania dotyczy WSZYSTKICH dzieci)"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji. Bez wskazania dotyczy WSZYSTKICH dzieci."
+				}
+			}
+		},
+		"ring_device": {
+			"name": "Zadzwoń na urządzenie",
+			"description": "Powoduje zadzwonienie (dźwięk) urządzenia Family Link, co ułatwia jego odnalezienie. Wybierz encję urządzenia ALBO podaj device_id/child_id ręcznie.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja urządzenia",
+					"description": "Wybierz encję urządzenia Family Link (zalecane — automatycznie wyodrębnia device_id i child_id)"
+				},
+				"device_id": {
+					"name": "ID urządzenia (ręcznie)",
+					"description": "Identyfikator urządzenia (token urządzenia) — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"set_update_interval": {
+			"name": "Ustaw interwał aktualizacji",
+			"description": "Zmienia częstotliwość odpytywania Google przez integrację, do następnego przeładowania lub restartu (potem ponownie obowiązuje wartość z opcji integracji). Pozwala automatyzacji odpytywać rzadziej w nocy, a częściej w dzień.",
+			"fields": {
+				"seconds": {
+					"name": "Interwał (sekundy)",
+					"description": "Interwał odpytywania w sekundach, od 30 do 3600"
+				}
+			}
+		},
+		"get_sites": {
+			"name": "Pobierz listy stron",
+			"description": "Odczytuje listy stron Chrome dziecka (sekcja „Google Chrome and Web” w Family Link): poziom filtra oraz wszystkie zatwierdzone i zablokowane strony, w tym dodane w aplikacji Family Link. Zwraca listy jako odpowiedź.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				}
+			}
+		},
+		"block_site": {
+			"name": "Zablokuj stronę",
+			"description": "Blokuje strony w Chrome dziecka (na wszystkich urządzeniach, na których dziecko jest zalogowane do Chrome). Strona wcześniej zatwierdzona staje się zablokowana. Filtrowany jest tylko Chrome: inne przeglądarki wymagają użycia block_app.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"sites": {
+					"name": "Strony",
+					"description": "Strony (www.example.com), wzorce domen (*.example.com, *.example.*) lub adresy stron (https://example.com/page). Gwiazdki tylko jako początkowe „*.” lub końcowe „.*”."
+				}
+			}
+		},
+		"allow_site": {
+			"name": "Zezwól na stronę",
+			"description": "Zatwierdza strony w Chrome dziecka. Strona wcześniej zablokowana staje się zatwierdzona. Blokada szerszego wzorca (np. *.example.*) nadal ma pierwszeństwo przed zatwierdzeniem.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"sites": {
+					"name": "Strony",
+					"description": "Strony (www.example.com), wzorce domen (*.example.com, *.example.*) lub adresy stron (https://example.com/page). Gwiazdki tylko jako początkowe „*.” lub końcowe „.*”."
+				}
+			}
+		},
+		"remove_site": {
+			"name": "Usuń stronę",
+			"description": "Usuwa strony z listy zatwierdzonych lub zablokowanych dziecka, niezależnie od tego, kto je dodał.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"sites": {
+					"name": "Strony",
+					"description": "Strony (www.example.com), wzorce domen (*.example.com, *.example.*) lub adresy stron (https://example.com/page). Gwiazdki tylko jako początkowe „*.” lub końcowe „.*”."
+				}
+			}
+		},
+		"set_filter_level": {
+			"name": "Ustaw poziom filtra treści",
+			"description": "Przełącza filtr treści Chrome dziecka między trybem tylko zatwierdzonych stron (lista dozwolonych) a trybem wszystkich stron z filtrem treści dla dorosłych Google, jak w sekcji „Google Chrome and Web” aplikacji Family Link. Dotyczy konta Google dziecka, a więc każdej przeglądarki Chrome, w której dziecko jest zalogowane.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"filter_level": {
+					"name": "Poziom filtra",
+					"description": "approved_only: można otwierać tylko zatwierdzone strony. filtered: wszystkie strony, z filtrem treści dla dorosłych Google."
+				}
+			}
+		},
+		"sync_site_list": {
+			"name": "Synchronizuj listę stron",
+			"description": "Utrzymuje zablokowane strony dziecka zgodnie z opublikowaną listą domen (jedna domena w wierszu, komentarze „#”). Dodaje to, co lista zyskała, i usuwa wyłącznie to, co ta lista wcześniej dodała, a potem usunęła; wpisy dodane ręcznie oraz strony zatwierdzone pozostają bez zmian. Lista pochodzi od podmiotu trzeciego, więc musi być udostępniana przez https, jest czytana do 1 MiB i przyjmowane są tylko zwykłe domeny (wzorce z gwiazdką, adresy stron, adresy IP i gołe sufiksy typu co.uk są ignorowane). Odpowiedź bez żadnej użytecznej domeny albo taka, która usunęłaby większość tego, co lista dodała, jest odrzucana; stop usuwa wszystko, co lista dodała. Tylko dla administratorów.",
+			"fields": {
+				"entity_id": {
+					"name": "Encja dziecka",
+					"description": "Wybierz dowolną encję Family Link dziecka"
+				},
+				"child_id": {
+					"name": "ID dziecka (ręcznie)",
+					"description": "Identyfikator użytkownika dziecka — potrzebny tylko wtedy, gdy nie używa się selektora encji"
+				},
+				"url": {
+					"name": "Adres URL listy",
+					"description": "Surowy adres https listy domen, jedna domena w wierszu"
+				},
+				"max_domains": {
+					"name": "Maksymalna liczba domen",
+					"description": "Odrzuca listę dłuższą niż podana wartość (zabezpieczenie)."
+				},
+				"stop": {
+					"name": "Zatrzymaj synchronizację",
+					"description": "Usuwa wszystko, co ta lista dodała dla dziecka, i przestaje ją śledzić."
+				}
 			}
 		}
 	}

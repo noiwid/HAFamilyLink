@@ -77,7 +77,8 @@ class FamilyLinkDailyLimitNumber(CoordinatorEntity, NumberEntity):
 		self._child_id = child_id
 		self._child_name = child_name
 		self._day = day
-		self._attr_name = f"{DAY_NAMES[day]} limit"
+		self._attr_has_entity_name = True
+		self._attr_translation_key = f"daily_limit_{DAY_NAMES[day].lower()}"
 		self._attr_unique_id = f"{DOMAIN}_{child_id}_daily_limit_{day}"
 
 	@property

@@ -90,7 +90,25 @@
 	},
 	"entity": {
 		"sensor": {
-			"daily_screen_time": {
+			"device_daily_screen_time": {
+				"name": "Dagelijkse schermtijd"
+			},
+			"device_screen_time_remaining": {
+				"name": "Resterende schermtijd"
+			},
+			"device_next_restriction": {
+				"name": "Volgende beperking"
+			},
+			"device_daily_limit": {
+				"name": "Daglimiet"
+			},
+			"device_active_bonus": {
+				"name": "Actieve bonustijd"
+			},
+			"device_battery_level": {
+				"name": "Batterijniveau"
+			},
+			"screen_time": {
 				"name": "Dagelijkse schermtijd"
 			},
 			"screen_time_formatted": {
@@ -102,8 +120,35 @@
 			"blocked_apps": {
 				"name": "Geblokkeerde apps"
 			},
-			"apps_with_time_limits": {
+			"websites_blocked": {
+				"name": "Geblokkeerde sites"
+			},
+			"websites_approved": {
+				"name": "Goedgekeurde sites"
+			},
+			"play_purchase_approvals": {
+				"name": "Play-aankopen goedkeuren",
+				"state": {
+					"all_content": "Alle inhoud",
+					"paid_content": "Alleen betaalde inhoud",
+					"in_app_purchases": "Alleen in-app-aankopen",
+					"never": "Nooit"
+				}
+			},
+			"play_apps_rating": {
+				"name": "Classificatie Play-apps en games"
+			},
+			"apps_with_limits": {
 				"name": "Apps met tijdslimiet"
+			},
+			"apps_without_limits": {
+				"name": "Apps zonder limiet"
+			},
+			"always_allowed_apps": {
+				"name": "Altijd toegestane apps"
+			},
+			"top_app": {
+				"name": "Top-app {rank}"
 			},
 			"device_count": {
 				"name": "Aantal apparaten"
@@ -111,13 +156,188 @@
 			"child_info": {
 				"name": "Kindinfo"
 			},
-			"top_app": {
-				"name": "Top-app {rank}"
+			"child_battery_level": {
+				"name": "Batterijniveau"
 			}
 		},
 		"switch": {
+			"bedtime": {
+				"name": "Bedtijd"
+			},
+			"school_time": {
+				"name": "Schooltijd"
+			},
+			"daily_limit": {
+				"name": "Daglimiet"
+			},
+			"downtime_unlimited_apps": {
+				"name": "Onbeperkte apps tijdens downtime"
+			},
+			"strict_mode": {
+				"name": "Strikte modus"
+			},
 			"device_lock": {
 				"name": "Apparaatvergrendeling"
+			}
+		},
+		"select": {
+			"web_filter": {
+				"name": "Webfilter",
+				"state": {
+					"Only approved sites": "Alleen goedgekeurde sites",
+					"Try to block explicit sites": "Expliciete sites proberen te blokkeren"
+				}
+			},
+			"allowed_calls_texts": {
+				"name": "Toegestane oproepen en sms’jes",
+				"state": {
+					"Anyone": "Iedereen",
+					"Only contacts I add": "Alleen contacten die ik toevoeg",
+					"Contacts I add & limited groups": "Contacten die ik toevoeg en beperkte groepen"
+				}
+			},
+			"play_purchase_approvals": {
+				"name": "Play-aankopen goedkeuren",
+				"state": {
+					"all_content": "Alle inhoud",
+					"paid_content": "Alleen betaalde inhoud",
+					"in_app_purchases": "Alleen in-app-aankopen",
+					"never": "Nooit"
+				}
+			},
+			"play_apps_rating": {
+				"name": "Classificatie Play-apps en games"
+			}
+		},
+		"number": {
+			"daily_limit_monday": {
+				"name": "Daglimiet — ma"
+			},
+			"daily_limit_tuesday": {
+				"name": "Daglimiet — di"
+			},
+			"daily_limit_wednesday": {
+				"name": "Daglimiet — wo"
+			},
+			"daily_limit_thursday": {
+				"name": "Daglimiet — do"
+			},
+			"daily_limit_friday": {
+				"name": "Daglimiet — vr"
+			},
+			"daily_limit_saturday": {
+				"name": "Daglimiet — za"
+			},
+			"daily_limit_sunday": {
+				"name": "Daglimiet — zo"
+			}
+		},
+		"time": {
+			"bedtime_monday_start": {
+				"name": "Bedtijd — ma: begin"
+			},
+			"bedtime_monday_end": {
+				"name": "Bedtijd — ma: einde"
+			},
+			"school_time_monday_start": {
+				"name": "Schooltijd — ma: begin"
+			},
+			"school_time_monday_end": {
+				"name": "Schooltijd — ma: einde"
+			},
+			"bedtime_tuesday_start": {
+				"name": "Bedtijd — di: begin"
+			},
+			"bedtime_tuesday_end": {
+				"name": "Bedtijd — di: einde"
+			},
+			"school_time_tuesday_start": {
+				"name": "Schooltijd — di: begin"
+			},
+			"school_time_tuesday_end": {
+				"name": "Schooltijd — di: einde"
+			},
+			"bedtime_wednesday_start": {
+				"name": "Bedtijd — wo: begin"
+			},
+			"bedtime_wednesday_end": {
+				"name": "Bedtijd — wo: einde"
+			},
+			"school_time_wednesday_start": {
+				"name": "Schooltijd — wo: begin"
+			},
+			"school_time_wednesday_end": {
+				"name": "Schooltijd — wo: einde"
+			},
+			"bedtime_thursday_start": {
+				"name": "Bedtijd — do: begin"
+			},
+			"bedtime_thursday_end": {
+				"name": "Bedtijd — do: einde"
+			},
+			"school_time_thursday_start": {
+				"name": "Schooltijd — do: begin"
+			},
+			"school_time_thursday_end": {
+				"name": "Schooltijd — do: einde"
+			},
+			"bedtime_friday_start": {
+				"name": "Bedtijd — vr: begin"
+			},
+			"bedtime_friday_end": {
+				"name": "Bedtijd — vr: einde"
+			},
+			"school_time_friday_start": {
+				"name": "Schooltijd — vr: begin"
+			},
+			"school_time_friday_end": {
+				"name": "Schooltijd — vr: einde"
+			},
+			"bedtime_saturday_start": {
+				"name": "Bedtijd — za: begin"
+			},
+			"bedtime_saturday_end": {
+				"name": "Bedtijd — za: einde"
+			},
+			"school_time_saturday_start": {
+				"name": "Schooltijd — za: begin"
+			},
+			"school_time_saturday_end": {
+				"name": "Schooltijd — za: einde"
+			},
+			"bedtime_sunday_start": {
+				"name": "Bedtijd — zo: begin"
+			},
+			"bedtime_sunday_end": {
+				"name": "Bedtijd — zo: einde"
+			},
+			"school_time_sunday_start": {
+				"name": "Schooltijd — zo: begin"
+			},
+			"school_time_sunday_end": {
+				"name": "Schooltijd — zo: einde"
+			}
+		},
+		"binary_sensor": {
+			"bedtime_active": {
+				"name": "Bedtijd actief"
+			},
+			"school_time_active": {
+				"name": "Schooltijd actief"
+			},
+			"daily_limit_reached": {
+				"name": "Daglimiet bereikt"
+			}
+		},
+		"button": {
+			"add_bonus": {
+				"name": "+{minutes} min"
+			},
+			"reset_bonus": {
+				"name": "Bonustijd resetten"
+			},
+			"ring": {
+				"name": "Laten rinkelen"
 			}
 		},
 		"device_tracker": {
@@ -135,6 +355,526 @@
 				"daily_limit": "Daglimiet: in- en uitschakelen",
 				"school_time": "Schooltijd: in- en uitschakelen",
 				"values": "Weekschema: bedtijden en het quotum van elke dag"
+			}
+		}
+	},
+	"services": {
+		"block_device_for_school": {
+			"name": "Apparaat blokkeren voor school",
+			"description": "Blokkeert alle apps behalve de essentiële, om tijdens schooluren een apparaatvergrendeling te simuleren. Vereist een kind (entiteit of child_id), of all_children: true voor elk kind onder toezicht.",
+			"fields": {
+				"whitelist": {
+					"name": "Extra whitelist",
+					"description": "Extra pakketnamen die toegestaan blijven (naast de standaard essentiële apps). Voer één pakketnaam per regel in."
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"all_children": {
+					"name": "Alle kinderen",
+					"description": "Op elk kind onder toezicht toepassen. Vereist als er geen kind is opgegeven (entiteit of child_id)."
+				}
+			}
+		},
+		"unblock_all_apps": {
+			"name": "Alle apps deblokkeren",
+			"description": "Deblokkeert alle apps om de schoolmodus te beëindigen en normaal gebruik van het apparaat te herstellen. Vereist een kind (entiteit of child_id), of all_children: true voor elk kind onder toezicht.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"all_children": {
+					"name": "Alle kinderen",
+					"description": "Op elk kind onder toezicht toepassen. Vereist als er geen kind is opgegeven (entiteit of child_id)."
+				}
+			}
+		},
+		"block_app": {
+			"name": "App blokkeren",
+			"description": "Blokkeert één app op pakketnaam. Vereist een kind (entiteit of child_id), of all_children: true voor elk kind onder toezicht.",
+			"fields": {
+				"package_name": {
+					"name": "Pakketnaam",
+					"description": "Android-pakketnaam om te blokkeren (bijv. com.youtube.android)"
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"all_children": {
+					"name": "Alle kinderen",
+					"description": "Op elk kind onder toezicht toepassen. Vereist als er geen kind is opgegeven (entiteit of child_id)."
+				}
+			}
+		},
+		"unblock_app": {
+			"name": "App deblokkeren",
+			"description": "Deblokkeert één app op pakketnaam. Vereist een kind (entiteit of child_id), of all_children: true voor elk kind onder toezicht.",
+			"fields": {
+				"package_name": {
+					"name": "Pakketnaam",
+					"description": "Android-pakketnaam om te deblokkeren"
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"all_children": {
+					"name": "Alle kinderen",
+					"description": "Op elk kind onder toezicht toepassen. Vereist als er geen kind is opgegeven (entiteit of child_id)."
+				}
+			}
+		},
+		"set_app_daily_limit": {
+			"name": "Daglimiet voor app instellen",
+			"description": "Stelt een dagelijkse tijdslimiet in voor één app. Gebruik -2 voor onbeperkte tijd (negeert apparaatlimieten), -1 om de app-limiet uit te schakelen (apparaatlimieten blijven gelden) en 0 om de app volledig te blokkeren. Vereist een kind (entiteit of child_id), of all_children: true voor elk kind onder toezicht.",
+			"fields": {
+				"package_name": {
+					"name": "Pakketnaam",
+					"description": "Android-pakketnaam (bijv. com.zhiliaoapp.musically voor TikTok)"
+				},
+				"minutes": {
+					"name": "Daglimiet (minuten)",
+					"description": "Dagelijkse tijdslimiet: -2 = onbeperkte tijd (negeert apparaatlimieten), -1 = app-limiet uit (apparaatlimieten blijven gelden), 0 = geblokkeerd, 1-1440 = limiet in minuten"
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"all_children": {
+					"name": "Alle kinderen",
+					"description": "Op elk kind onder toezicht toepassen. Vereist als er geen kind is opgegeven (entiteit of child_id)."
+				}
+			}
+		},
+		"pause_app": {
+			"name": "App pauzeren",
+			"description": "Pauzeert apps voor één kind door de daglimiet op 1 minuut te zetten. De app blijft geïnstalleerd (blokkeren verbergt hem, en een geblokkeerde Google Messages verliest binnenkomende sms’jes). Een app die vandaag al is gebruikt, pauzeert meteen; een app die nog niet is gebruikt, krijgt eerst zijn minuut. De vorige instelling wordt bewaard en resume_app zet hem terug. Doet niets op Google TV, dat app-limieten negeert. Er is een kind vereist.",
+			"fields": {
+				"packages": {
+					"name": "Pakketten",
+					"description": "Android-pakketnamen om te pauzeren"
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"resume_app": {
+			"name": "App hervatten",
+			"description": "Zet de daglimiet-instelling terug die apps hadden vóór pause_app (een limiet, onbeperkte tijd of geen limiet). Een app waarvan een ouder de instelling sinds de pauze in de Family Link-app heeft gewijzigd, behoudt die instelling. Apps die pause_app niet heeft gepauzeerd, blijven ongemoeid, en dat geldt ook voor een app die sinds de pauze is geblokkeerd (de bewaarde instelling blijft staan tot de app wordt gedeblokkeerd). Er is een kind vereist.",
+			"fields": {
+				"packages": {
+					"name": "Pakketten",
+					"description": "Android-pakketnamen om te hervatten. Laat leeg om elke app te hervatten die voor het kind is gepauzeerd."
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"add_time_bonus": {
+			"name": "Tijdbonus toevoegen",
+			"description": "Voegt extra schermtijdbonus toe aan een apparaat (bijv. 30 minuten). Je kunt een apparaatentiteit kiezen OF device_id/child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van apparaat",
+					"description": "Kies een Family Link-apparaatschakelaar (aanbevolen — extraheert automatisch device_id en child_id)"
+				},
+				"bonus_minutes": {
+					"name": "Bonustijd (minuten)",
+					"description": "Aantal minuten om als bonustijd toe te voegen (1-1440)"
+				},
+				"device_id": {
+					"name": "Apparaat-ID (handmatig)",
+					"description": "Apparaat-ID (apparaattoken) — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"enable_bedtime": {
+			"name": "Bedtijd inschakelen",
+			"description": "Schakelt bedtijd- (downtime)beperkingen in voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"disable_bedtime": {
+			"name": "Bedtijd uitschakelen",
+			"description": "Schakelt bedtijd- (downtime)beperkingen uit voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind. Alleen opgegeven (zonder entiteit en zonder device_id) geldt de limiet voor elk apparaat van dat kind."
+				}
+			}
+		},
+		"set_bedtime": {
+			"name": "Bedtijd instellen",
+			"description": "Stelt de begin- en eindtijd van de bedtijd in. Standaard wordt het terugkerende WEKELIJKSE schema van de opgegeven dag aangepast (zoals het ‘Wekelijkse schema’ van Family Link); gebruik scope \"today\" voor een eenmalige uitzondering voor alleen vanavond, waarbij het weekschema ongewijzigd blijft. Zonder dag geldt het voor vandaag.",
+			"fields": {
+				"start_time": {
+					"name": "Begintijd",
+					"description": "Begintijd van de bedtijd (bijv. 20:45)"
+				},
+				"end_time": {
+					"name": "Eindtijd",
+					"description": "Eindtijd van de bedtijd, meestal de volgende ochtend (bijv. 07:30)"
+				},
+				"day": {
+					"name": "Dag",
+					"description": "Dag van de week. Indien niet opgegeven, geldt vandaag."
+				},
+				"scope": {
+					"name": "Bereik",
+					"description": "\"weekly\" (standaard) past het terugkerende weekschema van die dag aan. \"today\" plaatst een eenmalige uitzondering voor alleen die dag en laat het weekschema ongewijzigd."
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"set_downtime_unlimited_apps": {
+			"name": "Onbeperkte apps tijdens downtime instellen",
+			"description": "Staat de apps met onbeperkte tijd toe tijdens downtime (bedtijd) of blokkeert ze, de instelling ‘Apps met onbeperkte tijd tijdens downtime toestaan’ van Family Link. De instelling hoort bij het kind en geldt voor alle apparaten van het kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"allow": {
+					"name": "Toestaan",
+					"description": "Aan: de apps met onbeperkte tijd blijven bruikbaar tijdens downtime. Uit: ze worden tijdens downtime ook geblokkeerd."
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"enable_school_time": {
+			"name": "Schooltijd inschakelen",
+			"description": "Schakelt schooltijd- (avondlimiet)beperkingen in voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"disable_school_time": {
+			"name": "Schooltijd uitschakelen",
+			"description": "Schakelt schooltijd- (avondlimiet)beperkingen uit voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"set_school_time": {
+			"name": "Schooltijd instellen",
+			"description": "Stelt het begin en het einde van de schooltijd in voor een dag. Standaard wordt het terugkerende WEKELIJKSE schooltijdblok van die dag aangepast (de dag moet in Family Link al een schooltijdvenster hebben). Gebruik scope \"today\" voor een eenmalige aanpassing van de schooltijd van vandaag, waarbij het weekschema ongewijzigd blijft. Zonder dag geldt het voor vandaag. Voor een schooldag met een pauze geef je elk venster van de dag op in \"windows\" in plaats van een begin- en eindtijd.",
+			"fields": {
+				"start_time": {
+					"name": "Begintijd",
+					"description": "Begin van de schooltijd (bijv. 08:00). Niet samen met \"windows\"."
+				},
+				"end_time": {
+					"name": "Eindtijd",
+					"description": "Einde van de schooltijd, dezelfde dag en na het begin (bijv. 13:15). Niet samen met \"windows\"."
+				},
+				"windows": {
+					"name": "Vensters",
+					"description": "Elk venster van de dag in volgorde, elk als \"HH:MM-HH:MM\", voor een schooldag met een pauze (bijv. 08:00-12:00 en 13:30-15:00); dezelfde lijst als het windows-kenmerk van de schooltijdentiteiten. Twee vensters op een dag met één venster voegen de pauze toe, één venster op een dag met twee verwijdert hem (Family Link staat één pauze per dag toe). Vervangt begin en eind. Alleen weekschema; de dag moet in Family Link schooltijd hebben."
+				},
+				"enabled": {
+					"name": "Ingeschakeld",
+					"description": "Schakelt de schooltijd van die dag in of uit in het weekschema, met behoud van de tijden (het vinkje van de dag in de wekelijkse editor van Family Link). Alleen op zichzelf, zonder begin, eind of vensters. Alleen weekschema."
+				},
+				"day": {
+					"name": "Dag",
+					"description": "Dag van de week. Indien niet opgegeven, geldt vandaag."
+				},
+				"scope": {
+					"name": "Bereik",
+					"description": "\"weekly\" (standaard) past het terugkerende wekelijkse schooltijdblok van die dag aan. \"today\" plaatst een eenmalig schooltijdvenster voor alleen vandaag."
+				},
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"enable_daily_limit": {
+			"name": "Daglimiet inschakelen",
+			"description": "Schakelt de dagelijkse tijdslimiet in voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"disable_daily_limit": {
+			"name": "Daglimiet uitschakelen",
+			"description": "Schakelt de dagelijkse tijdslimiet uit voor een kind. Je kunt een entiteit kiezen OF child_id handmatig opgeven.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (aanbevolen — extraheert automatisch child_id)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"set_daily_limit": {
+			"name": "Daglimiet instellen",
+			"description": "Stelt de duur van de dagelijkse tijdslimiet in voor een apparaat (bijv. 120 minuten voor 2 uur). Kies een apparaatentiteit, geef een device_id op, of geef alleen een child_id op om de limiet toe te passen op elk apparaat van dat kind dat tijdslimieten gebruikt (geen Google TV). Zolang de daglimiet van het kind uit staat, wordt alleen het weekquotum geschreven en blijft de limiet uit.",
+			"fields": {
+				"day": {
+					"name": "Dag van de week",
+					"description": "Weekdag waarop het quotum geldt (1 = maandag ... 7 = zondag). Standaard vandaag. Een andere dag stelt het quotum van die weekdag in, zoals het scherm met wekelijkse limieten van Family Link."
+				},
+				"entity_id": {
+					"name": "Entiteit van apparaat",
+					"description": "Kies een Family Link-apparaatschakelaar (aanbevolen — extraheert automatisch device_id en child_id)"
+				},
+				"daily_minutes": {
+					"name": "Minuten per dag",
+					"description": "Aantal toegestane minuten per dag (0-1440). Gebruik 0 om het apparaat die dag uit te schakelen zonder het volledig te vergrendelen."
+				},
+				"device_id": {
+					"name": "Apparaat-ID (handmatig)",
+					"description": "Apparaat-ID (apparaattoken) — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"refresh_location": {
+			"name": "Locatie vernieuwen",
+			"description": "Vraagt een nieuwe locatie-update op bij het apparaat van het kind. Zo moet het apparaat zijn huidige gps-positie versturen (kost meer batterij dan een gecachte locatie). Zonder opgegeven kind wordt de locatie van ALLE kinderen onder toezicht vernieuwd.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een Family Link-entiteit voor dit kind (optioneel — geldt zonder opgave voor ALLE kinderen)"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt. Zonder opgave geldt het voor ALLE kinderen."
+				}
+			}
+		},
+		"ring_device": {
+			"name": "Apparaat laten rinkelen",
+			"description": "Laat een Family Link-apparaat rinkelen (geluid) om het makkelijker terug te vinden. Kies een apparaatentiteit OF geef device_id/child_id handmatig op.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van apparaat",
+					"description": "Kies een Family Link-apparaatentiteit (aanbevolen — extraheert automatisch device_id en child_id)"
+				},
+				"device_id": {
+					"name": "Apparaat-ID (handmatig)",
+					"description": "Apparaat-ID (apparaattoken) — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"set_update_interval": {
+			"name": "Update-interval instellen",
+			"description": "Wijzigt hoe vaak de integratie Google pollt, tot de volgende herlaad of herstart (daarna geldt weer de waarde uit de integratieopties). Zo kan een automatisering ’s nachts minder vaak en overdag vaker pollen.",
+			"fields": {
+				"seconds": {
+					"name": "Interval (seconden)",
+					"description": "Polling-interval in seconden, tussen 30 en 3600"
+				}
+			}
+		},
+		"get_sites": {
+			"name": "Sites ophalen",
+			"description": "Leest de sitelijsten van Chrome van een kind (Family Link ‘Google Chrome en internet’): het filterniveau en elke goedgekeurde en geblokkeerde site, ook die in de Family Link-app zijn toegevoegd. Geeft de lijsten terug als reactie.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				}
+			}
+		},
+		"block_site": {
+			"name": "Site blokkeren",
+			"description": "Blokkeert websites in Chrome van het kind (op alle apparaten waarop het kind bij Chrome is aangemeld). Een site die was goedgekeurd, wordt geblokkeerd. Alleen Chrome wordt gefilterd: voor andere browsers is block_app nodig.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"sites": {
+					"name": "Sites",
+					"description": "Websites (www.example.com), wildcards in domeinen (*.example.com, *.example.*) of webadressen (https://example.com/page). Wildcards alleen als voorvoegsel ‘*.’ of achtervoegsel ‘.*’."
+				}
+			}
+		},
+		"allow_site": {
+			"name": "Site toestaan",
+			"description": "Keurt websites goed in Chrome van het kind. Een site die was geblokkeerd, wordt goedgekeurd. Een blokkade op een breder patroon (bijv. *.example.*) weegt nog steeds zwaarder dan een goedkeuring.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"sites": {
+					"name": "Sites",
+					"description": "Websites (www.example.com), wildcards in domeinen (*.example.com, *.example.*) of webadressen (https://example.com/page). Wildcards alleen als voorvoegsel ‘*.’ of achtervoegsel ‘.*’."
+				}
+			}
+		},
+		"remove_site": {
+			"name": "Site verwijderen",
+			"description": "Verwijdert websites uit de goedgekeurde of geblokkeerde lijst van het kind, ongeacht wie ze heeft toegevoegd.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"sites": {
+					"name": "Sites",
+					"description": "Websites (www.example.com), wildcards in domeinen (*.example.com, *.example.*) of webadressen (https://example.com/page). Wildcards alleen als voorvoegsel ‘*.’ of achtervoegsel ‘.*’."
+				}
+			}
+		},
+		"set_filter_level": {
+			"name": "Webfilterniveau instellen",
+			"description": "Schakelt de Chrome-webfilter van het kind tussen alleen goedgekeurde sites (de allowlist) en alle sites met de expliciete-inhoudfilter van Google, zoals onder ‘Google Chrome en internet’ in de Family Link-app. Geldt voor het Google-account van het kind en dus voor elke Chrome waarop het kind is aangemeld.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"filter_level": {
+					"name": "Filterniveau",
+					"description": "approved_only: alleen de goedgekeurde sites kunnen worden geopend. filtered: elke site, met de expliciete-inhoudfilter van Google."
+				}
+			}
+		},
+		"sync_site_list": {
+			"name": "Sitelijst synchroniseren",
+			"description": "Houdt de geblokkeerde sites van het kind in lijn met een gepubliceerde lijst van domeinen (één per regel, ‘#’ voor commentaar). Voegt toe wat de lijst erbij kreeg en verwijdert alleen wat deze lijst eerder toevoegde en sindsdien kwijt is; handmatige invoer en goedgekeurde sites blijven ongemoeid. De lijst komt van een derde partij en moet daarom via https worden aangeboden, wordt tot 1 MiB gelezen en er worden alleen kale domeinen overgenomen (wildcards, webadressen, IP-adressen en losse suffixen zoals co.uk worden genegeerd). Een antwoord zonder bruikbaar domein, of een antwoord dat het grootste deel van wat de lijst toevoegde zou verwijderen, wordt geweigerd; stop verwijdert alles wat de lijst heeft toegevoegd. Alleen voor beheerders.",
+			"fields": {
+				"entity_id": {
+					"name": "Entiteit van het kind",
+					"description": "Kies een willekeurige Family Link-entiteit van het kind"
+				},
+				"child_id": {
+					"name": "Kind-ID (handmatig)",
+					"description": "Gebruikers-ID van het kind — alleen nodig als je de entiteitskiezer niet gebruikt"
+				},
+				"url": {
+					"name": "Lijst-URL",
+					"description": "Ruwe https-URL van de domeinenlijst, één domein per regel"
+				},
+				"max_domains": {
+					"name": "Maximaal aantal domeinen",
+					"description": "Weiger een lijst die langer is dan dit (veiligheidslimiet)."
+				},
+				"stop": {
+					"name": "Synchronisatie stoppen",
+					"description": "Verwijdert alles wat deze lijst voor het kind heeft toegevoegd en stopt met het volgen van de lijst."
+				}
 			}
 		}
 	}

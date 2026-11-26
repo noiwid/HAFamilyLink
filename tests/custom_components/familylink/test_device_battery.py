@@ -132,4 +132,6 @@ def test_unique_id_differs_from_the_child_battery_sensor() -> None:
     sensor = FamilyLinkDeviceBatterySensor(MagicMock(), CHILD_ID, "Kid", "phone", "Phone")
 
     assert sensor.unique_id == f"{DOMAIN}_{CHILD_ID}_phone_battery_level"
-    assert sensor.name == "Phone Battery Level"
+    # The display name now comes from translations/<lang>.json, so the test checks the key.
+    assert sensor.translation_key == "device_battery_level"
+    assert sensor.has_entity_name

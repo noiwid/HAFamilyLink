@@ -89,7 +89,8 @@ class FamilyLinkWebFilterSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._child_id = child_id
         self._child_name = child_name
-        self._attr_name = f"{child_name} Web Filter"
+        self._attr_has_entity_name = True
+        self._attr_translation_key = "web_filter"
         self._attr_unique_id = f"{DOMAIN}_{child_id}_web_filter"
 
     @property
@@ -167,7 +168,8 @@ class FamilyLinkContactRestrictionSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._child_id = child_id
         self._child_name = child_name
-        self._attr_name = f"{child_name} Allowed Calls & Texts"
+        self._attr_has_entity_name = True
+        self._attr_translation_key = "allowed_calls_texts"
         self._attr_unique_id = f"{DOMAIN}_{child_id}_allowed_calls_texts"
 
     @property
@@ -252,10 +254,12 @@ class FamilyLinkPlaySettingSelect(CoordinatorEntity, SelectEntity):
         self._child_name = child_name
         self._kind = kind
         if kind == "approval":
-            self._attr_name = f"{child_name} Play Purchase Approvals"
+            self._attr_has_entity_name = True
+            self._attr_translation_key = "play_purchase_approvals"
             self._attr_icon = "mdi:cart-check"
         else:
-            self._attr_name = f"{child_name} Play Apps & Games Rating"
+            self._attr_has_entity_name = True
+            self._attr_translation_key = "play_apps_rating"
             self._attr_icon = "mdi:google-play"
         # "_setting": the read-only sensors already use familylink_<child>_play_<kind>
         self._attr_unique_id = f"{DOMAIN}_{child_id}_play_{kind}_setting"
