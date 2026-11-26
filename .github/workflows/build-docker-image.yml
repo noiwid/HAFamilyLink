@@ -80,6 +80,8 @@ jobs:
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `latest` is the add-on image: the semver tags of a release must not add it here too
+          flavor: latest=false
           tags: |
             type=ref,event=branch,suffix=-standalone
             type=ref,event=pr,suffix=-standalone
