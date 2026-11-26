@@ -250,6 +250,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const entityOfDevice = (hass, device) => device && Object.values(hass.entities || {}).find((e) => e.device_id === device && e.platform === 'familylink')?.entity_id;
 const deviceOfEntity = (hass, entity) => entity && hass.entities?.[entity]?.device_id;
 const todayNum = () => ((new Date().getDay() + 6) % 7) + 1;
+/** First day of the week (1 = Monday ... 7 = Sunday): the user's profile setting, or the language's (#267). */
+const firstWeekday = (hass) => {
+	const locale = (hass && hass.locale) || {};
+	const set = DAYS.indexOf(locale.first_weekday);
+	if (set >= 0) return set + 1;
+	try {
+		const lang = new Intl.Locale(locale.language || (hass && hass.language) || 'en');
+		const info = lang.getWeekInfo ? lang.getWeekInfo() : lang.weekInfo;
+		if (info && info.firstDay) return info.firstDay;
+	} catch (err) { /* no week info in this browser */ }
+	return 1;
+};
 
 class FamilyLinkCard extends HTMLElement {
 	setConfig(config) {
@@ -559,8 +571,9 @@ class FamilyLinkCard extends HTMLElement {
 		const tab = (key, ico, count, word) => `<button class="tab${this._tab === key ? ' on' : ''}" data-tab="${key}" title="${esc(`${count} ${word}`.trim())}"><ha-icon icon="${ico}"></ha-icon><span>${count === '' ? '' : count + ' '}<span class="lbl">${word}</span></span></button>`;
 		const shortDays = t('days').map((d) => d.slice(0, 3));
 		const today = todayNum();
-		const week = DAYS.map((_, i) => {
-			const day = i + 1;
+		const first = firstWeekday(this._hass);
+		const week = DAYS.map((_, k) => {
+			const day = ((first - 1 + k) % 7) + 1, i = day - 1;
 			const lim = this._c(`daily_limit_${day}`);
 			if (!lim) return '';
 			const s = toMin((this._c(`bedtime_${day}_start`) || {}).state), e = toMin((this._c(`bedtime_${day}_end`) || {}).state);
