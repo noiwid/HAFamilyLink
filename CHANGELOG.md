@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-11-26
+
 ### Added
 - **Family Link card: extra time for today only** (#246). Opened on today, the day settings had no way to give more time for today: the daily limit field wrote the weekly quota of that weekday, for every device of the child, and it stayed the next weeks. With the daily limit on, the dialog now has "Only today, on this device", on by default: the new value is today's override of the card's device (the `familylink.set_daily_limit` action) and the weekly schedule is left alone. Switched off, the weekly quota is written as before.
 - **Family Link card: the week starts on the user's first day** (#267). The week strip followed Monday to Sunday everywhere; it now starts on the first day of the week set in the user's Home Assistant profile, or on the first day of their language (Sunday in the United States, Saturday in Egypt).
